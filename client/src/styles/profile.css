@@ -1,0 +1,9 @@
+/* Style spécifique pour supprimer la duplication de l'en-tête ministériel sur les pages de profil */
+.hide-ministry-duplicate .republique-header {
+  display: none !important;
+}
+
+/* Ajuster le positionnement pour éviter les problèmes d'espacement */
+.profile-content {
+  margin-top: -15px;
+}

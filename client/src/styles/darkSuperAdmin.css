@@ -1,0 +1,324 @@
+/* ============================================================
+   Thème sombre Super Admin – fond noir, écritures vertes
+   Activé quand la classe .dark-superadmin est sur <html>
+   ============================================================ */
+
+/* ---------- Fond & texte globaux ---------- */
+html.dark-superadmin body,
+html.dark-superadmin .main-content,
+html.dark-superadmin .page-frame-container,
+html.dark-superadmin .page-frame-inner {
+  background-color: #0a0a0a !important;
+  color: #22c55e !important;
+}
+
+/* ---------- Sidebar ---------- */
+html.dark-superadmin .sidebar,
+html.dark-superadmin .sidebar-desktop {
+  background-color: #111111 !important;
+  border-right-color: #1a3a1a !important;
+  border-top-color: #166534 !important;
+}
+
+html.dark-superadmin .sidebar a,
+html.dark-superadmin .sidebar button,
+html.dark-superadmin .sidebar span,
+html.dark-superadmin .sidebar div:not(.bg-red-600):not(.bg-green-600) {
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin .sidebar a:hover,
+html.dark-superadmin .sidebar button:hover {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+  color: #86efac !important;
+}
+
+html.dark-superadmin .sidebar a.bg-blue-100,
+html.dark-superadmin .sidebar a.bg-green-100,
+html.dark-superadmin .sidebar a.bg-teal-100,
+html.dark-superadmin .sidebar a.bg-amber-100,
+html.dark-superadmin .sidebar a.bg-orange-100,
+html.dark-superadmin .sidebar a.bg-gray-100 {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+  color: #86efac !important;
+  border-left-color: #22c55e !important;
+}
+
+/* Branding block */
+html.dark-superadmin .sidebar .border-t {
+  border-top-color: #1a3a1a !important;
+}
+
+html.dark-superadmin .sidebar .text-gray-800 {
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin .sidebar .text-gray-400 {
+  color: #166534 !important;
+}
+
+/* ---------- Header ---------- */
+html.dark-superadmin #app-header {
+  background-color: #0d1b0d !important;
+  border-bottom: 1px solid #166534 !important;
+}
+
+html.dark-superadmin #app-header * {
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin #app-header button {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+  color: #4ade80 !important;
+  border-color: #166534 !important;
+}
+
+html.dark-superadmin #app-header button:hover {
+  background-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+/* ---------- Desktop nav bar (sticky) ---------- */
+html.dark-superadmin nav.bg-white {
+  background-color: #111111 !important;
+  border-color: #166534 !important;
+}
+
+html.dark-superadmin nav.bg-white a,
+html.dark-superadmin nav.bg-white span {
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin nav.bg-white a:hover {
+  color: #86efac !important;
+}
+
+html.dark-superadmin nav.bg-white a.text-blue-500,
+html.dark-superadmin nav.bg-white a.text-blue-500 span {
+  color: #22c55e !important;
+  border-bottom-color: #22c55e !important;
+}
+
+/* ---------- Cards & containers ---------- */
+html.dark-superadmin .bg-white,
+html.dark-superadmin [class*="bg-white"],
+html.dark-superadmin .card,
+html.dark-superadmin [class*="Card"] {
+  background-color: #1a1a1a !important;
+  color: #4ade80 !important;
+  border-color: #1a3a1a !important;
+}
+
+html.dark-superadmin .bg-gray-50,
+html.dark-superadmin .bg-gray-100,
+html.dark-superadmin .bg-\[\#f3f5f8\],
+html.dark-superadmin .bg-\[\#e9edf3\] {
+  background-color: #0a0a0a !important;
+}
+
+/* ---------- Text colors ---------- */
+html.dark-superadmin h1, html.dark-superadmin h2, html.dark-superadmin h3,
+html.dark-superadmin h4, html.dark-superadmin h5, html.dark-superadmin h6 {
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin .text-gray-700,
+html.dark-superadmin .text-gray-800,
+html.dark-superadmin .text-gray-900,
+html.dark-superadmin .text-slate-700,
+html.dark-superadmin .text-slate-800,
+html.dark-superadmin .text-slate-900 {
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin .text-gray-500,
+html.dark-superadmin .text-gray-600,
+html.dark-superadmin .text-slate-500,
+html.dark-superadmin .text-slate-600 {
+  color: #22c55e !important;
+}
+
+html.dark-superadmin .text-gray-400,
+html.dark-superadmin .text-gray-300,
+html.dark-superadmin .text-slate-400,
+html.dark-superadmin .text-slate-300 {
+  color: #166534 !important;
+}
+
+html.dark-superadmin .text-blue-700,
+html.dark-superadmin .text-blue-800,
+html.dark-superadmin .text-green-700,
+html.dark-superadmin .text-green-800 {
+  color: #86efac !important;
+}
+
+html.dark-superadmin .text-red-600,
+html.dark-superadmin .text-red-700 {
+  color: #f87171 !important;
+}
+
+html.dark-superadmin .text-amber-500,
+html.dark-superadmin .text-amber-600 {
+  color: #fbbf24 !important;
+}
+
+html.dark-superadmin .text-blue-600,
+html.dark-superadmin .text-blue-500 {
+  color: #22c55e !important;
+}
+
+html.dark-superadmin .text-green-600 {
+  color: #4ade80 !important;
+}
+
+/* ---------- Inputs & forms ---------- */
+html.dark-superadmin input,
+html.dark-superadmin select,
+html.dark-superadmin textarea {
+  background-color: #1a1a1a !important;
+  color: #4ade80 !important;
+  border-color: #166534 !important;
+}
+
+html.dark-superadmin input::placeholder,
+html.dark-superadmin textarea::placeholder {
+  color: #166534 !important;
+}
+
+html.dark-superadmin input:focus,
+html.dark-superadmin select:focus,
+html.dark-superadmin textarea:focus {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 1px #22c55e !important;
+}
+
+/* ---------- Tables ---------- */
+html.dark-superadmin table,
+html.dark-superadmin .table {
+  background-color: #1a1a1a !important;
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin thead,
+html.dark-superadmin th {
+  background-color: #111111 !important;
+  color: #4ade80 !important;
+  border-color: #1a3a1a !important;
+}
+
+html.dark-superadmin td {
+  border-color: #1a3a1a !important;
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin tbody tr:hover,
+html.dark-superadmin tr:hover td {
+  background-color: rgba(34, 197, 94, 0.05) !important;
+}
+
+/* ---------- Buttons ---------- */
+html.dark-superadmin button.bg-blue-600,
+html.dark-superadmin button.bg-green-600 {
+  background-color: #166534 !important;
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin button.bg-blue-600:hover,
+html.dark-superadmin button.bg-green-600:hover {
+  background-color: #15803d !important;
+}
+
+html.dark-superadmin button.bg-red-500,
+html.dark-superadmin button.bg-red-600 {
+  background-color: #7f1d1d !important;
+  color: #fca5a5 !important;
+}
+
+html.dark-superadmin button.bg-red-500:hover,
+html.dark-superadmin button.bg-red-600:hover {
+  background-color: #991b1b !important;
+}
+
+/* ---------- Borders ---------- */
+html.dark-superadmin .border,
+html.dark-superadmin .border-gray-200,
+html.dark-superadmin .border-gray-300 {
+  border-color: #1a3a1a !important;
+}
+
+html.dark-superadmin .border-blue-500,
+html.dark-superadmin .border-2.border-blue-500 {
+  border-color: #166534 !important;
+}
+
+/* ---------- Scrollbar ---------- */
+html.dark-superadmin .sidebar::-webkit-scrollbar-thumb {
+  background: rgba(34, 197, 94, 0.4) !important;
+}
+
+html.dark-superadmin .sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 197, 94, 0.7) !important;
+}
+
+/* ---------- Badge counters ---------- */
+html.dark-superadmin .bg-red-600.text-white,
+html.dark-superadmin .bg-green-600.text-white {
+  background-color: #166534 !important;
+  color: #0a0a0a !important;
+}
+
+/* ---------- Shadow overrides ---------- */
+html.dark-superadmin .shadow,
+html.dark-superadmin .shadow-lg,
+html.dark-superadmin .shadow-sm,
+html.dark-superadmin .shadow-md {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ---------- Dialog / Modal ---------- */
+html.dark-superadmin [role="dialog"],
+html.dark-superadmin .dialog-content,
+html.dark-superadmin [data-radix-popper-content-wrapper] > div {
+  background-color: #1a1a1a !important;
+  color: #4ade80 !important;
+  border-color: #1a3a1a !important;
+}
+
+/* ---------- Dropdown / Select ---------- */
+html.dark-superadmin [data-radix-popper-content-wrapper],
+html.dark-superadmin .select-content {
+  background-color: #1a1a1a !important;
+  color: #4ade80 !important;
+}
+
+/* ---------- Stat cards specific ---------- */
+html.dark-superadmin .bg-gradient-to-br,
+html.dark-superadmin .bg-gradient-to-b {
+  background-color: #111111 !important;
+  background-image: none !important;
+  color: #4ade80 !important;
+}
+
+/* ---------- Page title overrides ---------- */
+html.dark-superadmin .page-frame-inner h1,
+html.dark-superadmin .page-frame-inner h2,
+html.dark-superadmin .page-frame-inner .page-title {
+  color: #4ade80 !important;
+}
+
+html.dark-superadmin .page-frame-inner .card-title,
+html.dark-superadmin .page-frame-inner .card-header h1,
+html.dark-superadmin .page-frame-inner .card-header h2,
+html.dark-superadmin .page-frame-inner .card-header h3 {
+  color: #4ade80 !important;
+}
+
+/* ---------- Toggle button (trapezoid) ---------- */
+html.dark-superadmin button[aria-label="Agrandir le menu"],
+html.dark-superadmin button[aria-label="Réduire le menu"] {
+  background: linear-gradient(to bottom, #166534, #15803d) !important;
+}
+
+/* ---------- Mobile overlay ---------- */
+html.dark-superadmin .fixed.bg-white.shadow-xl {
+  background-color: #111111 !important;
+}

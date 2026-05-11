@@ -1,0 +1,54 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "outDir": "../dist/server",
+    "rootDir": ".",
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "paths": {
+      "@shared/*": [
+        "../shared/dist/*",
+        "../shared/*"
+      ]
+    },
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": false
+  },
+  "include": [
+    "index.ts",
+    "vite.ts",
+    "db.ts",
+    "prismaClient.ts",
+    "storage.ts",
+    "controllers/**/*.ts",
+    "routes/**/*.ts",
+    "utils/**/*.ts",
+    "types/**/*.ts",
+    "types/**/*.d.ts",
+    "db/**/*.ts",
+    "lib/**/*.ts",
+    "migrations/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "__tests__",
+    "src/**"
+  ],
+  "references": [
+    { "path": "../shared" }
+  ]
+}

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>SCoDiPP - Systeme de Control</title>
+
+  <!-- Icônes et polices chargées localement (aucune dépendance CDN pour supporter le mode hors-ligne) -->
+
+  <!-- Favicon -->
+  <!-- Primary: PNG to guarantee same look on localhost and LAN -->
+  <link rel="icon" type="image/png" href="/scodio.png?v=3">
+  <!-- Secondary: SVG (supported browsers may use this) -->
+  <link rel="icon" type="image/svg+xml" href="/icon-blason.svg">
+  <link rel="apple-touch-icon" href="/scodio.png?v=3">
+  <link rel="shortcut icon" type="image/png" href="/scodio.png?v=3">
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Meta tags pour le SEO -->
+  <meta name="description" content="Système de Contrôle de Digitalisation des Permis et des Prélèvements">
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- Astuce: utiliser une stack de polices système via Tailwind/CSS (ex: system-ui, Segoe UI, Roboto) -->
+
+  <!-- Splashscreen CSS - S'affiche instantanément -->
+  <style>
+    #initial-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: linear-gradient(135deg, #43a047 0%, #66bb6a 100%);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .splash-particles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .splash-particle {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      animation: splash-float 15s infinite linear;
+    }
+
+    .splash-container {
+      text-align: center;
+      animation: splash-fadeInUp 1s ease-out;
+      position: relative;
+      z-index: 1;
+      max-width: 90%;
+    }
+
+    .splash-logo-container {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      margin: 0 auto 30px;
+    }
+
+    .splash-logo {
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .splash-logo img {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      z-index: 1;
+      position: relative;
+    }
+
+    .splash-logo svg {
+      width: 80px;
+      height: 80px;
+      fill: white;
+    }
+
+    .splash-logo::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+      transform: rotate(45deg);
+      animation: splash-shine 3s infinite;
+    }
+
+    .splash-logo-ring {
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: -10px;
+      bottom: -10px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: splash-spin 3s linear infinite;
+    }
+
+    .splash-title {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .splash-subtitle {
+      font-size: 18px;
+      opacity: 0.9;
+      margin-bottom: 40px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.5;
+    }
+
+    .splash-loading-container {
+      width: 400px;
+      margin: 0 auto;
+    }
+
+    .splash-loading-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .splash-loading-progress {
+      height: 100%;
+      background: linear-gradient(90deg, #ffffff, #a8edea, #ffffff);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      animation: splash-progress 8s ease-in-out forwards;
+    }
+
+    .splash-loading-progress::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+      animation: splash-shimmer 1.5s infinite;
+    }
+
+    .splash-loading-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      opacity: 0.8;
+      margin-bottom: 20px;
+    }
+
+    .splash-status {
+      margin-top: 20px;
+      font-size: 16px;
+      opacity: 0.9;
+      min-height: 24px;
+      transition: opacity 0.3s ease;
+    }
+
+    .splash-version {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    .splash-copyright {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      font-size: 11px;
+      opacity: 0.7;
+      text-align: left;
+      line-height: 1.6;
+    }
+
+    @keyframes splash-fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes splash-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes splash-shine {
+      0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+      100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    }
+
+    @keyframes splash-shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    @keyframes splash-float {
+      0% { transform: translateY(0) translateX(0); opacity: 0; }
+      10%, 90% { opacity: 1; }
+      100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
+    }
+
+    @keyframes splash-progress {
+      0% { width: 0%; }
+      20% { width: 30%; }
+      40% { width: 50%; }
+      60% { width: 70%; }
+      80% { width: 85%; }
+      100% { width: 95%; }
+    }
+
+    /* Masquer le splashscreen une fois React chargé */
+    .splash-hidden {
+      opacity: 0;
+      transition: opacity 0.5s ease-out;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Splashscreen HTML statique - S'affiche instantanément -->
+  <div id="initial-splash">
+    <div class="splash-particles" id="particles"></div>
+
+    <div class="splash-container">
+      <div class="splash-logo-container">
+        <div class="splash-logo">
+          <img src="/scodio.png" alt="SCoDiPP Logo" style="width: 120px; height: 120px; object-fit: contain;" />
+        </div>
+        <div class="splash-logo-ring"></div>
+      </div>
+
+      <h1 class="splash-title">SCoDiPP</h1>
+
+      <div class="splash-loading-container">
+        <div class="splash-loading-info">
+          <span>Chargement...</span>
+          <span id="progress-text">0%</span>
+        </div>
+        <div class="splash-loading-bar">
+          <div class="splash-loading-progress" id="loading-progress"></div>
+        </div>
+      </div>
+
+      <p class="splash-status" id="status">Initialisation en cours...</p>
+    </div>
+
+    <div class="splash-version">Version 1.0.0</div>
+    <div class="splash-copyright">
+      © 2022 - Abdoulaye SENE<br>
+      Ingénieur des travaux des Eaux et Forêts<br>
+      Chef de division Gestion de la Faune - IREF THIÈS
+    </div>
+  </div>
+
+  <!-- Conteneur React -->
+  <div id="root"></div>
+
+  <!-- Script pour créer les particules -->
+  <script>
+    (function() {
+      // Temporarily disable splash screen
+      const ENABLE_SPLASH = false;
+      if (!ENABLE_SPLASH) {
+        const splash = document.getElementById('initial-splash');
+        if (splash) splash.remove();
+        return;
+      }
+      const particlesContainer = document.getElementById('particles');
+      const particleCount = 15;
+
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'splash-particle';
+        const size = Math.random() * 10 + 5;
+        particle.style.width = size + 'px';
+        particle.style.height = size + 'px';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.top = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 20 + 's';
+        particlesContainer.appendChild(particle);
+      }
+
+      // Mise à jour du pourcentage
+      const progressText = document.getElementById('progress-text');
+      const statusElement = document.getElementById('status');
+
+      const statusMessages = [
+        { text: 'Connexion à la base de données...', time: 1000 },
+        { text: 'Chargement des configurations...', time: 2000 },
+        { text: 'Vérification des permis...', time: 3000 },
+        { text: 'Préparation de l\'interface...', time: 4500 },
+        { text: 'Finalisation...', time: 6000 }
+      ];
+
+      let currentIndex = 0;
+      const updateStatus = () => {
+        if (currentIndex < statusMessages.length) {
+          setTimeout(() => {
+            statusElement.textContent = statusMessages[currentIndex].text;
+            currentIndex++;
+            updateStatus();
+          }, statusMessages[currentIndex].time);
+        }
+      };
+      updateStatus();
+
+      // Mise à jour du pourcentage
+      let progress = 0;
+      const updateProgress = setInterval(() => {
+        if (progress < 95) {
+          progress += 1;
+          progressText.textContent = progress + '%';
+        }
+      }, 80);
+
+      // Fonction globale pour masquer le splashscreen (appelée par React)
+      window.hideSplashScreen = function() {
+        clearInterval(updateProgress);
+        progressText.textContent = '100%';
+        statusElement.textContent = 'Prêt!';
+        setTimeout(() => {
+          const splash = document.getElementById('initial-splash');
+          if (splash) {
+            splash.classList.add('splash-hidden');
+            setTimeout(() => splash.remove(), 500);
+          }
+        }, 300);
+      };
+
+      // ===== BLOQUER LE MENU CONTEXTUEL ET LES RACCOURCIS DÉVELOPPEUR =====
+
+      // Bloquer le clic droit (menu contextuel)
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        return false;
+      }, false);
+
+      // Bloquer les raccourcis clavier pour ouvrir les outils de développement
+      document.addEventListener('keydown', function(e) {
+        // F12 - Outils de développement
+        if (e.key === 'F12' || e.keyCode === 123) {
+          e.preventDefault();
+          return false;
+        }
+
+        // Ctrl+Shift+I - Outils de développement
+        if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.keyCode === 73)) {
+          e.preventDefault();
+          return false;
+        }
+
+        // Ctrl+Shift+J - Console JavaScript
+        if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.keyCode === 74)) {
+          e.preventDefault();
+          return false;
+        }
+
+        // Ctrl+Shift+C - Inspecteur d'éléments
+        if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.keyCode === 67)) {
+          e.preventDefault();
+          return false;
+        }
+
+        // Ctrl+U - Afficher le code source
+        if (e.ctrlKey && (e.key === 'U' || e.keyCode === 85)) {
+          e.preventDefault();
+          return false;
+        }
+
+        // F5 et Ctrl+R - Rafraîchir (optionnel, décommentez si vous voulez bloquer)
+        // if (e.key === 'F5' || e.keyCode === 116 || (e.ctrlKey && (e.key === 'R' || e.keyCode === 82))) {
+        //   e.preventDefault();
+        //   return false;
+        // }
+      }, false);
+
+      // Bloquer la sélection de texte (optionnel)
+      document.addEventListener('selectstart', function(e) {
+        e.preventDefault();
+        return false;
+      }, false);
+
+      // Bloquer le copier-coller (optionnel)
+      document.addEventListener('copy', function(e) {
+        e.preventDefault();
+        return false;
+      }, false);
+
+    })();
+  </script>
+
+  <!-- Le script sera injecté automatiquement par Vite -->
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

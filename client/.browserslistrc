@@ -1,0 +1,28 @@
+# Configuration des navigateurs supportés pour SCoDiPP
+# Basé sur les statistiques d'utilisation et les capacités nécessaires
+
+# Navigateurs modernes (support complet)
+> 1%
+last 2 versions
+not dead
+
+# Support spécifique pour les navigateurs d'entreprise
+Chrome >= 60
+Firefox >= 60
+Safari >= 12
+Edge >= 79
+
+# Support IE11 (avec polyfills)
+IE 11
+
+# Navigateurs mobiles
+iOS >= 12
+Android >= 8
+
+# Navigateurs de test
+Chrome >= 60
+Firefox >= 60
+Safari >= 12
+Edge >= 79
+iOS >= 12
+Android >= 8

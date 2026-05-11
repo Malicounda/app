@@ -1,0 +1,23 @@
+{
+  "name": "Gestion des Permis de Chasse Sénégal",
+  "short_name": "Permis Chasse",
+  "description": "Application de gestion numérique des permis de chasse au Sénégal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4CAF50",
+  "icons": [
+    {
+      "src": "/scodio.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/scodio.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

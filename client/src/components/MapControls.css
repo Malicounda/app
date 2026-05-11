@@ -1,0 +1,183 @@
+.map-controls-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  max-width: calc(100% - 40px);
+  overflow-x: auto;
+  max-height: 80vh;
+  scrollbar-width: thin;
+  scrollbar-color: #888 transparent;
+}
+
+.map-controls-container::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.map-controls-container::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 3px;
+}
+
+.map-controls-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.map-control-button {
+  background-color: #ffffff;
+  border: 1px solid #ced4da;
+  color: #495057;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+  white-space: nowrap;
+  min-width: 80px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.map-control-button:hover {
+  background-color: #e9ecef; /* Fond légèrement plus foncé au survol */
+  border-color: #adb5bd;
+}
+
+.map-control-button.active {
+  background-color: #007bff; /* Bleu Bootstrap pour le bouton actif */
+  color: white;
+  border-color: #0056b3; /* Bordure plus foncée pour le bouton actif */
+}
+
+.map-control-button.active:hover {
+  background-color: #0056b3;
+}
+
+.map-control-button svg { /* Style pour les icônes SVG de react-icons */
+  font-size: 16px; /* Taille de l'icône */
+  vertical-align: middle; /* Aide à l'alignement vertical avec le texte */
+}
+
+/* Styling for Leaflet-Draw Toolbar */
+.leaflet-draw-toolbar {
+  position: absolute;
+  top: 80px;
+  left: 20px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leaflet-draw-toolbar a {
+  background-image: none !important;
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  color: #212529;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 0;
+  box-shadow: none;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  line-height: 1;
+  transition: all 0.2s ease-in-out;
+}
+
+.leaflet-draw-toolbar a:hover {
+  background-color: #e9ecef; /* Slightly darker on hover */
+  color: #0056b3; /* Change color on hover if desired */
+  border-color: #ced4da;
+}
+
+/* Style for the toolbar sections */
+.leaflet-draw-toolbar.leaflet-bar {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Specific adjustments if needed for draw/edit sections */
+
+/* Style for the toolbar sections */
+.leaflet-draw-section {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* When a draw mode is active */
+.leaflet-draw-toolbar a.leaflet-draw-toolbar-button-enabled,
+.leaflet-draw-toolbar a.leaflet-draw-toolbar-button-enabled:hover {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+  transform: scale(1.05);
+}
+
+/* Hover effect for all buttons */
+.leaflet-draw-toolbar a:hover {
+  background-color: #f8f9fa;
+  border-color: #adb5bd;
+  transform: translateY(-1px);
+}
+
+/* Active state for all buttons */
+.leaflet-draw-toolbar a:active {
+  transform: translateY(0);
+}
+
+/* Style for the sub-toolbars (e.g., cancel button during drawing) */
+.leaflet-draw-actions li a {
+  font-size: 0.9em;
+  padding: 4px 10px;
+}
+
+.leaflet-draw-actions-bottom li:first-child a {
+    border-bottom-left-radius: 4px;
+}
+.leaflet-draw-actions-top li:first-child a {
+    border-top-left-radius: 4px;
+}
+.leaflet-draw-actions-bottom li:last-child a {
+    border-bottom-right-radius: 4px;
+}
+.leaflet-draw-actions-top li:last-child a {
+    border-top-right-radius: 4px;
+}
+
+/* Styling for React Icons (SVG) within Leaflet-Draw buttons */
+.leaflet-draw-toolbar a svg {
+  font-size: 16px; /* Adjust size as needed, similar to other icons */
+  vertical-align: middle; /* Helps with alignment if text were present */
+  /* color: inherit; */ /* SVGs should inherit color from the 'a' tag by default */
+}
+

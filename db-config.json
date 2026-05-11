@@ -1,0 +1,7 @@
+{
+  "host": "localhost",
+  "port": 5432,
+  "database": "scodipp_db",
+  "user": "admin",
+  "password": "password"
+}

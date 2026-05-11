@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./dist-tsc",
+    "declaration": true,
+    "sourceMap": true
+  },
+  "include": [
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/electron/main.js",
+    "src/vite-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/__tests__/**"
+  ]
+}

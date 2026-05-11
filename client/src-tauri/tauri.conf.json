@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SCoDiPP",
+  "version": "1.0.0",
+  "identifier": "com.aspcchs.scodipp",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "https://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "license": "../../../LICENSE.txt",
+    "resources": [
+      "shared"
+    ],
+    "externalBin": [],
+    "copyright": "Copyright (c) 2025 Abdoulaye SENE - Ingénieur des Travaux des Eaux et Forêts. Tous droits réservés.",
+    "category": "Utility",
+    "shortDescription": "SCoDiPP - Système de Contrôle et de Digitalisation",
+    "longDescription": "Système de Contrôle et de Digitalisation des Permis et des Prélèvements. Développé par Abdoulaye SENE, Ingénieur des Travaux des Eaux et Forêts. Email: sene082019@gmail.com - Tél: (+221) 76 290 88 93"
+  },
+  "app": {
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "SCoDiPP - Système de Contrôle de Digitalisation des Permis et des Prélèvements",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' tauri: asset:; img-src 'self' asset: tauri: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval'; connect-src 'self' https://localhost:5173 wss://localhost:5173 http://localhost:3000 ws://localhost:3000 https://api-scodipp.sn;"
+    }
+  },
+  "plugins": {}
+}

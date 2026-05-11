@@ -1,0 +1,9 @@
+/* Imports Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+
+/* Styles supplémentaires pour la carte */
+.leaflet-container {
+  height: 600px;
+  width: 100%;
+  border-radius: 8px;
+}

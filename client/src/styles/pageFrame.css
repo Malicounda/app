@@ -1,0 +1,264 @@
+/* Styles partagés pour afficher les pages de façon similaire à la MapPage
+   tout en laissant le scroll activé pour le contenu des pages.
+   Ne modifie pas MapPage (nous excluons explicitement /map dans MainLayout). */
+
+:root {
+  --page-bg: #f8f9fa;
+}
+
+/* Force internal scroll: prevent global page scroll and use the internal
+   containers defined in MainLayout (.main-content and .page-frame-container). */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.page-frame-container {
+  /* Similaire au visuel de la map page mais sans fixed/fullscreen */
+  box-sizing: border-box;
+  margin: 0;
+  /* Réduire l'espace au-dessus du contenu pour rapprocher les titres de
+     l'entête principale tout en conservant un petit offset pour le fixed header. */
+  padding-top: 0.5rem;
+  /* Laisser le contenu grandir naturellement ; le scroll est géré par le parent <main>
+     qui a overflow-y:auto et une hauteur contrainte via flex-1. */
+  width: 100%;
+  background-color: transparent;
+  display: block;
+  overflow-y: visible; /* Le parent <main> gère le scroll */
+  overflow-x: hidden;
+  position: relative;
+  /* Empêcher le chaînage du défilement vers d'autres éléments (sidebar/body) */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; /* inertial scrolling on iOS */
+}
+
+.page-frame-inner {
+  /* Container centré similaire aux contrôles map */
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem; /* un peu moins de padding horizontal pour coller aux autres pages */
+  box-sizing: border-box;
+  min-height: 100%; /* s'étirer pour permettre au conteneur de défiler correctement */
+}
+
+/* Variante large pour les tableaux de bord statistiques (cartes, graphiques) */
+.page-frame-inner.page-frame-wide {
+  max-width: 100%;
+  padding: 0 1.5rem;
+}
+
+/* Normaliser les titres d'en-tête à l'intérieur des pages pour éviter
+   qu'ils n'occupent trop d'espace vertical et ne poussent le contenu vers le bas. */
+.page-frame-inner > *:first-child {
+  /* Si le premier enfant a des marges supérieures, annuler pour garder
+     la page compacte sous la barre de navigation. */
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.page-frame-inner h1,
+.page-frame-inner h2,
+.page-frame-inner .page-title {
+  /* Style de titre global demandé (taille, graisse, espacement) */
+  margin: 0 0 0.3rem 0; /* très proche du header */
+  font-size: clamp(1.8rem, 3vw, 2.25rem); /* responsive : ~28px - 36px selon écran */
+  line-height: 1.02;
+  font-weight: 800; /* plus lourd pour correspondre à la capture */
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  color: #0f172a; /* texte plus sombre pour contraste */
+}
+
+.page-frame-inner h2,
+.page-frame-inner .page-subtitle {
+  margin: 0 0 0.5rem 0;
+  font-size: clamp(1.05rem, 1.4vw, 1.125rem);
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Si une page utilise un grand header visuel (card-banner), limiter sa hauteur
+   pour qu'il n'écrase pas immédiatement le contenu. */
+.page-frame-inner .hero-banner,
+.page-frame-inner .page-hero {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+/* Contraindre l'espace des composants Card en tête de page pour éviter
+   un grand 'bandeau' vide qui pousse le contenu vers le bas. Ces règles
+   sont locales au .page-frame-inner afin de ne pas casser le style global. */
+.page-frame-inner .card:first-of-type { margin-top: 0; }
+.page-frame-inner .card .card-header,
+.page-frame-inner .card > .card-header,
+.page-frame-inner .card-header { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+
+/* Réduire encore l'espace autour du premier groupe (space-y-6) pour rapprocher
+   le titre du contenu tout en gardant un petit espacement. */
+.page-frame-inner > .space-y-6 { padding-top: 0.15rem; }
+.page-frame-inner > .space-y-6:first-child { margin-top: -0.15rem; }
+
+/* Tableaux/wrappers larges: petit écart seulement */
+.page-frame-inner .w-full.overflow-x-auto { margin-top: 0.4rem; }
+
+/* Contrôles flottants (si utilisés par d'autres pages) - copie adaptée de MapPage */
+.page-controls-container {
+  position: absolute;
+  right: 12px;
+  top: calc(var(--fixed-top, 60px) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background-color: rgba(255,255,255,0.92);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  z-index: 1001;
+}
+
+/* Boutons de contrôle standardisés */
+.page-control-button {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* Assurer que modals et éléments overlay continuent de débordner */
+.page-frame-container .radix-portal, .page-frame-container .dialog-portal {
+  z-index: 2000;
+}
+
+/* Garder la barre latérale indépendante : elle doit avoir son propre scroll,
+   et ne pas recevoir de propagation de scroll depuis le contenu principal. */
+.sidebar-responsive {
+  overflow-y: auto; /* assurer un scroll indépendant */
+  overscroll-behavior: contain; /* évite le chainage de scroll entre content et sidebar */
+}
+
+/* Sidebar (layout) specific rules to ensure its scroll doesn't bubble to the
+   main content. Apply to both desktop sticky sidebar and mobile overlay. */
+.sidebar,
+.sidebar-sticky {
+  overscroll-behavior: contain; /* prevent scroll chaining */
+  -webkit-overflow-scrolling: touch; /* smooth/inertial scrolling on mobile */
+  overflow-y: auto; /* ensure independent vertical scroll */
+  overflow-x: hidden;
+  /* Prevent the main-content wheel handler from interfering when over sidebar */
+  touch-action: pan-y;
+}
+
+/* Animations fluides pour le collapse/expand de la sidebar */
+.sidebar-desktop {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: width;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Optimisation GPU pour les éléments de la sidebar */
+.sidebar a,
+.sidebar button,
+.sidebar div {
+  will-change: auto;
+  backface-visibility: hidden;
+}
+
+/* Transition fluide pour les icônes et textes */
+.sidebar .material-icons {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+}
+
+/* Scrollbar overlay (par-dessus le contenu) pour la sidebar */
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 114, 128, 0.6) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+  position: absolute; /* Overlay au-dessus du contenu */
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(107, 114, 128, 0.6); /* Gris visible */
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.9); /* Plus foncé au survol */
+}
+.sidebar::-webkit-scrollbar-track {
+  background: transparent; /* Transparent pour overlay */
+}
+
+/* Forcer l'apparence des titres internes (CardTitle, DialogTitle, TableCaption, etc.)
+   afin qu'ils correspondent au style des titres de page dans .page-frame-inner.
+   On utilise !important pour s'assurer que les utilitaires Tailwind locaux ne
+   cassent pas l'uniformité. */
+.page-frame-inner .card-title,
+.page-frame-inner .CardTitle,
+.page-frame-inner .dialog-title,
+.page-frame-inner .DialogTitle,
+.page-frame-inner .table-caption,
+.page-frame-inner .card-header h1,
+.page-frame-inner .card-header h2,
+.page-frame-inner .card-header h3,
+.page-frame-inner .card-header .card-title {
+  margin: 0 0 0.3rem 0 !important;
+  font-size: clamp(1.8rem, 3vw, 2.25rem) !important;
+  line-height: 1.02 !important;
+  font-weight: 800 !important;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial !important;
+  color: #0f172a !important;
+}
+
+
+/* Mobile tweaks */
+@media (max-width: 1023px) {
+  .page-frame-container {
+    /* Mobile: garder une petite marge afin d'éviter que le contenu ne se
+       retrouve sous la barre fixe sur des écrans compacts. */
+    padding-top: 0.5rem;
+    min-height: calc(100vh - var(--fixed-top, 60px));
+  }
+  .page-controls-container { right: 8px; top: calc(var(--fixed-top,60px) + 8px); }
+
+  /* Scrollbar overlay plus visible sur mobile */
+  .sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .sidebar::-webkit-scrollbar-thumb {
+    background: rgba(107, 114, 128, 0.8); /* Plus visible sur mobile */
+    border-radius: 6px;
+  }
+  .sidebar::-webkit-scrollbar-track {
+    background: transparent; /* Transparent pour overlay */
+  }
+}
+
+/* Mode paysage (landscape) sur mobile */
+@media (max-width: 1023px) and (orientation: landscape) {
+  /* Sidebar en mode paysage : même comportement */
+  .sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .sidebar::-webkit-scrollbar-thumb {
+    background: rgba(107, 114, 128, 0.8);
+    border-radius: 6px;
+  }
+  .sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Assurer que la sidebar prend toute la hauteur en paysage aussi */
+  .sidebar {
+    max-height: 100%;
+    overflow-y: scroll;
+  }
+}

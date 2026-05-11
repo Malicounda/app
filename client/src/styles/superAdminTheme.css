@@ -1,0 +1,48 @@
+html.superadmin-theme body,
+html.superadmin-theme .main-content,
+html.superadmin-theme .page-frame-container,
+html.superadmin-theme .page-frame-inner {
+  background-color: var(--sa-bg, #0a0a0a) !important;
+  color: var(--sa-text, #22c55e) !important;
+}
+
+html.superadmin-theme .sidebar,
+html.superadmin-theme .sidebar-desktop {
+  background-color: var(--sa-sidebar-bg, #111111) !important;
+  border-right-color: var(--sa-border, #1a3a1a) !important;
+  border-top-color: var(--sa-accent, #166534) !important;
+}
+
+html.superadmin-theme #app-header {
+  background-color: var(--sa-header-bg, #0d1b0d) !important;
+  border-bottom: 1px solid var(--sa-border, #166534) !important;
+}
+
+html.superadmin-theme nav.bg-white {
+  background-color: var(--sa-surface, #111111) !important;
+  border-color: var(--sa-border, #166534) !important;
+}
+
+html.superadmin-theme .bg-white,
+html.superadmin-theme [class*="bg-white"],
+html.superadmin-theme .card,
+html.superadmin-theme [class*="Card"] {
+  background-color: var(--sa-surface, #1a1a1a) !important;
+  color: var(--sa-text, #4ade80) !important;
+  border-color: var(--sa-border, #1a3a1a) !important;
+}
+
+html.superadmin-theme input,
+html.superadmin-theme select,
+html.superadmin-theme textarea {
+  background-color: var(--sa-surface, #1a1a1a) !important;
+  color: var(--sa-text, #4ade80) !important;
+  border-color: var(--sa-border, #166534) !important;
+}
+
+html.superadmin-theme input:focus,
+html.superadmin-theme select:focus,
+html.superadmin-theme textarea:focus {
+  border-color: var(--sa-accent, #22c55e) !important;
+  box-shadow: 0 0 0 1px var(--sa-accent, #22c55e) !important;
+}

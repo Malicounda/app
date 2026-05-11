@@ -1,0 +1,7 @@
+Système de Contrôle et de Digitalisation des Permis et des Prélèvements (SCoDiPP)
+Copyright (c) 2025 Abdoulaye SENE - Ingénieur des Travaux des Eaux et Forêts
+
+Tous droits réservés.
+
+Ce logiciel est la propriété exclusive de l'Administration des Eaux et Forêts du Sénégal.
+Toute reproduction, distribution ou utilisation non autorisée est strictement interdite.

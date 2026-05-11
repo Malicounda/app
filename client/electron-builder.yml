@@ -1,0 +1,66 @@
+appId: com.aspcchs.app
+productName: SCDPP
+copyright: Copyright © 2025 ASPCCHS
+
+# Configuration des dossiers
+directories:
+  buildResources: build
+  output: dist/installer
+  app: .
+
+# Fichiers à inclure dans le package
+files:
+  - "dist/**/*"
+  - "electron/**/*"
+  - "package.json"
+  - "!**/node_modules/**/*"
+  - "!**/.git/**/*"
+  - "!**/src/**/*"
+  - "!**/*.map"
+  - "!**/*.log"
+  - "!**/*.ts"
+  - "!**/tsconfig*.json"
+  - "!**/vite.config.*"
+
+asar: true
+asarUnpack:
+  - "**/node_modules/@sentry/**/*"
+  - "**/node_modules/electron-updater/**/*"
+
+extraResources:
+  - "build/icon.ico"
+  - "build/background.png"
+
+win:
+  target: nsis
+  icon: build/icon.ico
+  publisherName: ASPCCHS
+  verifyUpdateCodeSignature: false
+  extraFiles:
+    - from: "build/background.png"
+      to: "background.png"
+  extraResources:
+    - from: "build/icon.ico"
+      to: "icon.ico"
+    - from: "build/background.png"
+      to: "background.png"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "SCDPP"
+  deleteAppDataOnUninstall: false
+  installerIcon: "build/icon.ico"
+  uninstallerIcon: "build/icon.ico"
+  installerHeaderIcon: "build/icon.ico"
+  installerHeader: "build/background.png"
+  artifactName: "${productName}-Setup-${version}.${ext}"
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: SCDPP
+  deleteAppDataOnUninstall: false

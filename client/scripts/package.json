@@ -1,0 +1,12 @@
+{
+  "name": "scodipp-android-export",
+  "version": "1.0.0",
+  "description": "Script d'export des données pour l'application Android SCoDiPP",
+  "main": "export-data-for-android.js",
+  "scripts": {
+    "export": "node export-data-for-android.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  }
+}

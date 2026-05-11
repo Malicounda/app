@@ -1,0 +1,60 @@
+{
+  "exportDate": "2025-10-26T10:33:30.448Z",
+  "tables": [
+    {
+      "name": "users",
+      "file": "users.json",
+      "exists": true
+    },
+    {
+      "name": "hunters",
+      "file": "hunters.json",
+      "exists": true
+    },
+    {
+      "name": "permits",
+      "file": "permits.json",
+      "exists": true
+    },
+    {
+      "name": "taxes",
+      "file": "taxes.json",
+      "exists": true
+    },
+    {
+      "name": "permit_requests",
+      "file": "permit_requests.json",
+      "exists": true
+    },
+    {
+      "name": "hunting_guides",
+      "file": "hunting_guides.json",
+      "exists": true
+    },
+    {
+      "name": "guide_hunter_associations",
+      "file": "guide_hunter_associations.json",
+      "exists": true
+    },
+    {
+      "name": "messages",
+      "file": "messages.json",
+      "exists": true
+    },
+    {
+      "name": "group_messages",
+      "file": "group_messages.json",
+      "exists": true
+    },
+    {
+      "name": "group_message_reads",
+      "file": "group_message_reads.json",
+      "exists": true
+    },
+    {
+      "name": "history",
+      "file": "history.json",
+      "exists": true
+    }
+  ]
+}

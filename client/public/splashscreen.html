@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCoDiPP - Chargement...</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #2e7d32 0%, #66bb6a 100%);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      color: white;
+      position: relative;
+    }
+
+    /* Particules en fond */
+    .particles {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      animation: float 10s infinite ease-in-out;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0) translateX(0); opacity: 0; }
+      10%, 90% { opacity: 0.7; }
+      100% { transform: translateY(-120px) translateX(30px); opacity: 0; }
+    }
+
+    /* Conteneur principal */
+    .splash-container {
+      text-align: center;
+      animation: fadeInUp 1.5s ease-out;
+      position: relative;
+      z-index: 1;
+      width: 90%;
+      max-width: 500px;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Logo */
+    .logo-container {
+      width: 150px;
+      height: 150px;
+      margin: 0 auto 30px;
+      position: relative;
+    }
+
+    .logo {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      animation: pulse 3s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3); }
+      50% { transform: scale(1.05); box-shadow: 0 12px 35px rgba(255, 255, 255, 0.15); }
+    }
+
+    .logo svg {
+      width: 80px;
+      height: 80px;
+      fill: white;
+    }
+
+    .logo-ring {
+      position: absolute;
+      inset: -10px;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 4s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Titres */
+    .title {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+      animation: glow 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes glow {
+      from { text-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
+      to { text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+    }
+
+    .subtitle {
+      font-size: 15px;
+      opacity: 0.9;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    /* Barre de chargement */
+    .loading-container {
+      width: 80%;
+      max-width: 350px;
+      margin: 0 auto;
+    }
+
+    .loading-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      opacity: 0.9;
+      margin-bottom: 10px;
+    }
+
+    .loading-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .loading-progress {
+      height: 100%;
+      background: linear-gradient(90deg, #ffffff, #a8edea, #ffffff);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.3s ease;
+      position: relative;
+    }
+
+    .loading-progress::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+      animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* Statut */
+    .status {
+      margin-top: 25px;
+      font-size: 14px;
+      opacity: 0.85;
+      min-height: 24px;
+      transition: opacity 0.3s ease;
+    }
+
+    /* Version */
+    .version {
+      position: absolute;
+      bottom: 15px;
+      right: 20px;
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    @media (max-width: 500px) {
+      .title { font-size: 1.6rem; }
+      .subtitle { font-size: 13px; }
+      .logo-container { width: 120px; height: 120px; }
+    }
+  </style>
+</head>
+<body>
+  <script>
+    (function(){
+      try { window.location.replace('/'); } catch (e) { window.location.href = '/'; }
+    })();
+  </script>
+  <div class="particles" id="particles"></div>
+
+  <div class="splash-container">
+    <div class="logo-container">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="30" stroke="white" stroke-width="4" fill="none"/>
+          <path d="M20 34c0-8 8-14 12-14s12 6 12 14-8 14-12 14-12-6-12-14z" fill="white"/>
+        </svg>
+      </div>
+      <div class="logo-ring"></div>
+    </div>
+
+    <h1 class="title">SCoDiPP</h1>
+    <p class="subtitle">Système de Contrôle et de Digitalisation des Permis et des Prélèvements</p>
+
+    <div class="loading-container">
+      <div class="loading-info">
+        <span>Chargement...</span>
+        <span id="progress-text">0%</span>
+      </div>
+      <div class="loading-bar">
+        <div class="loading-progress" id="loading-progress"></div>
+      </div>
+    </div>
+
+    <p class="status" id="status">Initialisation en cours...</p>
+  </div>
+
+  <div class="version" id="version">Version 1.0.0</div>
+
+  <script>
+    // Particules décoratives
+    function createParticles() {
+      const container = document.getElementById('particles');
+      for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.classList.add('particle');
+        const size = Math.random() * 8 + 4;
+        p.style.width = `${size}px`;
+        p.style.height = `${size}px`;
+        p.style.left = `${Math.random() * 100}%`;
+        p.style.top = `${Math.random() * 100}%`;
+        p.style.animationDelay = `${Math.random() * 8}s`;
+        container.appendChild(p);
+      }
+    }
+
+    let progress = 0;
+    const progressBar = document.getElementById('loading-progress');
+    const progressText = document.getElementById('progress-text');
+    const statusElement = document.getElementById('status');
+
+    const steps = [
+      { text: 'Connexion à la base de données...', value: 20 },
+      { text: 'Chargement des configurations...', value: 45 },
+      { text: 'Vérification des permis...', value: 65 },
+      { text: 'Préparation de l’interface...', value: 85 },
+      { text: 'Finalisation...', value: 95 },
+    ];
+
+    let current = 0;
+
+    function updateProgress() {
+      if (current < steps.length) {
+        const { text, value } = steps[current];
+        statusElement.textContent = text;
+        const interval = setInterval(() => {
+          if (progress < value) {
+            progress++;
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `${progress}%`;
+          } else {
+            clearInterval(interval);
+            current++;
+            setTimeout(updateProgress, 600);
+          }
+        }, 25);
+      } else {
+        const interval = setInterval(() => {
+          if (progress < 100) {
+            progress++;
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `${progress}%`;
+          } else {
+            clearInterval(interval);
+            statusElement.textContent = 'Prêt !';
+            setTimeout(() => {
+              if (window.__TAURI__) {
+                window.__TAURI__.event.emit('splashscreen-ready');
+              }
+            }, 600);
+          }
+        }, 25);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      createParticles();
+      setTimeout(updateProgress, 800);
+    });
+  </script>
+</body>
+</html>
