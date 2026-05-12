@@ -79,7 +79,7 @@ export default function Header() {
   };
 
   return (
-    <header id="app-header" className="bg-[#0b6b3a] text-white px-2 sm:px-3 py-0 sm:py-0.5 flex justify-between items-center fixed w-full z-[100] top-0">
+    <header id="app-header" className={`${isSuperAdmin ? 'bg-[#131b2e]' : 'bg-[#0b6b3a]'} text-white px-2 sm:px-3 py-0 sm:py-0.5 flex justify-between items-center fixed w-full z-[100] top-0`}>
       <div className="flex items-center">
         {/* Bouton hamburger pour mobile uniquement */}
         <button
@@ -137,7 +137,7 @@ export default function Header() {
             <div className="font-bold text-[10px] sm:text-[11px] tracking-wide uppercase">
               {isSuperAdmin ? "Super-Administrateur Central" : "Gestion de la Faune"}
             </div>
-            <div className="text-[8px] sm:text-[9px] text-green-100 opacity-90 font-medium">
+            <div className={`text-[8px] sm:text-[9px] ${isSuperAdmin ? 'text-teal-200' : 'text-green-100'} opacity-90 font-medium`}>
               {isSuperAdmin ? "SCoDiPP - Accès élargi" : "Division FAUNE"}
             </div>
           </div>
@@ -149,7 +149,7 @@ export default function Header() {
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center bg-white text-[#0b6b3a] hover:bg-gray-100 px-2 sm:px-3"
+            className={`flex items-center ${isSuperAdmin ? 'bg-[#222a3d] text-teal-300 hover:bg-[#2d3449] border-[#3d4947]' : 'bg-white text-[#0b6b3a] hover:bg-gray-100'} px-2 sm:px-3`}
             onClick={handleRefreshAll}
           >
             <RefreshCw id="refresh-button" className="h-4 w-4 mr-1" />
@@ -168,7 +168,7 @@ export default function Header() {
           <Button
             variant="destructive"
             size="sm"
-            className="flex items-center px-2 sm:px-3"
+            className={`flex items-center px-2 sm:px-3 ${isSuperAdmin ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}`}
             onClick={logout}
           >
             <MdLogout className="text-sm mr-1" />

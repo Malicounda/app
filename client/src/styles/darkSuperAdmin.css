@@ -1,124 +1,152 @@
 /* ============================================================
-   Thème sombre Super Admin – fond noir, écritures vertes
+   Thème sombre Super Admin – "The Silent Sentinel"
+   Design System: Direction des Eaux et Forêts, Sénégal
+   Palette: Deep Navy (#0b1326) + Teal (#6bd8cb) + Amber (#ffb77d)
    Activé quand la classe .dark-superadmin est sur <html>
    ============================================================ */
 
-/* ---------- Fond & texte globaux ---------- */
+/* ==========================================================
+   1. FOND & TEXTE GLOBAUX
+   ========================================================== */
 html.dark-superadmin body,
 html.dark-superadmin .main-content,
 html.dark-superadmin .page-frame-container,
 html.dark-superadmin .page-frame-inner {
-  background-color: #0a0a0a !important;
-  color: #22c55e !important;
+  background-color: var(--sa-bg, #0b1326) !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
-/* ---------- Sidebar ---------- */
+/* ==========================================================
+   2. SIDEBAR – Navigation principale
+   ========================================================== */
 html.dark-superadmin .sidebar,
 html.dark-superadmin .sidebar-desktop {
-  background-color: #111111 !important;
-  border-right-color: #1a3a1a !important;
-  border-top-color: #166534 !important;
+  background-color: var(--sa-sidebar-bg, #0d1220) !important;
+  border-right-color: var(--sa-border-subtle, #2d3449) !important;
+  border-top-color: var(--sa-border, #3d4947) !important;
 }
 
 html.dark-superadmin .sidebar a,
 html.dark-superadmin .sidebar button,
 html.dark-superadmin .sidebar span,
 html.dark-superadmin .sidebar div:not(.bg-red-600):not(.bg-green-600) {
-  color: #4ade80 !important;
+  color: var(--sa-text-secondary, #bcc9c6) !important;
 }
 
 html.dark-superadmin .sidebar a:hover,
 html.dark-superadmin .sidebar button:hover {
-  background-color: rgba(34, 197, 94, 0.1) !important;
-  color: #86efac !important;
+  background-color: var(--sa-primary-subtle, rgba(107, 216, 203, 0.10)) !important;
+  color: var(--sa-primary, #6bd8cb) !important;
 }
 
+/* Item actif dans la sidebar : barre teal à gauche */
 html.dark-superadmin .sidebar a.bg-blue-100,
 html.dark-superadmin .sidebar a.bg-green-100,
 html.dark-superadmin .sidebar a.bg-teal-100,
 html.dark-superadmin .sidebar a.bg-amber-100,
 html.dark-superadmin .sidebar a.bg-orange-100,
 html.dark-superadmin .sidebar a.bg-gray-100 {
-  background-color: rgba(34, 197, 94, 0.15) !important;
-  color: #86efac !important;
-  border-left-color: #22c55e !important;
+  background-color: var(--sa-primary-subtle, rgba(107, 216, 203, 0.12)) !important;
+  color: var(--sa-primary, #6bd8cb) !important;
+  border-left: 4px solid var(--sa-primary-container, #29a195) !important;
 }
 
-/* Branding block */
+/* Branding block (bas de sidebar) */
 html.dark-superadmin .sidebar .border-t {
-  border-top-color: #1a3a1a !important;
+  border-top-color: var(--sa-border-subtle, #2d3449) !important;
 }
 
 html.dark-superadmin .sidebar .text-gray-800 {
-  color: #4ade80 !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
 html.dark-superadmin .sidebar .text-gray-400 {
-  color: #166534 !important;
+  color: var(--sa-text-muted, #879391) !important;
 }
 
-/* ---------- Header ---------- */
+/* ==========================================================
+   3. HEADER – Barre supérieure
+   ========================================================== */
 html.dark-superadmin #app-header {
-  background-color: #0d1b0d !important;
-  border-bottom: 1px solid #166534 !important;
+  background-color: var(--sa-header-bg, #131b2e) !important;
+  border-bottom: 1px solid var(--sa-border, #3d4947) !important;
 }
 
 html.dark-superadmin #app-header * {
-  color: #4ade80 !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
 html.dark-superadmin #app-header button {
-  background-color: rgba(34, 197, 94, 0.15) !important;
-  color: #4ade80 !important;
-  border-color: #166534 !important;
+  background-color: rgba(107, 216, 203, 0.12) !important;
+  color: var(--sa-text, #dae2fd) !important;
+  border-color: var(--sa-border, #3d4947) !important;
 }
 
 html.dark-superadmin #app-header button:hover {
-  background-color: rgba(34, 197, 94, 0.3) !important;
+  background-color: rgba(107, 216, 203, 0.22) !important;
 }
 
-/* ---------- Desktop nav bar (sticky) ---------- */
+/* Bouton déconnexion : accent Amber */
+html.dark-superadmin #app-header button:last-child,
+html.dark-superadmin #app-header .logout-btn {
+  background-color: var(--sa-amber-container, #d97707) !important;
+  color: #fff !important;
+  border-color: var(--sa-amber-container, #d97707) !important;
+}
+
+html.dark-superadmin #app-header button:last-child:hover,
+html.dark-superadmin #app-header .logout-btn:hover {
+  background-color: #b45309 !important;
+}
+
+/* ==========================================================
+   4. DESKTOP NAV BAR (sticky)
+   ========================================================== */
 html.dark-superadmin nav.bg-white {
-  background-color: #111111 !important;
-  border-color: #166534 !important;
+  background-color: var(--sa-surface, #171f33) !important;
+  border-color: var(--sa-border, #3d4947) !important;
 }
 
 html.dark-superadmin nav.bg-white a,
 html.dark-superadmin nav.bg-white span {
-  color: #4ade80 !important;
+  color: var(--sa-text-secondary, #bcc9c6) !important;
 }
 
 html.dark-superadmin nav.bg-white a:hover {
-  color: #86efac !important;
+  color: var(--sa-primary, #6bd8cb) !important;
 }
 
 html.dark-superadmin nav.bg-white a.text-blue-500,
 html.dark-superadmin nav.bg-white a.text-blue-500 span {
-  color: #22c55e !important;
-  border-bottom-color: #22c55e !important;
+  color: var(--sa-primary, #6bd8cb) !important;
+  border-bottom-color: var(--sa-primary-container, #29a195) !important;
 }
 
-/* ---------- Cards & containers ---------- */
+/* ==========================================================
+   5. CARDS & CONTENEURS
+   ========================================================== */
 html.dark-superadmin .bg-white,
 html.dark-superadmin [class*="bg-white"],
 html.dark-superadmin .card,
 html.dark-superadmin [class*="Card"] {
-  background-color: #1a1a1a !important;
-  color: #4ade80 !important;
-  border-color: #1a3a1a !important;
+  background-color: var(--sa-surface, #171f33) !important;
+  color: var(--sa-text, #dae2fd) !important;
+  border-color: var(--sa-border, #3d4947) !important;
 }
 
 html.dark-superadmin .bg-gray-50,
 html.dark-superadmin .bg-gray-100,
 html.dark-superadmin .bg-\[\#f3f5f8\],
 html.dark-superadmin .bg-\[\#e9edf3\] {
-  background-color: #0a0a0a !important;
+  background-color: var(--sa-bg, #0b1326) !important;
 }
 
-/* ---------- Text colors ---------- */
+/* ==========================================================
+   6. TYPOGRAPHIE
+   ========================================================== */
 html.dark-superadmin h1, html.dark-superadmin h2, html.dark-superadmin h3,
 html.dark-superadmin h4, html.dark-superadmin h5, html.dark-superadmin h6 {
-  color: #4ade80 !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
 html.dark-superadmin .text-gray-700,
@@ -127,198 +155,249 @@ html.dark-superadmin .text-gray-900,
 html.dark-superadmin .text-slate-700,
 html.dark-superadmin .text-slate-800,
 html.dark-superadmin .text-slate-900 {
-  color: #4ade80 !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
 html.dark-superadmin .text-gray-500,
 html.dark-superadmin .text-gray-600,
 html.dark-superadmin .text-slate-500,
 html.dark-superadmin .text-slate-600 {
-  color: #22c55e !important;
+  color: var(--sa-text-secondary, #bcc9c6) !important;
 }
 
 html.dark-superadmin .text-gray-400,
 html.dark-superadmin .text-gray-300,
 html.dark-superadmin .text-slate-400,
 html.dark-superadmin .text-slate-300 {
-  color: #166534 !important;
+  color: var(--sa-text-muted, #879391) !important;
 }
 
 html.dark-superadmin .text-blue-700,
 html.dark-superadmin .text-blue-800,
 html.dark-superadmin .text-green-700,
 html.dark-superadmin .text-green-800 {
-  color: #86efac !important;
+  color: var(--sa-primary, #6bd8cb) !important;
 }
 
 html.dark-superadmin .text-red-600,
 html.dark-superadmin .text-red-700 {
-  color: #f87171 !important;
+  color: var(--sa-error, #ffb4ab) !important;
 }
 
 html.dark-superadmin .text-amber-500,
 html.dark-superadmin .text-amber-600 {
-  color: #fbbf24 !important;
+  color: var(--sa-amber, #ffb77d) !important;
 }
 
 html.dark-superadmin .text-blue-600,
 html.dark-superadmin .text-blue-500 {
-  color: #22c55e !important;
+  color: var(--sa-primary, #6bd8cb) !important;
 }
 
 html.dark-superadmin .text-green-600 {
-  color: #4ade80 !important;
+  color: var(--sa-primary, #6bd8cb) !important;
 }
 
-/* ---------- Inputs & forms ---------- */
+/* ==========================================================
+   7. FORMULAIRES (inputs, selects, textarea)
+   ========================================================== */
 html.dark-superadmin input,
 html.dark-superadmin select,
 html.dark-superadmin textarea {
-  background-color: #1a1a1a !important;
-  color: #4ade80 !important;
-  border-color: #166534 !important;
+  background-color: var(--sa-surface-high, #222a3d) !important;
+  color: var(--sa-text, #dae2fd) !important;
+  border-color: var(--sa-border, #3d4947) !important;
 }
 
 html.dark-superadmin input::placeholder,
 html.dark-superadmin textarea::placeholder {
-  color: #166534 !important;
+  color: var(--sa-text-muted, #879391) !important;
 }
 
 html.dark-superadmin input:focus,
 html.dark-superadmin select:focus,
 html.dark-superadmin textarea:focus {
-  border-color: #22c55e !important;
-  box-shadow: 0 0 0 1px #22c55e !important;
+  border-color: var(--sa-primary, #6bd8cb) !important;
+  box-shadow: 0 0 0 1px var(--sa-primary-glow, rgba(107, 216, 203, 0.20)) !important;
 }
 
-/* ---------- Tables ---------- */
+/* ==========================================================
+   8. TABLEAUX
+   ========================================================== */
 html.dark-superadmin table,
 html.dark-superadmin .table {
-  background-color: #1a1a1a !important;
-  color: #4ade80 !important;
+  background-color: var(--sa-surface, #171f33) !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
 html.dark-superadmin thead,
 html.dark-superadmin th {
-  background-color: #111111 !important;
-  color: #4ade80 !important;
-  border-color: #1a3a1a !important;
+  background-color: var(--sa-surface-highest, #2d3449) !important;
+  color: var(--sa-text, #dae2fd) !important;
+  border-color: var(--sa-border, #3d4947) !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
 }
 
 html.dark-superadmin td {
-  border-color: #1a3a1a !important;
-  color: #4ade80 !important;
+  border-color: var(--sa-border-subtle, #2d3449) !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
 html.dark-superadmin tbody tr:hover,
 html.dark-superadmin tr:hover td {
-  background-color: rgba(34, 197, 94, 0.05) !important;
+  background-color: var(--sa-primary-subtle, rgba(107, 216, 203, 0.06)) !important;
 }
 
-/* ---------- Buttons ---------- */
+/* ==========================================================
+   9. BOUTONS
+   ========================================================== */
+/* Boutons primaires (bleu/vert → teal) */
 html.dark-superadmin button.bg-blue-600,
 html.dark-superadmin button.bg-green-600 {
-  background-color: #166534 !important;
-  color: #4ade80 !important;
+  background-color: var(--sa-primary-container, #29a195) !important;
+  color: #ffffff !important;
 }
 
 html.dark-superadmin button.bg-blue-600:hover,
 html.dark-superadmin button.bg-green-600:hover {
-  background-color: #15803d !important;
+  background-color: var(--sa-primary, #6bd8cb) !important;
+  color: #003732 !important;
 }
 
+/* Boutons danger */
 html.dark-superadmin button.bg-red-500,
 html.dark-superadmin button.bg-red-600 {
-  background-color: #7f1d1d !important;
-  color: #fca5a5 !important;
+  background-color: var(--sa-error-container, #93000a) !important;
+  color: var(--sa-error, #ffb4ab) !important;
 }
 
 html.dark-superadmin button.bg-red-500:hover,
 html.dark-superadmin button.bg-red-600:hover {
-  background-color: #991b1b !important;
+  background-color: #b91c1c !important;
 }
 
-/* ---------- Borders ---------- */
+/* ==========================================================
+   10. BORDURES
+   ========================================================== */
 html.dark-superadmin .border,
 html.dark-superadmin .border-gray-200,
 html.dark-superadmin .border-gray-300 {
-  border-color: #1a3a1a !important;
+  border-color: var(--sa-border, #3d4947) !important;
 }
 
 html.dark-superadmin .border-blue-500,
 html.dark-superadmin .border-2.border-blue-500 {
-  border-color: #166534 !important;
+  border-color: var(--sa-primary-container, #29a195) !important;
 }
 
-/* ---------- Scrollbar ---------- */
+/* ==========================================================
+   11. SCROLLBAR
+   ========================================================== */
 html.dark-superadmin .sidebar::-webkit-scrollbar-thumb {
-  background: rgba(34, 197, 94, 0.4) !important;
+  background: rgba(107, 216, 203, 0.3) !important;
+  border-radius: 4px;
 }
 
 html.dark-superadmin .sidebar::-webkit-scrollbar-thumb:hover {
-  background: rgba(34, 197, 94, 0.7) !important;
+  background: rgba(107, 216, 203, 0.5) !important;
 }
 
-/* ---------- Badge counters ---------- */
+html.dark-superadmin .sidebar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+/* ==========================================================
+   12. BADGES & PILLS
+   ========================================================== */
 html.dark-superadmin .bg-red-600.text-white,
 html.dark-superadmin .bg-green-600.text-white {
-  background-color: #166534 !important;
-  color: #0a0a0a !important;
+  background-color: var(--sa-primary-container, #29a195) !important;
+  color: #ffffff !important;
+  border-radius: 9999px;
 }
 
-/* ---------- Shadow overrides ---------- */
+/* ==========================================================
+   13. OMBRES
+   ========================================================== */
 html.dark-superadmin .shadow,
 html.dark-superadmin .shadow-lg,
 html.dark-superadmin .shadow-sm,
 html.dark-superadmin .shadow-md {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: var(--sa-shadow, 0 4px 20px rgba(0, 0, 0, 0.25)) !important;
 }
 
-/* ---------- Dialog / Modal ---------- */
+/* ==========================================================
+   14. DIALOG / MODAL
+   ========================================================== */
 html.dark-superadmin [role="dialog"],
 html.dark-superadmin .dialog-content,
 html.dark-superadmin [data-radix-popper-content-wrapper] > div {
-  background-color: #1a1a1a !important;
-  color: #4ade80 !important;
-  border-color: #1a3a1a !important;
+  background-color: var(--sa-surface-highest, #2d3449) !important;
+  color: var(--sa-text, #dae2fd) !important;
+  border-color: var(--sa-border, #3d4947) !important;
+  box-shadow: var(--sa-shadow) !important;
 }
 
-/* ---------- Dropdown / Select ---------- */
+/* ==========================================================
+   15. DROPDOWN / SELECT
+   ========================================================== */
 html.dark-superadmin [data-radix-popper-content-wrapper],
 html.dark-superadmin .select-content {
-  background-color: #1a1a1a !important;
-  color: #4ade80 !important;
+  background-color: var(--sa-surface-highest, #2d3449) !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
-/* ---------- Stat cards specific ---------- */
+/* ==========================================================
+   16. STAT CARDS / GRADIENTS
+   ========================================================== */
 html.dark-superadmin .bg-gradient-to-br,
 html.dark-superadmin .bg-gradient-to-b {
-  background-color: #111111 !important;
+  background-color: var(--sa-surface, #171f33) !important;
   background-image: none !important;
-  color: #4ade80 !important;
+  color: var(--sa-text, #dae2fd) !important;
+  border: 1px solid var(--sa-border, #3d4947);
 }
 
-/* ---------- Page title overrides ---------- */
+/* ==========================================================
+   17. TITRES DE PAGE
+   ========================================================== */
 html.dark-superadmin .page-frame-inner h1,
 html.dark-superadmin .page-frame-inner h2,
 html.dark-superadmin .page-frame-inner .page-title {
-  color: #4ade80 !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
 html.dark-superadmin .page-frame-inner .card-title,
 html.dark-superadmin .page-frame-inner .card-header h1,
 html.dark-superadmin .page-frame-inner .card-header h2,
 html.dark-superadmin .page-frame-inner .card-header h3 {
-  color: #4ade80 !important;
+  color: var(--sa-text, #dae2fd) !important;
 }
 
-/* ---------- Toggle button (trapezoid) ---------- */
+/* ==========================================================
+   18. BOUTON TOGGLE SIDEBAR
+   ========================================================== */
 html.dark-superadmin button[aria-label="Agrandir le menu"],
 html.dark-superadmin button[aria-label="Réduire le menu"] {
-  background: linear-gradient(to bottom, #166534, #15803d) !important;
+  background: linear-gradient(to bottom, var(--sa-primary-container, #29a195), #0d9488) !important;
 }
 
-/* ---------- Mobile overlay ---------- */
+/* ==========================================================
+   19. MOBILE OVERLAY
+   ========================================================== */
 html.dark-superadmin .fixed.bg-white.shadow-xl {
-  background-color: #111111 !important;
+  background-color: var(--sa-sidebar-bg, #0d1220) !important;
+}
+
+/* ==========================================================
+   20. TRANSITIONS GLOBALES
+   ========================================================== */
+html.dark-superadmin a,
+html.dark-superadmin button,
+html.dark-superadmin input,
+html.dark-superadmin select {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }

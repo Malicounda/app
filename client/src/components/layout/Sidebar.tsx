@@ -72,8 +72,8 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
   const getRoleColors = () => {
     if (isSuperAdminNav) {
       return {
-        hover: 'hover:bg-blue-50 hover:text-blue-800',
-        active: 'bg-blue-100 text-blue-800',
+        hover: 'hover:bg-teal-900/30 hover:text-teal-300',
+        active: 'bg-teal-900/40 text-teal-300',
       };
     }
 
@@ -124,13 +124,13 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
   const linkStyle = cn(
     'flex items-center p-2 text-gray-700 rounded-md transition-all duration-300 ease-in-out',
     colors.hover,
-    isSuperAdminNav ? 'border-l-4 border-transparent rounded-l-none' : '',
+    isSuperAdminNav ? 'border-l-4 border-transparent rounded-l-none text-slate-400' : '',
     collapsed ? 'justify-center px-2 overflow-visible whitespace-nowrap' : ''
   );
   const activeLinkStyle = cn(
     'flex items-center p-2 rounded-md font-medium transition-all duration-300 ease-in-out',
     colors.active,
-    isSuperAdminNav ? 'border-l-4 border-blue-600 rounded-l-none' : '',
+    isSuperAdminNav ? 'border-l-4 border-teal-500 rounded-l-none' : '',
     collapsed ? 'justify-center px-2 overflow-visible whitespace-nowrap' : ''
   );
 
@@ -147,7 +147,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
     'fixed inset-y-0 left-0 z-40 w-64 p-3',
     // Desktop and up: stay in flow and never slide out, keep collapsed width
     'md:static md:translate-x-0',
-    isSuperAdminNav ? 'bg-[#f3f5f8]' : 'bg-white',
+    isSuperAdminNav ? 'bg-[#0d1220]' : 'bg-white',
     collapsed ? 'md:px-2 md:w-16' : 'md:p-3 md:w-64'
   );
 
@@ -469,7 +469,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               className={location === '/superadmin/agents' ? activeLinkStyle : linkStyle}
             >
               <span className={iconWrapCls}>
-                <AgentIcon className={cn('text-green-600', iconSize)} />
+                <AgentIcon className={cn('text-teal-400', iconSize)} />
               </span>
               <span className={labelCls}>Agents</span>
             </Link>
@@ -491,7 +491,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               className={location === '/superadmin/domaines' ? activeLinkStyle : linkStyle}
             >
               <span className={iconWrapCls}>
-                <DomainesIcon className={cn('text-gray-600', iconSize)} />
+                <DomainesIcon className={cn('text-slate-400', iconSize)} />
               </span>
               <span className={labelCls}>Domaines</span>
             </Link>
@@ -502,7 +502,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               className={location === '/superadmin/roles-metier' ? activeLinkStyle : linkStyle}
             >
               <span className={iconWrapCls}>
-                <RolesMetierIcon className={cn('text-gray-600', iconSize)} />
+                <RolesMetierIcon className={cn('text-slate-400', iconSize)} />
               </span>
               <span className={labelCls}>Rôles métier</span>
             </Link>
@@ -513,7 +513,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               className={location === '/accounts' ? activeLinkStyle : linkStyle}
             >
               <span className={iconWrapCls}>
-                <AccountManagementIcon className={cn('text-gray-600', iconSize)} />
+                <AccountManagementIcon className={cn('text-slate-400', iconSize)} />
               </span>
               <span className={labelCls}>Gestion des Comptes</span>
             </Link>
@@ -524,7 +524,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               className={location === '/settings' ? activeLinkStyle : linkStyle}
             >
               <span className={iconWrapCls}>
-                <SettingsIcon className={cn('text-gray-600', iconSize)} />
+                <SettingsIcon className={cn('text-slate-400', iconSize)} />
               </span>
               <span className={labelCls}>Paramètres</span>
             </Link>
@@ -535,22 +535,22 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               className={location === '/superadmin/theme' ? activeLinkStyle : linkStyle}
             >
               <span className={iconWrapCls}>
-                <ThemeIcon className={cn('text-gray-600', iconSize)} />
+                <ThemeIcon className={cn('text-slate-400', iconSize)} />
               </span>
               <span className={labelCls}>Thème</span>
             </Link>
 
             {!collapsed && (
-              <div className="mt-3 rounded-lg border bg-white/70 p-2 shadow-sm">
-                <div className="text-xs font-semibold text-gray-700 mb-2">Super-Admin Tools</div>
+              <div className="mt-3 rounded-lg border border-[#3d4947] bg-[#171f33] p-2 shadow-sm">
+                <div className="text-xs font-semibold text-slate-400 mb-2">Super-Admin Tools</div>
                 <div className="grid grid-cols-1 gap-2">
                   <Link
                     href="/admin/history"
                     onClick={handleLinkClick}
-                    className="rounded-md border bg-white hover:bg-gray-50 p-2 flex flex-col items-center justify-center text-center"
+                    className="rounded-md border border-[#3d4947] bg-[#222a3d] hover:bg-[#2d3449] p-2 flex flex-col items-center justify-center text-center"
                   >
-                    <FileText className="h-5 w-5 text-gray-700" />
-                    <div className="mt-1 text-[10px] leading-tight text-gray-700">Audit System Log (Détaillé)</div>
+                    <FileText className="h-5 w-5 text-slate-400" />
+                    <div className="mt-1 text-[10px] leading-tight text-slate-400">Audit System Log (Détaillé)</div>
                   </Link>
                 </div>
               </div>
@@ -1460,7 +1460,8 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
 
         {/* Bloc branding SCoDiPP collé en bas */}
         <div className={cn(
-          "mt-auto shrink-0 border-t border-gray-200 px-3 py-3",
+          "mt-auto shrink-0 border-t px-3 py-3",
+          isSuperAdminNav ? 'border-[#3d4947]' : 'border-gray-200',
           collapsed ? 'px-2' : ''
         )}>
           <div className={cn(
@@ -1479,8 +1480,8 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               "overflow-hidden whitespace-nowrap",
               collapsed ? 'hidden' : ''
             )}>
-              <div className="text-sm font-bold text-gray-800 leading-tight underline">SCoDiPP</div>
-              <div className="text-[10px] text-gray-400 leading-tight">v1.0</div>
+              <div className={cn("text-sm font-bold leading-tight underline", isSuperAdminNav ? 'text-slate-300' : 'text-gray-800')}>SCoDiPP</div>
+              <div className={cn("text-[10px] leading-tight", isSuperAdminNav ? 'text-slate-500' : 'text-gray-400')}>v1.0</div>
             </div>
           </div>
         </div>

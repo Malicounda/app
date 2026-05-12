@@ -308,11 +308,11 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         {/* Sidebar desktop: FIXED pour une scrollbar toujours visible au-dessus du contenu - MASQUÉ SUR MOBILE */}
         {!chromeless && (
         <div
-          className={`sidebar-desktop hidden md:block fixed left-0 ${isSuperAdmin ? 'bg-[#f3f5f8]' : 'bg-white'} shadow-sm z-[200] ${isSidebarCollapsed ? 'w-16' : 'w-64'} border-r-2 border-gray-300 transition-all duration-300 ease-in-out`}
+          className={`sidebar-desktop hidden md:block fixed left-0 ${isSuperAdmin ? 'bg-[#0d1220]' : 'bg-white'} shadow-sm z-[200] ${isSidebarCollapsed ? 'w-16' : 'w-64'} border-r-2 ${isSuperAdmin ? 'border-[#3d4947]' : 'border-gray-300'} transition-all duration-300 ease-in-out`}
           style={{
             top: 'var(--fixed-top)',
             height: 'calc(100vh - var(--fixed-top))',
-            borderTop: '2px solid #3b82f6',
+            borderTop: isSuperAdmin ? '2px solid #29a195' : '2px solid #3b82f6',
             display: 'flex',
             flexDirection: 'column',
             willChange: 'width',
@@ -335,9 +335,9 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
           aria-label={isSidebarCollapsed ? 'Agrandir le menu' : 'Réduire le menu'}
           className={
             'hidden md:flex items-center justify-center fixed z-[190] \
-             bg-gradient-to-b from-emerald-500 to-green-600 text-white \
-             shadow-lg shadow-emerald-200/70 \
-             hover:from-emerald-600 hover:to-green-700 transition-all duration-300 ease-in-out'
+             bg-gradient-to-b from-teal-500 to-teal-600 text-white \
+             shadow-lg shadow-teal-200/70 \
+             hover:from-teal-600 hover:to-teal-700 transition-all duration-300 ease-in-out'
           }
           style={{
             bottom: '14px',
@@ -374,9 +374,9 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         {/* Sidebar mobile avec animation améliorée */}
         {!chromeless && (
         <div
-          className={`fixed left-0 bg-white shadow-xl z-[200] w-64 md:hidden overflow-hidden
+          className={`fixed left-0 ${isSuperAdmin ? 'bg-[#0d1220]' : 'bg-white'} shadow-xl z-[200] w-64 md:hidden overflow-hidden
             ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
-            transition-transform duration-300 ease-in-out border-r-2 border-gray-300`}
+            transition-transform duration-300 ease-in-out border-r-2 ${isSuperAdmin ? 'border-[#3d4947]' : 'border-gray-300'}`}
           style={{
             top: 'var(--fixed-top, 60px)',
             bottom: 0,
@@ -409,7 +409,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
           {/* Desktop Navigation Bar - sticky inside right column */}
           {!chromeless && (
           <nav
-            className="hidden md:flex bg-white px-2 sm:px-4 py-2 shadow sticky top-0 z-20 items-center justify-between border-2 border-blue-500"
+            className={`hidden md:flex px-2 sm:px-4 py-2 shadow sticky top-0 z-20 items-center justify-between border-2 ${isSuperAdmin ? 'bg-[#171f33] border-[#29a195]' : 'bg-white border-blue-500'}`}
             style={{ top: 0 }}
           >
             {/* Bouton collapse/expand supprimé du header pour ne pas apparaître dans le cadre bleu */}
@@ -468,7 +468,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
               "main-content flex-1 overflow-y-auto overflow-x-hidden transition-all duration-200",
               location && location.startsWith('/map')
                 ? "bg-transparent"
-                : chromeless ? "bg-white" : "bg-[#e9edf3]",
+                : chromeless ? "bg-white" : isSuperAdmin ? "bg-[#0b1326]" : "bg-[#e9edf3]",
             ].join(' ')}
             style={{
               scrollBehavior: 'smooth',

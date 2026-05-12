@@ -1,48 +1,104 @@
+/* ============================================================
+   Thème Super Admin – Design System "Direction des Eaux et Forêts"
+   Généré via Stitch MCP : palette Navy/Teal institutionnelle
+   Variables CSS centralisées (source unique de vérité)
+   ============================================================ */
+
+:root {
+  /* ---- Palette de fond (Tonal Elevation) ---- */
+  --sa-bg:              #0b1326;   /* Level 0 – Page background */
+  --sa-surface:         #171f33;   /* Level 1 – Card/Container */
+  --sa-surface-high:    #222a3d;   /* Level 1.5 – Elevated surface */
+  --sa-surface-highest: #2d3449;   /* Level 2 – Popovers/Modals */
+
+  /* ---- Sidebar & Header ---- */
+  --sa-sidebar-bg:      #0d1220;   /* Sidebar background */
+  --sa-header-bg:       #131b2e;   /* Header background */
+
+  /* ---- Texte ---- */
+  --sa-text:            #dae2fd;   /* Primary text (on-surface) */
+  --sa-text-secondary:  #bcc9c6;   /* Secondary text (on-surface-variant) */
+  --sa-text-muted:      #879391;   /* Muted text (outline) */
+
+  /* ---- Accent : Teal (Primary) ---- */
+  --sa-primary:         #6bd8cb;   /* Primary interactive */
+  --sa-primary-container: #29a195; /* Primary container (buttons) */
+  --sa-primary-hover:   #89f5e7;   /* Primary hover */
+  --sa-primary-subtle:  rgba(107, 216, 203, 0.10); /* Subtle teal bg */
+  --sa-primary-glow:    rgba(107, 216, 203, 0.20); /* Focus glow */
+
+  /* ---- Accent : Amber (Secondary / Danger CTA) ---- */
+  --sa-amber:           #ffb77d;   /* Secondary color */
+  --sa-amber-container: #d97707;   /* Amber container (buttons) */
+
+  /* ---- Sémantique ---- */
+  --sa-success:         #29a195;   /* Teal success */
+  --sa-error:           #ffb4ab;   /* Error text */
+  --sa-error-container: #93000a;   /* Error container */
+
+  /* ---- Bordures ---- */
+  --sa-border:          #3d4947;   /* Default border (outline-variant) */
+  --sa-border-subtle:   #2d3449;   /* Subtle border */
+
+  /* ---- Ombres ---- */
+  --sa-shadow:          0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* ============================================================
+   APPLICATION DU THÈME
+   Activé via la classe .superadmin-theme sur <html>
+   ============================================================ */
+
 html.superadmin-theme body,
 html.superadmin-theme .main-content,
 html.superadmin-theme .page-frame-container,
 html.superadmin-theme .page-frame-inner {
-  background-color: var(--sa-bg, #0a0a0a) !important;
-  color: var(--sa-text, #22c55e) !important;
+  background-color: var(--sa-bg) !important;
+  color: var(--sa-text) !important;
 }
 
+/* ---------- Sidebar ---------- */
 html.superadmin-theme .sidebar,
 html.superadmin-theme .sidebar-desktop {
-  background-color: var(--sa-sidebar-bg, #111111) !important;
-  border-right-color: var(--sa-border, #1a3a1a) !important;
-  border-top-color: var(--sa-accent, #166534) !important;
+  background-color: var(--sa-sidebar-bg) !important;
+  border-right-color: var(--sa-border-subtle) !important;
+  border-top-color: var(--sa-border) !important;
 }
 
+/* ---------- Header ---------- */
 html.superadmin-theme #app-header {
-  background-color: var(--sa-header-bg, #0d1b0d) !important;
-  border-bottom: 1px solid var(--sa-border, #166534) !important;
+  background-color: var(--sa-header-bg) !important;
+  border-bottom: 1px solid var(--sa-border) !important;
 }
 
+/* ---------- Nav bar (desktop sticky) ---------- */
 html.superadmin-theme nav.bg-white {
-  background-color: var(--sa-surface, #111111) !important;
-  border-color: var(--sa-border, #166534) !important;
+  background-color: var(--sa-surface) !important;
+  border-color: var(--sa-border) !important;
 }
 
+/* ---------- Cards & containers ---------- */
 html.superadmin-theme .bg-white,
 html.superadmin-theme [class*="bg-white"],
 html.superadmin-theme .card,
 html.superadmin-theme [class*="Card"] {
-  background-color: var(--sa-surface, #1a1a1a) !important;
-  color: var(--sa-text, #4ade80) !important;
-  border-color: var(--sa-border, #1a3a1a) !important;
+  background-color: var(--sa-surface) !important;
+  color: var(--sa-text) !important;
+  border-color: var(--sa-border) !important;
 }
 
+/* ---------- Inputs & forms ---------- */
 html.superadmin-theme input,
 html.superadmin-theme select,
 html.superadmin-theme textarea {
-  background-color: var(--sa-surface, #1a1a1a) !important;
-  color: var(--sa-text, #4ade80) !important;
-  border-color: var(--sa-border, #166534) !important;
+  background-color: var(--sa-surface-high) !important;
+  color: var(--sa-text) !important;
+  border-color: var(--sa-border) !important;
 }
 
 html.superadmin-theme input:focus,
 html.superadmin-theme select:focus,
 html.superadmin-theme textarea:focus {
-  border-color: var(--sa-accent, #22c55e) !important;
-  box-shadow: 0 0 0 1px var(--sa-accent, #22c55e) !important;
+  border-color: var(--sa-primary) !important;
+  box-shadow: 0 0 0 1px var(--sa-primary-glow) !important;
 }

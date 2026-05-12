@@ -54,28 +54,28 @@ type ThemeConfig = {
 const DEFAULT_CFG: ThemeConfig = {
   superAdmin: {
     useLegacyDark: true,
-    bg: "#0a0a0a",
-    text: "#22c55e",
-    sidebarBg: "#111111",
-    headerBg: "#0d1b0d",
-    surface: "#1a1a1a",
-    border: "#1a3a1a",
-    accent: "#22c55e",
+    bg: "#0b1326",
+    text: "#dae2fd",
+    sidebarBg: "#0d1220",
+    headerBg: "#131b2e",
+    surface: "#171f33",
+    border: "#3d4947",
+    accent: "#6bd8cb",
   },
   domains: {},
 };
 
 const SUPERADMIN_PALETTES: Array<{ name: string; values: Omit<SuperAdminTheme, 'useLegacyDark'> }> = [
   {
-    name: 'Sombre Vert (actuel)',
+    name: 'Professionnel Navy/Teal',
     values: {
-      bg: '#0a0a0a',
-      text: '#22c55e',
-      sidebarBg: '#111111',
-      headerBg: '#0d1b0d',
-      surface: '#1a1a1a',
-      border: '#1a3a1a',
-      accent: '#22c55e',
+      bg: '#0b1326',
+      text: '#dae2fd',
+      sidebarBg: '#0d1220',
+      headerBg: '#131b2e',
+      surface: '#171f33',
+      border: '#3d4947',
+      accent: '#6bd8cb',
     },
   },
   {
@@ -91,6 +91,18 @@ const SUPERADMIN_PALETTES: Array<{ name: string; values: Omit<SuperAdminTheme, '
     },
   },
   {
+    name: 'Sombre Or',
+    values: {
+      bg: '#0b0b0b',
+      text: '#fde68a',
+      sidebarBg: '#101010',
+      headerBg: '#141414',
+      surface: '#171717',
+      border: '#2a2a2a',
+      accent: '#f59e0b',
+    },
+  },
+  {
     name: 'Clair',
     values: {
       bg: '#eef2f7',
@@ -103,15 +115,15 @@ const SUPERADMIN_PALETTES: Array<{ name: string; values: Omit<SuperAdminTheme, '
     },
   },
   {
-    name: 'Sombre Or',
+    name: 'Sombre Vert (legacy)',
     values: {
-      bg: '#0b0b0b',
-      text: '#fde68a',
-      sidebarBg: '#101010',
-      headerBg: '#141414',
-      surface: '#171717',
-      border: '#2a2a2a',
-      accent: '#f59e0b',
+      bg: '#0a0a0a',
+      text: '#22c55e',
+      sidebarBg: '#111111',
+      headerBg: '#0d1b0d',
+      surface: '#1a1a1a',
+      border: '#1a3a1a',
+      accent: '#22c55e',
     },
   },
 ];
@@ -166,6 +178,16 @@ export default function ThemePage() {
     const html = document.documentElement;
 
     html.classList.add("superadmin-theme");
+    // Variables --sa-* utilisées par superAdminTheme.css & darkSuperAdmin.css
+    if (cfg.bg) html.style.setProperty("--sa-bg", cfg.bg);
+    if (cfg.text) html.style.setProperty("--sa-text", cfg.text);
+    if (cfg.sidebarBg) html.style.setProperty("--sa-sidebar-bg", cfg.sidebarBg);
+    if (cfg.headerBg) html.style.setProperty("--sa-header-bg", cfg.headerBg);
+    if (cfg.surface) html.style.setProperty("--sa-surface", cfg.surface);
+    if (cfg.border) html.style.setProperty("--sa-border", cfg.border);
+    if (cfg.accent) html.style.setProperty("--sa-primary", cfg.accent);
+    if (cfg.text) html.style.setProperty("--sa-text-secondary", cfg.text);
+    // Compat legacy
     if (cfg.bg) html.style.setProperty("--superadmin-bg", cfg.bg);
     if (cfg.text) html.style.setProperty("--superadmin-text", cfg.text);
     if (cfg.sidebarBg) html.style.setProperty("--superadmin-sidebar-bg", cfg.sidebarBg);
@@ -360,7 +382,7 @@ export default function ThemePage() {
             </AlertDialogContent>
           </AlertDialog>
 
-          <Button onClick={applyChanges} disabled={!hasChanges} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={applyChanges} disabled={!hasChanges} className="bg-teal-600 hover:bg-teal-700">
             Appliquer
           </Button>
         </div>
@@ -381,7 +403,7 @@ export default function ThemePage() {
                       onClick={() => applyPalette(p)}
                       className={`h-9 px-3 text-sm ${idx !== 0 ? "border-l" : ""} ${
                         appliedPaletteName === p.name
-                          ? "bg-green-600 text-white hover:bg-green-700"
+                          ? "bg-teal-600 text-white hover:bg-teal-700"
                           : activePaletteName === p.name
                             ? "bg-muted font-medium hover:bg-muted"
                             : "bg-background hover:bg-muted"
