@@ -2593,8 +2593,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         }
         if (showRegions) {
           // Filtrer les features strictement valides
-          const validFeatures = regionsGeoJSON.features.filter(
-            f => f.geometry && typeof f.geometry === 'object' && f.geometry.type
+          const validFeatures = regionsGeoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
           );
           console.log('Régions features valides:', validFeatures.length, validFeatures);
           if (validFeatures.length > 0) {
@@ -2629,7 +2628,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
               const statusKeys = Object.keys(statuses);
               const normalizedStatusKeys = new Set(statusKeys.map(k => normalizeRegionName(k)));
               const unmatched: string[] = [];
-              validFeatures.forEach(f => {
+              validFeatures.forEach((f: any) => {
                 const p: any = f.properties || {};
                 const name: string | undefined = p?.nom || p?.NOM_REGION;
                 if (!name) { unmatched.push('(sans nom)'); return; }
@@ -2666,8 +2665,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
 
         // Add layer if toggled on and data present
         if (showDepartements) {
-          const validFeatures = departementsGeoJSON.features.filter(
-            f => f.geometry && typeof f.geometry === 'object' && f.geometry.type
+          const validFeatures = departementsGeoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
           );
           if (validFeatures.length > 0) {
             const geoJsonData = { ...departementsGeoJSON, features: validFeatures };
@@ -2844,7 +2842,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
 
       const geoJsonData: GeoJSON.FeatureCollection = {
         ...communesGeoJSON,
-        features: communesGeoJSON.features.filter(f => f.geometry && typeof f.geometry === 'object' && (f.geometry as any).type)
+        features: communesGeoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && (f.geometry as any).type)
       } as any;
 
       const layer = L.geoJSON(geoJsonData as any, {
@@ -2984,7 +2982,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
 
       const geoJsonData: GeoJSON.FeatureCollection = {
         ...arrondissementsGeoJSON,
-        features: arrondissementsGeoJSON.features.filter(f => f.geometry && typeof f.geometry === 'object' && (f.geometry as any).type)
+        features: arrondissementsGeoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && (f.geometry as any).type)
       } as any;
 
       const layer = L.geoJSON(geoJsonData as any, {
@@ -3103,8 +3101,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       }
 
       if (props.showEcoZones && props.ecoZonesGeoJSON && props.ecoZonesGeoJSON.features) {
-        const valid = props.ecoZonesGeoJSON.features.filter(
-          f => f.geometry && typeof f.geometry === 'object' && f.geometry.type
+        const valid = props.ecoZonesGeoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
         );
         if (valid.length > 0) {
           if (!map.getPane('ecoZonesPane')) {
@@ -3201,8 +3198,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       }
 
       if (props.showProtectedZones && props.protectedZonesGeoJSON && props.protectedZonesGeoJSON.features) {
-        const valid = props.protectedZonesGeoJSON.features.filter(
-          f => f.geometry && typeof f.geometry === 'object' && f.geometry.type
+        const valid = props.protectedZonesGeoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
         );
         if (valid.length > 0) {
           if (!map.getPane('protectedZonesPane')) {
@@ -3256,8 +3252,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       }
 
       if (show && geoJSON && geoJSON.features) {
-        const valid = geoJSON.features.filter(
-          f => f.geometry && typeof f.geometry === 'object' && f.geometry.type
+        const valid = geoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
         );
         if (valid.length > 0) {
           const paneName = `${layerKey}Pane`;
@@ -3648,7 +3643,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
     const findRegionCenter = (name?: string): L.LatLng | null => {
       if (!name || !regionsGeoJSON) return null;
       const target = normalizeRegionName(name);
-      const f = regionsGeoJSON.features.find(feat => {
+      const f = regionsGeoJSON.features.find((feat: any) => {
         const p: any = feat.properties || {};
         const n: string | undefined = p?.nom || p?.NOM_REGION;
         return n ? normalizeRegionName(n) === target : false;
@@ -3667,7 +3662,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
     const findDepartementCenter = (name?: string): L.LatLng | null => {
       if (!name || !departementsGeoJSON) return null;
       const target = normalizeRegionName(name);
-      const f = departementsGeoJSON.features.find(feat => {
+      const f = departementsGeoJSON.features.find((feat: any) => {
         const p: any = feat.properties || {};
         const n: string | undefined = p?.nom_dep || p?.nom || p?.name;
         return n ? normalizeRegionName(n) === target : false;
