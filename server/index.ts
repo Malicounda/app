@@ -74,8 +74,15 @@ const corsOptions: cors.CorsOptions = {
       'http://127.0.0.1:3000'
     ];
 
-    // Autoriser les domaines serveo.net (tunnels SSH)
-    if (!origin || allowedOrigins.includes(origin) || (origin && origin.includes('.serveo.net'))) {
+    if (process.env.CORS_ORIGIN) {
+      allowedOrigins.push(...process.env.CORS_ORIGIN.split(',').map(s => s.trim()));
+    }
+    if (process.env.FRONTEND_URL) {
+      allowedOrigins.push(process.env.FRONTEND_URL.trim());
+    }
+
+    // Autoriser les domaines serveo.net (tunnels SSH) et les déploiements Cloudflare Pages (.pages.dev)
+    if (!origin || allowedOrigins.includes(origin) || (origin && origin.includes('.serveo.net')) || (origin && origin.includes('.pages.dev'))) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -138,8 +145,8 @@ const sessionConfig: session.SessionOptions = {
     httpOnly: isProd, // httpOnly activé en prod
     // En prod, secure=true; si ALLOW_INSECURE_COOKIES=true (tests LAN HTTP), alors secure=false
     secure: isProd && !allowInsecure,
-    // En prod strict; si on autorise lan http, basculer en 'lax' pour compatibilité
-    sameSite: isProd && !allowInsecure ? 'strict' : 'lax',
+    // En prod, pour autoriser les requêtes cross-domain (Cloudflare Pages -> Backend API), SameSite doit être 'none'
+    sameSite: isProd && !allowInsecure ? 'none' : 'lax',
     maxAge: 8 * 60 * 60 * 1000, // 8 heures (durée d'une journée de travail)
     // Ne pas spécifier de domaine pour permettre l'utilisation avec localhost et IP
     domain: undefined
