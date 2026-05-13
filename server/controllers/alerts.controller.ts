@@ -259,6 +259,7 @@ interface UserBasicInfo {
     role: user_role;
     region: string | null;
     departement: string | null;
+    grade?: string | null;
 }
 
 export interface AlertResponse {

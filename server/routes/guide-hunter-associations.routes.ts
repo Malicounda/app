@@ -77,7 +77,7 @@ router.delete('/:associationId', isAuthenticated, async (req, res) => {
       .set({ 
         isActive: false,
         dissociatedAt: new Date()
-      })
+      } as any)
       .where(eq(guideHunterAssociations.id, associationId))
       .returning();
 

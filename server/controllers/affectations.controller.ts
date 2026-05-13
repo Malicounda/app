@@ -126,7 +126,7 @@ export async function createAffectation(req: Request, res: Response) {
       codeZone: parsed.codeZone,
       active: parsed.active ?? true,
       dateAffectation: parsed.dateAffectation ? new Date(parsed.dateAffectation) : new Date(),
-    }).returning();
+    } as any).returning();
 
     return res.status(201).json(created);
   } catch (e: any) {
@@ -234,7 +234,7 @@ export async function setAffectationActive(req: Request, res: Response) {
     }
 
     const [updated] = await db.update(affectations)
-      .set({ active })
+      .set({ active } as any)
       .where(eq(affectations.id, id))
       .returning();
 

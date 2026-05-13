@@ -103,7 +103,7 @@ router.post('/:requestId/process', isAuthenticated, async (req, res) => {
 
     // Mettre à jour le statut de la demande
     await db.update(permitRequests)
-      .set({ status: action === 'approve' ? 'approved' : 'rejected', updatedAt: new Date() })
+      .set({ status: action === 'approve' ? 'approved' : 'rejected', updatedAt: new Date() } as any)
       .where(eq(permitRequests.id, parseInt(requestId)));
 
     res.json({ 

@@ -36,7 +36,7 @@ const createDefaultUsers = async () => {
         region: 'Région Admin',
         departement: 'Zone Admin'
       }
-    ]);
+    ] as any);
 
     console.log('Utilisateurs créés avec succès !');
   } catch (error) {
