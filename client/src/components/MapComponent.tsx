@@ -44,7 +44,7 @@ if (typeof window !== 'undefined' && !document.getElementById('inactive-zone-pat
 
 import { apiRequest } from '@/lib/api';
 import { RegionProperties, RegionStatusData } from '@/lib/geoData';
-import * as GeoJSON from 'geojson';
+import type * as GeoJSON from 'geojson';
 import L from 'leaflet';
 // Imports du géocodeur supprimés - remplacé par RadiusControl
 // import 'leaflet-control-geocoder';

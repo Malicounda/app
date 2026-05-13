@@ -6,17 +6,14 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 # Configuration du dossier de travail
 WORKDIR /app
 
-# Installation de pnpm (optionnel mais recommandé si pnpm-lock.yaml existe)
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
 # Copie des fichiers de configuration des paquets pour optimiser le cache Docker
-COPY package.json pnpm-lock.yaml* package-lock.json* ./
+COPY package.json package-lock.json ./
 COPY client/package.json ./client/
 COPY server/package.json ./server/
 COPY shared/package.json ./shared/
 
-# Installation de toutes les dépendances
-RUN npm install
+# Installation de toutes les dépendances avec npm
+RUN npm ci
 
 # Copie de tout le code source
 COPY . .
@@ -36,9 +33,6 @@ ENV HOST=0.0.0.0
 
 # Copie depuis le builder
 COPY --from=builder /app /app
-
-# Suppression des dépendances de développement pour alléger l'image (optionnel selon le mono-repo)
-# RUN npm prune --production
 
 # Création d'un dossier pour les uploads si nécessaire
 RUN mkdir -p uploads && chown -R node:node /app
