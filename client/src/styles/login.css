@@ -9,7 +9,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: url('/images/fondlogin.png') no-repeat center center fixed;
+  background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
   background-size: cover;
   padding: 1rem;
   position: relative;
