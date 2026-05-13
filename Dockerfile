@@ -1,6 +1,8 @@
 # Stage 1: Build environment
 FROM node:22-alpine AS builder
 
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
 # Configuration du dossier de travail
 WORKDIR /app
 
