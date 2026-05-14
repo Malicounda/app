@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: malicounda-api
+    env: node
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: postgresql://postgres.botmsymjatdnizqtneoi:jesuisN0ir%4014@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+      - key: SHADOW_DATABASE_URL
+        value: postgresql://postgres.botmsymjatdnizqtneoi:jesuisN0ir%4014@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+      - key: FRONTEND_URL
+        value: https://votre-domaine-cloudflare.pages.dev # À MODIFIER : Remplacer par l'URL de votre app Cloudflare
+      - key: CORS_ORIGIN
+        value: https://votre-domaine-cloudflare.pages.dev # À MODIFIER
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: SESSION_COOKIE_SAMESITE
+        value: "none"

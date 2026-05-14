@@ -1,0 +1,8 @@
+name = "malicounda-app-frontend"
+compatibility_date = "2024-05-14"
+pages_build_output_dir = "client/dist"
+
+[vars]
+VITE_API_BASE_URL = "https://malicounda-api.onrender.com" # À MODIFIER : Remplacer par l'URL publique de Render
+VITE_APP_NAME = "Système de Gestion des Permis de Chasse"
+VITE_APP_VERSION = "1.0.0"
