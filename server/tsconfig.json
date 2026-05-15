@@ -1,17 +1,18 @@
 {
   "compilerOptions": {
+    "ignoreDeprecations": "5.0",
     "composite": true,
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "strict": false,
+    "noImplicitAny": false,
     "skipLibCheck": true,
     "outDir": "../dist/server",
     "rootDir": ".",
     "resolveJsonModule": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "baseUrl": ".",
     "noEmit": false,
     "paths": {
