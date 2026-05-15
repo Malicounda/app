@@ -14,7 +14,7 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
-    "typescript": "^5.8.3",
+    "typescript": "~5.8.3",
     "@types/node": "^20.17.47",
     "@types/geojson": "^7946.0.14"
   }

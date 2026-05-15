@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
     "composite": true,
     "target": "ES2022",
     "module": "NodeNext",
@@ -13,7 +12,6 @@
     "rootDir": ".",
     "resolveJsonModule": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "noEmit": false,
     "paths": {
       "@shared/*": [
@@ -27,7 +25,6 @@
   },
   "include": [
     "index.ts",
-    "vite.ts",
     "db.ts",
     "config.ts",
     "storage.ts",
