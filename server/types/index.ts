@@ -1,15 +1,13 @@
-import { Session, SessionData } from 'express-session';
-
-// Augmenter le type SessionData pour ajouter notre champ 'user'
-declare module 'express-session' {
-  interface SessionData {
+// Augmenter Express.Request pour ajouter le champ user (session et sessionID sont déjà fournis par @types/express-session)
+declare module 'express-serve-static-core' {
+  interface Request {
     user?: any;
   }
 }
 
-// Augmenter Express.Request pour garantir la présence de sessionID et user
-declare module 'express-serve-static-core' {
-  interface Request {
+// Augmenter SessionData pour ajouter notre champ 'user' dans la session
+declare module 'express-session' {
+  interface SessionData {
     user?: any;
   }
 }
