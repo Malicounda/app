@@ -1,3 +1,4 @@
+import { GeoJSON } from 'geojson';
 import { BaseEntity } from './common.js';
 
 export interface HuntingZone extends BaseEntity {
