@@ -2,7 +2,7 @@
 import { and, eq, like, or, sql } from 'drizzle-orm';
 import { Router } from 'express';
 import { z } from 'zod';
-import { hunters, huntingCampaigns, insertPermitSchema, permits, settings, taxes, users } from '../../shared/dist/schema.js';
+import { hunters, huntingCampaigns, insertPermitSchema, permits, settings, taxes, users } from '../../shared/schema.js';
 import { db } from '../db.js';
 import { storage } from '../storage.js';
 import { isAuthenticated } from './middlewares/auth.middleware.js';

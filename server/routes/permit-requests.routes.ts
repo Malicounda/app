@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { db } from '../db.js';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import { hunters, permits, permitRequests, users, type InsertPermitRequest } from '../../shared/dist/schema.js';
+import { hunters, permits, permitRequests, users, type InsertPermitRequest } from '../../shared/schema.js';
 
 
 // Fonction simplifiée de validation (les colonnes de documents n'existent pas dans le schéma actuel)

@@ -1,5 +1,5 @@
 import { db } from '../db.js';
-import { users } from '../../shared/dist/schema.js';
+import { users } from '../../shared/schema.js';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import path from 'path';

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 import { db } from '../db.js';
 import { eq, and } from 'drizzle-orm';
-import { guideHunterAssociations, huntingGuides, hunters, users } from '../../shared/dist/schema.js';
+import { guideHunterAssociations, huntingGuides, hunters, users } from '../../shared/schema.js';
 
 const router = Router();
 
