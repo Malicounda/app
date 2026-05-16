@@ -81,7 +81,15 @@ export const saveDatabaseConfig = (config: DatabaseConfig): void => {
 };
 
 // Obtenir l'URL de connexion PostgreSQL
+// PRIORITÉ : DATABASE_URL (variable d'environnement) > db-config.json (fichier local)
 export const getDatabaseUrl = (): string => {
+  // 1. Priorité absolue : variable d'environnement DATABASE_URL (Render, Supabase, etc.)
+  if (process.env.DATABASE_URL) {
+    console.log(`✅ Connexion PostgreSQL via DATABASE_URL (variable d'environnement)`);
+    return process.env.DATABASE_URL;
+  }
+
+  // 2. Fallback : fichier de configuration local (développement / app bureau)
   const config = loadDatabaseConfig();
 
   // Encoder le mot de passe pour gérer les caractères spéciaux
