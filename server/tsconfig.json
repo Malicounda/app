@@ -31,6 +31,7 @@
     "controllers/**/*.ts",
     "routes/**/*.ts",
     "utils/**/*.ts",
+    "services/**/*.ts",
     "types/**/*.ts",
     "types/**/*.d.ts",
     "db/**/*.ts",
