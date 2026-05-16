@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Shared types and schemas",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "../dist/shared/index.js",
+  "types": "../dist/shared/index.d.ts",
   "scripts": {
     "build": "tsc"
   },
