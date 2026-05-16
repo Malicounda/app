@@ -14,7 +14,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Filter, Info, MapPin, Search, Trash2, User } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
+
 import { useNotifications } from "@/hooks/use-notifications";
 
 // Type pour l'état de la permission
@@ -330,7 +330,7 @@ function getSenderRoleStyle(sender: any) {
 function AlertsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
+
   const { isPushSupported, isPushSubscribed, subscribeToPush } = useNotifications();
 
   // Vérification de l'authentification
