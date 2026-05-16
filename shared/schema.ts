@@ -506,6 +506,9 @@ export type HuntedSpecies = typeof huntedSpecies.$inferSelect;
 export type InsertHistory = z.infer<typeof insertHistorySchema>;
 export type History = typeof history.$inferSelect;
 
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
+
 // Guide-Hunter Associations schema
 export const guideHunterAssociations = pgTable("guide_hunter_associations", {
   id: serial("id").primaryKey(),
@@ -645,6 +648,15 @@ export const notifications = pgTable("notifications", {
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export type Alert = typeof alerts.$inferSelect;

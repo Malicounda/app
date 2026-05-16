@@ -267,3 +267,57 @@ self.addEventListener('message', (event) => {
       });
   }
 });
+
+// --- Support Web Push Notifications ---
+
+self.addEventListener('push', (event) => {
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      const options = {
+        body: data.body,
+        icon: '/logo_forets.png',
+        badge: '/scodio.png',
+        vibrate: [100, 50, 100],
+        data: {
+          url: data.data?.url || '/alerts',
+          alertId: data.data?.alertId
+        },
+        actions: [
+          { action: 'view', title: 'Voir l\'alerte' },
+          { action: 'close', title: 'Fermer' }
+        ],
+        tag: data.data?.alertId ? `alert-${data.data.alertId}` : 'general-alert',
+        renotify: true
+      };
+
+      event.waitUntil(
+        self.registration.showNotification(data.title || 'Nouvelle Alerte', options)
+      );
+    } catch (err) {
+      console.error('Erreur lors du traitement de la notification push:', err);
+    }
+  }
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  if (event.action !== 'close') {
+    const urlToOpen = event.notification.data.url;
+    
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then((windowClients) => {
+          for (let client of windowClients) {
+            if (client.url.includes(urlToOpen) && 'focus' in client) {
+              return client.focus();
+            }
+          }
+          if (clients.openWindow) {
+            return clients.openWindow(urlToOpen);
+          }
+        })
+    );
+  }
+});

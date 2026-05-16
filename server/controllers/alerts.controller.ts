@@ -870,6 +870,24 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                 }
             }
 
+            // Déclenchement de la notification en temps réel (Socket.io + Web Push)
+            const notificationService = (req.app as any).notificationService;
+            if (notificationService) {
+                notificationService.broadcastToUsers(
+                    recipients.map(r => r.id),
+                    {
+                        title: `Alerte : ${newAlert.title || 'Nouvelle alerte'}`,
+                        body: notificationMessage,
+                        data: { 
+                            alertId: newAlert.id, 
+                            type: 'ALERT',
+                            nature: newAlert.nature,
+                            region: newAlert.region
+                        }
+                    }
+                ).catch(err => console.error('[Alerts Controller] Erreur lors du broadcast:', err));
+            }
+
             console.log(`[Alerts Controller] Notifications créées pour ${recipients.length} utilisateur(s) pour l'alerte ID: ${newAlert.id}.`);
         }
 

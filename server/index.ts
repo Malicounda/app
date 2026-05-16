@@ -6,6 +6,7 @@ import session from 'express-session';
 import fs from 'fs';
 import { createServer, type Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
+import { Server } from 'socket.io';
 import cron from 'node-cron';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -323,6 +324,7 @@ app.use((err: ErrorWithStatus, req: Request, res: Response, next: NextFunction) 
 
 // Enregistrer les routes d'alertes et de configuration
 app.use('/api/alerts', alertsRoutes);
+app.use('/api/push', (await import('./routes/push.routes.js')).default);
 app.use('/api/settings', settingsRoutes);
 
 // Enregistrer les routes pour les infractions
@@ -382,6 +384,57 @@ const startServer = async (): Promise<HttpServer> => {
 
     // Créer le serveur HTTP
     const server: HttpServer = createServer(app);
+
+    // Initialiser Socket.io
+    const io = new Server(server, {
+      cors: corsOptions,
+      pingInterval: 10000,
+      pingTimeout: 5000,
+    });
+
+    // Stockage des sockets actifs par userId
+    const userSockets = new Map<number, string[]>();
+
+    io.on('connection', (socket) => {
+      log(`Nouveau client connecté: ${socket.id}`, 'socket');
+
+      socket.on('authenticate', (userId: number) => {
+        if (!userId) return;
+        const sockets = userSockets.get(userId) || [];
+        if (!sockets.includes(socket.id)) {
+          sockets.push(socket.id);
+          userSockets.set(userId, sockets);
+        }
+        (socket as any).userId = userId;
+        log(`Socket ${socket.id} authentifié pour l'utilisateur ${userId}`, 'socket');
+      });
+
+      socket.on('disconnect', () => {
+        const userId = (socket as any).userId;
+        if (userId) {
+          const sockets = userSockets.get(userId) || [];
+          const index = sockets.indexOf(socket.id);
+          if (index !== -1) {
+            sockets.splice(index, 1);
+            if (sockets.length === 0) {
+              userSockets.delete(userId);
+            } else {
+              userSockets.set(userId, sockets);
+            }
+          }
+        }
+        log(`Client déconnecté: ${socket.id}`, 'socket');
+      });
+    });
+
+    // Attacher io à l'app pour y accéder dans les contrôleurs
+    (app as any).io = io;
+    (app as any).userSockets = userSockets;
+
+    // Initialiser le service de notification
+    const { NotificationService } = await import('./services/notification.service.js');
+    const notificationService = new NotificationService(app);
+    (app as any).notificationService = notificationService;
 
     // Exposer le dossier des uploads en statique (pour les photos, pièces jointes, etc.)
     // Sert /uploads/... depuis le répertoire racine du projet

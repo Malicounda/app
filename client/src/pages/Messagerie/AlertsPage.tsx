@@ -12,8 +12,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Filter, Info, MapPin, Search, Trash2, User } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Filter, Info, MapPin, Search, Trash2, User } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
+import { useNotifications } from "@/hooks/use-notifications";
 
 // Type pour l'état de la permission
 type PermissionState = 'granted' | 'denied' | 'prompt';
@@ -328,6 +330,8 @@ function getSenderRoleStyle(sender: any) {
 function AlertsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+  const { isPushSupported, isPushSubscribed, subscribeToPush } = useNotifications();
 
   // Vérification de l'authentification
   if (!user) {
@@ -1420,17 +1424,43 @@ function AlertsPage() {
       <div className="w-full flex-1 flex items-start justify-center py-2 sm:py-3 lg:py-4">
         <div className="w-full max-w-4xl bg-white rounded-lg shadow-md flex flex-col">
           <div className="p-3">
-            <div className="flex justify-between items-center mb-2">
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">Alertes</h1>
-              {unreadCount > 0 && activeTab === "inbox" && (
-                <Button
-                  variant="outline"
-                  className="border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors rounded-lg text-xs sm:text-sm"
-                  onClick={markAllAsRead}
-                >
-                  Marquer tout comme lu
-                </Button>
-              )}
+            {/* Bouton Retour - Règle architecte obligatoire */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mb-4 -ml-2 text-gray-600 hover:text-gray-900 flex items-center gap-2 transition-all hover:bg-gray-100"
+              onClick={() => window.history.back()}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="font-medium">Retour</span>
+            </Button>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">Alertes</h1>
+              
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                {unreadCount > 0 && activeTab === "inbox" && (
+                  <Button
+                    variant="outline"
+                    className="border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors rounded-lg text-xs sm:text-sm flex-1 sm:flex-none"
+                    onClick={markAllAsRead}
+                  >
+                    <CheckCheck className="h-4 w-4 mr-2 hidden sm:inline" />
+                    Marquer tout comme lu
+                  </Button>
+                )}
+                
+                {isPushSupported && !isPushSubscribed && (
+                  <Button
+                    variant="default"
+                    className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-md hover:shadow-lg transition-all duration-300 rounded-lg text-xs sm:text-sm flex items-center gap-2 animate-pulse-subtle flex-1 sm:flex-none"
+                    onClick={subscribeToPush}
+                  >
+                    <Bell className="h-4 w-4" />
+                    <span>Activer les notifications</span>
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="flex border-b border-gray-200 mb-4">

@@ -31,6 +31,7 @@ import {
     taxes,
     userDomains,
     users,
+    pushSubscriptions,
     type GroupMessage,
     type GroupMessageRead,
     type GroupMessageWithSender,
@@ -69,7 +70,9 @@ import {
     type ReforestationReport,
     type Tax,
     type User,
-    type UserDomain
+    type UserDomain,
+    type PushSubscription,
+    type InsertPushSubscription
 } from "../shared/schema.js";
 import { db } from "./db.js";
 
@@ -339,6 +342,12 @@ import { db } from "./db.js";
     addNurseryType(label: string, departement: string): Promise<ReforestationNurseryType>;
     updateNurseryType(id: number, label: string, departement: string): Promise<ReforestationNurseryType | undefined>;
     deleteNurseryType(id: number): Promise<boolean>;
+
+    // Push Notification operations
+    getPushSubscriptionsByUserId(userId: number): Promise<PushSubscription[]>;
+    getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined>;
+    createPushSubscription(data: InsertPushSubscription): Promise<PushSubscription>;
+    deletePushSubscription(endpoint: string): Promise<boolean>;
   }
 
   // Définition du type pour le retour de getAllPermits avec les infos du chasseur
@@ -3392,8 +3401,31 @@ import { db } from "./db.js";
         return false;
       }
     }
+
+    // Push Notification operations
+    async getPushSubscriptionsByUserId(userId: number): Promise<PushSubscription[]> {
+      return await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+    }
+
+    async getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined> {
+      const result = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+      return result[0];
+    }
+
+    async createPushSubscription(data: InsertPushSubscription): Promise<PushSubscription> {
+      const result = await db.insert(pushSubscriptions).values(data).returning();
+      return result[0];
+    }
+
+    async deletePushSubscription(endpoint: string): Promise<boolean> {
+      const result = await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint)).returning();
+      return result.length > 0;
+    
+    }
   }
 
   // Use the database storage implementation
   export const storage = new DatabaseStorage();
+
+
 
