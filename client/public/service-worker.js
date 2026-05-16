@@ -70,36 +70,21 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => {
+        .catch((err) => {
           // Si réseau indisponible, essayer le cache
           return caches.match(event.request)
             .then((cachedResponse) => {
               if (cachedResponse) {
-                // Ajouter un en-tête pour indiquer que c'est du cache
                 const headers = new Headers(cachedResponse.headers);
                 headers.append('X-Cache-Source', 'service-worker');
-                
-                // Enregistrer la requête pour synchronisation ultérieure
-                if (event.request.method === 'POST' || event.request.method === 'PUT' || event.request.method === 'DELETE') {
-                  saveRequestForSync(event.request.clone());
-                }
-                
                 return cachedResponse;
               }
               
-              // Si pas en cache, retourner la page hors ligne
-              if (event.request.mode === 'navigate') {
-                return caches.match(OFFLINE_URL);
-              }
-              
-              // Sinon, échec
-              return new Response('Ressource non disponible hors ligne', {
-                status: 503,
-                statusText: 'Service Unavailable',
-                headers: new Headers({
-                  'Content-Type': 'text/plain'
-                })
-              });
+              // IMPORTANT: Pour les API, ne pas renvoyer 503 statique si le serveur est juste lent (Cold Start)
+              // ou s'il y a une erreur CORS. On laisse l'erreur remonter pour que le client puisse 
+              // la gérer (ex: retry) et pour voir la vraie erreur dans la console.
+              console.warn('Service Worker: API fetch failed:', event.request.url, err);
+              throw err; 
             });
         })
     );
