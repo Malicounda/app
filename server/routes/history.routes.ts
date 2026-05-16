@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Router } from 'express';
 import { pg } from '../db.js';
-import { isAdmin } from '../src/middleware/roles.ts';
+import { isAdmin } from '../src/middleware/roles.js';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 
 const router = Router();

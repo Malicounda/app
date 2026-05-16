@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { agents, insertUserSchema as baseInsertUserSchema, domaines, userDomains, userRoleEnum, users as usersTableSchema } from '../../shared/schema.js';
 import { db } from '../db.js';
 import { getDepartementCentroid, getRegionCentroid } from '../lib/geoAgentLookup.js';
-import { isAdmin, isAdminAgentOrSubAgent } from '../src/middleware/roles.ts';
+import { isAdmin, isAdminAgentOrSubAgent } from '../src/middleware/roles.js';
 import { DatabaseStorage } from '../storage.js';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 
