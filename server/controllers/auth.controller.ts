@@ -259,14 +259,28 @@ export const login = async (req: Request, res: Response) => {
                     genre = rows?.[0]?.genre ?? null;
                     const roleMetierCode = rows?.[0]?.roleMetierCode ?? null;
                     const roleMetierLabel = rows?.[0]?.roleMetierLabel ?? null;
-                    res.json({ message: "Connexion réussie", user: { ...(user as any), isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre, roleMetierCode, roleMetierLabel }, token });
+                    const { password, ...safeUser } = user as any;
+                    res.json({ 
+                        message: "Connexion réussie", 
+                        user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre, roleMetierCode, roleMetierLabel }, 
+                        token 
+                    });
                     return;
                 } catch {}
                 // Renvoyer l'objet utilisateur + flag superadmin et le token
-                res.json({ message: "Connexion réussie", user: { ...(user as any), isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre }, token });
+                const { password, ...safeUser } = user as any;
+                res.json({ 
+                    message: "Connexion réussie", 
+                    user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre }, 
+                    token 
+                });
             } catch (tokErr) {
                 console.warn('[LOGIN] Impossible de générer le token JWT, on renvoie sans token:', tokErr);
-                res.json({ message: "Connexion réussie", user: { ...(user as any), isSuperAdmin, isDefaultRole, isSupervisorRole } });
+                const { password, ...safeUser } = user as any;
+                res.json({ 
+                    message: "Connexion réussie", 
+                    user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole } 
+                });
             }
             console.log('[LOGIN] Réponse envoyée pour:', user.username);
         });
@@ -335,7 +349,8 @@ export const register = async (req: Request, res: Response) => {
         });
 
         console.log('[REGISTER] Utilisateur créé avec succès:', newUser.username);
-        return res.status(201).json({ message: "Inscription réussie", user: newUser });
+        const { password: _p, ...safeUser } = newUser as any;
+        return res.status(201).json({ message: "Inscription réussie", user: safeUser });
     } catch (error: any) {
         // Distinguer les erreurs connues
         if (error?.name === 'ZodError') {
@@ -391,7 +406,7 @@ export const logout = async (req: Request, res: Response) => {
 // Cela maintient la session vivante ; si le client arrête d'envoyer, la session expire naturellement
 export const heartbeat = async (req: Request, res: Response) => {
     try {
-        const sessionUser = (req.session as any)?.user;
+        const sessionUser = (req.session as any)?.user || req.user;
         if (!sessionUser) {
             return res.status(401).json({ active: false, message: "Session expirée" });
         }
@@ -407,11 +422,11 @@ export const heartbeat = async (req: Request, res: Response) => {
 };
 
 export const getMe = async (req: Request, res: Response) => {
-    if (!req.session.user) {
+    const sessionUser = (req.session?.user || req.user) as any;
+    if (!sessionUser) {
         return res.status(401).json({ message: "Non authentifié" });
     }
     try {
-        const sessionUser: any = req.session.user as any;
         const userId = Number(sessionUser?.id);
         if (!userId) {
             return res.status(401).json({ message: "Non authentifié" });

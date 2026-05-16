@@ -8,8 +8,8 @@ const router = Router();
 router.post('/login', login);
 router.post('/register', register);
 router.post('/logout', logout);
-router.get('/heartbeat', heartbeat);
-router.get('/me', getMe);
+router.get('/heartbeat', isAuthenticated, heartbeat);
+router.get('/me', isAuthenticated, getMe);
 // Public checks for availability
 router.get('/check-username', checkUsername);
 router.get('/check-email', checkEmail);

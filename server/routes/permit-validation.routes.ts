@@ -3,14 +3,7 @@ import { validateHunterForPermitRequest, validatePermitCreation } from '../utils
 
 const router = Router();
 
-// Middleware d'authentification simple
-const isAuthenticated = (req: any, res: any, next: any) => {
-  if (req.session?.user) {
-    next();
-  } else {
-    res.status(401).json({ message: 'Non authentifié' });
-  }
-};
+import { isAuthenticated } from './middlewares/auth.middleware.js';
 
 // Route pour valider si un chasseur peut créer une demande de permis
 router.get('/hunter/:hunterId/validation', isAuthenticated, async (req, res) => {

@@ -351,7 +351,7 @@ import { db } from "./db.js";
   export class DatabaseStorage implements IStorage {
     // Auth token generation
     generateAuthToken(payload: { id: number; role: string; region?: string; isSuperAdmin?: boolean; hunterId?: number }): string {
-      const secret = process.env.JWT_SECRET || "dev_secret_change_me";
+      const secret = process.env.JWT_SECRET || process.env.JWT_TOKEN || "changeme_secret";
       // 8 heures (durée d'une journée de travail)
       return jwt.sign(payload, secret, { expiresIn: "8h" });
     }

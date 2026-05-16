@@ -34,20 +34,7 @@ type RequestParams = {
   status?: string;
 };
 
-// Middleware d'authentification
-const isAuthenticated = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  if (req.session?.user) {
-    // Ajouter user à la requête pour un accès facile (typé via augmentation Express)
-    req.user = req.session.user as any;
-    next();
-  } else {
-    res.status(401).json({ success: false, message: 'Non authentifié' });
-  }
-};
+import { isAuthenticated } from './middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -160,7 +147,7 @@ router.post<RequestParams, any, any, any>(
       return res.status(400).json({ success: false, message: 'ID de chasseur invalide' });
     }
     const hunterIdNum = parseInt(hunterIdParam, 10);
-    const userId = Number(req.session.user.id); // ID de l'utilisateur connecté
+    const userId = Number((req.user as any)?.id); // ID de l'utilisateur connecté
 
     // Vérifier si le chasseur existe
     const hunter = await db.select().from(hunters).where(eq(hunters.id, hunterIdNum)).limit(1);

@@ -4,14 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 
 const router = Router();
 
-// Middleware d'authentification simple
-const isAuthenticated = (req: any, res: any, next: any) => {
-  if (req.session?.user) {
-    next();
-  } else {
-    res.status(401).json({ message: 'Non authentifié' });
-  }
-};
+import { isAuthenticated } from './middlewares/auth.middleware.js';
 
 // Récupérer toutes les demandes de permis avec les chasseurs
 router.get('/', isAuthenticated, async (req, res) => {
@@ -150,7 +143,7 @@ router.post('/:requestId/process', isAuthenticated, async (req, res) => {
       // Créer une nouvelle demande
       await db.execute(sql`
         INSERT INTO permit_requests (user_id, hunter_id, requested_type, status, created_at)
-        VALUES (${req.session.user.id}, ${requestId}, 'chasse', ${status}, NOW())
+        VALUES (${(req.user as any)?.id}, ${requestId}, 'chasse', ${status}, NOW())
       `);
     }
 
