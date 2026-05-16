@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "dev": "tsx watch index.ts",
-        "build": "tsc",
+        "build": "tsc && node -e \"const fs=require('fs');const path=require('path');function copyJs(src,dest){fs.readdirSync(src,{withFileTypes:true}).forEach(e=>{const s=path.join(src,e.name),d=path.join(dest,e.name);if(e.isDirectory()&&e.name!=='node_modules'&&e.name!=='dist'){copyJs(s,d)}else if(e.name.endsWith('.js')&&!fs.existsSync(d)){fs.mkdirSync(path.dirname(d),{recursive:true});fs.copyFileSync(s,d)}})}copyJs('.',path.join('..','dist','server'))\"",
         "start": "node dist/index.js",
         "test": "jest",
         "init-species": "node scripts/init-taxe-especes.js"
