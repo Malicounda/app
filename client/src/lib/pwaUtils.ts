@@ -1124,7 +1124,9 @@ export function createOfflineFetch() {
       }
       
       // Pour les requêtes de modification, les enregistrer pour synchronisation ultérieure
-      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && url.includes('/api/')) {
+      // EXCLUSION : Ne jamais mettre en file d'attente offline les requêtes d'authentification
+      const isAuthRequest = url.includes('/auth/login') || url.includes('/auth/logout');
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && url.includes('/api/') && !isAuthRequest) {
         console.log(`Enregistrement de la requête ${method} ${url} pour synchronisation ultérieure`);
         
         let body: Record<string, any> | null = null;
