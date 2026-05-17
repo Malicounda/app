@@ -119,8 +119,13 @@ function Router() {
   const { user } = useAuth();
   const isAuthenticated = !!user;
 
+  // Déterminer si l'utilisateur doit avoir le verrouillage désactivé (Alerte, Chasseurs, Guides)
+  const isAlerteDomain = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole;
+  const isHunterOrGuide = user?.role === 'hunter' || user?.role === 'hunting-guide';
+  const disableLockScreen = isAlerteDomain || isHunterOrGuide;
+
   // Heartbeat de session + verrouillage d'écran après inactivité
-  const sessionHeartbeat = useSessionHeartbeat(isAuthenticated);
+  const sessionHeartbeat = useSessionHeartbeat(isAuthenticated, disableLockScreen);
 
   const publicRoutes = ["/", "/login", "/register", "/permit-simple", "/select-profile", "/produits-forestiers", "/reboisement-pepinieres", "/reboisement-login", "/alerte", "/alerte-login"];
   const isPublicRoute = publicRoutes.some(
@@ -799,7 +804,7 @@ function Router() {
 
             return (
               <ChasseRoute>
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute adminOrAgentOrSubAgentOnly>
                   <Agents />
                 </ProtectedRoute>
               </ChasseRoute>
@@ -980,6 +985,13 @@ function Router() {
           <ChasseRoute>
             <ProtectedRoute>
               <AlertsPage />
+            </ProtectedRoute>
+          </ChasseRoute>
+        </Route>
+        <Route path="/sms">
+          <ChasseRoute>
+            <ProtectedRoute>
+              <SMSPage />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>

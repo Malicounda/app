@@ -10,9 +10,10 @@ import { useEffect, useState } from "react";
 import { MdDescription, MdGroup, MdNotificationImportant, MdReceipt, MdMessage } from 'react-icons/md';
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Bell, MessageSquare, Map, User } from "lucide-react";
+import { Bell, MessageSquare, Map, User, LogOut } from "lucide-react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
+import Navbar from "./Navbar";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ interface MainLayoutProps {
 export default function MainLayout({ children, hideMinistryHeader = false }: MainLayoutProps) {
   const { stats } = useStats();
   const [location, setLocation] = useLocation();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const { data: unreadData } = useUnreadNotificationsCount();
   const unread = unreadData?.count ?? 0;
 
@@ -118,8 +119,18 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   // Gestion de la redirection unifiée
   useEffect(() => {
     // Si l'utilisateur n'est pas authentifié et n'est pas sur la page login, redirection vers login
-    if (!isAuthenticated && location !== '/login') {
-      setLocation('/login');
+    if (!isAuthenticated) {
+      const domain = (localStorage.getItem('domain') || '').toUpperCase();
+      let loginTarget = '/login';
+      if (domain === 'ALERTE') {
+        loginTarget = '/alerte-login';
+      } else if (domain === 'REBOISEMENT') {
+        loginTarget = '/reboisement-login';
+      }
+      
+      if (location !== loginTarget) {
+        setLocation(loginTarget);
+      }
       return;
     }
 
@@ -252,7 +263,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       {!hideMinistryHeader && !chromeless && <Header />}
 
       {/* Entête verte plein écran pour les agents Alerte */}
-      {chromeless && (
+      {chromeless && location !== '/sms' && (
         <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[44px]">
           {/* Gauche : Drapeau + descriptions */}
           <div className="flex items-center gap-2 min-w-0 shrink">
@@ -264,29 +275,15 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
             </div>
           </div>
 
-          {/* Droite : fil d'Ariane — toujours collé à droite */}
-          <div className="flex items-center gap-2 ml-auto pl-4 shrink-0">
-            <Link
-              href={(user as any)?.isSupervisorRole ? "/supervisor" : "/default-home"}
-              className="flex items-center gap-1 text-sm text-green-200 hover:text-white font-medium transition-colors"
+          {/* Droite : Bouton Déconnexion (Permuté) */}
+          <div className="flex items-center ml-auto pl-4 shrink-0">
+            <button
+              onClick={() => logout()}
+              className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/90 hover:bg-red-600 active:scale-95 transition-all text-white shadow-sm"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              <span>Accueil</span>
-            </Link>
-            {location !== '/supervisor' && location !== '/default-home' && (
-              <>
-                <span className="text-green-600 text-xs">/</span>
-                <span className="text-sm text-green-100 font-medium">
-                  {location === '/alerts' ? 'Alertes' :
-                   location === '/sms' ? 'Messagerie' :
-                   location === '/map' ? 'Carte' :
-                   location === '/profile' ? 'Profil' :
-                   location.replace('/', '')}
-                </span>
-              </>
-            )}
+              <LogOut className="h-4 w-4" />
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide">Déconnexion</span>
+            </button>
           </div>
         </nav>
       )}
@@ -312,46 +309,6 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         </div>
       )}
 
-      {/* Barre de navigation secondaire (Alertes & Messages) - Encadré Rose */}
-      {!hideMinistryHeader && !chromeless && !isSuperAdmin && (
-        <div 
-          className="bg-white border-b-2 border-rose-500 shadow-sm sticky z-30 py-2 flex items-center justify-center transition-all duration-300"
-          style={{ 
-            top: 'var(--fixed-top)',
-            marginLeft: isSidebarCollapsed ? '4rem' : '16rem'
-          }}
-        >
-          <div className="flex gap-4 px-4 overflow-x-auto no-scrollbar">
-            {(normalizedRole === "admin" || normalizedRole === "agent" || isSectorSubRole(normalizedRole)) && (
-              <Link href="/alerts" className={`flex items-center gap-2 px-4 py-1.5 rounded-lg border-2 transition-all duration-200 ${location === "/alerts" ? "bg-rose-50 border-rose-500 text-rose-600 shadow-sm" : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-rose-500"}`}>
-                <div className="relative">
-                  <MdNotificationImportant className="text-xl" />
-                  {unread > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-white">
-                      {unread}
-                    </span>
-                  )}
-                </div>
-                <span className="text-sm font-bold uppercase tracking-tight">Alertes</span>
-              </Link>
-            )}
-
-            {(normalizedRole === "admin" || normalizedRole === "agent" || isSectorSubRole(normalizedRole)) && (
-              <Link href="/sms" className={`flex items-center gap-2 px-4 py-1.5 rounded-lg border-2 transition-all duration-200 ${location === "/sms" ? "bg-rose-50 border-rose-500 text-rose-600 shadow-sm" : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-rose-500"}`}>
-                <div className="relative">
-                  <MdMessage className="text-xl" />
-                  {unreadMsg > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white ring-2 ring-white">
-                      {unreadMsg}
-                    </span>
-                  )}
-                </div>
-                <span className="text-sm font-bold uppercase tracking-tight">Messages</span>
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Navigation mobile supprimée conformément à la demande */}
 
@@ -359,7 +316,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
       {/* Main Content */}
       <div
-        className={chromeless ? "flex flex-1 overflow-hidden pt-[44px]" : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
+        className={chromeless ? `flex flex-1 overflow-hidden ${location === '/sms' ? 'pt-0 pb-[56px] md:pb-0' : 'pt-[44px]'}` : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
         style={{ height: chromeless ? '100vh' : 'calc(100vh - var(--fixed-top))' }}
       >
         {/* Sidebar desktop: FIXED pour une scrollbar toujours visible au-dessus du contenu - MASQUÉ SUR MOBILE */}
@@ -463,7 +420,8 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
         {/* Colonne droite (desktop): sticky nav + main */}
         <div className="min-w-0 w-full flex-1 flex flex-col overflow-hidden">
-          {/* Desktop Navigation Bar supprimée car déplacée sous le header */}
+          {/* Desktop Navigation Bar (masquée pour Alerte, SuperAdmin et la Carte) */}
+          {!chromeless && !isSuperAdmin && !location?.startsWith('/map') && <Navbar />}
 
           {/* Main Section - responsive */}
           <main

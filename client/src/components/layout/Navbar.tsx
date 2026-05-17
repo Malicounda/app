@@ -156,15 +156,6 @@ export default function Navbar() {
                 </span>
               </button>
             )}
-            <button
-              className="px-3 py-1.5 text-xs md:text-sm font-medium rounded-full transition-all duration-300 bg-red-500 hover:bg-red-600"
-              onClick={handleLogout}
-            >
-              <span className="flex items-center">
-                <LogOut className="h-6 w-6" />
-                <span className="hidden md:inline ml-2">Déconnexion</span>
-              </span>
-            </button>
           </div>
         </div>
       </div>

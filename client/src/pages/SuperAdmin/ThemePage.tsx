@@ -44,6 +44,7 @@ type DomainTheme = {
   to?: string;
   icon?: string;
   logoUrl?: string;
+  bgImage?: string;
 };
 
 type ThemeConfig = {
@@ -242,27 +243,35 @@ export default function ThemePage() {
   }) => {
     const isEditing = editingField === id;
 
-    if (isEditing) {
-      return (
-        <Input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => setEditingField(null)}
-          placeholder={placeholder}
-          autoFocus
-        />
-      );
-    }
-
     return (
-      <button
-        type="button"
-        className="h-10 w-full rounded-md border bg-muted px-3 py-2 text-left text-sm text-muted-foreground flex items-center justify-between"
-        onClick={() => setEditingField(id)}
-      >
-        <span className="font-mono">{value || placeholder || "-"}</span>
-        <Pencil className="h-4 w-4 text-muted-foreground" />
-      </button>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={value || placeholder || "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-12 cursor-pointer rounded border border-input p-0.5"
+        />
+        <div className="flex-1">
+          {isEditing ? (
+            <Input
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={() => setEditingField(null)}
+              placeholder={placeholder}
+              autoFocus
+            />
+          ) : (
+            <button
+              type="button"
+              className="h-10 w-full rounded-md border bg-muted px-3 py-2 text-left text-sm text-muted-foreground flex items-center justify-between"
+              onClick={() => setEditingField(id)}
+            >
+              <span className="font-mono">{value || placeholder || "-"}</span>
+              <Pencil className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      </div>
     );
   };
 
@@ -487,19 +496,62 @@ export default function ThemePage() {
             <CardTitle>Accueil (domaines)</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4">
-            <div className="space-y-2">
-              <Label>Domaine</Label>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={selectedDomain}
-                onChange={(e) => setSelectedDomain(e.target.value)}
-              >
-                {domainesList.map((d) => (
-                  <option key={d.id} value={d.nomDomaine}>
-                    {d.nomDomaine}
-                  </option>
-                ))}
-              </select>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Domaine</Label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={selectedDomain}
+                  onChange={(e) => setSelectedDomain(e.target.value)}
+                >
+                  {domainesList.map((d) => (
+                    <option key={d.id} value={d.nomDomaine}>
+                      {d.nomDomaine}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Couleur prédéfinie (Couleur du card)</Label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    // Couleurs des domaines
+                    if (val === 'orange') updateDomain({ from: '#f59e0b', to: '#f97316' });
+                    else if (val === 'green') updateDomain({ from: '#16a34a', to: '#15803d' });
+                    else if (val === 'teal') updateDomain({ from: '#14b8a6', to: '#0d9488' });
+                    else if (val === 'lightgreen') updateDomain({ from: '#22c55e', to: '#16a34a' });
+                    // Autres palettes
+                    else if (val === 'blue') updateDomain({ from: '#3b82f6', to: '#1d4ed8' });
+                    else if (val === 'red') updateDomain({ from: '#ef4444', to: '#b91c1c' });
+                    else if (val === 'purple') updateDomain({ from: '#a855f7', to: '#7e22ce' });
+                    else if (val === 'indigo') updateDomain({ from: '#6366f1', to: '#4338ca' });
+                    else if (val === 'rose') updateDomain({ from: '#f43f5e', to: '#be123c' });
+                    else if (val === 'darkgray') updateDomain({ from: '#475569', to: '#1e293b' });
+                    // Remettre la valeur à "" après sélection pour agir comme un bouton d'action
+                    e.target.value = "";
+                  }}
+                  defaultValue=""
+                >
+                  <option value="" disabled>Choisir un thème prédéfini...</option>
+                  <optgroup label="Couleurs de base (Domaines)">
+                    <option value="orange">Orange (Alerte)</option>
+                    <option value="green">Vert sombre (Chasse)</option>
+                    <option value="teal">Turquoise (Produits Forestiers)</option>
+                    <option value="lightgreen">Vert clair (Reboisement)</option>
+                  </optgroup>
+                  <optgroup label="Autres Palettes">
+                    <option value="blue">Bleu Océan</option>
+                    <option value="red">Rouge Rubis</option>
+                    <option value="purple">Violet Améthyste</option>
+                    <option value="indigo">Indigo Profond</option>
+                    <option value="rose">Rose Framboise</option>
+                    <option value="darkgray">Gris Ardoise</option>
+                  </optgroup>
+                </select>
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -554,6 +606,36 @@ export default function ThemePage() {
                     <img src={domainTheme.logoUrl} alt="preview" className="h-10 w-10 rounded bg-white object-contain" />
                     <Button type="button" variant="outline" onClick={() => updateDomain({ logoUrl: '' })}>
                       Enlever le logo
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Image de fond personnalisée (Remplace les couleurs)</Label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-2 file:text-sm"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const dataUrl = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onerror = () => reject(new Error('read-failed'));
+                        reader.onload = () => resolve(String(reader.result || ''));
+                        reader.readAsDataURL(file);
+                      });
+                      updateDomain({ bgImage: dataUrl });
+                    } catch {}
+                  }}
+                />
+                {domainTheme.bgImage ? (
+                  <div className="mt-2 flex items-center gap-3">
+                    <img src={domainTheme.bgImage} alt="preview bg" className="h-20 w-32 rounded bg-white object-cover shadow-sm" />
+                    <Button type="button" variant="outline" onClick={() => updateDomain({ bgImage: '' })}>
+                      Enlever l'image de fond
                     </Button>
                   </div>
                 ) : null}

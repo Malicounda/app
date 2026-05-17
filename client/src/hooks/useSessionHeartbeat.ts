@@ -29,7 +29,7 @@ export interface SessionHeartbeatState {
  * - Si la session côté serveur a expiré (8h), l'état passe à "expired"
  *   et l'utilisateur est redirigé vers /login.
  */
-export function useSessionHeartbeat(isAuthenticated: boolean): SessionHeartbeatState {
+export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boolean = false): SessionHeartbeatState {
   const [lockState, setLockState] = useState<LockState>("active");
   const [countdownSeconds, setCountdownSeconds] = useState(0);
 
@@ -38,8 +38,15 @@ export function useSessionHeartbeat(isAuthenticated: boolean): SessionHeartbeatS
   const countdownRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const isActiveRef       = useRef(isAuthenticated);
 
-  // Garder le ref synchronisé
-  useEffect(() => { isActiveRef.current = isAuthenticated; }, [isAuthenticated]);
+  // Garder le ref synchronisé et réinitialiser l'inactivité à la connexion
+  useEffect(() => { 
+    isActiveRef.current = isAuthenticated; 
+    if (isAuthenticated) {
+      lastActivityRef.current = Date.now();
+      setLockState("active");
+      setCountdownSeconds(0);
+    }
+  }, [isAuthenticated]);
 
   // ── Re-authentification (déverrouillage) ────────────────────────
   const reauthenticate = useCallback(async (password: string): Promise<boolean> => {
@@ -64,8 +71,15 @@ export function useSessionHeartbeat(isAuthenticated: boolean): SessionHeartbeatS
         data: { reason: lockState === "expired" ? "session_expired" : "inactivity" },
       });
     } catch {}
-    // Le AuthContext gère la redirection
-    window.location.href = "/login";
+    // Le AuthContext gère la redirection, mais si on force la déconnexion ici :
+    const prevDomain = localStorage.getItem('domain');
+    if (prevDomain === "ALERTE") {
+      window.location.href = "/alerte-login";
+    } else if (prevDomain === "REBOISEMENT") {
+      window.location.href = "/reboisement/login";
+    } else {
+      window.location.href = "/login";
+    }
   }, [lockState]);
 
   // ── Envoi du heartbeat ──────────────────────────────────────────
@@ -119,7 +133,7 @@ export function useSessionHeartbeat(isAuthenticated: boolean): SessionHeartbeatS
 
   // ── Vérification d'inactivité + countdown ──────────────────────
   useEffect(() => {
-    if (!isAuthenticated || lockState === "locked" || lockState === "expired") return;
+    if (!isAuthenticated || lockState === "locked" || lockState === "expired" || disableLock) return;
 
     const checkInterval = setInterval(() => {
       const elapsed = Date.now() - lastActivityRef.current;
@@ -140,7 +154,7 @@ export function useSessionHeartbeat(isAuthenticated: boolean): SessionHeartbeatS
     }, 1000);
 
     return () => clearInterval(checkInterval);
-  }, [isAuthenticated, lockState]);
+  }, [isAuthenticated, lockState, disableLock]);
 
   // ── Écouteurs d'activité (mouse, keyboard, touch, scroll) ──────
   useEffect(() => {

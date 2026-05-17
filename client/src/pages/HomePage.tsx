@@ -115,7 +115,18 @@ export default function HomePage() {
     const logoUrl = String(t?.logoUrl || '').trim() || undefined;
     const from = String(t?.from || '').trim() || undefined;
     const to = String(t?.to || '').trim() || undefined;
-    const themedStyle = from && to ? { backgroundImage: `linear-gradient(135deg, ${from}, ${to})` } : undefined;
+    const bgImage = String((t as any)?.bgImage || '').trim() || undefined;
+    
+    let themedStyle: any = undefined;
+    if (bgImage) {
+      themedStyle = { 
+        backgroundImage: `linear-gradient(to bottom right, rgba(0,0,0,0.4), rgba(0,0,0,0.7)), url(${bgImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      };
+    } else if (from && to) {
+      themedStyle = { backgroundImage: `linear-gradient(135deg, ${from}, ${to})` };
+    }
 
     const cfg = resolveDomainConfig(d.nomDomaine, d.codeSlug);
 
@@ -277,12 +288,6 @@ export default function HomePage() {
       <footer className="bg-gray-100 border-t border-gray-200/80 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center text-gray-500 text-sm">
           <p>© {new Date().getFullYear()} Système de Contrôle et de Digitalisation - République du Sénégal</p>
-          <p className="mt-2 opacity-80">
-            Ministère de l'Environnement et de la Transition Écologique
-          </p>
-          <p className="opacity-80">
-            Direction des Eaux et Forêts Chasse et Conservation des Sols (DFCCS)
-          </p>
           <p className="opacity-80 mt-2">
             © 2022 - Abdoulaye SENE · Ingénieur des travaux des Eaux et Forêts · Chef de division Gestion de la Faune - IREF THIÈS
           </p>

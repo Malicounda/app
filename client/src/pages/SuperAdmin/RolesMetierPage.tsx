@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Trash2, Check } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type RoleMetier = {
@@ -255,41 +255,6 @@ export default function RolesMetierPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Rôles métier par défaut</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Les agents créés sans domaine spécifique recevront automatiquement l'un de ces rôles métier.
-              Ils pourront se connecter uniquement avec leur matricule (sans mot de passe).
-              Vous pouvez sélectionner plusieurs rôles par défaut.
-            </p>
-            <div className="relative">
-              <select
-                multiple
-                className="w-full border rounded-md px-3 py-2 text-sm min-h-[80px] max-h-[160px]"
-                value={defaultRoleIds.map(String)}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions).map(o => Number(o.value));
-                  // Determine which were added/removed
-                  const added = selected.filter(id => !defaultRoleIds.includes(id));
-                  const removed = defaultRoleIds.filter(id => !selected.includes(id));
-                  added.forEach(id => setDefaultMutation.mutate({ id, isDefault: true }));
-                  removed.forEach(id => setDefaultMutation.mutate({ id, isDefault: false }));
-                }}
-              >
-                {roles.filter((r) => r.isActive && !r.isSupervisor).map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.labelFr} ({r.code})
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground mt-1">Maintenez Ctrl pour sélectionner plusieurs rôles.</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>Créer un rôle métier</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
@@ -323,6 +288,40 @@ export default function RolesMetierPage() {
                 Créer
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Rôles métier par défaut</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Les agents créés sans domaine spécifique recevront automatiquement l'un de ces rôles métier.
+              Ils pourront se connecter uniquement avec leur matricule (sans mot de passe).
+              Vous pouvez sélectionner plusieurs rôles par défaut.
+            </p>
+            <div className="border rounded-md divide-y max-h-[240px] overflow-y-auto">
+              {roles.filter((r) => r.isActive && !r.isSupervisor).map((r) => {
+                const isSelected = defaultRoleIds.includes(r.id);
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => {
+                      setDefaultMutation.mutate({ id: r.id, isDefault: !isSelected });
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3 text-sm text-left transition-colors hover:bg-primary/10 hover:text-primary ${isSelected ? 'bg-primary/15 text-primary font-medium' : ''}`}
+                  >
+                    <span>{r.labelFr} ({r.code})</span>
+                    <div className={`flex h-5 w-5 items-center justify-center rounded border ${isSelected ? 'bg-primary border-primary text-primary-foreground' : 'border-input bg-background'}`}>
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Cliquez sur un rôle pour l'ajouter ou le retirer de la sélection par défaut.</p>
           </CardContent>
         </Card>
 

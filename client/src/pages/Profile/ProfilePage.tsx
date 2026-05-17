@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { departmentsByRegion, regionEnum } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, EyeOff, LogOut, User as UserIcon, Mail, Phone, Shield, MapPin, Briefcase } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, LogOut, User as UserIcon, Mail, Phone, Shield, MapPin, Briefcase, Award, Users } from "lucide-react";
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -131,23 +131,40 @@ export default function ProfilePage() {
     );
   } else {
     // Page de profil pour les administrateurs et les agents
+    const isAlerteDomain = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole;
+    const roleUpper = (s?: string | null) => (s || "").toUpperCase();
+    const initials = ((user?.firstName?.[0] || "") + (user?.lastName?.[0] || "")).toUpperCase() || "A";
+
+    let levelSuffix = "";
+    if (user.role === "admin" || user.role === "superadmin" || (user as any)?.isDefaultRole) {
+      levelSuffix = " NATIONAL";
+    } else if ((user as any)?.departement) {
+      levelSuffix = ` DÉPARTEMENTAL - ${(user as any).departement.toUpperCase()}`;
+    } else if ((user as any)?.region) {
+      levelSuffix = ` RÉGIONAL - ${(user as any).region.toUpperCase()}`;
+    }
+
+    const fullRole = `${roleUpper((user as any)?.roleMetierLabel) || "AGENT"}${levelSuffix}`;
+
     return (
       <main className="min-h-screen bg-slate-50 pb-20">
-        <AgentTopHeader />
+        {isAlerteDomain ? (
+          <AgentTopHeader />
+        ) : (
+          <div className="bg-white border-b border-slate-200 px-6 py-8 mb-6 flex flex-col items-center justify-center text-center">
+            <div className="w-24 h-24 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center mb-4 border-4 border-white shadow-md">
+              <UserIcon className="w-12 h-12 text-emerald-700" strokeWidth={1.5} />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-800">
+              {user?.firstName || ""} {user?.lastName || ""}
+            </h1>
+            <p className="text-emerald-600 font-semibold mt-1">{fullRole}</p>
+            {profile.grade && (
+              <p className="text-sm text-slate-500 mt-1">{profile.grade}</p>
+            )}
+          </div>
+        )}
         
-        {/* En-tête avec bouton retour (optionnel) */}
-        <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10 flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => window.history.back()}
-            className="rounded-full hover:bg-slate-100"
-          >
-            <ArrowLeft className="h-5 w-5 text-gray-600" />
-          </Button>
-          <h1 className="text-xl font-bold text-slate-800">Détails du Profil</h1>
-        </div>
-
         <div className="container mx-auto px-4 py-6 max-w-5xl">
           {/* Carte Profil principale */}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-6">
@@ -158,7 +175,8 @@ export default function ProfilePage() {
                   <InfoItem icon={<Mail />} label="Email" value={user.email || "Non défini"} />
                   <InfoItem icon={<Phone />} label="Téléphone" value={user.phone || "Non défini"} />
                   <InfoItem icon={<Shield />} label="Matricule" value={profile.matricule || "Non défini"} />
-                  <InfoItem icon={<Briefcase />} label="Grade" value={profile.grade || "Non défini"} />
+                  <InfoItem icon={<Award />} label="Grade" value={profile.grade || "Non défini"} />
+                  <InfoItem icon={<UserIcon />} label="Genre" value={profile.genre || "Non défini"} />
                   <InfoItem icon={<MapPin />} label="Lieu de service" value={profile.serviceLocation || profile.region || "Non défini"} />
                 </div>
 
@@ -192,45 +210,49 @@ export default function ProfilePage() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-slate-500 ml-1">Nouveau mot de passe</Label>
-                    <div className="relative">
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="rounded-xl border-slate-200 focus:ring-green-500 h-12 pr-12"
-                        placeholder="Laisser vide pour ne pas changer"
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {password && (
-                    <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
-                      <Label className="text-slate-500 ml-1">Confirmer le mot de passe</Label>
-                      <div className="relative">
-                        <Input
-                          type={showConfirmPassword ? "text" : "password"}
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="rounded-xl border-slate-200 focus:ring-green-500 h-12 pr-12"
-                        />
-                        <button
-                          type="button"
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        >
-                          {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                        </button>
+                  {!((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole) && (
+                    <>
+                      <div className="space-y-2">
+                        <Label className="text-slate-500 ml-1">Nouveau mot de passe</Label>
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="rounded-xl border-slate-200 focus:ring-green-500 h-12 pr-12"
+                            placeholder="Laisser vide pour ne pas changer"
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          </button>
+                        </div>
                       </div>
-                    </div>
+
+                      {password && (
+                        <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                          <Label className="text-slate-500 ml-1">Confirmer le mot de passe</Label>
+                          <div className="relative">
+                            <Input
+                              type={showConfirmPassword ? "text" : "password"}
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              className="rounded-xl border-slate-200 focus:ring-green-500 h-12 pr-12"
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            >
+                              {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -268,17 +290,8 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Bouton de déconnexion séparé et rouge */}
+          {/* Version */}
           <div className="mt-8 flex flex-col items-center gap-6">
-            <Button
-              variant="destructive"
-              className="w-full rounded-2xl py-7 text-lg font-bold shadow-lg shadow-red-100 bg-red-500 hover:bg-red-600 border-none"
-              onClick={logout}
-            >
-              <LogOut className="mr-2 h-6 w-6" />
-              Déconnexion
-            </Button>
-            
             <div className="flex flex-col items-center">
               <img src="/assets/logoprojets/Sans fond_Scodi/android-chrome-192x192.png" alt="Logo" className="h-12 w-12 opacity-50 grayscale mb-2" />
               <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase">Version 1.0.0</p>

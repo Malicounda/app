@@ -1,11 +1,11 @@
 // @ts-nocheck
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { Request, Response, Router } from 'express';
 import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { agents, rolesMetier, superAdmins, userDomains, users } from '../../shared/schema.js';
+import { agents, rolesMetier, superAdmins, userDomains, users, messages } from '../../shared/schema.js';
 import { db } from '../db.js';
 import { MessagingService } from '../services/messaging.service.js';
 import { storage } from '../storage.js';
@@ -324,7 +324,55 @@ router.get('/inbox', isAuthenticated, async (req, res) => {
     if (domaineId === false) return;
 
     const userMessages = await storage.getMessagesByRecipient(userId, domaineId ?? undefined);
-    res.json(userMessages);
+
+    // Enrich messages with sender details (grade from agents, roleMetier from rolesMetier)
+    const senderIds = [...new Set(userMessages.map((m: any) => m.senderId).filter(Boolean))];
+    const senderMap = new Map<number, any>();
+    if (senderIds.length > 0) {
+      for (const sid of senderIds) {
+        try {
+          const rows = await db.select({
+            id: users.id,
+            username: users.username,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+            matricule: users.matricule,
+            role: users.role,
+            region: users.region,
+            departement: users.departement,
+          }).from(users).where(eq(users.id, sid as any)).limit(1);
+          if (rows[0]) {
+            // Get grade and roleMetierId from agents table
+            let grade = '';
+            let roleMetierLabel = '';
+            try {
+              const agentRows = await db.select({ grade: agents.grade, roleMetierId: agents.roleMetierId })
+                .from(agents)
+                .where(eq(agents.userId, sid as any))
+                .limit(1);
+              grade = String(agentRows?.[0]?.grade || '').trim();
+              const rmId = agentRows?.[0]?.roleMetierId;
+              if (rmId) {
+                const rmRows = await db.select({ labelFr: rolesMetier.labelFr })
+                  .from(rolesMetier)
+                  .where(eq(rolesMetier.id, rmId))
+                  .limit(1);
+                roleMetierLabel = String(rmRows?.[0]?.labelFr || '').trim();
+              }
+            } catch {}
+            senderMap.set(Number(sid), { ...rows[0], grade, roleMetierLabel });
+          }
+        } catch {}
+      }
+    }
+
+    const enriched = userMessages.map((m: any) => ({
+      ...m,
+      sender: senderMap.get(Number(m.senderId)) || { id: m.senderId },
+    }));
+
+    res.json(enriched);
   } catch (error) {
     console.error("Erreur lors de la récupération des messages:", error);
     res.status(500).json({ message: "Échec de la récupération des messages" });
@@ -647,6 +695,46 @@ router.patch('/:id/read', isAuthenticated, async (req: Request, res: Response) =
   } catch (error) {
     console.error("Erreur lors de la mise à jour du message:", error);
     res.status(500).json({ message: "Échec de la mise à jour du message" });
+  }
+});
+
+// Supprimer tous les messages échangés avec un contact spécifique (soft delete)
+router.delete('/conversation/:identifier', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const { identifier } = req.params;
+    const userId = (req as any)?.user?.id;
+
+    if (!userId) return res.status(401).json({ message: 'Non authentifié' });
+    if (!identifier) return res.status(400).json({ message: 'Identifiant du contact requis' });
+
+    let contactId: number | null = null;
+    if (/^\d+$/.test(identifier)) {
+      contactId = Number(identifier);
+    } else {
+      const u = await storage.findUserByIdentifier(identifier);
+      if (u?.id) {
+        contactId = Number(u.id);
+      }
+    }
+
+    if (!contactId) {
+      return res.status(404).json({ message: 'Contact introuvable' });
+    }
+
+    // Mettre à jour les messages envoyés par l'utilisateur au contact
+    await db.update(messages)
+      .set({ deletedAtSender: new Date() } as any)
+      .where(and(eq(messages.senderId, userId), eq(messages.recipientId, contactId)));
+
+    // Mettre à jour les messages reçus du contact
+    await db.update(messages)
+      .set({ deletedAt: new Date() } as any)
+      .where(and(eq(messages.recipientId, userId), eq(messages.senderId, contactId)));
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Erreur lors de la suppression de la conversation:", error);
+    res.status(500).json({ message: "Échec de la suppression de la conversation" });
   }
 });
 

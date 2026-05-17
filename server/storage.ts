@@ -2172,7 +2172,12 @@ import { db } from "./db.js";
         eq(messages.deletedAt, null as any) // Aligné avec le schéma (deletedAt)
       ];
       if (domaineId !== undefined) {
-        conditions.push(eq(messages.domaineId, domaineId));
+        conditions.push(
+          or(
+            eq(messages.domaineId, domaineId),
+            sql`${messages.domaineId} IS NULL`
+          ) as any
+        );
       }
       return await db.select().from(messages)
         .where(and(...conditions))
@@ -2363,7 +2368,12 @@ import { db } from "./db.js";
           eq(messages.deletedAt, null as any)
         ];
         if (domaineId !== undefined) {
-          individualConditions.push(eq(messages.domaineId, domaineId));
+          individualConditions.push(
+            or(
+              eq(messages.domaineId, domaineId),
+              sql`${messages.domaineId} IS NULL`
+            ) as any
+          );
         }
 
         const [individualResult] = await db.select({ value: count() })
@@ -2379,7 +2389,12 @@ import { db } from "./db.js";
           or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any))
         ];
         if (domaineId !== undefined) {
-          groupConditions.push(eq(groupMessages.domaineId, domaineId));
+          groupConditions.push(
+            or(
+              eq(groupMessages.domaineId, domaineId),
+              sql`${groupMessages.domaineId} IS NULL`
+            ) as any
+          );
         }
 
         const groupMessagesList = await db.select({ id: groupMessages.id })
@@ -2504,7 +2519,12 @@ import { db } from "./db.js";
         or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any))
       ];
       if (domaineId !== undefined) {
-        conditions.push(eq(groupMessages.domaineId, domaineId));
+        conditions.push(
+          or(
+            eq(groupMessages.domaineId, domaineId),
+            sql`${groupMessages.domaineId} IS NULL`
+          ) as any
+        );
       }
 
       const rows = await db

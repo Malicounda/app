@@ -43,8 +43,18 @@ export function ProtectedRoute({
 
   useEffect(() => {
     // Vérification de la session
-    if (!isLoading && !isAuthenticated && location !== "/login") {
-      setLocation("/login");
+    if (!isLoading && !isAuthenticated) {
+      const domain = (localStorage.getItem('domain') || '').toUpperCase();
+      let loginTarget = '/login';
+      if (domain === 'ALERTE') {
+        loginTarget = '/alerte-login';
+      } else if (domain === 'REBOISEMENT') {
+        loginTarget = '/reboisement-login';
+      }
+      
+      if (location !== loginTarget) {
+        setLocation(loginTarget);
+      }
       return;
     }
 

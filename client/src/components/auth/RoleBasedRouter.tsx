@@ -9,7 +9,14 @@ export default function RoleBasedRouter() {
   
   useEffect(() => {
     if (!isAuthenticated) {
-      setLocation('/login');
+      const domain = (localStorage.getItem('domain') || '').toUpperCase();
+      let loginTarget = '/login';
+      if (domain === 'ALERTE') {
+        loginTarget = '/alerte-login';
+      } else if (domain === 'REBOISEMENT') {
+        loginTarget = '/reboisement-login';
+      }
+      setLocation(loginTarget);
       return;
     }
 

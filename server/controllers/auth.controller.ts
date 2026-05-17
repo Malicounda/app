@@ -40,7 +40,7 @@ export const login = async (req: Request, res: Response) => {
                     entityId: 0,
                     details: `Tentative de connexion échouée : identifiant "${idValue}" non trouvé`,
                 });
-            } catch {}
+            } catch { }
             return res.status(401).json({ message: "Identifiants invalides" });
         } else {
             console.log('[LOGIN] Utilisateur trouvé:', user.username);
@@ -53,6 +53,7 @@ export const login = async (req: Request, res: Response) => {
         let userRoleMetierLabel: string | null = null;
         let isSupervisorRole = false;
         let isDefaultRole = false;
+        let currentDomain = '';
 
         try {
             const agentRows = await db
@@ -68,17 +69,29 @@ export const login = async (req: Request, res: Response) => {
                 .where(eq(agents.userId as any, (user as any).id as any))
                 .limit(1);
 
-            if (agentRows.length > 0 && agentRows[0].roleMetierId) {
+            const domainHeaderRaw = (req.headers as any)['x-domain'];
+            if (Array.isArray(domainHeaderRaw)) currentDomain = String(domainHeaderRaw[0] || '');
+            else if (typeof domainHeaderRaw === 'string') currentDomain = domainHeaderRaw;
+            if (!currentDomain && (req.body as any)?.domain) {
+                currentDomain = String((req.body as any).domain || '');
+            }
+
+            if (agentRows.length > 0) {
                 userRoleMetierCode = agentRows[0].roleMetierCode ?? null;
                 userRoleMetierLabel = agentRows[0].roleMetierLabel ?? null;
                 isDefaultRole = agentRows[0].roleMetierIsDefault ?? false;
                 isSupervisorRole = agentRows[0].roleMetierIsSupervisor ?? false;
 
-                // Si le mot de passe est vide/absent et que l'utilisateur a un rôle par défaut ou superviseur
+                // Accès direct par matricule pour tous les agents sur le domaine ALERTE
                 const passwordEmpty = !password || String(password).trim() === '';
-                if (passwordEmpty && (isDefaultRole || isSupervisorRole)) {
+                const isAlerteLogin = currentDomain.toUpperCase().trim() === 'ALERTE';
+
+                if (passwordEmpty && (isAlerteLogin || isSupervisorRole)) {
                     skipPassword = true;
-                    console.log('[LOGIN] Connexion sans mot de passe autorisée pour:', user.username, '(rôle métier:', userRoleMetierCode, ')');
+                    if (isAlerteLogin && !isSupervisorRole) {
+                        isDefaultRole = true; // Forcer le flag pour l'interface UI
+                    }
+                    console.log('[LOGIN] Connexion sans mot de passe autorisée pour:', user.username);
                 }
             }
         } catch (err) {
@@ -100,7 +113,7 @@ export const login = async (req: Request, res: Response) => {
                     console.log('[LOGIN] Mot de passe (bcrypt) incorrect pour:', user.username);
                     try {
                         await storage.createHistory({ userId: user.id, operation: 'login_failed', entityType: 'auth', entityId: user.id, details: `Mot de passe incorrect pour ${user.username}` });
-                    } catch {}
+                    } catch { }
                     return res.status(401).json({ message: "Identifiants invalides" });
                 }
             } else {
@@ -109,7 +122,7 @@ export const login = async (req: Request, res: Response) => {
                     console.log('[LOGIN] Mot de passe (plain) incorrect pour:', user.username);
                     try {
                         await storage.createHistory({ userId: user.id, operation: 'login_failed', entityType: 'auth', entityId: user.id, details: `Mot de passe incorrect pour ${user.username}` });
-                    } catch {}
+                    } catch { }
                     return res.status(401).json({ message: "Identifiants invalides" });
                 }
                 // Migration vers bcrypt
@@ -134,13 +147,7 @@ export const login = async (req: Request, res: Response) => {
 
         const isSuperAdmin = await storage.isSuperAdmin(user.id);
 
-        const domainHeaderRaw = (req.headers as any)['x-domain'];
-        let currentDomain = '';
-        if (Array.isArray(domainHeaderRaw)) currentDomain = String(domainHeaderRaw[0] || '');
-        else if (typeof domainHeaderRaw === 'string') currentDomain = domainHeaderRaw;
-        if (!currentDomain && (req.body as any)?.domain) {
-            currentDomain = String((req.body as any).domain || '');
-        }
+        // currentDomain is already defined above
 
         if (currentDomain && !isSuperAdmin && !skipPassword) {
             const normalized = currentDomain.toUpperCase().trim();
@@ -216,7 +223,7 @@ export const login = async (req: Request, res: Response) => {
                 entityId: user.id,
                 details: `Connexion réussie - Utilisateur: ${user.username} - IP: ${loginIp}`,
             });
-        } catch {}
+        } catch { }
 
         req.session.save(async (err) => {
             if (err) {
@@ -260,26 +267,26 @@ export const login = async (req: Request, res: Response) => {
                     const roleMetierCode = rows?.[0]?.roleMetierCode ?? null;
                     const roleMetierLabel = rows?.[0]?.roleMetierLabel ?? null;
                     const { password, ...safeUser } = user as any;
-                    res.json({ 
-                        message: "Connexion réussie", 
-                        user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre, roleMetierCode, roleMetierLabel }, 
-                        token 
+                    res.json({
+                        message: "Connexion réussie",
+                        user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre, roleMetierCode, roleMetierLabel },
+                        token
                     });
                     return;
-                } catch {}
+                } catch { }
                 // Renvoyer l'objet utilisateur + flag superadmin et le token
                 const { password, ...safeUser } = user as any;
-                res.json({ 
-                    message: "Connexion réussie", 
-                    user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre }, 
-                    token 
+                res.json({
+                    message: "Connexion réussie",
+                    user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre },
+                    token
                 });
             } catch (tokErr) {
                 console.warn('[LOGIN] Impossible de générer le token JWT, on renvoie sans token:', tokErr);
                 const { password, ...safeUser } = user as any;
-                res.json({ 
-                    message: "Connexion réussie", 
-                    user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole } 
+                res.json({
+                    message: "Connexion réussie",
+                    user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole }
                 });
             }
             console.log('[LOGIN] Réponse envoyée pour:', user.username);
@@ -387,7 +394,7 @@ export const logout = async (req: Request, res: Response) => {
                 entityId: userId || 0,
                 details: `Déconnexion (${reason === 'inactivity' ? 'inactivité' : reason === 'session_expired' ? 'expiration session' : 'manuelle'}) - Utilisateur: ${username} - IP: ${ip}`,
             });
-        } catch {}
+        } catch { }
 
         req.session.destroy((err) => {
             if (err) {
@@ -509,68 +516,68 @@ export const getMe = async (req: Request, res: Response) => {
 
 // Vérifier la disponibilité d'un nom d'utilisateur (public)
 export const checkUsername = async (req: Request, res: Response) => {
-  try {
-    const u = String(req.query.u || '').trim();
-    if (!u) return res.status(400).json({ message: "Paramètre 'u' requis" });
-    const existing = await storage.getUserByUsername(u);
-    return res.json({ available: !existing });
-  } catch (error) {
-    console.error('[CHECK USERNAME] Erreur:', error);
-    return res.status(500).json({ message: "Erreur lors de la vérification du nom d'utilisateur" });
-  }
+    try {
+        const u = String(req.query.u || '').trim();
+        if (!u) return res.status(400).json({ message: "Paramètre 'u' requis" });
+        const existing = await storage.getUserByUsername(u);
+        return res.json({ available: !existing });
+    } catch (error) {
+        console.error('[CHECK USERNAME] Erreur:', error);
+        return res.status(500).json({ message: "Erreur lors de la vérification du nom d'utilisateur" });
+    }
 };
 
 // Vérifier la disponibilité d'un email (public)
 export const checkEmail = async (req: Request, res: Response) => {
-  try {
-    const e = String(req.query.e || '').trim();
-    if (!e) return res.status(400).json({ message: "Paramètre 'e' requis" });
-    const existing = await storage.getUserByEmail(e);
-    return res.json({ available: !existing });
-  } catch (error) {
-    console.error('[CHECK EMAIL] Erreur:', error);
-    return res.status(500).json({ message: "Erreur lors de la vérification de l'email" });
-  }
+    try {
+        const e = String(req.query.e || '').trim();
+        if (!e) return res.status(400).json({ message: "Paramètre 'e' requis" });
+        const existing = await storage.getUserByEmail(e);
+        return res.json({ available: !existing });
+    } catch (error) {
+        console.error('[CHECK EMAIL] Erreur:', error);
+        return res.status(500).json({ message: "Erreur lors de la vérification de l'email" });
+    }
 };
 
 // Vérifier le mot de passe de l'utilisateur courant (utile pour les actions critiques)
 export const verifyPassword = async (req: Request, res: Response) => {
-  console.log(`[AUTH] Tentative de vérification du mot de passe pour l'utilisateur: ${req.session?.user?.username || 'Inconnu'}`);
-  try {
-    const { password } = req.body;
-    const sessionUser = req.session.user as any;
+    console.log(`[AUTH] Tentative de vérification du mot de passe pour l'utilisateur: ${req.session?.user?.username || 'Inconnu'}`);
+    try {
+        const { password } = req.body;
+        const sessionUser = req.session.user as any;
 
-    if (!sessionUser || !sessionUser.id) {
-      return res.status(401).json({ message: "Non authentifié" });
+        if (!sessionUser || !sessionUser.id) {
+            return res.status(401).json({ message: "Non authentifié" });
+        }
+        if (!password) {
+            return res.status(400).json({ message: "Mot de passe requis" });
+        }
+
+        const user = await storage.getUser(sessionUser.id);
+        if (!user) {
+            return res.status(401).json({ message: "Utilisateur non trouvé" });
+        }
+
+        const isBcryptHash = (value: string | null | undefined): boolean => {
+            if (!value) return false;
+            return (/^\$2[aby]\$/.test(value) && value.length >= 59 && value.length <= 64);
+        };
+
+        let passwordOk = false;
+        if (isBcryptHash(user.password)) {
+            passwordOk = await bcrypt.compare(password, user.password as string);
+        } else {
+            passwordOk = (password === user.password);
+        }
+
+        if (!passwordOk) {
+            return res.status(401).json({ message: "Mot de passe incorrect" });
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[VERIFY PASSWORD] Erreur:', error);
+        return res.status(500).json({ message: "Erreur lors de la vérification du mot de passe" });
     }
-    if (!password) {
-      return res.status(400).json({ message: "Mot de passe requis" });
-    }
-
-    const user = await storage.getUser(sessionUser.id);
-    if (!user) {
-      return res.status(401).json({ message: "Utilisateur non trouvé" });
-    }
-
-    const isBcryptHash = (value: string | null | undefined): boolean => {
-        if (!value) return false;
-        return (/^\$2[aby]\$/.test(value) && value.length >= 59 && value.length <= 64);
-    };
-
-    let passwordOk = false;
-    if (isBcryptHash(user.password)) {
-        passwordOk = await bcrypt.compare(password, user.password as string);
-    } else {
-        passwordOk = (password === user.password);
-    }
-
-    if (!passwordOk) {
-      return res.status(401).json({ message: "Mot de passe incorrect" });
-    }
-
-    return res.json({ success: true });
-  } catch (error) {
-    console.error('[VERIFY PASSWORD] Erreur:', error);
-    return res.status(500).json({ message: "Erreur lors de la vérification du mot de passe" });
-  }
 };

@@ -26,16 +26,18 @@ export default function DashboardRedirector() {
     let target = '/login';
 
     // ──────────────────────────────────────────────
-    // 1. SUPER ADMIN — pas de domaine, accès global
+    // 1. DOMAINE ALERTE ou Rôles Alerte
     // ──────────────────────────────────────────────
-    if (isSuperAdmin) {
-      // On efface tout domaine résiduel pour éviter les conflits
-      localStorage.removeItem('domain');
-      target = '/superadmin/agents';
+    if (domain === 'ALERTE' || (user as any)?.isSupervisorRole || (user as any)?.isDefaultRole) {
+      if (isSuperAdmin || (user as any)?.isSupervisorRole) {
+        target = '/supervisor';
+      } else {
+        target = '/default-home';
+      }
 
-    // ──────────────────────────────────────────────
-    // 2. DOMAINE REBOISEMENT
-    // ──────────────────────────────────────────────
+      // ──────────────────────────────────────────────
+      // 2. DOMAINE REBOISEMENT
+      // ──────────────────────────────────────────────
     } else if (domain === 'REBOISEMENT') {
       switch (user.role) {
         case 'admin':
@@ -55,9 +57,16 @@ export default function DashboardRedirector() {
           target = '/reboisement';
       }
 
-    // ──────────────────────────────────────────────
-    // 3. DOMAINE CHASSE (ou par défaut)
-    // ──────────────────────────────────────────────
+      // ──────────────────────────────────────────────
+      // 3. SUPER ADMIN — pas de domaine, accès global CHASSE
+      // ──────────────────────────────────────────────
+    } else if (isSuperAdmin) {
+      localStorage.removeItem('domain');
+      target = '/superadmin/agents';
+
+      // ──────────────────────────────────────────────
+      // 4. DOMAINE CHASSE (ou par défaut)
+      // ──────────────────────────────────────────────
     } else {
       switch (user.role) {
         case 'admin':

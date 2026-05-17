@@ -909,7 +909,7 @@ router.get('/agents', isAuthenticated, isAdminAgentOrSubAgent, async (req: Reque
     if (domaineId) {
       const parsed = parseInt(domaineId, 10);
       if (parsed > 0) effectiveDomaineId = parsed;
-    } else if (currentRole === 'admin' || currentRole === 'agent' || currentRole === 'sub-agent') {
+    } else if (!currentUser?.isDefaultRole && !currentUser?.isSupervisorRole && (currentRole === 'admin' || currentRole === 'agent' || currentRole === 'sub-agent')) {
       // Auto-detect: find the logged-in user's active domain assignment
       const myDomains = await storage.getUserDomainsByUserId(Number(currentUser.id));
       if (Array.isArray(myDomains) && myDomains.length > 0) {

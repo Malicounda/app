@@ -162,22 +162,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Redirection centralisée via getHomePage
         const isSuperAdmin = isUserSuperAdmin(response.user);
 
-        // Super Admin : on efface tout domaine résiduel
-        if (isSuperAdmin) {
-          localStorage.removeItem('domain');
-        }
-
         const domain = (localStorage.getItem('domain') || '').toUpperCase();
         let homePage: string;
 
-        if (isSuperAdmin) {
-          homePage = '/superadmin/agents';
-        } else if ((response.user as any).isSupervisorRole) {
-          homePage = '/supervisor';
-        } else if ((response.user as any).isDefaultRole) {
-          homePage = '/default-home';
+        if (domain === 'ALERTE' || (response.user as any).isSupervisorRole || (response.user as any).isDefaultRole) {
+          if (isSuperAdmin || (response.user as any).isSupervisorRole) {
+            homePage = '/supervisor';
+          } else {
+            homePage = '/default-home';
+          }
         } else if (domain === 'REBOISEMENT') {
           homePage = response.user.role === 'admin' ? '/reboisement/admin' : '/reboisement';
+        } else if (isSuperAdmin) {
+          // Super Admin hors domaine spécifique : accès global CHASSE
+          localStorage.removeItem('domain');
+          homePage = '/superadmin/agents';
         } else {
           homePage = getHomePage(response.user.role, response.user.type);
         }
@@ -209,13 +208,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("token");
       localStorage.removeItem("userRole");
       localStorage.removeItem("userRegion");
-      // Nettoyage du domaine reboisement
+      let prevDomain = "";
       try {
+        prevDomain = localStorage.getItem('domain') || "";
         localStorage.removeItem('domain');
         localStorage.removeItem('reforest_species');
       } catch {}
       try { await afterLogoutClearAll(); } catch {}
-      setLocation("/");
+      
+      if (prevDomain === "ALERTE") {
+        setLocation("/alerte-login");
+      } else if (prevDomain === "REBOISEMENT") {
+        setLocation("/reboisement/login");
+      } else {
+        setLocation("/");
+      }
     } catch (err: any) {
       console.error("Erreur lors de la déconnexion:", err);
       setError(err.message || "Erreur lors de la déconnexion");

@@ -1,6 +1,8 @@
 import { Response } from "express";
-import { Message } from "../../shared/schema.js";
+import { Message, agents, rolesMetier } from "../../shared/schema.js";
 import { storage } from "../storage.js";
+import { db } from "../db.js";
+import { eq } from "drizzle-orm";
 
 /**
  * DomainResolver : Machine à état pour la résolution du contexte.
@@ -17,18 +19,15 @@ export class DomainResolver {
       return { status: "FORBIDDEN", message: "Utilisateur introuvable." };
     }
 
-    const isDefaultOrSupervisor =
-      ("roleMetierIsDefault" in user && (user as any).roleMetierIsDefault) ||
-      ("roleMetierIsSupervisor" in user && (user as any).roleMetierIsSupervisor);
+    // L'appartenance à un domaine est vérifiée ci-dessous.
 
     const domains = await storage.getUserDomains(userId);
 
     if (domains.length === 0) {
-      // Les agents avec rôle par défaut ou superviseur n'ont pas de domaine assigné mais doivent pouvoir accéder aux messages
-      if (isDefaultOrSupervisor) {
-        return { status: "RESOLVED", domaineId: null };
-      }
-      return { status: "FORBIDDEN", message: "Aucun domaine assigné." };
+      // Les agents de l'alerte, les chasseurs, guides et admins globaux 
+      // n'ont pas forcément de domaine assigné.
+      // Ils accèdent donc à la messagerie dans un contexte global (domaineId = null).
+      return { status: "RESOLVED", domaineId: null };
     }
 
     // Cas 1 : Domaine unique (Déterministe)

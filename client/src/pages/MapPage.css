@@ -701,11 +701,11 @@ html, body, #root {
 .map-controls-container.collapsed [style*="right: 100%"],
 .map-controls-container.collapsed .protected-zones-subpanel {
   width: auto !important;
-  min-width: 120px !important;
-  max-width: 180px !important;
+  min-width: auto !important;
+  max-width: none !important;
   padding: 6px !important;
   gap: 3px !important;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .map-controls-container.collapsed [style*="right: 100%"] .map-control-button,

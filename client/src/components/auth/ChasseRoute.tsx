@@ -23,15 +23,15 @@ export default function ChasseRoute({ children, allowedRoles }: ChasseRouteProps
   // Super Admin — accès global, pas de vérification de domaine
   if (isUserSuperAdmin(user)) return <>{children}</>;
 
+  const domain = (localStorage.getItem('domain') || '').toUpperCase();
+
   // Agents avec rôle par défaut ou superviseur (domaine Alerte) — accès aux pages partagées
-  if ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole) return <>{children}</>;
+  if (domain === 'ALERTE' || (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole) return <>{children}</>;
 
   if (!isAuthenticated) {
     // Le useEffect dans le composant parent s'occupe de la redirection
     return null;
   }
-
-  const domain = (localStorage.getItem('domain') || '').toUpperCase();
 
   // Seuls les utilisateurs du domaine CHASSE peuvent voir ce contenu
   if (domain !== 'CHASSE') return null;

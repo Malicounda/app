@@ -15,15 +15,37 @@ export const getHomePage = (role?: string, type?: string, isSuperAdmin?: boolean
     return '/superadmin/agents';
   }
 
-  if (isSupervisorRole) {
-    return '/supervisor';
+  let domain = '';
+  try {
+    domain = (localStorage.getItem('domain') || '').toUpperCase();
+  } catch (e) {}
+
+  if (domain === 'ALERTE' || isSupervisorRole || isDefaultRole) {
+    if (isSupervisorRole) {
+      return '/supervisor';
+    } else {
+      return '/default-home';
+    }
   }
 
-  if (isDefaultRole) {
-    return '/default-home';
+  if (domain === 'REBOISEMENT') {
+    switch (role) {
+      case 'admin':
+        return '/reboisement/admin';
+      case 'agent':
+        return '/reboisement/regional';
+      case 'sub-agent':
+      case 'brigade':
+      case 'triage':
+      case 'poste-control':
+      case 'sous-secteur':
+        return '/reboisement/departement';
+      default:
+        return '/reboisement';
+    }
   }
 
-  // Sous-rôles secteur avec leur page d'accueil dédiée
+  // Sous-rôles secteur avec leur page d'accueil dédiée (Chasse / Défaut)
   const subRoleHomePages: Record<string, string> = {
     'sub-agent': '/sector-agents',
     'brigade': '/brigade',

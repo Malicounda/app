@@ -600,14 +600,6 @@ export default function HunterProfilePage() {
         </div>
       </div>
       <div className="mt-8 pt-6 border-t border-gray-100 pb-10 flex flex-col items-center">
-        <Button
-          variant="destructive"
-          className="w-full max-w-xs gap-2 shadow-lg"
-          onClick={logout}
-        >
-          <LogOut className="h-4 w-4" />
-          Déconnexion
-        </Button>
         <p className="mt-4 text-[10px] text-gray-400">Version 1.0.0</p>
       </div>
     </div>

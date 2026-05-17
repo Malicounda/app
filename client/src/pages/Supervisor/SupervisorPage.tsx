@@ -2,7 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/api";
 import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bell, LogOut, Map, MessageSquare, User } from "lucide-react";
+import { AlertTriangle, Bell, LogOut, Map, MessageSquare, User, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
 
@@ -60,15 +60,18 @@ export default function SupervisorPage() {
       {/* Contenu scrollable */}
       <div className="flex-1 px-4 pb-20 space-y-4 overflow-y-auto overscroll-contain">
         {/* Cartes statistiques (Carte Map) */}
-        <div className="grid grid-cols-1 gap-3 relative z-10 pt-2">
+        <div className="relative z-10 pt-2 px-4 max-w-[280px] mx-auto w-full">
           <button
             onClick={() => setLocation("/map")}
-            className="bg-white shadow-md border border-slate-100 rounded-2xl p-3 text-center active:scale-95 transition-transform flex flex-col items-center justify-center"
+            className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[20px] p-4 text-left active:scale-95 transition-all flex items-center gap-4 w-full"
           >
-            <div className="flex items-center justify-center gap-1.5 mb-1 relative">
-              <Map className="h-5 w-5 text-blue-500" />
+            <div className="h-[48px] w-[48px] shrink-0 rounded-2xl bg-blue-50 flex items-center justify-center relative">
+              <Map className="h-[24px] w-[24px] text-blue-500" strokeWidth={2.5} />
             </div>
-            <p className="text-[11px] text-slate-600 font-bold uppercase tracking-wide mt-1">Carte</p>
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <p className="text-[12px] font-black text-slate-800 uppercase tracking-wide">Carte</p>
+              <p className="text-[9px] text-slate-500 leading-[1.3] mt-0.5 line-clamp-2">Voir la carte interactive et la géolocalisation</p>
+            </div>
           </button>
         </div>
         {/* Logos partenaires */}

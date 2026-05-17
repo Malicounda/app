@@ -1,12 +1,12 @@
-import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import ResponsivePage from "@/components/layout/ResponsivePage";
 import InternalMessageComposer from "@/components/messaging/InternalMessageComposer";
 import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
-import { Send } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "wouter";
 
 const GLOBAL_TARGETS = [
   { key: "hunters", label: "Tous les chasseurs", target: { role: "hunter" } },
@@ -20,7 +20,7 @@ export default function SimpleSMSPage() {
   const role = (user?.role || '').toLowerCase();
   const isDefaultRole = !!(user as any)?.isDefaultRole;
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
-  const usePhoneMessagingUi = isSupervisorRole;
+  const usePhoneMessagingUi = isSupervisorRole && !isDefaultRole;
   const userRegionLabel = String((user as any)?.region || '').trim();
   const userDeptLabel = String((user as any)?.departement || '').trim();
   const fallbackRecipientsLabel = [
@@ -32,6 +32,39 @@ export default function SimpleSMSPage() {
   const [recipientOptions, setRecipientOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [activeTab, setActiveTab] = useState<"reçus" | "envoyés">("reçus");
   const [query, setQuery] = useState("");
+  // Phone messaging UI navigation state (supervisor)
+  const [phoneView, setPhoneView] = useState<'list' | 'chat' | 'new'>('list');
+  const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
+  const [newRecipientSearch, setNewRecipientSearch] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  
+  // Tactical phone-style deletion UI states
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [deletingConv, setDeletingConv] = useState(false);
+  const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
+
+  const handleDeleteEntireConversation = async (contactIdentifier: string) => {
+    setDeletingConv(true);
+    try {
+      const response = await fetch(`/api/messages/conversation/${encodeURIComponent(contactIdentifier)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error("Erreur lors de la suppression");
+      }
+      toast({ title: "Discussion supprimée", description: "La conversation a été entièrement supprimée." });
+      setPhoneView('list');
+      setSelectedContactKey(null);
+      await refreshAll();
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e?.message || "Impossible de supprimer la discussion.", variant: "destructive" });
+    } finally {
+      setDeletingConv(false);
+      setShowHeaderMenu(false);
+    }
+  };
+
   const {
     inbox,
     sent,
@@ -42,6 +75,7 @@ export default function SimpleSMSPage() {
     sendIndividual,
     deleteMessage,
     refreshSent,
+    refreshAll,
   } = useInternalMessaging({ domaineId, autoLoad: !isDefaultRole });
 
   const targets = useMemo(() => GLOBAL_TARGETS, []);
@@ -269,6 +303,83 @@ export default function SimpleSMSPage() {
   const filteredInbox = useMemo(() => filterMessages(inbox), [inbox, normalizedQuery]);
   const filteredSent = useMemo(() => filterMessages(sent), [sent, normalizedQuery]);
 
+  // Group messages into conversations for phone UI (supervisor)
+  const conversations = useMemo(() => {
+    if (!usePhoneMessagingUi) return [];
+    const convMap = new Map<string, {
+      contactKey: string; contactName: string; contactInitial: string;
+      contactIdentifier: string; contactGrade: string; contactRoleMetier: string;
+      lastMessage: string; lastTime: Date;
+      lastIsSent: boolean; unreadCount: number;
+      messages: Array<{ id: number; content: string; time: Date; isSent: boolean; senderName?: string; rawMsgObj: any }>;
+    }>();
+    for (const msg of inbox) {
+      const mAny = msg as any;
+      const sId = String(mAny?.sender?.id || mAny?.senderId || '');
+      const sName = [mAny?.sender?.firstName, mAny?.sender?.lastName].filter(Boolean).join(' ') || 'Inconnu';
+      const sGrade = String(mAny?.sender?.grade || '').trim();
+      const sRoleMetier = String(mAny?.sender?.roleMetierLabel || mAny?.sender?.role_metier_label || '').trim();
+      const sIdent = String(mAny?.sender?.username || mAny?.sender?.email || mAny?.sender?.matricule || sName);
+      const key = sId || sIdent;
+      const time = new Date(mAny?.createdAt || 0);
+      const conv = convMap.get(key) || { contactKey: key, contactName: sGrade ? `${sGrade} ${sName}` : sName, contactInitial: sName.charAt(0).toUpperCase(), contactIdentifier: sIdent, contactGrade: sGrade, contactRoleMetier: sRoleMetier, lastMessage: mAny?.content || '', lastTime: time, lastIsSent: false, unreadCount: 0, messages: [] as any[] };
+      if (!convMap.has(key)) {
+        convMap.set(key, conv);
+      }
+      conv.messages.push({ id: Number(mAny.id), content: mAny?.content || '', time, isSent: false, senderName: sName, rawMsgObj: mAny });
+      if (!mAny?.isRead && !mAny?.is_read) conv.unreadCount++;
+      if (time > conv.lastTime) { conv.lastMessage = mAny?.content || ''; conv.lastTime = time; conv.lastIsSent = false; }
+    }
+    for (const msg of sent) {
+      const mAny = msg as any;
+      const rId = String(mAny?.recipient?.id || mAny?.recipientId || '');
+      const rName = [mAny?.recipient?.firstName, mAny?.recipient?.lastName].filter(Boolean).join(' ') || mAny?.recipientIdentifier || 'Destinataire';
+      const rIdent = String(mAny?.recipientIdentifier || mAny?.recipient?.username || mAny?.recipient?.email || rName);
+      const key = rId || rIdent;
+      const time = new Date(mAny?.createdAt || 0);
+      const conv = convMap.get(key) || { contactKey: key, contactName: rName, contactInitial: rName.charAt(0).toUpperCase(), contactIdentifier: rIdent, contactGrade: '', contactRoleMetier: '', lastMessage: mAny?.content || '', lastTime: time, lastIsSent: true, unreadCount: 0, messages: [] as any[] };
+      if (!convMap.has(key)) {
+        convMap.set(key, conv);
+      }
+      conv.messages.push({ id: Number(mAny.id), content: mAny?.content || '', time, isSent: true, rawMsgObj: mAny });
+      if (time > conv.lastTime) { conv.lastMessage = mAny?.content || ''; conv.lastTime = time; conv.lastIsSent = true; }
+    }
+    for (const conv of convMap.values()) conv.messages.sort((a, b) => a.time.getTime() - b.time.getTime());
+    return Array.from(convMap.values()).sort((a, b) => b.lastTime.getTime() - a.lastTime.getTime());
+  }, [inbox, sent, usePhoneMessagingUi]);
+
+  const selectedConversation = useMemo(() => {
+    if (!selectedContactKey) return null;
+    return conversations.find(c => c.contactKey === selectedContactKey) || null;
+  }, [conversations, selectedContactKey]);
+
+  // Scroll to bottom of chat when messages change
+  useEffect(() => {
+    if (phoneView === 'chat') chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [phoneView, selectedConversation?.messages?.length]);
+
+  const handleSendToContact = async (contactIdentifier: string) => {
+    if (!defaultMsg.trim()) return;
+    setDefaultSending(true);
+    try {
+      await sendIndividual({ recipientIdentifier: contactIdentifier, content: defaultMsg.trim(), attachment: defaultAttachment });
+      toast({ title: "Message envoyé" });
+      setDefaultMsg(''); setDefaultAttachment(null);
+      if (defaultFileRef.current) defaultFileRef.current.value = '';
+      refreshSent();
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e?.message || "Impossible d'envoyer.", variant: "destructive" });
+    } finally { setDefaultSending(false); }
+  };
+
+  const formatRelTime = (d: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    if (diff < 86400000 && now.getDate() === d.getDate()) return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    if (diff < 172800000) return 'Hier';
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+  };
+
   // Refresh automatique quand l'onglet "Envoyés" devient actif
   useEffect(() => {
     if (!inboxOnly && activeTab === "envoyés") {
@@ -328,12 +439,375 @@ export default function SimpleSMSPage() {
     }
   };
 
+  const isAlerteUser = isDefaultRole || isSupervisorRole;
+
+  if (isAlerteUser) {
+    return (
+      <div className="flex flex-col bg-slate-50 w-full h-full min-h-0 overflow-hidden">
+        {/* supervisor phone Messaging UI */}
+        {usePhoneMessagingUi && (
+          <div className="bg-white flex-1 flex flex-col min-h-0 w-full h-full relative">
+            {/* ===== VIEW: Conversation List ===== */}
+            {phoneView === 'list' && (
+              <>
+                <div className="bg-[#114b26] text-white px-4 py-3 shrink-0 flex items-center justify-between">
+                  <div className="text-lg font-bold">Messages</div>
+                  {/* Fil d'ariane */}
+                  <div className="flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
+                    <Link
+                      href="/supervisor"
+                      className="flex items-center gap-0.5 hover:text-white transition-colors"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                      <span>Accueil</span>
+                    </Link>
+                    <span className="text-green-500 opacity-60">/</span>
+                    <span className="text-green-50 font-semibold">Messagerie</span>
+                  </div>
+                </div>
+                <div className="px-3 py-2 border-b border-gray-100 shrink-0">
+                  <div className="flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2">
+                    <Search className="h-4 w-4 text-gray-400" />
+                    <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher" className="bg-transparent outline-none text-sm w-full" />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {conversations.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-full gap-2 py-12">
+                      <p className="text-sm text-gray-400">Aucune conversation</p>
+                    </div>
+                  )}
+                  {conversations.filter(c => !normalizedQuery || c.contactName.toLowerCase().includes(normalizedQuery)).map(conv => (
+                    <button key={conv.contactKey} onClick={() => { setSelectedContactKey(conv.contactKey); setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                      <div className={`h-12 w-12 rounded-full ${conv.unreadCount > 0 ? 'bg-green-600' : 'bg-slate-400'} text-white flex items-center justify-center text-lg font-bold shrink-0`}>{conv.contactInitial}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{conv.contactName}</span>
+                          <span className="text-[10px] text-gray-400 shrink-0">{formatRelTime(conv.lastTime)}</span>
+                        </div>
+                        {conv.contactRoleMetier && <p className="text-[10px] text-green-700 font-medium truncate">{conv.contactRoleMetier}</p>}
+                        <p className={`text-xs truncate mt-0.5 ${conv.unreadCount > 0 ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>{conv.lastIsSent ? 'Vous : ' : ''}{conv.lastMessage}</p>
+                      </div>
+                      {conv.unreadCount > 0 && <span className="h-5 min-w-[20px] px-1 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">{conv.unreadCount}</span>}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => { setPhoneView('new'); setNewRecipientSearch(''); setDefaultMsg(''); }} className="absolute bottom-6 right-6 h-14 w-14 rounded-full bg-green-600 hover:bg-green-700 shadow-lg flex items-center justify-center transition-all active:scale-90 z-10">
+                  <Plus className="h-7 w-7 text-white" />
+                </button>
+              </>
+            )}
+
+            {/* ===== VIEW: Chat Conversation ===== */}
+            {phoneView === 'chat' && selectedConversation && (
+              <>
+                <div className="bg-[#114b26] text-white px-3 py-3 shrink-0 flex items-center gap-3 relative justify-between">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <button onClick={() => { setPhoneView('list'); setSelectedContactKey(null); }} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
+                    <div className="h-9 w-9 rounded-full bg-white/25 flex items-center justify-center text-sm font-bold shrink-0">{selectedConversation.contactInitial}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold truncate">{selectedConversation.contactName}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Fil d'ariane */}
+                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
+                      <Link
+                        href="/supervisor"
+                        className="flex items-center gap-0.5 hover:text-white transition-colors"
+                      >
+                        <span>Accueil</span>
+                      </Link>
+                      <span className="text-green-500 opacity-60">/</span>
+                      <span className="text-green-50 font-semibold">Messagerie</span>
+                    </div>
+                    {/* Bouton trois points style smartphone */}
+                    <div className="relative">
+                      <button 
+                        onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+                        className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors shrink-0"
+                      >
+                        <MoreVertical className="h-5 w-5" />
+                      </button>
+                      {showHeaderMenu && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
+                          <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 z-50 text-gray-800 animate-in fade-in slide-in-from-top-2 duration-150">
+                            <button
+                              onClick={() => handleDeleteEntireConversation(selectedConversation.contactKey)}
+                              disabled={deletingConv}
+                              className="w-full text-left px-4 py-2 text-sm text-red-600 font-bold hover:bg-red-50 flex items-center gap-2 transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 className="h-4.5 w-4.5" />
+                              {deletingConv ? "Suppression..." : "Supprimer la discussion"}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-slate-50">
+                  {selectedConversation.messages.length === 0 && (
+                    <div className="flex items-center justify-center h-full"><p className="text-xs text-gray-400">Aucun message</p></div>
+                  )}
+                  {selectedConversation.messages.map((m, i) => (
+                    m.isSent ? (
+                      <div key={i} className="flex flex-col items-end max-w-[80%] ml-auto">
+                        <div 
+                          onClick={() => setActiveActionMessage(m)}
+                          className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-green-700 active:scale-95 transition-all"
+                        >
+                          {m.content}
+                        </div>
+                        <span className="text-[9px] text-gray-400 mt-0.5 mr-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    ) : (
+                      <div key={i} className="flex flex-col items-start max-w-[80%]">
+                        <div 
+                          onClick={() => setActiveActionMessage(m)}
+                          className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all"
+                        >
+                          {m.content}
+                        </div>
+                        <span className="text-[9px] text-gray-400 mt-0.5 ml-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+                {defaultAttachment && (
+                  <div className="px-3 py-1.5 border-t border-gray-100 bg-gray-50 flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-gray-700 truncate flex-1">📎 {defaultAttachment.name}</span>
+                    <button type="button" onClick={() => { setDefaultAttachment(null); if (defaultFileRef.current) defaultFileRef.current.value = ''; }} className="text-xs text-red-500 hover:underline">✕</button>
+                  </div>
+                )}
+                <div className="px-3 py-2 border-t border-gray-200 bg-white shrink-0">
+                  <div className="flex items-end gap-2">
+                    <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
+                    <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
+                    <div className="flex-1 relative">
+                      <textarea value={defaultMsg} onChange={e => setDefaultMsg(e.target.value)} placeholder="Message..." maxLength={160} rows={1} className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
+                      <span className="absolute right-3 bottom-1.5 text-[9px] text-gray-400">{defaultMsg.length}/160</span>
+                    </div>
+                    <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors"><Send className="h-4 w-4 text-white" /></button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ===== VIEW: New Message ===== */}
+            {phoneView === 'new' && (
+              <>
+                <div className="bg-[#114b26] text-white px-3 py-3 shrink-0 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setPhoneView('list')} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
+                    <div className="text-sm font-semibold">Nouveau message</div>
+                  </div>
+                  {/* Fil d'ariane */}
+                  <div className="flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
+                    <Link
+                      href="/supervisor"
+                      className="flex items-center gap-0.5 hover:text-white transition-colors"
+                    >
+                      <span>Accueil</span>
+                    </Link>
+                    <span className="text-green-500 opacity-60">/</span>
+                    <span className="text-green-50 font-semibold">Messagerie</span>
+                  </div>
+                </div>
+                <div className="px-4 py-3 border-b border-gray-200 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">À :</span>
+                    <input value={newRecipientSearch} onChange={e => setNewRecipientSearch(e.target.value)} placeholder="Rechercher un agent..." className="flex-1 bg-transparent outline-none text-sm" />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
+                    <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                      <div className="h-10 w-10 rounded-full bg-green-600 text-white flex items-center justify-center text-base font-bold shrink-0">{r.label.charAt(0).toUpperCase()}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-gray-800 truncate">{r.label}</div>
+                        <div className="text-[10px] text-gray-500">{r.roleTag}</div>
+                      </div>
+                    </button>
+                  ))}
+                  {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).length === 0 && (
+                    <div className="flex items-center justify-center py-12"><p className="text-sm text-gray-400">Aucun agent trouvé</p></div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Form-style composer for default role */}
+        {isDefaultRole && (
+          <div className="bg-white flex-grow flex flex-col min-h-0 w-full h-full overflow-y-auto">
+            <div className="bg-[#114b26] text-white px-4 py-3 shrink-0 flex items-center justify-between">
+              <div className="text-lg font-bold">Messages</div>
+              {/* Fil d'ariane */}
+              <div className="flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
+                <Link
+                  href="/default-home"
+                  className="flex items-center gap-0.5 hover:text-white transition-colors"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>Accueil</span>
+                </Link>
+                <span className="text-green-500 opacity-60">/</span>
+                <span className="text-green-50 font-semibold">Messagerie</span>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              <div className="max-w-xl mx-auto space-y-4">
+                <div className="space-y-2">
+                  <div className="text-xs text-gray-600 font-medium">Destinataire</div>
+                  <input
+                    value={autoRecipients.length > 0 ? autoRecipients.map(r => r.label).join(' ; ') : fallbackRecipientsLabel}
+                    readOnly
+                    className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                    placeholder="Chargement des destinataires..."
+                  />
+                  <div className="text-[11px] text-gray-500 leading-snug">
+                    Destinataires automatiques selon votre région et votre département.
+                  </div>
+                  {autoRecipients.length === 0 && (
+                    <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                      Aucun compte destinataire trouvé/actif pour votre zone. Dès qu'un agent régional et/ou un agent secteur sera enregistré dans votre région/département, il recevra vos messages.
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs text-gray-600 font-medium">Message</div>
+                  <textarea
+                    value={defaultMsg}
+                    onChange={(e) => setDefaultMsg(e.target.value)}
+                    placeholder="Écrivez votre message (160 caractères max)."
+                    maxLength={160}
+                    className="w-full min-h-[120px] resize-none rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <div className="text-[11px] text-gray-400 text-right">{defaultMsg.length} / 160</div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs text-gray-600 font-medium">Pièce jointe (optionnelle)</div>
+                  <input
+                    ref={defaultFileRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setDefaultAttachment(file);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => defaultFileRef.current?.click()}
+                    className="w-full rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-4 text-left hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="text-sm font-semibold text-green-700">Joindre un fichier</div>
+                    <div className="text-xs text-gray-500 mt-1">Glissez-déposez un fichier ici ou cliquez pour sélectionner</div>
+                    {defaultAttachment && (
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <div className="text-xs text-gray-700 truncate flex-1">{defaultAttachment.name}</div>
+                        <span
+                          className="text-xs text-red-600 hover:underline cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDefaultAttachment(null);
+                            if (defaultFileRef.current) defaultFileRef.current.value = "";
+                          }}
+                        >
+                          Retirer
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                  <div className="text-[11px] text-gray-500">
+                    Formats acceptés selon configuration du serveur. Taille maximale 5 Mo.
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={handleDefaultSend}
+                    disabled={defaultSending || !autoRecipients.length || !defaultMsg.trim()}
+                    className="inline-flex items-center justify-center rounded-md bg-green-700 hover:bg-green-800 text-white px-6 py-2.5 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {defaultSending ? "Envoi..." : "Envoyer"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tiroir d'actions tactiles de type smartphone */}
+        {activeActionMessage && (
+          <div 
+            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-end justify-center p-4"
+            onClick={() => setActiveActionMessage(null)}
+          >
+            <div 
+              className="bg-white w-full max-w-sm rounded-2xl p-4 space-y-4 pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 border border-gray-100"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-1" />
+              <div className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Options du message</div>
+              
+              <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 divide-y divide-gray-100">
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(activeActionMessage.content);
+                    toast({ title: "Texte copié !", description: "Le message a été copié dans votre presse-papiers." });
+                    setActiveActionMessage(null);
+                  }}
+                  className="w-full text-left px-5 py-4 text-sm font-semibold text-gray-700 hover:bg-gray-100 active:bg-gray-200 flex items-center gap-3 transition-colors"
+                >
+                  <span className="text-lg">📋</span> Copier le message
+                </button>
+                
+                <button 
+                  onClick={async () => {
+                    const msgObj = activeActionMessage.rawMsgObj;
+                    setActiveActionMessage(null);
+                    if (msgObj) {
+                      await handleDelete(msgObj);
+                    }
+                  }}
+                  className="w-full text-left px-5 py-4 text-sm font-semibold text-red-600 hover:bg-red-50 active:bg-red-100 flex items-center gap-3 transition-colors"
+                >
+                  <span className="text-lg">🗑️</span> Supprimer pour moi
+                </button>
+              </div>
+              
+              <button 
+                onClick={() => setActiveActionMessage(null)}
+                className="w-full text-center py-3.5 text-sm font-bold text-gray-600 bg-gray-100 rounded-2xl hover:bg-gray-200 active:scale-98 transition-all"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col bg-slate-50 min-h-screen">
-      <AgentTopHeader />
       <ResponsivePage className="bg-transparent flex-1 w-full">
         <div className={usePhoneMessagingUi || isDefaultRole ? "w-full" : "mx-auto max-w-6xl"}>
-        <div className={`grid ${(usePhoneMessagingUi || isDefaultRole) ? 'gap-0' : 'gap-4'} ${inboxOnly || usePhoneMessagingUi || isDefaultRole ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} ${(usePhoneMessagingUi || isDefaultRole) ? 'h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)]' : 'lg:h-[78vh]'}`}>
+        <div className={`grid ${(usePhoneMessagingUi || isDefaultRole) ? 'gap-0' : 'gap-4'} ${inboxOnly || usePhoneMessagingUi || isDefaultRole ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} ${usePhoneMessagingUi ? 'h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)]' : isDefaultRole ? 'h-auto pb-8' : 'lg:h-[78vh]'}`}>
           {!usePhoneMessagingUi && !isDefaultRole && (
           <section className="bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden flex flex-col min-h-0 shadow-sm lg:h-[78vh]">
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
@@ -417,7 +891,7 @@ export default function SimpleSMSPage() {
           </section>
           )}
 
-          {!inboxOnly && !isDefaultRole && (
+          {!inboxOnly && !isDefaultRole && !usePhoneMessagingUi && (
             <aside id="composer-panel" className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 shadow-sm lg:h-[78vh] lg:overflow-auto">
               <InternalMessageComposer
                 loading={sending}
@@ -433,8 +907,8 @@ export default function SimpleSMSPage() {
 
           {/* Form-style composer (like screenshot) for default role */}
           {!inboxOnly && isDefaultRole && (
-            <aside id="composer-panel" className="bg-white border-2 border-gray-200 shadow-sm flex flex-col overflow-hidden w-full h-full rounded-none sm:rounded-2xl">
-              <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+            <aside id="composer-panel" className="bg-white border-2 border-gray-200 shadow-sm flex flex-col overflow-hidden w-full h-auto rounded-none sm:rounded-2xl">
+              <div className="p-4 sm:p-6 overflow-y-auto">
                 <div className="max-w-xl mx-auto space-y-4">
                   <div className="space-y-2">
                     <div className="text-xs text-gray-600 font-medium">Destinataire</div>
@@ -521,137 +995,215 @@ export default function SimpleSMSPage() {
             </aside>
           )}
 
-          {/* Phone-like chat UI for supervisor role */}
+          {/* Phone-like messaging UI for supervisor role */}
           {!inboxOnly && usePhoneMessagingUi && (
-            <aside
-              id="composer-panel"
-              className={`bg-white border-2 border-gray-200 shadow-sm flex flex-col overflow-hidden ${usePhoneMessagingUi ? 'w-full h-full rounded-none sm:rounded-2xl' : 'rounded-2xl lg:h-[78vh]'}`}
-            >
-              {/* Header with recipients */}
-              <div className="bg-green-700 text-white px-4 py-3 shrink-0">
-                <div className="text-sm font-semibold">Messagerie</div>
-                <div className="text-[10px] text-green-200 mt-0.5">
-                  {autoRecipients.length > 0
-                    ? `${autoRecipients.length} destinataire(s) dans votre zone`
-                    : "Aucun destinataire trouvé"}
-                </div>
-              </div>
+            <aside id="composer-panel" className="relative bg-white border-2 border-gray-200 shadow-sm flex flex-col overflow-hidden w-full h-full rounded-none sm:rounded-2xl">
 
-              {/* Recipient chips */}
-              <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 shrink-0">
-                <div className="flex flex-wrap gap-1.5">
-                  {autoRecipients.map((r, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-[10px] font-medium">
-                      <span className="h-3.5 w-3.5 rounded-full bg-green-700 text-white flex items-center justify-center text-[7px] font-bold">{r.label.charAt(0)}</span>
-                      {r.label} — {r.roleTag}
-                    </span>
-                  ))}
-                  {autoRecipients.length === 0 && (
-                    <span className="text-[10px] text-amber-600">Aucun agent régional ou secteur dans votre zone</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Chat bubbles area — show sent messages as conversation */}
-              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-white">
-                {filteredSent.length === 0 && filteredInbox.length === 0 && (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-xs text-gray-400">Aucun message pour le moment</p>
+              {/* ===== VIEW: Conversation List ===== */}
+              {phoneView === 'list' && (
+                <>
+                  <div className="bg-[#114b26] text-white px-4 py-3 shrink-0">
+                    <div className="text-lg font-bold">Messages</div>
                   </div>
-                )}
-                {/* Show inbox messages as received bubbles */}
-                {filteredInbox.map((msg: any, i: number) => {
-                  const senderName = [msg?.sender?.firstName, msg?.sender?.lastName].filter(Boolean).join(' ') || 'Expéditeur';
-                  const time = msg?.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-                  return (
-                    <div key={`in-${i}`} className="flex flex-col items-start max-w-[85%]">
-                      <span className="text-[9px] text-gray-400 mb-0.5 ml-1">{senderName}</span>
-                      <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800">
-                        {msg?.content || ''}
-                      </div>
-                      <span className="text-[9px] text-gray-400 mt-0.5 ml-1">{time}</span>
+                  <div className="px-3 py-2 border-b border-gray-100 shrink-0">
+                    <div className="flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2">
+                      <Search className="h-4 w-4 text-gray-400" />
+                      <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher" className="bg-transparent outline-none text-sm w-full" />
                     </div>
-                  );
-                })}
-                {/* Show sent messages as sent bubbles */}
-                {filteredSent.map((msg: any, i: number) => {
-                  const time = msg?.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-                  return (
-                    <div key={`out-${i}`} className="flex flex-col items-end max-w-[85%] ml-auto">
-                      <div className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm">
-                        {msg?.content || ''}
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {conversations.length === 0 && (
+                      <div className="flex flex-col items-center justify-center h-full gap-2 py-12">
+                        <p className="text-sm text-gray-400">Aucune conversation</p>
                       </div>
-                      <span className="text-[9px] text-gray-400 mt-0.5 mr-1">{time}</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Attachment preview */}
-              {defaultAttachment && (
-                <div className="px-3 py-1.5 border-t border-gray-100 bg-gray-50 flex items-center gap-2 shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-green-600 shrink-0"><path fillRule="evenodd" d="M15.621 4.379a3 3 0 0 0-4.242 0l-7 7a3 3 0 0 0 4.241 4.24l7-7a3 3 0 0 0 0-4.24Z" clipRule="evenodd" /></svg>
-                  <span className="text-xs text-gray-700 truncate flex-1">{defaultAttachment.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => { setDefaultAttachment(null); if (defaultFileRef.current) defaultFileRef.current.value = ""; }}
-                    className="text-xs text-red-500 hover:underline"
-                  >✕</button>
-                </div>
+                    )}
+                    {conversations.filter(c => !normalizedQuery || c.contactName.toLowerCase().includes(normalizedQuery)).map(conv => (
+                      <button key={conv.contactKey} onClick={() => { setSelectedContactKey(conv.contactKey); setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                        <div className={`h-12 w-12 rounded-full ${conv.unreadCount > 0 ? 'bg-green-600' : 'bg-slate-400'} text-white flex items-center justify-center text-lg font-bold shrink-0`}>{conv.contactInitial}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{conv.contactName}</span>
+                            <span className="text-[10px] text-gray-400 shrink-0">{formatRelTime(conv.lastTime)}</span>
+                          </div>
+                          {conv.contactRoleMetier && <p className="text-[10px] text-green-700 font-medium truncate">{conv.contactRoleMetier}</p>}
+                          <p className={`text-xs truncate mt-0.5 ${conv.unreadCount > 0 ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>{conv.lastIsSent ? 'Vous : ' : ''}{conv.lastMessage}</p>
+                        </div>
+                        {conv.unreadCount > 0 && <span className="h-5 min-w-[20px] px-1 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">{conv.unreadCount}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => { setPhoneView('new'); setNewRecipientSearch(''); setDefaultMsg(''); }} className="absolute bottom-6 right-6 h-14 w-14 rounded-full bg-green-600 hover:bg-green-700 shadow-lg flex items-center justify-center transition-all active:scale-90 z-10">
+                    <Plus className="h-7 w-7 text-white" />
+                  </button>
+                </>
               )}
 
-              {/* Input bar — like phone SMS */}
-              <div className="px-3 py-2 border-t border-gray-200 bg-white shrink-0">
-                <div className="flex items-end gap-2">
-                  <input
-                    ref={defaultFileRef}
-                    type="file"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) setDefaultAttachment(file);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => defaultFileRef.current?.click()}
-                    className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-                    title="Joindre un fichier"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-gray-500"><path fillRule="evenodd" d="M15.621 4.379a3 3 0 0 0-4.242 0l-7 7a3 3 0 0 0 4.241 4.24l7-7a3 3 0 0 0 0-4.24Z" clipRule="evenodd" /></svg>
-                  </button>
-                  <div className="flex-1 relative">
-                    <textarea
-                      value={defaultMsg}
-                      onChange={(e) => setDefaultMsg(e.target.value)}
-                      placeholder="Message..."
-                      maxLength={160}
-                      rows={1}
-                      className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleDefaultSend();
-                        }
-                      }}
-                    />
-                    <span className="absolute right-3 bottom-1.5 text-[9px] text-gray-400">{defaultMsg.length}/160</span>
+              {/* ===== VIEW: Chat Conversation ===== */}
+              {phoneView === 'chat' && selectedConversation && (
+                <>
+                  <div className="bg-[#114b26] text-white px-3 py-3 shrink-0 flex items-center gap-3 relative">
+                    <button onClick={() => { setPhoneView('list'); setSelectedContactKey(null); }} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
+                    <div className="h-9 w-9 rounded-full bg-white/25 flex items-center justify-center text-sm font-bold shrink-0">{selectedConversation.contactInitial}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold truncate">{selectedConversation.contactName}</div>
+                    </div>
+                    {/* Bouton trois points style smartphone */}
+                    <div className="relative">
+                      <button 
+                        onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+                        className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors shrink-0"
+                      >
+                        <MoreVertical className="h-5 w-5" />
+                      </button>
+                      {showHeaderMenu && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
+                          <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 z-50 text-gray-800 animate-in fade-in slide-in-from-top-2 duration-150">
+                            <button
+                              onClick={() => handleDeleteEntireConversation(selectedConversation.contactKey)}
+                              disabled={deletingConv}
+                              className="w-full text-left px-4 py-2 text-sm text-red-600 font-bold hover:bg-red-50 flex items-center gap-2 transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 className="h-4.5 w-4.5" />
+                              {deletingConv ? "Suppression..." : "Supprimer la discussion"}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleDefaultSend}
-                    disabled={defaultSending || !autoRecipients.length || !defaultMsg.trim()}
-                    className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Send className="h-4 w-4 text-white" />
-                  </button>
-                </div>
-              </div>
+                  <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-slate-50">
+                    {selectedConversation.messages.length === 0 && (
+                      <div className="flex items-center justify-center h-full"><p className="text-xs text-gray-400">Aucun message</p></div>
+                    )}
+                    {selectedConversation.messages.map((m, i) => (
+                      m.isSent ? (
+                        <div key={i} className="flex flex-col items-end max-w-[80%] ml-auto">
+                          <div 
+                            onClick={() => setActiveActionMessage(m)}
+                            className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-green-700 active:scale-95 transition-all"
+                          >
+                            {m.content}
+                          </div>
+                          <span className="text-[9px] text-gray-400 mt-0.5 mr-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      ) : (
+                        <div key={i} className="flex flex-col items-start max-w-[80%]">
+                          <div 
+                            onClick={() => setActiveActionMessage(m)}
+                            className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all"
+                          >
+                            {m.content}
+                          </div>
+                          <span className="text-[9px] text-gray-400 mt-0.5 ml-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      )
+                    ))}
+                    <div ref={chatEndRef} />
+                  </div>
+                  {defaultAttachment && (
+                    <div className="px-3 py-1.5 border-t border-gray-100 bg-gray-50 flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-gray-700 truncate flex-1">📎 {defaultAttachment.name}</span>
+                      <button type="button" onClick={() => { setDefaultAttachment(null); if (defaultFileRef.current) defaultFileRef.current.value = ''; }} className="text-xs text-red-500 hover:underline">✕</button>
+                    </div>
+                  )}
+                  <div className="px-3 py-2 border-t border-gray-200 bg-white shrink-0">
+                    <div className="flex items-end gap-2">
+                      <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
+                      <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
+                      <div className="flex-1 relative">
+                        <textarea value={defaultMsg} onChange={e => setDefaultMsg(e.target.value)} placeholder="Message..." maxLength={160} rows={1} className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
+                        <span className="absolute right-3 bottom-1.5 text-[9px] text-gray-400">{defaultMsg.length}/160</span>
+                      </div>
+                      <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors"><Send className="h-4 w-4 text-white" /></button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ===== VIEW: New Message ===== */}
+              {phoneView === 'new' && (
+                <>
+                  <div className="bg-[#114b26] text-white px-3 py-3 shrink-0 flex items-center gap-3">
+                    <button onClick={() => setPhoneView('list')} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
+                    <div className="text-sm font-semibold">Nouveau message</div>
+                  </div>
+                  <div className="px-4 py-3 border-b border-gray-200 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">À :</span>
+                      <input value={newRecipientSearch} onChange={e => setNewRecipientSearch(e.target.value)} placeholder="Rechercher un agent..." className="flex-1 bg-transparent outline-none text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
+                      <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                        <div className="h-10 w-10 rounded-full bg-green-600 text-white flex items-center justify-center text-base font-bold shrink-0">{r.label.charAt(0).toUpperCase()}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-gray-800 truncate">{r.label}</div>
+                          <div className="text-[10px] text-gray-500">{r.roleTag}</div>
+                        </div>
+                      </button>
+                    ))}
+                    {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).length === 0 && (
+                      <div className="flex items-center justify-center py-12"><p className="text-sm text-gray-400">Aucun agent trouvé</p></div>
+                    )}
+                  </div>
+                </>
+              )}
             </aside>
           )}
         </div>
       </div>
     </ResponsivePage>
+
+    {/* Tiroir d'actions tactiles de type smartphone */}
+    {activeActionMessage && (
+      <div 
+        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-end justify-center p-4"
+        onClick={() => setActiveActionMessage(null)}
+      >
+        <div 
+          className="bg-white w-full max-w-sm rounded-2xl p-4 space-y-4 pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 border border-gray-100"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-1" />
+          <div className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Options du message</div>
+          
+          <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 divide-y divide-gray-100">
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(activeActionMessage.content);
+                toast({ title: "Texte copié !", description: "Le message a été copié dans votre presse-papiers." });
+                setActiveActionMessage(null);
+              }}
+              className="w-full text-left px-5 py-4 text-sm font-semibold text-gray-700 hover:bg-gray-100 active:bg-gray-200 flex items-center gap-3 transition-colors"
+            >
+              <span className="text-lg">📋</span> Copier le message
+            </button>
+            
+            <button 
+              onClick={async () => {
+                const msgObj = activeActionMessage.rawMsgObj;
+                setActiveActionMessage(null);
+                if (msgObj) {
+                  await handleDelete(msgObj);
+                }
+              }}
+              className="w-full text-left px-5 py-4 text-sm font-semibold text-red-600 hover:bg-red-50 active:bg-red-100 flex items-center gap-3 transition-colors"
+            >
+              <span className="text-lg">🗑️</span> Supprimer pour moi
+            </button>
+          </div>
+          
+          <button 
+            onClick={() => setActiveActionMessage(null)}
+            className="w-full text-center py-3.5 text-sm font-bold text-gray-600 bg-gray-100 rounded-2xl hover:bg-gray-200 active:scale-98 transition-all"
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

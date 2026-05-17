@@ -1,5 +1,4 @@
 import { NatureIcon } from "@/components/icons/AlertNatureIcons";
-import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1336,20 +1335,21 @@ function AlertsPage() {
 
   return (
     <div className="flex flex-col bg-slate-50 min-h-screen">
-      <AgentTopHeader />
       <div className="w-full flex-1 flex items-start justify-center py-2 sm:py-3 lg:py-4 px-2 sm:px-4">
         <div className="w-full max-w-7xl flex flex-col">
           {/* Bouton Retour + Actions - Barre supérieure */}
-          <div className="bg-white rounded-t-lg shadow-sm border border-b-0 border-gray-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-600 hover:text-gray-900 flex items-center gap-2 transition-all hover:bg-gray-100"
-              onClick={() => window.history.back()}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="font-medium">Retour</span>
-            </Button>
+          <div className={`bg-white rounded-t-lg shadow-sm border border-b-0 border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 ${!((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole) ? 'justify-between' : 'justify-end'}`}>
+            {!((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-gray-900 flex items-center gap-2 transition-all hover:bg-gray-100"
+                onClick={() => window.history.back()}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="font-medium">Retour</span>
+              </Button>
+            )}
             <div className="flex flex-wrap gap-2">
               {unreadCount > 0 && activeTab === "inbox" && (
                 <Button
