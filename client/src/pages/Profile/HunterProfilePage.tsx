@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  UserRound, Calendar, MapPin, Phone, Mail, BadgeCheck, Clock,
-  Save, Edit, Check, X, Briefcase, Target
+  Save, Edit, Check, X, Briefcase, Target, LogOut,
+  UserRound, Calendar, BadgeCheck, Mail, Phone, MapPin, Clock
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -42,7 +42,7 @@ interface HunterProfileData {
 }
 
 export default function HunterProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editMode, setEditMode] = useState(false); // Mode d'édition désactivé pour les chasseurs
@@ -598,6 +598,17 @@ export default function HunterProfilePage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+      <div className="mt-8 pt-6 border-t border-gray-100 pb-10 flex flex-col items-center">
+        <Button
+          variant="destructive"
+          className="w-full max-w-xs gap-2 shadow-lg"
+          onClick={logout}
+        >
+          <LogOut className="h-4 w-4" />
+          Déconnexion
+        </Button>
+        <p className="mt-4 text-[10px] text-gray-400">Version 1.0.0</p>
       </div>
     </div>
   );

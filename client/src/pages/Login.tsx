@@ -34,7 +34,7 @@ export default function Login() {
   const { icon: DomainIcon, logoUrl } = useDomainVisual('CHASSE');
 
   useEffect(() => {
-    document.title = "Connexion | SCoDiPP - Systeme de Control";
+    document.title = "Connexion | Système de Contrôle et de Digitalisation";
     try { localStorage.setItem('domain', 'CHASSE'); } catch {}
   }, []);
 

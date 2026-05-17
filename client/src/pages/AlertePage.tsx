@@ -17,13 +17,11 @@ export default function AlertePage() {
             <ArrowLeft className="w-5 h-5" />
             <span>Retour à l'accueil</span>
           </button>
-          <div className="flex items-center gap-4">
-            <AlertTriangle className="w-12 h-12" />
+            <img src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png" alt="ScoDi" className="w-16 h-16 object-contain" />
             <div>
-              <h1 className="text-3xl font-bold">Système d'Alerte</h1>
-              <p className="text-amber-100">Signalement en temps réel des infractions et incidents</p>
+              <h1 className="text-2xl sm:text-3xl font-bold">Système de Contrôle et de Digitalisation</h1>
+              <p className="text-amber-100 opacity-90">Module de gestion et de surveillance en temps réel</p>
             </div>
-          </div>
         </div>
       </div>
 

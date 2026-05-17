@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { createAgent, deleteAgent, listAgents, updateAgent, upsertAgentByUser } from '../controllers/agents.controller.js';
-import { isAuthenticated, isSuperAdmin } from './middlewares/auth.middleware.js';
+import { isAuthenticated, isAdminAgentOrSubAgent } from './middlewares/auth.middleware.js';
 
 const router = Router();
 
 router.use(isAuthenticated);
-router.use(isSuperAdmin);
+router.use(isAdminAgentOrSubAgent);
 
 router.post('/', createAgent);
 router.get('/', listAgents);

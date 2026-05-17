@@ -160,7 +160,7 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    document.title = "Accueil | SCoDiPP - Systeme de Control";
+    document.title = "Accueil | Système de Contrôle et de Digitalisation";
     // Pendant l'étape de choix (showModules=true), on désactive l'auto-défilement
     if (showModules) return;
     const interval = setInterval(() => {
@@ -276,7 +276,7 @@ export default function HomePage() {
 
       <footer className="bg-gray-100 border-t border-gray-200/80 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center text-gray-500 text-sm">
-          <p>© {new Date().getFullYear()} SCoDiPP - République du Sénégal</p>
+          <p>© {new Date().getFullYear()} Système de Contrôle et de Digitalisation - République du Sénégal</p>
           <p className="mt-2 opacity-80">
             Ministère de l'Environnement et de la Transition Écologique
           </p>

@@ -67,17 +67,14 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onLoadingComplete }) => {
       <div className="splash-container">
         <div className="splash-logo-container">
           <div className="splash-logo">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-              <circle cx="32" cy="32" r="30" stroke="white" strokeWidth="4" fill="none"/>
-              <path d="M20 34c0-8 8-14 12-14s12 6 12 14-8 14-12 14-12-6-12-14z" fill="white"/>
-            </svg>
+            <img src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png" alt="Logo" className="w-full h-full object-contain p-4" />
           </div>
           <div className="splash-logo-ring"></div>
         </div>
 
-        <h1 className="splash-title">SCoDiPP</h1>
+        <h1 className="splash-title">ScoDi</h1>
         <p className="splash-subtitle">
-          Système de Contrôle et de Digitalisation des Permis et des Prélèvements
+          Système de Contrôle et de Digitalisation
         </p>
 
         <div className="splash-loading-container">

@@ -7,8 +7,10 @@ import '@/styles/pageFrame.css';
 import '@/styles/superAdminTheme.css';
 import { getHomePage, isSectorSubRole } from "@/utils/navigation";
 import { useEffect, useState } from "react";
-import { MdDescription, MdGroup, MdNotificationImportant, MdReceipt } from 'react-icons/md';
+import { MdDescription, MdGroup, MdNotificationImportant, MdReceipt, MdMessage } from 'react-icons/md';
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
+import { Bell, MessageSquare, Map, User } from "lucide-react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 
@@ -23,6 +25,20 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   const { user, isAuthenticated } = useAuth();
   const { data: unreadData } = useUnreadNotificationsCount();
   const unread = unreadData?.count ?? 0;
+
+  const { data: unreadMsgCount } = useQuery({
+    queryKey: ["messages-unread-count-main"],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/messages/unread-count`, { credentials: "include" });
+        if (!res.ok) return { total: 0 };
+        return await res.json();
+      } catch { return { total: 0 }; }
+    },
+    enabled: !!user,
+    refetchInterval: 15_000,
+  });
+  const unreadMsg = unreadMsgCount?.total ?? 0;
 
   const isSuperAdmin = (user as any)?.isSuperAdmin === true;
   const isAlerteAgent = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole;
@@ -296,6 +312,47 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         </div>
       )}
 
+      {/* Barre de navigation secondaire (Alertes & Messages) - Encadré Rose */}
+      {!hideMinistryHeader && !chromeless && !isSuperAdmin && (
+        <div 
+          className="bg-white border-b-2 border-rose-500 shadow-sm sticky z-30 py-2 flex items-center justify-center transition-all duration-300"
+          style={{ 
+            top: 'var(--fixed-top)',
+            marginLeft: isSidebarCollapsed ? '4rem' : '16rem'
+          }}
+        >
+          <div className="flex gap-4 px-4 overflow-x-auto no-scrollbar">
+            {(normalizedRole === "admin" || normalizedRole === "agent" || isSectorSubRole(normalizedRole)) && (
+              <Link href="/alerts" className={`flex items-center gap-2 px-4 py-1.5 rounded-lg border-2 transition-all duration-200 ${location === "/alerts" ? "bg-rose-50 border-rose-500 text-rose-600 shadow-sm" : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-rose-500"}`}>
+                <div className="relative">
+                  <MdNotificationImportant className="text-xl" />
+                  {unread > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-white">
+                      {unread}
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm font-bold uppercase tracking-tight">Alertes</span>
+              </Link>
+            )}
+
+            {(normalizedRole === "admin" || normalizedRole === "agent" || isSectorSubRole(normalizedRole)) && (
+              <Link href="/sms" className={`flex items-center gap-2 px-4 py-1.5 rounded-lg border-2 transition-all duration-200 ${location === "/sms" ? "bg-rose-50 border-rose-500 text-rose-600 shadow-sm" : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-rose-500"}`}>
+                <div className="relative">
+                  <MdMessage className="text-xl" />
+                  {unreadMsg > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white ring-2 ring-white">
+                      {unreadMsg}
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm font-bold uppercase tracking-tight">Messages</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Navigation mobile supprimée conformément à la demande */}
 
 
@@ -405,62 +462,8 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         )}
 
         {/* Colonne droite (desktop): sticky nav + main */}
-        <div className="min-w-0 flex flex-col overflow-hidden">
-          {/* Desktop Navigation Bar - sticky inside right column */}
-          {!chromeless && (
-          <nav
-            className={`hidden md:flex px-2 sm:px-4 py-2 shadow sticky top-0 z-20 items-center justify-between border-2 ${isSuperAdmin ? 'bg-[#171f33] border-[#29a195]' : 'bg-white border-blue-500'}`}
-            style={{ top: 0 }}
-          >
-            {/* Bouton collapse/expand supprimé du header pour ne pas apparaître dans le cadre bleu */}
-
-            {/* Liens (même contenu que la nav existante, adaptés au desktop) */}
-            <div className="flex items-center gap-3 flex-wrap ml-auto">
-              {/* Home/Espace link removed for all roles */}
-
-              {normalizedRole === 'hunting-guide' || normalizedRole === 'guide' || normalizedRole === 'hunter' ? (
-                <Link href="/alerts" className={`flex items-center text-sm ${location === "/alerts" ? "text-blue-500" : "text-gray-700 hover:text-blue-500"}`}>
-                  <MdNotificationImportant className="text-sm mr-1" />
-                  <span className="hidden lg:inline">Alertes signalement</span>
-                </Link>
-              ) : (
-                <>
-                  {(normalizedRole === "admin" || normalizedRole === "agent" || isSectorSubRole(normalizedRole)) && !isSuperAdmin && (
-                    <Link href="/alerts" className={`flex items-center text-sm ${location === "/alerts" ? "text-blue-500 border-b-2 border-blue-500" : "text-gray-700 hover:text-blue-500"}`}>
-                      <MdNotificationImportant className="text-sm mr-1" />
-                      <span className="hidden lg:inline">Alertes</span>
-                      {unread > 0 && (
-                        <span className="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[10px]">{unread}</span>
-                      )}
-                    </Link>
-                  )}
-                  {!isSuperAdmin && (
-                    <Link href="/hunters" className={`flex items-center text-sm ${location === "/hunters" ? "text-blue-500" : "text-gray-700 hover:text-blue-500"}`}>
-                      <MdGroup className="text-sm mr-1" />
-                      <span className="hidden lg:inline">Chasseurs</span>
-                    </Link>
-                  )}
-                  {!isSectorSubRole(normalizedRole) && !isSuperAdmin && (
-                    <Link href="/permits" className={`flex items-center text-sm ${location === "/permits" ? "text-blue-500 border-b-2 border-blue-500" : "text-gray-700 hover:text-blue-500"}`}>
-                      <MdDescription className="text-sm mr-1" />
-                      <span className="hidden lg:inline">Permis</span>
-                    </Link>
-                  )}
-                </>
-              )}
-
-              {(normalizedRole === "admin" || normalizedRole === "agent" || isSectorSubRole(normalizedRole)) && !isSuperAdmin && (
-                <Link href="/taxes" className={`flex items-center text-sm ${location === "/taxes" ? "text-blue-500 border-b-2 border-blue-500" : "text-gray-700 hover:text-blue-500"}`}>
-                  <MdReceipt className="text-sm mr-1" />
-                  <span className="hidden lg:inline">Taxe d'Abattage</span>
-                </Link>
-              )}
-
-              {/* SMS link removed from header for admin */}
-            </div>
-            {/* User info badge removed from header */}
-          </nav>
-          )}
+        <div className="min-w-0 w-full flex-1 flex flex-col overflow-hidden">
+          {/* Desktop Navigation Bar supprimée car déplacée sous le header */}
 
           {/* Main Section - responsive */}
           <main
@@ -495,6 +498,45 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
           </main>
         </div>
       </div>
+
+      {/* Navigation mobile unifiée pour agents (chromeless) */}
+      {chromeless && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around py-2 z-[250] md:hidden">
+          <button onClick={() => setLocation("/alerts")} className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
+            <div className="relative">
+              <Bell className={`h-5 w-5 ${location === '/alerts' ? 'text-green-700' : 'text-gray-500'}`} />
+              {unread > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unread}</span>
+              )}
+            </div>
+            <span className={`text-[9px] font-medium ${location === '/alerts' ? 'text-green-700' : 'text-gray-500'}`}>Alertes</span>
+          </button>
+          
+          {!(user as any)?.isSupervisorRole && (
+            <button onClick={() => setLocation("/sms")} className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
+              <div className="relative">
+                <MessageSquare className={`h-5 w-5 ${location === '/sms' ? 'text-green-700' : 'text-gray-500'}`} />
+                {unreadMsg > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
+                )}
+              </div>
+              <span className={`text-[9px] font-medium ${location === '/sms' ? 'text-green-700' : 'text-gray-500'}`}>Messages</span>
+            </button>
+          )}
+
+          {(user as any)?.isSupervisorRole && (
+            <button onClick={() => setLocation("/map")} className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
+              <Map className={`h-5 w-5 ${location === '/map' ? 'text-green-700' : 'text-gray-500'}`} />
+              <span className={`text-[9px] font-medium ${location === '/map' ? 'text-green-700' : 'text-gray-500'}`}>Carte</span>
+            </button>
+          )}
+
+          <button onClick={() => setLocation("/profile")} className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
+            <User className={`h-5 w-5 ${location === '/profile' ? 'text-green-700' : 'text-gray-500'}`} />
+            <span className={`text-[9px] font-medium ${location === '/profile' ? 'text-green-700' : 'text-gray-500'}`}>Profil</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

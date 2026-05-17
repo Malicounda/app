@@ -13,12 +13,13 @@ import {
     Check,
     Edit,
     Loader2,
+    LogOut,
     X
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function GuideProfilePage() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const queryClient = useQueryClient();
     const { toast } = useToast();
     const [editMode, setEditMode] = useState(false);
@@ -559,6 +560,17 @@ export default function GuideProfilePage() {
                             </div>
                         </CardContent>
                     </Card>
+                    <div className="mt-8 pt-6 border-t border-gray-100 pb-10 flex flex-col items-center">
+                <Button
+                    variant="destructive"
+                    className="w-full max-w-xs gap-2 shadow-lg"
+                    onClick={logout}
+                >
+                    <LogOut className="h-4 w-4" />
+                    Déconnexion
+                </Button>
+                <p className="mt-4 text-[10px] text-gray-400">Version 1.0.0</p>
+            </div>
         </div>
     );
 }

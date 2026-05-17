@@ -130,7 +130,7 @@ export default function Header() {
             {isSuperAdmin ? (
               <Settings className="w-4 h-4 text-white" />
             ) : (
-              <PawPrint className="w-4 h-4 text-white" />
+                <img src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png" alt="Logo Scodi" className="h-6 w-6 object-contain" />
             )}
           </div>
           <div className="leading-tight">
@@ -138,7 +138,7 @@ export default function Header() {
               {isSuperAdmin ? "Super-Administrateur Central" : "Gestion de la Faune"}
             </div>
             <div className={`text-[8px] sm:text-[9px] ${isSuperAdmin ? 'text-teal-200' : 'text-green-100'} opacity-90 font-medium`}>
-              {isSuperAdmin ? "SCoDiPP - Accès élargi" : "Division FAUNE"}
+                  {isSuperAdmin ? "Système de Contrôle et de Digitalisation" : "Division FAUNE"}
             </div>
           </div>
         </div>

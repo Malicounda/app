@@ -277,7 +277,7 @@ self.addEventListener('push', (event) => {
       const options = {
         body: data.body,
         icon: '/logo_forets.png',
-        badge: '/scodio.png',
+        badge: '/scodi-icon-192.png',
         vibrate: [100, 50, 100],
         data: {
           url: data.data?.url || '/alerts',

@@ -29,7 +29,7 @@ export default function AlerteLogin() {
   const { icon: DomainIcon, logoUrl } = useDomainVisual('ALERTE');
 
   useEffect(() => {
-    document.title = "Connexion Alerte | SCoDiPP";
+    document.title = "Connexion Alerte | Système de Contrôle et de Digitalisation";
     try {
       localStorage.setItem("domain", "ALERTE");
     } catch {}

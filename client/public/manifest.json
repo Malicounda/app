@@ -1,21 +1,27 @@
 {
-  "name": "Gestion des Permis de Chasse Sénégal",
-  "short_name": "Permis Chasse",
-  "description": "Application de gestion numérique des permis de chasse au Sénégal",
+  "name": "Système de Contrôle et de Digitalisation",
+  "short_name": "SCoDi",
+  "description": "Système de Contrôle et de Digitalisation - Ministère de l'Environnement",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4CAF50",
   "icons": [
     {
-      "src": "/scodio.png",
-      "sizes": "any",
+      "src": "/scodi-icon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/scodio.png",
-      "sizes": "any",
+      "src": "/scodi-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/scodi-icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }

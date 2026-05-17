@@ -1,3 +1,4 @@
+import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import ResponsivePage from "@/components/layout/ResponsivePage";
 import InternalMessageComposer from "@/components/messaging/InternalMessageComposer";
 import InternalMessageList from "@/components/messaging/InternalMessageList";
@@ -328,8 +329,10 @@ export default function SimpleSMSPage() {
   };
 
   return (
-    <ResponsivePage className="bg-transparent">
-      <div className={usePhoneMessagingUi || isDefaultRole ? "w-full" : "mx-auto max-w-6xl"}>
+    <div className="flex flex-col bg-slate-50 min-h-screen">
+      <AgentTopHeader />
+      <ResponsivePage className="bg-transparent flex-1 w-full">
+        <div className={usePhoneMessagingUi || isDefaultRole ? "w-full" : "mx-auto max-w-6xl"}>
         <div className={`grid ${(usePhoneMessagingUi || isDefaultRole) ? 'gap-0' : 'gap-4'} ${inboxOnly || usePhoneMessagingUi || isDefaultRole ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} ${(usePhoneMessagingUi || isDefaultRole) ? 'h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)]' : 'lg:h-[78vh]'}`}>
           {!usePhoneMessagingUi && !isDefaultRole && (
           <section className="bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden flex flex-col min-h-0 shadow-sm lg:h-[78vh]">
@@ -649,5 +652,6 @@ export default function SimpleSMSPage() {
         </div>
       </div>
     </ResponsivePage>
+    </div>
   );
 }
