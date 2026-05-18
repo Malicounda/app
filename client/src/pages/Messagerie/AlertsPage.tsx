@@ -14,6 +14,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Filter, Info, MapPin, MessageSquare, Search, Trash2, User } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation as useWouterLocation } from "wouter";
 
 import { useNotifications } from "@/hooks/use-notifications";
 
@@ -330,6 +331,7 @@ function getSenderRoleStyle(sender: any) {
 function AlertsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [, navigate] = useWouterLocation();
 
   const { isPushSupported, isPushSubscribed, subscribeToPush } = useNotifications();
 
@@ -1338,18 +1340,24 @@ function AlertsPage() {
       <div className="w-full flex-1 flex items-start justify-center py-2 sm:py-3 lg:py-4 px-2 sm:px-4">
         <div className="w-full max-w-7xl flex flex-col">
           {/* Bouton Retour + Actions - Barre supérieure */}
-          <div className={`bg-white rounded-t-lg shadow-sm border border-b-0 border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 ${!((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole) ? 'justify-between' : 'justify-end'}`}>
-            {!((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-600 hover:text-gray-900 flex items-center gap-2 transition-all hover:bg-gray-100"
-                onClick={() => window.history.back()}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="font-medium">Retour</span>
-              </Button>
-            )}
+          <div className={`bg-white rounded-t-lg shadow-sm border border-b-0 border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 justify-between`}>
+            {/* Bouton Retour — visible pour tous, redirige vers l'accueil du domaine */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-gray-900 flex items-center gap-2 transition-all hover:bg-gray-100"
+              onClick={() => {
+                const isAlerte = (user as any)?.isSupervisorRole || (user as any)?.isDefaultRole;
+                if (isAlerte) {
+                  navigate((user as any)?.isSupervisorRole ? '/supervisor' : '/default-home');
+                } else {
+                  window.history.back();
+                }
+              }}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="font-medium">Retour</span>
+            </Button>
             <div className="flex flex-wrap gap-2">
               {unreadCount > 0 && activeTab === "inbox" && (
                 <Button
