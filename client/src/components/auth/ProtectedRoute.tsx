@@ -116,7 +116,13 @@ export function ProtectedRoute({
       if (!hasPermission) {
         console.log('[ProtectedRoute] Redirection car pas de permission');
         // Rediriger vers la page d'accueil appropriée pour le rôle de l'utilisateur
-        setLocation(getHomePage(user.role, user.type, isUserSuperAdmin(user)));
+        const isSA = isUserSuperAdmin(user);
+        let homePath = getHomePage(user.role, user.type, isSA);
+        // Préfixer avec public_id si disponible
+        if ((user as any).publicId) {
+          homePath = `/${(user as any).publicId}${homePath}`;
+        }
+        setLocation(homePath);
       }
     }
   }, [isLoading, isAuthenticated, user, adminOnly, agentOnly, subAgentOnly, adminOrAgentOnly, adminOrAgentOrSubAgentOnly, hunterOnly, huntingGuideOnly, setLocation]);
@@ -137,6 +143,12 @@ export function ProtectedRoute({
 
   // Si adminOnly est défini et que l'utilisateur n'est pas admin, ne pas afficher le contenu
   if (adminOnly && user && user.role !== "admin") {
+    return null;
+  }
+
+  // Si adminOnly sans superAdminOnly : le Super Admin NE doit PAS voir les pages admin standard
+  // (ex: /admin → AdminDashboard). Il a son propre espace /superadmin/*
+  if (adminOnly && !superAdminOnly && user && isUserSuperAdmin(user)) {
     return null;
   }
 
