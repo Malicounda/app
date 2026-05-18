@@ -24,9 +24,17 @@ const schema = z.object({
 });
 
 export default function AlerteLogin() {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, isAuthenticated, user } = useAuth();
   const [, setLocation] = useLocation();
   const { icon: DomainIcon, logoUrl } = useDomainVisual('ALERTE');
+
+  // Si déjà authentifié (rechargement de page), rediriger vers le bon dashboard
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const isSupervisor = (user as any)?.isSupervisorRole;
+      setLocation(isSupervisor ? '/supervisor' : '/default-home');
+    }
+  }, [isAuthenticated, user, setLocation]);
 
   useEffect(() => {
     document.title = "Connexion Alerte | Système de Contrôle et de Digitalisation";
@@ -59,12 +67,19 @@ export default function AlerteLogin() {
     }
   };
 
+  // Pendant le chargement ou si déjà authentifié, ne pas afficher le formulaire
+  if (isAuthenticated) return null;
+
   return (
     <div className="fixed inset-0 z-[100] bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 flex items-center justify-center overflow-auto p-4">
       <div className="w-full max-w-md bg-white/70 backdrop-blur rounded-2xl shadow-xl p-6">
         <button
           type="button"
-          onClick={() => setLocation("/?showModules=1")}
+          onClick={() => {
+            // Effacer le domaine pour revenir proprement à la page d'accueil
+            try { localStorage.removeItem("domain"); } catch {}
+            setLocation("/");
+          }}
           className="mb-3 inline-flex items-center gap-2 text-amber-700 hover:text-amber-800"
         >
           <ArrowLeft className="w-4 h-4" />

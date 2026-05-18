@@ -76,9 +76,25 @@ export function useAuth() {
   return context;
 }
 
+// Clé localStorage pour persister la session minimale
+const SESSION_KEY = 'scodi_session';
+
+function saveSession(u: User) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ id: u.id, role: u.role, type: u.type, isDefaultRole: (u as any).isDefaultRole, isSupervisorRole: (u as any).isSupervisorRole, firstName: u.firstName, lastName: u.lastName })); } catch {}
+}
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch {}
+}
+function loadSession(): Partial<User> | null {
+  try { const s = localStorage.getItem(SESSION_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  // Initialiser depuis la session persistée: si token + session existent, on est a priori authentifié
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('token');
+  const cachedSession = typeof window !== 'undefined' ? loadSession() : null;
+  const [user, setUser] = React.useState<User | null>(cachedSession && hasToken ? cachedSession as User : null);
+  const [isAuthenticated, setIsAuthenticated] = React.useState(hasToken && !!cachedSession);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [, setLocation] = useLocation();
@@ -147,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setUser(response.user);
         setIsAuthenticated(true);
+        saveSession(response.user); // Persister la session pour éviter le flash login
         console.log("User set in auth context:", response.user);
         localStorage.setItem("userRole", response.user.role);
         localStorage.setItem("userRegion", response.user.region || "");
@@ -205,6 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       setUser(null);
       setIsAuthenticated(false);
+      clearSession(); // Effacer la session persistée
       localStorage.removeItem("token");
       localStorage.removeItem("userRole");
       localStorage.removeItem("userRegion");
@@ -254,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setUser(response);
           setIsAuthenticated(true);
+          saveSession(response); // Mettre à jour la session persistée
 
           // Super Admin : effacer le domaine résiduel (la redirection est gérée par DashboardRedirector)
           if (isUserSuperAdmin(response)) {
@@ -272,6 +291,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const offline = typeof navigator !== "undefined" && navigator && navigator.onLine === false;
       const serverDown = typeof err?.message === "string" && err.message.includes("Impossible de se connecter au serveur");
       if (!offline && !serverDown) {
+        // Session invalide côté serveur: nettoyer tout
+        clearSession();
         setUser(null);
         setIsAuthenticated(false);
       }
