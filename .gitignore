@@ -49,6 +49,10 @@ yarn-error.log*
 db_export/
 uploads/
 ssl/
+scratch/
+
+# SQL dumps (trop lourds pour Git)
+*.sql
 
 # Tauri large binaries
 client/src-tauri/node-minimal/node.exe
