@@ -483,8 +483,7 @@ export default function SuperAdminAgentsPage() {
   };
 
   return (
-    <main className="page-frame-container">
-      <div className="page-frame-inner container mx-auto px-4 py-4 space-y-4 max-w-6xl">
+    <div className="space-y-4 max-w-6xl mx-auto py-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Contrôle des Agents</h2>
           <div className="text-sm text-muted-foreground">Administration centrale - Gestion des comptes (agents)</div>
@@ -1184,7 +1183,6 @@ export default function SuperAdminAgentsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </main>
+    </div>
   );
 }

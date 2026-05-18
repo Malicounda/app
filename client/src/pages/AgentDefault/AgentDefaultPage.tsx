@@ -1,13 +1,46 @@
 import { useAuth } from "@/contexts/AuthContext";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
+import { Bell, MessageSquare } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function AgentDefaultPage() {
+  const [, setLocation] = useLocation();
+
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-50">
       <AgentTopHeader />
 
       {/* Contenu scrollable */}
       <div className="flex-1 px-4 pb-20 space-y-4 overflow-y-auto overscroll-contain">
+        {/* Cartes d'actions côte à côte */}
+        <div className="relative z-10 pt-6 px-4 max-w-[340px] sm:max-w-[420px] mx-auto w-full grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setLocation("/alerts")}
+            className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[24px] p-4 text-center active:scale-95 transition-all flex flex-col items-center gap-3 w-full"
+          >
+            <div className="h-[64px] w-[64px] shrink-0 rounded-2xl bg-red-50 flex items-center justify-center relative">
+              <Bell className="h-[32px] w-[32px] text-red-500" strokeWidth={2.5} />
+            </div>
+            <div className="flex flex-col items-center justify-center">
+              <p className="text-[12px] font-black text-slate-800 uppercase tracking-wide">Alertes</p>
+              <p className="text-[8px] text-slate-400 leading-[1.3] mt-1 line-clamp-2">Signaler ou suivre vos alertes</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setLocation("/sms")}
+            className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[24px] p-4 text-center active:scale-95 transition-all flex flex-col items-center gap-3 w-full"
+          >
+            <div className="h-[64px] w-[64px] shrink-0 rounded-2xl bg-emerald-50 flex items-center justify-center relative">
+              <MessageSquare className="h-[32px] w-[32px] text-emerald-500" strokeWidth={2.5} />
+            </div>
+            <div className="flex flex-col items-center justify-center">
+              <p className="text-[12px] font-black text-slate-800 uppercase tracking-wide">Messages</p>
+              <p className="text-[8px] text-slate-400 leading-[1.3] mt-1 line-clamp-2">Messagerie SMS interne</p>
+            </div>
+          </button>
+        </div>
+
         {/* Logos partenaires */}
         <div className="flex flex-col items-center gap-4 pt-4 pb-2">
           <div className="flex items-center justify-center">
@@ -18,13 +51,11 @@ export default function AgentDefaultPage() {
           <img src="/icon-blason.svg" alt="Blason" className="h-20 object-contain" />
         </div>
 
-        <div className="flex flex-col items-center pb-20">
+        <div className="flex flex-col items-center pt-2 pb-2">
           <img src="/logo_forets.png" alt="Eaux et Forêts" className="h-24 object-contain" />
         </div>
+        <p className="text-center text-[9px] text-gray-300 pb-2">V1.0</p>
       </div>
-
-
-      <p className="text-center text-[9px] text-gray-300 py-1">V1.0</p>
     </div>
   );
 }

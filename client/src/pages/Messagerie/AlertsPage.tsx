@@ -574,10 +574,10 @@ function AlertsPage() {
   }, [isReadOnlyUser, activeTab, setActiveTab]);
 
   useEffect(() => {
-    if (isDefaultRole && activeTab !== 'outbox') {
+    if (!isReadOnlyUser && !isHunter && !isGuide && activeTab !== 'outbox') {
       setActiveTab('outbox');
     }
-  }, [isDefaultRole, activeTab]);
+  }, [isReadOnlyUser, isHunter, isGuide, activeTab]);
 
   // (moved below queries) Effects that call refetch/refetchSent must be declared after the queries
 
@@ -664,7 +664,7 @@ function AlertsPage() {
         return [] as Alert[];
       }
     },
-    enabled: !!user,
+    enabled: !!user && isReadOnlyUser,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     refetchInterval: 10000, // 10s polling to auto-refresh inbox
@@ -1177,7 +1177,7 @@ function AlertsPage() {
   };
 
   // Déterminer si l'utilisateur peut envoyer des alertes
-  const canSendAlerts = (isSectorAgent || isRegionalAgent || isHunter || isGuide) && !isReadOnlyUser;
+  const canSendAlerts = (isSectorAgent || isRegionalAgent || isHunter || isGuide || isDefaultRole) && !isReadOnlyUser;
 
   // Effet pour gérer la configuration initiale en fonction du type d'utilisateur
   useEffect(() => {

@@ -258,7 +258,7 @@ function Router() {
   // Plus aucune logique de redirection globale ici pour éviter les conflits.
 
   // Verrouillage de session (overlay au-dessus de tout)
-  const lockOverlay = isAuthenticated ? (
+  const lockOverlay = (isAuthenticated && !disableLockScreen) ? (
     <SessionLockOverlay
       lockState={sessionHeartbeat.lockState}
       countdownSeconds={sessionHeartbeat.countdownSeconds}

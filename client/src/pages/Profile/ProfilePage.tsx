@@ -102,6 +102,18 @@ export default function ProfilePage() {
     document.title = "Mon Profil | SCoDiPP - Systeme de Control";
   }, []);
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('profile:edit-state', { detail: editMode }));
+  }, [editMode]);
+
+  useEffect(() => {
+    const handleProfileEdit = () => {
+      setEditMode(true);
+    };
+    window.addEventListener('profile:edit', handleProfileEdit);
+    return () => window.removeEventListener('profile:edit', handleProfileEdit);
+  }, []);
+
   if (!user) {
     return <div className="flex-1 flex items-center justify-center p-8">
       <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-green-600"></div>
@@ -180,14 +192,16 @@ export default function ProfilePage() {
                   <InfoItem icon={<MapPin />} label="Lieu de service" value={profile.serviceLocation || profile.region || "Non défini"} />
                 </div>
 
-                <div className="pt-4">
-                  <Button
-                    className="w-full rounded-2xl py-6 text-base font-bold shadow-md shadow-emerald-100"
-                    onClick={() => setEditMode(true)}
-                  >
-                    Modifier mon profil
-                  </Button>
-                </div>
+                {!isAlerteDomain && (
+                  <div className="pt-4">
+                    <Button
+                      className="w-full rounded-2xl py-6 text-base font-bold shadow-md shadow-emerald-100"
+                      onClick={() => setEditMode(true)}
+                    >
+                      Modifier mon profil
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               /* MODE EDITION (Formulaire) */
@@ -210,7 +224,7 @@ export default function ProfilePage() {
                     />
                   </div>
 
-                  {!((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole) && (
+                  {(user?.role === 'admin' || user?.role === 'superadmin') && (
                     <>
                       <div className="space-y-2">
                         <Label className="text-slate-500 ml-1">Nouveau mot de passe</Label>

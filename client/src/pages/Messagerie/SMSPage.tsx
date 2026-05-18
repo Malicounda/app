@@ -20,7 +20,8 @@ export default function SimpleSMSPage() {
   const role = (user?.role || '').toLowerCase();
   const isDefaultRole = !!(user as any)?.isDefaultRole;
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
-  const usePhoneMessagingUi = isSupervisorRole && !isDefaultRole;
+  const isAlerteDomain = isDefaultRole || isSupervisorRole || (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE');
+  const usePhoneMessagingUi = isAlerteDomain;
   const userRegionLabel = String((user as any)?.region || '').trim();
   const userDeptLabel = String((user as any)?.departement || '').trim();
   const fallbackRecipientsLabel = [
@@ -28,7 +29,7 @@ export default function SimpleSMSPage() {
     userDeptLabel ? `Agent secteur — ${userDeptLabel}` : 'Agent secteur',
   ].join(' ; ');
   const inboxOnly = role === 'hunter' || role === 'hunting-guide';
-  const domaineId = isDefaultRole ? undefined : 1;
+  const domaineId = 1;
   const [recipientOptions, setRecipientOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [activeTab, setActiveTab] = useState<"reçus" | "envoyés">("reçus");
   const [query, setQuery] = useState("");
@@ -76,7 +77,7 @@ export default function SimpleSMSPage() {
     deleteMessage,
     refreshSent,
     refreshAll,
-  } = useInternalMessaging({ domaineId, autoLoad: !isDefaultRole });
+  } = useInternalMessaging({ domaineId, autoLoad: true });
 
   const targets = useMemo(() => GLOBAL_TARGETS, []);
 
@@ -439,7 +440,7 @@ export default function SimpleSMSPage() {
     }
   };
 
-  const isAlerteUser = isDefaultRole || isSupervisorRole;
+  const isAlerteUser = isAlerteDomain;
 
   if (isAlerteUser) {
     return (
@@ -455,7 +456,7 @@ export default function SimpleSMSPage() {
                   {/* Fil d'ariane */}
                   <div className="flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
                     <Link
-                      href="/supervisor"
+                      href={isSupervisorRole ? "/supervisor" : "/default-home"}
                       className="flex items-center gap-0.5 hover:text-white transition-colors"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -515,7 +516,7 @@ export default function SimpleSMSPage() {
                     {/* Fil d'ariane */}
                     <div className="hidden sm:flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
                       <Link
-                        href="/supervisor"
+                        href={isSupervisorRole ? "/supervisor" : "/default-home"}
                         className="flex items-center gap-0.5 hover:text-white transition-colors"
                       >
                         <span>Accueil</span>
@@ -609,7 +610,7 @@ export default function SimpleSMSPage() {
                   {/* Fil d'ariane */}
                   <div className="flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
                     <Link
-                      href="/supervisor"
+                      href={isSupervisorRole ? "/supervisor" : "/default-home"}
                       className="flex items-center gap-0.5 hover:text-white transition-colors"
                     >
                       <span>Accueil</span>
@@ -625,16 +626,15 @@ export default function SimpleSMSPage() {
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
+                  {recipientOptions.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
                     <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
                       <div className="h-10 w-10 rounded-full bg-green-600 text-white flex items-center justify-center text-base font-bold shrink-0">{r.label.charAt(0).toUpperCase()}</div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-800 truncate">{r.label}</div>
-                        <div className="text-[10px] text-gray-500">{r.roleTag}</div>
                       </div>
                     </button>
                   ))}
-                  {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).length === 0 && (
+                  {recipientOptions.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).length === 0 && (
                     <div className="flex items-center justify-center py-12"><p className="text-sm text-gray-400">Aucun agent trouvé</p></div>
                   )}
                 </div>
@@ -644,7 +644,7 @@ export default function SimpleSMSPage() {
         )}
 
         {/* Form-style composer for default role */}
-        {isDefaultRole && (
+        {isDefaultRole && !usePhoneMessagingUi && (
           <div className="bg-white flex-grow flex flex-col min-h-0 w-full h-full overflow-y-auto">
             <div className="bg-[#114b26] text-white px-4 py-3 shrink-0 flex items-center justify-between">
               <div className="text-lg font-bold">Messages</div>

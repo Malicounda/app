@@ -363,8 +363,7 @@ export default function ThemePage() {
   };
 
   return (
-    <main className="page-frame-container">
-      <div className="page-frame-inner container mx-auto px-4 py-4 space-y-4 max-w-6xl">
+    <div className="space-y-4 max-w-6xl mx-auto py-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Thème</h2>
           <div className="text-sm text-muted-foreground">Personnaliser les couleurs et l'apparence</div>
@@ -647,7 +646,6 @@ export default function ThemePage() {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </main>
+    </div>
   );
 }

@@ -2562,8 +2562,7 @@ export default function Settings() {
   };
 
   return (
-    <main className="page-frame-container bg-white">
-  <div className="page-frame-inner container mx-auto px-3 sm:px-6 pt-4 sm:pt-2 pb-2 space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 bg-white px-3 sm:px-6 pt-4 sm:pt-2 pb-2">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h1 className="text-2xl sm:text-3xl font-bold text-green-800">Configuration du Système</h1>
           <Button onClick={saveSettings} disabled={loading} className="w-full sm:w-auto">
@@ -6364,7 +6363,6 @@ export default function Settings() {
         </TabsContent>
 
         </Tabs>
-      </div>
-    </main>
+    </div>
   );
 }

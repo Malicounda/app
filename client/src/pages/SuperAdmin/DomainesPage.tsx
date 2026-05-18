@@ -242,8 +242,7 @@ export default function DomainesPage() {
   });
 
   return (
-    <main className="page-frame-container">
-      <div className="page-frame-inner container mx-auto px-4 py-4 space-y-4 max-w-7xl">
+    <div className="space-y-4 max-w-7xl mx-auto py-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Contrôle des Domaines</h2>
           <div className="text-sm text-muted-foreground">Administration centrale - Domaines</div>
@@ -329,7 +328,7 @@ export default function DomainesPage() {
                 {isLoading ? (
                   <div className="py-6">Chargement...</div>
                 ) : (
-                  <div className={filteredDomaines.length > 6 ? "max-h-[420px] overflow-y-auto" : ""}>
+                  <div className="w-full overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -544,7 +543,6 @@ export default function DomainesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </main>
+    </div>
   );
 }

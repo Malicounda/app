@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { MdDescription, MdGroup, MdNotificationImportant, MdReceipt, MdMessage } from 'react-icons/md';
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Bell, MessageSquare, Map, User, LogOut } from "lucide-react";
+import { Bell, MessageSquare, Map, User, LogOut, Home } from "lucide-react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
@@ -42,7 +42,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   const unreadMsg = unreadMsgCount?.total ?? 0;
 
   const isSuperAdmin = (user as any)?.isSuperAdmin === true;
-  const isAlerteAgent = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole;
+  const isAlerteAgent = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole || (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE');
   const chromeless = isAlerteAgent && !isSuperAdmin;
 
   const normalizedRole = (user?.role || '')
@@ -257,6 +257,19 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   // - <main>: flex-1 overflow-y-auto (the only scrollable element)
   // No wheel handler needed anymore.
 
+  const showRestrictedAccess = chromeless && (user as any)?.isDefaultRole && location !== '/profile';
+
+  const restrictedContent = (
+    <div className="w-full min-h-[75vh] flex flex-col items-center justify-center px-4 bg-[#f8fafc]">
+      <div className="text-center max-w-sm">
+        <h3 className="text-xl font-bold text-slate-800 tracking-tight">Accès restreint</h3>
+        <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+          Votre rôle n'est pas autorisé à accéder aux alertes. Veuillez contacter un administrateur ou vous déconnecter.
+        </p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="w-full h-screen overflow-hidden">
       {/* Header */}
@@ -328,7 +341,6 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
             height: 'calc(100vh - var(--fixed-top))',
             borderTop: isSuperAdmin ? '2px solid #29a195' : '2px solid #3b82f6',
             display: 'flex',
-            flexDirection: 'column',
             willChange: 'width',
             transform: 'translateZ(0)', // Force GPU acceleration
             backfaceVisibility: 'hidden' // Prevent flickering
@@ -429,7 +441,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
               "main-content flex-1 overflow-y-auto overflow-x-hidden transition-all duration-200",
               location && location.startsWith('/map')
                 ? "bg-transparent"
-                : chromeless ? "bg-white" : isSuperAdmin ? "bg-[#0b1326]" : "bg-[#e9edf3]",
+                : chromeless ? "bg-[#f8fafc]" : isSuperAdmin ? "bg-[#0b1326]" : "bg-[#e9edf3]",
             ].join(' ')}
             style={{
               scrollBehavior: 'smooth',
@@ -439,11 +451,11 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
             {/* Retour en haut lors des changements de page */}
             {location && location.startsWith('/map') ? (
               <div ref={(el) => { if (el) el && (el as HTMLElement).scrollTop === 0; }} className="container-responsive">
-                {children}
+                {showRestrictedAccess ? restrictedContent : children}
               </div>
             ) : chromeless ? (
               <div ref={(el) => { if (el) el.scrollTop = 0; }} className="w-full min-h-full">
-                {children}
+                {showRestrictedAccess ? restrictedContent : children}
               </div>
             ) : (
               <div className="page-frame-container">
@@ -460,14 +472,12 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       {/* Navigation mobile unifiée pour agents (chromeless) */}
       {chromeless && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around py-2 z-[250] md:hidden">
-          <button onClick={() => setLocation("/alerts")} className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
-            <div className="relative">
-              <Bell className={`h-5 w-5 ${location === '/alerts' ? 'text-green-700' : 'text-gray-500'}`} />
-              {unread > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unread}</span>
-              )}
-            </div>
-            <span className={`text-[9px] font-medium ${location === '/alerts' ? 'text-green-700' : 'text-gray-500'}`}>Alertes</span>
+          <button
+            onClick={() => setLocation((user as any)?.isSupervisorRole ? "/supervisor" : "/default-home")}
+            className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform"
+          >
+            <Home className={`h-5 w-5 ${location === '/supervisor' || location === '/default-home' ? 'text-green-700' : 'text-gray-500'}`} />
+            <span className={`text-[9px] font-medium ${location === '/supervisor' || location === '/default-home' ? 'text-green-700' : 'text-gray-500'}`}>Accueil</span>
           </button>
           
           {!(user as any)?.isSupervisorRole && (

@@ -193,8 +193,7 @@ export default function RolesMetierPage() {
   });
 
   return (
-    <main className="page-frame-container">
-      <div className="page-frame-inner container mx-auto px-4 py-4 space-y-4 max-w-6xl">
+    <div className="space-y-4 max-w-6xl mx-auto py-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Contrôle des Rôles Métier</h2>
           <div className="text-sm text-muted-foreground">Administration centrale - Rôles métier</div>
@@ -333,7 +332,7 @@ export default function RolesMetierPage() {
             {isLoading ? (
               <div className="py-6">Chargement...</div>
             ) : (
-              <div className={roles.length > 5 ? "max-h-[320px] overflow-y-auto" : ""}>
+              <div className="w-full overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -404,7 +403,6 @@ export default function RolesMetierPage() {
             )}
           </CardContent>
         </Card>
-      </div>
 
       <AlertDialog open={!!roleToDelete} onOpenChange={(open) => (!open ? setRoleToDelete(null) : undefined)}>
         <AlertDialogContent>
@@ -429,6 +427,6 @@ export default function RolesMetierPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </main>
+    </div>
   );
 }

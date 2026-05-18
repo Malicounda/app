@@ -65,12 +65,12 @@ export default function SupervisorPage() {
             onClick={() => setLocation("/map")}
             className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[20px] p-4 text-left active:scale-95 transition-all flex items-center gap-4 w-full"
           >
-            <div className="h-[48px] w-[48px] shrink-0 rounded-2xl bg-blue-50 flex items-center justify-center relative">
-              <Map className="h-[24px] w-[24px] text-blue-500" strokeWidth={2.5} />
+            <div className="h-[64px] w-[64px] shrink-0 rounded-2xl bg-blue-50 flex items-center justify-center relative">
+              <Map className="h-[32px] w-[32px] text-blue-500" strokeWidth={2.5} />
             </div>
             <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <p className="text-[12px] font-black text-slate-800 uppercase tracking-wide">Carte</p>
-              <p className="text-[9px] text-slate-500 leading-[1.3] mt-0.5 line-clamp-2">Voir la carte interactive et la géolocalisation</p>
+              <p className="text-[14px] font-black text-slate-800 uppercase tracking-wide">Carte</p>
+              <p className="text-[10px] text-slate-500 leading-[1.3] mt-0.5 line-clamp-2">Voir la carte interactive et la géolocalisation</p>
             </div>
           </button>
         </div>
@@ -123,14 +123,12 @@ export default function SupervisorPage() {
             </div>
           )}
         </div>
+        <div className="flex flex-col items-center pt-6 pb-2">
+          <img src="/logo_forets.png" alt="Eaux et Forêts" className="h-24 object-contain" />
+        </div>
+
+        <p className="text-center text-[9px] text-gray-300 py-1">V1.0</p>
       </div>
-
-      <div className="flex flex-col items-center pb-20">
-        <img src="/logo_forets.png" alt="Eaux et Forêts" className="h-24 object-contain" />
-      </div>
-
-
-      <p className="text-center text-[9px] text-gray-300 py-1">V1.0</p>
     </div>
   );
 }

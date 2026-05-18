@@ -110,8 +110,7 @@ export default function AffectationsPage() {
   const agentsCount = new Set(affectations.map(a => a.agentId)).size;
 
   return (
-    <main className="page-frame-container min-h-screen">
-      <div className="page-frame-inner max-w-[1440px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Dashboard Stats Header (Bento Style) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-card border border-border p-6 rounded-xl flex flex-col gap-2 shadow-sm">
@@ -314,7 +313,6 @@ export default function AffectationsPage() {
             </div>
           )}
         </section>
-      </div>
-    </main>
+    </div>
   );
 }
