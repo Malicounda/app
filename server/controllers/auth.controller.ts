@@ -191,6 +191,7 @@ export const login = async (req: Request, res: Response) => {
         // Note: SessionUser est défini globalement via module augmentation dans server/index.ts
         req.session.user = {
             id: user.id,
+            publicId: (user as any).publicId ?? null,
             username: user.username,
             email: user.email,
             firstName: user.firstName,
@@ -236,6 +237,7 @@ export const login = async (req: Request, res: Response) => {
                 // Inclure hunterId dans le token pour les chasseurs
                 const tokenPayload: any = {
                     id: user.id,
+                    publicId: (user as any).publicId ?? null,
                     role: String((user as any).role || ''),
                     region: (user as any).region,
                     isSuperAdmin,
@@ -347,6 +349,7 @@ export const register = async (req: Request, res: Response) => {
 
         // Créer l'utilisateur
         const newUser = await storage.createUser({
+            publicId: crypto.randomUUID(),
             username,
             email,
             password: hashedPassword,
@@ -442,6 +445,7 @@ export const getMe = async (req: Request, res: Response) => {
         const rows = await db
             .select({
                 id: users.id,
+                publicId: users.publicId,
                 username: users.username,
                 email: users.email,
                 firstName: users.firstName,
@@ -475,6 +479,7 @@ export const getMe = async (req: Request, res: Response) => {
         req.session.user = {
             ...(req.session.user as any),
             id: u.id,
+            publicId: u.publicId,
             username: u.username,
             email: u.email,
             firstName: u.firstName,
@@ -490,6 +495,7 @@ export const getMe = async (req: Request, res: Response) => {
 
         return res.json({
             id: u.id,
+            publicId: u.publicId,
             username: u.username,
             email: u.email,
             firstName: u.firstName ?? null,

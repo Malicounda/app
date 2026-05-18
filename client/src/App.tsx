@@ -16,7 +16,7 @@ import NotFound from "@/pages/not-found";
 import { isUserSuperAdmin } from "@/utils/navigation";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { Route, Switch, useLocation } from "wouter";
+import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import { PwaUpdatePrompt } from "@/components/ui/PwaUpdatePrompt";
 
 import HomePageWrapper from "@/components/auth/HomePageWrapper";
@@ -129,13 +129,20 @@ function Router() {
   const sessionHeartbeat = useSessionHeartbeat(isAuthenticated, disableLockScreen);
 
   const publicRoutes = ["/", "/login", "/register", "/permit-simple", "/select-profile", "/produits-forestiers", "/reboisement-pepinieres", "/reboisement-login", "/alerte", "/alerte-login"];
+  
+  // Normalisation de l'URL pour gérer le préfixe public_id (UUID v4 de 36 caractères)
+  const pathParts = location.split('/');
+  const urlPublicId = (pathParts.length > 1 && pathParts[1].length === 36) ? pathParts[1] : '';
+  const routerBase = urlPublicId ? `/${urlPublicId}` : '';
+  const normalizedLocation = urlPublicId ? location.replace(`/${urlPublicId}`, '') || '/' : location;
+
   const isPublicRoute = publicRoutes.some(
-    (route) => location === route || (route !== "/" && location.startsWith(route))
+    (route) => normalizedLocation === route || (route !== "/" && normalizedLocation.startsWith(route))
   );
 
   // Renforcer l'état d'historique immédiatement lorsque nous sommes sur la Home publique
   useEffect(() => {
-    if (location !== "/") return;
+    if (normalizedLocation !== "/") return;
     try {
       // Écraser l'entrée précédente (qui pourrait être /register) puis pousser une sentinelle
       window.history.replaceState({ noBack: true }, "", window.location.pathname + window.location.search);
@@ -149,7 +156,7 @@ function Router() {
     const pushCurrent = () => {
       try {
         // Sur la Home: utiliser replaceState pour surécrire constamment l'entrée courante
-        if (location === "/") {
+        if (normalizedLocation === "/") {
           window.history.replaceState({ noBack: true }, "", window.location.pathname + window.location.search);
         } else {
           // Pousser un état sentinelle pour empêcher le retour arrière
@@ -160,7 +167,7 @@ function Router() {
 
     const onPopState = (e: PopStateEvent) => {
       // Sur /login: renvoyer vers Home
-      if (location.startsWith("/login")) {
+      if (normalizedLocation.startsWith("/login")) {
         e.preventDefault?.();
         setLocation("/");
         pushCurrent();
@@ -176,7 +183,7 @@ function Router() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       // Autoriser la navigation sur /login uniquement
-      const isLogin = location.startsWith("/login");
+      const isLogin = normalizedLocation.startsWith("/login");
       const target = e.target as HTMLElement | null;
       const tag = (target?.tagName || "").toLowerCase();
       const isTyping = tag === 'input' || tag === 'textarea' || (target as any)?.isContentEditable;
@@ -197,7 +204,7 @@ function Router() {
 
     // Empiler l'état courant et écouter les retours
     // Cas spécial: sur la Home '/', on sème 2 sentinelles pour éviter de quitter le site via un back immédiat
-    if (location === "/") {
+    if (normalizedLocation === "/") {
       pushCurrent();
       pushCurrent();
     } else {
@@ -209,7 +216,7 @@ function Router() {
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("keydown", onKeyDown, { capture: true } as any);
     };
-  }, [location, setLocation]);
+  }, [normalizedLocation, setLocation]);
 
   // Quand l'utilisateur devient authentifié, pousser immédiatement une sentinelle
   useEffect(() => {
@@ -222,7 +229,7 @@ function Router() {
   // Bloquer les gestes de retour (swipe-back) sur mobile quand authentifié,
   // et aussi sur la Home publique ('/') pour éviter les retours indésirables depuis l'accueil
   useEffect(() => {
-    if (!isAuthenticated && location !== '/') return;
+    if (!isAuthenticated && normalizedLocation !== '/') return;
     const root = document.documentElement;
     const prevOverscroll = root.style.overscrollBehavior;
     // Empêcher les comportements de rebond qui peuvent déclencher des gestuelles de navigation
@@ -230,7 +237,7 @@ function Router() {
 
     let startX = 0; let startY = 0; let active = false;
     const onTouchStart = (e: TouchEvent) => {
-      if (location.startsWith('/login')) return; // autoriser sur login
+      if (normalizedLocation.startsWith('/login')) return; // autoriser sur login
       if (!e.touches || e.touches.length !== 1) return;
       const t = e.touches[0];
       startX = t.clientX; startY = t.clientY; active = startX <= 20; // bord gauche
@@ -253,7 +260,7 @@ function Router() {
       window.removeEventListener('touchstart', onTouchStart as any, { passive: true } as any);
       window.removeEventListener('touchmove', onTouchMove as any, { passive: false } as any);
     };
-  }, [isAuthenticated, location]);
+  }, [isAuthenticated, normalizedLocation]);
 
   // La redirection par domaine est désormais centralisée dans DashboardRedirector.tsx
   // Plus aucune logique de redirection globale ici pour éviter les conflits.
@@ -342,9 +349,9 @@ function Router() {
   }
 
   // Routes Reboisement rendues dans un layout dédié (sans MainLayout CHASSE)
-  if (location.startsWith('/reboisement')) {
+  if (normalizedLocation.startsWith('/reboisement')) {
     return (
-      <>
+      <WouterRouter base={routerBase}>
       {lockOverlay}
       <PwaUpdatePrompt />
       <ReforestLayout>
@@ -424,12 +431,12 @@ function Router() {
           </Route>
         </Switch>
       </ReforestLayout>
-      </>
+      </WouterRouter>
     );
   }
 
   return (
-    <>
+    <WouterRouter base={routerBase}>
     {lockOverlay}
     <PwaUpdatePrompt />
     <MainLayout>
@@ -1090,7 +1097,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
     </MainLayout>
-    </>
+    </WouterRouter>
   );
 }
 

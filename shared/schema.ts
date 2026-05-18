@@ -24,6 +24,7 @@ export const userRoleEnum = pgEnum('user_role', ['admin', 'hunter', 'agent', 'su
 // User schema (utilisé pour l'authentification)
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  publicId: text("public_id").unique(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),

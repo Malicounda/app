@@ -58,7 +58,19 @@ export function ProtectedRoute({
       return;
     }
 
-    // Vérifier si l'utilisateur a le rôle requis
+    // Security Check: Vérifier public_id dans l'URL pour les routes protégées
+    if (user && (user as any).publicId) {
+      const parts = window.location.pathname.split('/');
+      if (parts.length > 1) {
+        const urlPublicId = parts[1];
+        // Si la première partie de l'URL ressemble à un UUID (36 chars)
+        if (urlPublicId.length === 36 && urlPublicId !== (user as any).publicId) {
+          console.warn('Accès refusé: public_id ne correspond pas', { urlPublicId, userPublicId: (user as any).publicId });
+          window.location.href = '/login';
+          return;
+        }
+      }
+    }    // Vérifier si l'utilisateur a le rôle requis
     const checkUserRole = () => {
       if (!user) return false;
 

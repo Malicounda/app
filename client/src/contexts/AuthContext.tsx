@@ -188,16 +188,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             homePage = '/default-home';
           }
-        } else if (domain === 'REBOISEMENT') {
-          homePage = response.user.role === 'admin' ? '/reboisement/admin' : '/reboisement';
         } else if (isSuperAdmin) {
           // Super Admin hors domaine spécifique : accès global CHASSE
           localStorage.removeItem('domain');
           homePage = '/superadmin/agents';
+        } else if (domain === 'REBOISEMENT') {
+          homePage = response.user.role === 'admin' ? '/reboisement/admin' : '/reboisement';
         } else {
           homePage = getHomePage(response.user.role, response.user.type);
         }
 
+        if ((response.user as any).publicId) {
+          const pubId = (response.user as any).publicId;
+          homePage = homePage.startsWith('/') ? `/${pubId}${homePage}` : `/${pubId}/${homePage}`;
+        }
         console.log(`[LOGIN] → ${homePage} (role=${response.user.role}, domain=${domain}, superAdmin=${isSuperAdmin})`);
         setLocation(homePage);
       } else {
