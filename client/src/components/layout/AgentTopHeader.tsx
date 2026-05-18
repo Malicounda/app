@@ -132,8 +132,8 @@ export default function AgentTopHeader() {
         </div>
       </div>
 
-      {/* Cartes statistiques — Mobile uniquement — Masqué sur la page profil */}
-      {isAlerteDomain && location !== '/profile' && (
+      {/* Cartes statistiques — Mobile uniquement — Masqué sur la page profil et sur default-home */}
+      {isAlerteDomain && location !== '/profile' && location !== '/default-home' && (
         <div className="px-4 md:hidden max-w-md mx-auto w-full">
           <div className="grid grid-cols-2 gap-3 relative z-10 pt-3 pb-1">
             <button
