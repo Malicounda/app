@@ -23,6 +23,29 @@ export default function DashboardRedirector() {
     const isSuperAdmin = isUserSuperAdmin(user);
     const domain = (localStorage.getItem('domain') || '').toUpperCase();
 
+    // ──────────────────────────────────────────────────────────────────
+    // Normalisation de la location : retirer le préfixe public_id (UUID)
+    // pour comparer avec les chemins de route "purs"
+    // ──────────────────────────────────────────────────────────────────
+    const rawPath = window.location.pathname;
+    const parts = rawPath.split('/');
+    const firstSegment = parts.length > 1 ? parts[1] : '';
+    const isUUID = firstSegment.length === 36;
+    const normalizedPath = isUUID
+      ? '/' + parts.slice(2).join('/')
+      : rawPath;
+
+    // ──────────────────────────────────────────────────────────────────
+    // GARDE PRINCIPALE : Si l'utilisateur est déjà sur une route valide
+    // (différente de '/' ou '/dashboard'), on ne redirige pas. Cela
+    // évite l'écrasement de la page courante après un simple rechargement.
+    // ──────────────────────────────────────────────────────────────────
+    const nonRedirectPaths = ['/', '/dashboard', ''];
+    if (!nonRedirectPaths.includes(normalizedPath)) {
+      console.log(`[DashboardRedirector] Déjà sur une route valide (${normalizedPath}), pas de redirection.`);
+      return;
+    }
+
     let target = '/login';
 
     // ──────────────────────────────────────────────
@@ -36,7 +59,14 @@ export default function DashboardRedirector() {
       }
 
       // ──────────────────────────────────────────────
-      // 2. DOMAINE REBOISEMENT
+      // 2. SUPER ADMIN — priorité absolue hors ALERTE
+      // ──────────────────────────────────────────────
+    } else if (isSuperAdmin) {
+      localStorage.removeItem('domain');
+      target = '/superadmin/agents';
+
+      // ──────────────────────────────────────────────
+      // 3. DOMAINE REBOISEMENT
       // ──────────────────────────────────────────────
     } else if (domain === 'REBOISEMENT') {
       switch (user.role) {
@@ -56,13 +86,6 @@ export default function DashboardRedirector() {
         default:
           target = '/reboisement';
       }
-
-      // ──────────────────────────────────────────────
-      // 3. SUPER ADMIN — pas de domaine, accès global CHASSE
-      // ──────────────────────────────────────────────
-    } else if (isSuperAdmin) {
-      localStorage.removeItem('domain');
-      target = '/superadmin/agents';
 
       // ──────────────────────────────────────────────
       // 4. DOMAINE CHASSE (ou par défaut)
@@ -99,6 +122,12 @@ export default function DashboardRedirector() {
         default:
           target = '/login';
       }
+    }
+
+    // Préfixer avec le public_id si disponible
+    if ((user as any).publicId) {
+      const pubId = (user as any).publicId;
+      target = `/${pubId}${target}`;
     }
 
     console.log(`[DashboardRedirector] → ${target} (role=${user.role}, domain=${domain}, superAdmin=${isSuperAdmin})`);
