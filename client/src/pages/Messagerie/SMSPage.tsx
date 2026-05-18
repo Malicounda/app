@@ -451,10 +451,17 @@ export default function SimpleSMSPage() {
             {/* ===== VIEW: Conversation List ===== */}
             {phoneView === 'list' && (
               <>
-                <div className="bg-[#114b26] text-white px-4 py-3 shrink-0 flex items-center justify-between">
-                  <div className="text-lg font-bold">Messages</div>
+                <div className="bg-[#114b26] text-white px-4 py-3 shrink-0 flex items-center justify-between relative">
+                  <div className="text-lg font-bold w-1/3">Messages</div>
+                  
+                  <div className="flex-1 flex justify-center">
+                    <button onClick={() => { setPhoneView('new'); setNewRecipientSearch(''); setDefaultMsg(''); }} className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-green-500 hover:bg-green-400 shadow flex items-center justify-center transition-all active:scale-90">
+                      <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                    </button>
+                  </div>
+
                   {/* Fil d'ariane */}
-                  <div className="flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
+                  <div className="flex items-center justify-end gap-1.5 text-xs text-green-200 font-medium shrink-0 w-1/3">
                     <Link
                       href={isSupervisorRole ? "/supervisor" : "/default-home"}
                       className="flex items-center gap-0.5 hover:text-white transition-colors"
@@ -462,10 +469,10 @@ export default function SimpleSMSPage() {
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                       </svg>
-                      <span>Accueil</span>
+                      <span className="hidden sm:inline">Accueil</span>
                     </Link>
                     <span className="text-green-500 opacity-60">/</span>
-                    <span className="text-green-50 font-semibold">Messagerie</span>
+                    <span className="text-green-50 font-semibold hidden sm:inline">Messagerie</span>
                   </div>
                 </div>
                 <div className="px-3 py-2 border-b border-gray-100 shrink-0">
@@ -495,9 +502,7 @@ export default function SimpleSMSPage() {
                     </button>
                   ))}
                 </div>
-                <button onClick={() => { setPhoneView('new'); setNewRecipientSearch(''); setDefaultMsg(''); }} className="absolute bottom-6 right-6 h-14 w-14 rounded-full bg-green-600 hover:bg-green-700 shadow-lg flex items-center justify-center transition-all active:scale-90 z-10">
-                  <Plus className="h-7 w-7 text-white" />
-                </button>
+
               </>
             )}
 
@@ -563,7 +568,9 @@ export default function SimpleSMSPage() {
                         >
                           {m.content}
                         </div>
-                        <span className="text-[9px] text-gray-400 mt-0.5 mr-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[9px] text-gray-400 mt-0.5 mr-1">
+                          {m.time.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                     ) : (
                       <div key={i} className="flex flex-col items-start max-w-[80%]">
@@ -573,7 +580,9 @@ export default function SimpleSMSPage() {
                         >
                           {m.content}
                         </div>
-                        <span className="text-[9px] text-gray-400 mt-0.5 ml-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[9px] text-gray-400 mt-0.5 ml-1">
+                          {m.time.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                     )
                   ))}
