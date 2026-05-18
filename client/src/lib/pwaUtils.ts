@@ -4,10 +4,10 @@
 export function initPWA() {
   // Enregistrer le service worker
   registerServiceWorker();
-  
+
   // Configurer le fetch pour le mode hors ligne
   createOfflineFetch();
-  
+
   // Configurer les écouteurs de connectivité
   setupConnectivityListeners(
     () => {
@@ -127,7 +127,7 @@ const DB_VERSION = 2; // Mise à jour de la version pour résoudre le conflit
 // Fonction pour créer un store s'il n'existe pas
 async function createStoreIfNotExists(storeName: string, keyPath: string = 'id'): Promise<void> {
   const db = await openDatabase();
-  
+
   return new Promise((resolve, reject) => {
     // Vérifier si le store existe déjà
     if (db.objectStoreNames.contains(storeName)) {
@@ -135,34 +135,34 @@ async function createStoreIfNotExists(storeName: string, keyPath: string = 'id')
       resolve();
       return;
     }
-    
+
     // Si le store n'existe pas, on doit fermer la connexion actuelle
     // et en ouvrir une nouvelle avec une version supérieure
     db.close();
-    
+
     const newVersion = DB_VERSION + 1; // Incrémenter la version pour déclencher onupgradeneeded
     const request = indexedDB.open(DB_NAME, newVersion);
-    
+
     request.onerror = (event) => {
       console.error(`Erreur lors de la création du store ${storeName}:`, event);
       reject(new Error(`Impossible de créer le store ${storeName}`));
     };
-    
+
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      
+
       // Créer le store manquant
       if (!db.objectStoreNames.contains(storeName)) {
         const store = db.createObjectStore(storeName, { keyPath });
         console.log(`Store ${storeName} créé avec succès`);
-        
+
         // Ajouter des index si nécessaire
         if (storeName === 'pendingSync') {
           store.createIndex('timestamp', 'timestamp', { unique: false });
         }
       }
     };
-    
+
     request.onsuccess = () => {
       const db = request.result;
       db.close();
@@ -176,7 +176,7 @@ export function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     // Ouvrir directement avec la version définie dans DB_VERSION
     const openRequest = indexedDB.open(DB_NAME, DB_VERSION);
-    
+
     openRequest.onerror = (event) => {
       console.error('Erreur lors de l\'ouverture de la base de données:', event);
       // En cas d'échec, essayer d'ouvrir en lecture seule
@@ -187,22 +187,22 @@ export function openDatabase(): Promise<IDBDatabase> {
 
     openRequest.onsuccess = (event: Event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      
+
       // Sur changement de version (autre onglet), fermer proprement sans forcer un reload
       db.onversionchange = () => {
-        try { db.close(); } catch {}
+        try { db.close(); } catch { }
         console.warn('IndexedDB: changement de version détecté (autre onglet). Recharger manuellement si nécessaire.');
       };
-      
+
       resolve(db);
     };
 
     openRequest.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = (event.target as IDBOpenDBRequest).result;
       const oldVersion = event.oldVersion;
-      
+
       console.log(`Mise à jour de la base de données de la version ${oldVersion} à ${event.newVersion}`);
-      
+
       // Définir la configuration des stores
       const storesConfig = [
         { name: 'permits', keyPath: 'id' },
@@ -210,22 +210,22 @@ export function openDatabase(): Promise<IDBDatabase> {
         { name: 'requests', keyPath: 'id' },
         { name: 'activities', keyPath: 'id' },
         { name: 'alerts', keyPath: 'id' },
-        { 
-          name: 'pendingSync', 
+        {
+          name: 'pendingSync',
           options: { keyPath: 'id', autoIncrement: true },
           indexes: [
             { name: 'timestamp', keyPath: 'timestamp', options: { unique: false } }
           ]
         }
       ];
-      
+
       // Créer ou mettre à jour les stores
       for (const storeConfig of storesConfig) {
         if (!db.objectStoreNames.contains(storeConfig.name)) {
           try {
             const storeOptions = storeConfig.options || { keyPath: storeConfig.keyPath };
             const store = db.createObjectStore(storeConfig.name, storeOptions);
-            
+
             if (storeConfig.indexes) {
               for (const index of storeConfig.indexes) {
                 try {
@@ -236,7 +236,7 @@ export function openDatabase(): Promise<IDBDatabase> {
                 }
               }
             }
-            
+
             console.log(`Store ${storeConfig.name} créé avec succès`);
           } catch (createError) {
             console.error(`Erreur lors de la création du store ${storeConfig.name}:`, createError);
@@ -246,10 +246,10 @@ export function openDatabase(): Promise<IDBDatabase> {
           const transaction = (event.target as IDBOpenDBRequest).transaction;
           if (transaction) {
             const store = transaction.objectStore(storeConfig.name);
-            
+
             if (storeConfig.indexes) {
               const existingIndexes = new Set(Array.from(store.indexNames));
-              
+
               for (const index of storeConfig.indexes) {
                 if (!existingIndexes.has(index.name)) {
                   try {
@@ -264,7 +264,7 @@ export function openDatabase(): Promise<IDBDatabase> {
           }
         }
       }
-      
+
       // Supprimer les stores obsolètes
       const storesToKeep = new Set(storesConfig.map(s => s.name));
       for (let i = 0; i < db.objectStoreNames.length; i++) {
@@ -279,7 +279,7 @@ export function openDatabase(): Promise<IDBDatabase> {
         }
       }
     };
-    
+
     openRequest.onblocked = (event) => {
       console.warn('La base de données est bloquée par un autre onglet, tentative de réouverture...');
       // Essayer de se reconnecter avec la version actuelle
@@ -301,15 +301,15 @@ function getStoreDefinition(storeName: string) {
     { name: 'requests', keyPath: 'id' },
     { name: 'activities', keyPath: 'id' },
     { name: 'alerts', keyPath: 'id' },  // Ajout du store pour les alertes
-    { 
-      name: 'pendingSync', 
+    {
+      name: 'pendingSync',
       options: { keyPath: 'id', autoIncrement: true },
       indexes: [
         { name: 'timestamp', keyPath: 'timestamp', options: { unique: false } }
       ]
     }
   ];
-  
+
   return stores.find(s => s.name === storeName);
 }
 
@@ -318,12 +318,12 @@ async function ensureStoreExists(storeName: string): Promise<IDBDatabase> {
   try {
     // Vérifier d'abord avec une simple ouverture
     const db = await openDatabase();
-    
+
     // Si le store existe déjà, on le retourne
     if (db.objectStoreNames.contains(storeName)) {
       return db;
     }
-    
+
     // Ne plus monter la version dynamiquement pour éviter les conflits inter-onglets
     console.warn(`Le store ${storeName} n'existe pas dans la version actuelle de la base. Aucune mise à niveau automatique effectuée.`);
     return db;
@@ -342,27 +342,27 @@ async function ensureStoreExists(storeName: string): Promise<IDBDatabase> {
 export async function storeData<T>(storeName: string, data: T): Promise<void> {
   try {
     const db = await ensureStoreExists(storeName);
-    
+
     return new Promise((resolve, reject) => {
       try {
         const transaction = db.transaction(storeName, 'readwrite');
         const store = transaction.objectStore(storeName);
-        
+
         const request = store.put(data);
-        
+
         request.onsuccess = () => {
           resolve();
         };
-        
+
         request.onerror = (event) => {
           console.error(`Erreur lors du stockage des données dans ${storeName}:`, event);
           reject(new Error(`Impossible de stocker les données dans ${storeName}`));
         };
-        
+
         transaction.oncomplete = () => {
           db.close();
         };
-        
+
         transaction.onerror = (event) => {
           console.error(`Erreur de transaction pour le store ${storeName}:`, event);
           reject(new Error(`Erreur de transaction pour le store ${storeName}`));
@@ -384,34 +384,34 @@ export async function storeData<T>(storeName: string, data: T): Promise<void> {
 export async function getData<T>(storeName: string, id: string | number): Promise<T | null> {
   try {
     const db = await ensureStoreExists(storeName);
-    
+
     // Si le store n'existe pas, retourner null au lieu de générer une erreur
     if (!db.objectStoreNames.contains(storeName)) {
       console.warn(`Le store ${storeName} n'existe pas.`);
       db.close();
       return null;
     }
-    
+
     return new Promise((resolve, reject) => {
       try {
         const transaction = db.transaction(storeName, 'readonly');
         const store = transaction.objectStore(storeName);
-        
+
         const request = store.get(id);
-        
+
         request.onsuccess = () => {
           resolve(request.result || null);
         };
-        
+
         request.onerror = (event) => {
           console.error(`Erreur lors de la récupération des données depuis ${storeName}:`, event);
           reject(new Error(`Impossible de récupérer les données depuis ${storeName}`));
         };
-        
+
         transaction.oncomplete = () => {
           db.close();
         };
-        
+
         transaction.onerror = (event) => {
           console.error(`Erreur de transaction pour le store ${storeName}:`, event);
           reject(new Error(`Erreur de transaction pour le store ${storeName}`));
@@ -433,34 +433,34 @@ export async function getData<T>(storeName: string, id: string | number): Promis
 export async function getAllData<T>(storeName: string): Promise<T[]> {
   try {
     const db = await ensureStoreExists(storeName);
-    
+
     // Si le store n'existe pas, retourner un tableau vide au lieu de générer une erreur
     if (!db.objectStoreNames.contains(storeName)) {
       console.warn(`Le store ${storeName} n'existe pas.`);
       db.close();
       return [];
     }
-    
+
     return new Promise((resolve, reject) => {
       try {
         const transaction = db.transaction(storeName, 'readonly');
         const store = transaction.objectStore(storeName);
-        
+
         const request = store.getAll();
-        
+
         request.onsuccess = () => {
           resolve(request.result || []);
         };
-        
+
         request.onerror = (event) => {
           console.error(`Erreur lors de la récupération de toutes les données depuis ${storeName}:`, event);
           reject(new Error(`Impossible de récupérer toutes les données depuis ${storeName}`));
         };
-        
+
         transaction.oncomplete = () => {
           db.close();
         };
-        
+
         transaction.onerror = (event) => {
           console.error(`Erreur de transaction pour le store ${storeName}:`, event);
           reject(new Error(`Erreur de transaction pour le store ${storeName}`));
@@ -495,12 +495,12 @@ export async function savePendingRequest(url: string, method: string, body: any)
     lastAttempt: null,
     status: 'pending'
   };
-  
+
   console.log(`Enregistrement de la requête ${method} ${url} pour synchronisation ultérieure`);
-  
+
   try {
     await storeData('pendingSync', pendingRequest);
-    
+
     // Tenter de synchroniser immédiatement si en ligne
     if (navigator.onLine) {
       console.log('Tentative de synchronisation immédiate...');
@@ -544,14 +544,14 @@ function showNotification(title: string, message: string, type: 'success' | 'err
 }
 
 // Fonction pour synchroniser les requêtes en attente
-export async function syncPendingRequests(maxAttempts = 3): Promise<{success: number; failed: number}> {
+export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: number; failed: number }> {
   if (!navigator.onLine) {
     const message = 'Hors ligne, impossible de synchroniser les requêtes en attente';
     console.log(message);
     showNotification('Synchronisation échouée', message, 'error');
     return { success: 0, failed: 0 };
   }
-  
+
   let db: IDBDatabase;
   try {
     db = await openDatabase();
@@ -564,50 +564,50 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
 
   // Afficher une notification de début de synchronisation
   showNotification('Synchronisation', 'Début de la synchronisation des données...', 'info');
-  
+
   let successCount = 0;
   let failedCount = 0;
-  
+
   try {
     // Récupérer toutes les requêtes en attente dans une transaction en lecture seule
     const pendingRequests = await new Promise<any[]>((resolve, reject) => {
       const transaction = db.transaction('pendingSync', 'readonly');
       const store = transaction.objectStore('pendingSync');
       const request = store.getAll();
-      
+
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = (event) => {
         console.error('Erreur lors de la récupération des requêtes en attente:', event);
         reject(new Error('Impossible de récupérer les requêtes en attente'));
       };
     });
-    
+
     if (pendingRequests.length === 0) {
       console.log('Aucune requête en attente à synchroniser');
       db.close();
       return { success: 0, failed: 0 };
     }
-    
+
     console.log(`Tentative de synchronisation de ${pendingRequests.length} requêtes en attente`);
-    
+
     // Trier les requêtes par ordre chronologique (les plus anciennes d'abord)
     pendingRequests.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    
+
     // Limiter le nombre de tentatives de synchronisation
     const requestsToProcess = pendingRequests.filter(req => {
       const attempts = req.attempts || 0;
       return attempts < maxAttempts;
     });
-    
+
     if (requestsToProcess.length === 0) {
       const message = 'Toutes les requêtes ont dépassé le nombre maximum de tentatives';
       console.log(message);
       showNotification('Synchronisation échouée', message, 'error');
       return { success: 0, failed: pendingRequests.length };
     }
-    
+
     console.log(`Traitement de ${requestsToProcess.length} requêtes sur ${pendingRequests.length}`);
-    
+
     // Statuts HTTP considérés comme non-réessayables (erreurs côté client, conflit, validation, etc.)
     const nonRetryableStatuses = new Set([400, 404, 405, 409, 422]);
 
@@ -622,7 +622,7 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
           return request.url;
         }
       })();
-      
+
       try {
         // Mettre à jour le nombre de tentatives
         const updatedRequest = {
@@ -630,26 +630,26 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
           attempts: (request.attempts || 0) + 1,
           lastAttempt: new Date().toISOString()
         };
-        
+
         // Mettre à jour la requête dans la base de données avec une transaction dédiée
         await new Promise<void>((resolve, reject) => {
           try {
             const updateTransaction = db.transaction('pendingSync', 'readwrite');
-            
+
             updateTransaction.oncomplete = () => resolve();
             updateTransaction.onerror = (event) => {
               console.error(`[${requestId}] Erreur de transaction:`, event);
               reject(new Error('Erreur de transaction'));
             };
-            
+
             const updateStore = updateTransaction.objectStore('pendingSync');
             const updateRequest = updateStore.put(updatedRequest);
-            
+
             updateRequest.onsuccess = () => {
               // Ne pas fermer la connexion ici, la transaction se fermera automatiquement
               // avec oncomplete
             };
-            
+
             updateRequest.onerror = (event) => {
               console.error(`[${requestId}] Erreur lors de la mise à jour:`, event);
               reject(new Error('Mise à jour échouée'));
@@ -659,12 +659,12 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
             reject(error);
           }
         });
-        
+
         // Préparer les en-têtes
         const headers: HeadersInit = { 'Content-Type': 'application/json' };
         const token = localStorage.getItem('token');
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        
+
         // Exécuter la requête
         console.log(`[${requestId}] Envoi de la requête vers ${request.url}`);
         const response = await fetch(request.url, {
@@ -673,38 +673,38 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
           body: request.body,
           credentials: 'include'
         });
-        
+
         if (response.ok) {
           // Supprimer la requête synchronisée avec une transaction dédiée
           await new Promise<void>((resolve, reject) => {
             try {
               const deleteTransaction = db.transaction('pendingSync', 'readwrite');
-              
+
               deleteTransaction.oncomplete = () => {
                 console.log(`[${requestId}] Requête synchronisée et supprimée`);
                 successCount++;
                 showNotification(
-                  'Synchronisation réussie', 
+                  'Synchronisation réussie',
                   `Requête ${requestMethod} vers ${requestPath} traitée avec succès`,
                   'success'
                 );
                 resolve();
               };
-              
+
               deleteTransaction.onerror = (event) => {
                 console.error(`[${requestId}] Erreur de transaction lors de la suppression:`, event);
                 // On considère quand même la synchronisation comme réussie
                 successCount++;
                 resolve();
               };
-              
+
               const deleteStore = deleteTransaction.objectStore('pendingSync');
               const deleteRequest = deleteStore.delete(request.id);
-              
+
               deleteRequest.onsuccess = () => {
                 // La suppression sera confirmée par oncomplete de la transaction
               };
-              
+
               deleteRequest.onerror = (event) => {
                 console.error(`[${requestId}] Erreur lors de la suppression:`, event);
                 // On considère quand même la synchronisation comme réussie
@@ -720,31 +720,31 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
           });
         } else {
           console.error(`[${requestId}] Erreur HTTP ${response.status}: ${response.statusText}`);
-          
+
           // Si erreur d'authentification, supprimer la requête
           if (response.status === 401 || response.status === 403) {
             console.log(`[${requestId}] Suppression en raison d'une erreur d'authentification (${response.status})`);
             await new Promise<void>((resolve) => {
               try {
                 const deleteTransaction = db.transaction('pendingSync', 'readwrite');
-                
+
                 deleteTransaction.oncomplete = () => {
                   console.log(`[${requestId}] Requête supprimée après erreur d'authentification`);
                   resolve();
                 };
-                
+
                 deleteTransaction.onerror = (event) => {
                   console.error(`[${requestId}] Erreur lors de la suppression après 401:`, event);
                   resolve();
                 };
-                
+
                 const deleteStore = deleteTransaction.objectStore('pendingSync');
                 const deleteRequest = deleteStore.delete(request.id);
-                
+
                 deleteRequest.onsuccess = () => {
                   // La suppression sera confirmée par oncomplete
                 };
-                
+
                 deleteRequest.onerror = (event) => {
                   console.error(`[${requestId}] Erreur lors de la suppression après 401:`, event);
                   resolve();
@@ -754,7 +754,7 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
                 resolve();
               }
             });
-            
+
             // Ne pas compter comme un échec pour ne pas bloquer les autres requêtes
             continue;
           }
@@ -767,24 +767,24 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
             await new Promise<void>((resolve) => {
               try {
                 const deleteTransaction = db.transaction('pendingSync', 'readwrite');
-                
+
                 deleteTransaction.oncomplete = () => {
                   console.log(`[${requestId}] Requête supprimée après ${shouldDiscardStatus ? `statut ${response.status}` : `${attemptsSoFar} tentative(s)`}`);
                   resolve();
                 };
-                
+
                 deleteTransaction.onerror = (event) => {
                   console.error(`[${requestId}] Erreur lors de la suppression après abandon:`, event);
                   resolve();
                 };
-                
+
                 const deleteStore = deleteTransaction.objectStore('pendingSync');
                 const deleteRequest = deleteStore.delete(request.id);
-                
+
                 deleteRequest.onsuccess = () => {
                   // La suppression sera confirmée par oncomplete
                 };
-                
+
                 deleteRequest.onerror = (event) => {
                   console.error(`[${requestId}] Erreur lors de la suppression après abandon:`, event);
                   resolve();
@@ -806,7 +806,7 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
             );
             continue;
           }
-          
+
           failedCount++;
           showNotification(
             'Erreur de synchronisation',
@@ -817,7 +817,7 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
       } catch (error) {
         console.error(`[${requestId}] Erreur lors du traitement:`, error);
         failedCount++;
-        
+
         if (error instanceof Error) {
           showNotification(
             'Erreur de synchronisation',
@@ -826,11 +826,11 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
           );
         }
       }
-      
+
       // Petite pause entre les requêtes pour éviter de surcharger le serveur
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-    
+
     // Afficher un résumé de la synchronisation
     if (successCount > 0 || failedCount > 0) {
       const message = `Synchronisation terminée: ${successCount} réussie(s), ${failedCount} échouée(s)`;
@@ -841,15 +841,15 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{success: nu
         failedCount === 0 ? 'success' : 'error'
       );
     }
-    
+
     return { success: successCount, failed: failedCount };
-    
+
   } catch (error) {
     const message = 'Erreur critique lors de la synchronisation';
     console.error(message, error);
     showNotification('Erreur critique', message, 'error');
     return { success: successCount, failed: failedCount };
-    
+
   } finally {
     if (db) {
       try {
@@ -874,27 +874,27 @@ async function cleanUpPendingRequests(): Promise<void> {
       const transaction = db.transaction('pendingSync', 'readwrite');
       const store = transaction.objectStore('pendingSync');
       const getAllRequest = store.getAll();
-      
+
       getAllRequest.onsuccess = () => {
         const requests = getAllRequest.result || [];
         const seen = new Map();
         const now = Date.now();
         const ONE_DAY = 24 * 60 * 60 * 1000; // 1 jour en millisecondes
-        
+
         // Parcourir les requêtes et identifier les doublons et les requêtes trop anciennes
         const toDelete = [];
-        
+
         for (const request of requests) {
           const key = `${request.method}:${request.url}:${JSON.stringify(request.body)}`;
           const existing = seen.get(key);
-          
+
           // Vérifier si la requête est trop ancienne (plus de 7 jours)
           const requestDate = request.timestamp ? new Date(request.timestamp).getTime() : 0;
           if (now - requestDate > 7 * ONE_DAY) {
             toDelete.push(request.id);
             continue;
           }
-          
+
           // Si on a déjà vu une requête identique, on garde la plus récente
           if (existing) {
             const existingDate = existing.timestamp ? new Date(existing.timestamp).getTime() : 0;
@@ -908,13 +908,13 @@ async function cleanUpPendingRequests(): Promise<void> {
             seen.set(key, request);
           }
         }
-        
+
         // Supprimer les requêtes identifiées
         if (toDelete.length === 0) {
           resolve();
           return;
         }
-        
+
         let completed = 0;
         const onComplete = () => {
           completed++;
@@ -923,7 +923,7 @@ async function cleanUpPendingRequests(): Promise<void> {
             resolve();
           }
         };
-        
+
         for (const id of toDelete) {
           const deleteRequest = store.delete(id);
           deleteRequest.onsuccess = onComplete;
@@ -933,24 +933,24 @@ async function cleanUpPendingRequests(): Promise<void> {
           };
         }
       };
-      
+
       getAllRequest.onerror = (event) => {
         console.error('Erreur lors de la récupération des requêtes pour le nettoyage:', event);
         resolve();
       };
-      
+
       transaction.oncomplete = () => {
-        try { db.close(); } catch {}
+        try { db.close(); } catch { }
         // La transaction est terminée
       };
-      
+
       transaction.onerror = (event) => {
         console.error('Erreur lors de la transaction de nettoyage:', event);
         resolve();
       };
     } catch (error) {
       console.error('Erreur lors du nettoyage des requêtes:', error);
-      try { db.close(); } catch {}
+      try { db.close(); } catch { }
       resolve();
     }
   });
@@ -972,12 +972,12 @@ function getStoreNameFromUrl(url: string): string {
 // Gestionnaire d'erreur générique pour les appels API
 function handleApiError(error: unknown, url: string, method: string): never {
   const errorMessage = 'Impossible de se connecter au serveur et aucune donnée en cache disponible';
-  const errorDetails = { 
+  const errorDetails = {
     url,
     method,
     error: error instanceof Error ? error.message : 'Erreur inconnue'
   };
-  
+
   console.error(errorMessage, errorDetails);
   throw new Error(errorMessage);
 }
@@ -985,11 +985,11 @@ function handleApiError(error: unknown, url: string, method: string): never {
 // Fonction pour gérer la récupération des données hors ligne
 async function handleOfflineData(url: string): Promise<Response> {
   console.log(`Récupération des données hors ligne pour ${url}`);
-  
+
   // Déterminer le store approprié et l'ID en fonction de l'URL
   let storeName = 'misc';
   let id: string | null = null;
-  
+
   // Analyser l'URL pour déterminer le store et l'ID
   if (url.includes('/hunters')) {
     storeName = 'hunters';
@@ -1013,7 +1013,7 @@ async function handleOfflineData(url: string): Promise<Response> {
     const match = url.match(/\/alerts\/(\d+)/);
     id = match ? match[1] : null;
   }
-  
+
   try {
     let data;
     if (id) {
@@ -1023,7 +1023,7 @@ async function handleOfflineData(url: string): Promise<Response> {
       // Sinon, récupérer tous les éléments du store
       data = await getAllData(storeName);
     }
-    
+
     if (data) {
       // Créer une réponse simulée avec les données du cache
       return new Response(JSON.stringify(data), {
@@ -1049,7 +1049,7 @@ async function handleOfflineData(url: string): Promise<Response> {
     }
     throw error; // Propager les autres erreurs
   }
-  
+
   // Si aucune donnée n'a été trouvée
   return new Response(JSON.stringify([]), {
     status: 200,
@@ -1070,19 +1070,19 @@ export async function resetDatabase(): Promise<boolean> {
     }
 
     const request = window.indexedDB.deleteDatabase(DB_NAME);
-    
+
     request.onsuccess = () => {
       console.log('Base de données supprimée avec succès');
       // Forcer le rechargement de la page pour réinitialiser l'application
       window.location.reload();
       resolve(true);
     };
-    
+
     request.onerror = (event) => {
       console.error('Erreur lors de la suppression de la base de données:', event);
       resolve(false);
     };
-    
+
     request.onblocked = () => {
       console.error('Impossible de supprimer la base de données: elle est utilisée par un autre onglet');
       resolve(false);
@@ -1095,33 +1095,33 @@ export function createOfflineFetch() {
   if (typeof window === 'undefined') return;
 
   const originalFetch = window.fetch;
-  
+
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     try {
       // Essayer d'abord la requête réseau
       return await originalFetch(input, init);
     } catch (error) {
-      const url = typeof input === 'string' 
-        ? input 
-        : input instanceof URL 
-          ? input.toString() 
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
           : (input as Request).url;
-      
+
       const method = init?.method || 'GET';
-      
+
       console.warn(`Erreur réseau sur ${method} ${url}, tentative de récupération en mode hors ligne`);
-      
+
       // Pour les requêtes GET sur l'API, essayer de récupérer depuis le cache
       if (method === 'GET' && url.includes('/api/')) {
         try {
           const cache = await caches.open('api-cache');
           const response = await cache.match(url);
-          
+
           if (response) {
             console.log(`Données récupérées depuis le cache pour ${url}`);
             return response;
           }
-          
+
           // Si pas dans le cache, essayer de récupérer depuis IndexedDB
           try {
             const storeName = getStoreNameFromUrl(url);
@@ -1138,7 +1138,7 @@ export function createOfflineFetch() {
           } catch (dbError) {
             console.error('Erreur lors de la récupération depuis IndexedDB:', dbError);
           }
-          
+
           // Si aucune donnée n'a été trouvée
           return new Response(JSON.stringify([]), {
             status: 200,
@@ -1151,13 +1151,13 @@ export function createOfflineFetch() {
           console.error('Erreur lors de la récupération depuis le cache:', cacheError);
         }
       }
-      
+
       // Pour les requêtes de modification, les enregistrer pour synchronisation ultérieure
       // EXCLUSION : Ne jamais mettre en file d'attente offline les requêtes d'authentification
       const isAuthRequest = url.includes('/auth/login') || url.includes('/auth/logout');
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && url.includes('/api/') && !isAuthRequest) {
         console.log(`Enregistrement de la requête ${method} ${url} pour synchronisation ultérieure`);
-        
+
         let body: Record<string, any> | null = null;
         if (init?.body) {
           if (typeof init.body === 'string') {
@@ -1177,10 +1177,10 @@ export function createOfflineFetch() {
             body = obj;
           }
         }
-        
+
         try {
           await savePendingRequest(url, method, body);
-          
+
           // Retourner une réponse simulée pour indiquer que la requête a été mise en file d'attente
           return new Response(JSON.stringify({
             success: true,
@@ -1198,7 +1198,7 @@ export function createOfflineFetch() {
           throw new Error('Impossible de sauvegarder la requête pour synchronisation ultérieure');
         }
       }
-      
+
       // Si tout échoue, propager l'erreur
       throw error;
     }

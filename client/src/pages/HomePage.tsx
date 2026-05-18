@@ -287,7 +287,7 @@ export default function HomePage() {
 
       <footer className="bg-gray-100 border-t border-gray-200/80 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center text-gray-500 text-sm">
-          <p>© {new Date().getFullYear()} Système de Contrôle et de Digitalisation - République du Sénégal</p>
+          <p>Système de Contrôle et de Digitalisation - République du Sénégal</p>
           <p className="opacity-80 mt-2">
             © 2022 - Abdoulaye SENE · Ingénieur des travaux des Eaux et Forêts · Chef de division Gestion de la Faune - IREF THIÈS
           </p>

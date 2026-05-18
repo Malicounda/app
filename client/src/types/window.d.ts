@@ -1,8 +1,7 @@
-// Déclaration de types pour les fonctions globales ajoutées à window
-declare global {
+﻿declare global {
   interface Window {
-    hideSplashScreen?: () => void;
+    hideSplashScreen: () => void;
   }
 }
-
 export {};
+

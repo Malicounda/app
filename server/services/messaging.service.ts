@@ -19,6 +19,11 @@ export class DomainResolver {
       return { status: "FORBIDDEN", message: "Utilisateur introuvable." };
     }
 
+    // Cas spécial: Si contextId est explicitement "null" ou null, on force le domaine Alerte (domaineId = null)
+    if (contextId === "null" || contextId === null) {
+      return { status: "RESOLVED", domaineId: null };
+    }
+
     // L'appartenance à un domaine est vérifiée ci-dessous.
 
     const domains = await storage.getUserDomains(userId);
@@ -32,11 +37,14 @@ export class DomainResolver {
 
     // Cas 1 : Domaine unique (Déterministe)
     if (domains.length === 1) {
-      return { status: "RESOLVED", domaineId: domains[0] };
+      if (contextId === undefined || Number(contextId) === domains[0]) {
+        return { status: "RESOLVED", domaineId: domains[0] };
+      }
+      return { status: "FORBIDDEN", message: "Accès refusé pour ce domaine spécifique." };
     }
 
     // Cas 2 : Multi-domaines avec contexte fourni
-    if (contextId) {
+    if (contextId !== undefined) {
       const id = Number(contextId);
       if (!isNaN(id) && domains.includes(id)) {
         return { status: "RESOLVED", domaineId: id };

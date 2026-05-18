@@ -396,10 +396,33 @@ router.get('/sent', isAuthenticated, async (req, res) => {
     const recipientUsers = await storage.getUsersByIds(recipientIds as number[]);
     const recipientMap = new Map(recipientUsers.map((u: any) => [u.id, u]));
 
+    // Récupérer grade et rôle métier depuis la table agents + rolesMetier
+    let agentInfoMap = new Map<number, { grade: string | null; role_metier_label: string | null }>();
+    if (recipientIds.length > 0) {
+      try {
+        const agentRows = await db
+          .select({
+            userId: agents.userId,
+            grade: agents.grade,
+            roleMetierLabel: rolesMetier.labelFr,
+          })
+          .from(agents)
+          .leftJoin(rolesMetier, eq(agents.roleMetierId, rolesMetier.id))
+          .where(inArray(agents.userId, recipientIds as number[]));
+        for (const row of agentRows) {
+          agentInfoMap.set(row.userId, {
+            grade: row.grade ?? null,
+            role_metier_label: row.roleMetierLabel ?? null,
+          });
+        }
+      } catch {}
+    }
+
     // Agréger aussi les lecteurs des messages transférés (enfants via parentMessageId)
     const enrichedIndividual = await Promise.all((Array.isArray(individual) ? individual : []).map(async (m: any) => {
       const readers: any[] = [];
       const user = recipientMap.get(m.recipientId);
+      const agentInfo = agentInfoMap.get(m.recipientId);
       if (m.isRead && user) {
         readers.push({
           firstName: user.firstName ?? null,
@@ -437,6 +460,16 @@ router.get('/sent', isAuthenticated, async (req, res) => {
       return {
         ...m,
         isGroupMessage: false,
+        recipient: user ? {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          username: user.username,
+          email: user.email,
+          matricule: user.matricule,
+          grade: agentInfo?.grade ?? null,
+          role_metier_label: agentInfo?.role_metier_label ?? null,
+        } : undefined,
         readers,
         readStatus: readers.length > 0 ? 'read' : 'unread',
       };

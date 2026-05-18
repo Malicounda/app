@@ -300,129 +300,124 @@
   <!-- Script pour créer les particules -->
   <script>
     (function() {
-      // Temporarily disable splash screen
       const ENABLE_SPLASH = false;
+
+      // --- Suppression sécurisée du splash screen ---
+      // On retire le nœud uniquement s'il est encore rattaché à son parent,
+      // pour éviter le conflit avec le reconcilieur React (removeChild crash).
+      function removeSplashSafely() {
+        var splash = document.getElementById('initial-splash');
+        if (splash && splash.parentNode) {
+          splash.parentNode.removeChild(splash);
+        }
+      }
+
       if (!ENABLE_SPLASH) {
-        const splash = document.getElementById('initial-splash');
-        if (splash) splash.remove();
-        return;
-      }
-      const particlesContainer = document.getElementById('particles');
-      const particleCount = 15;
+        // Supprimer avant que React monte, de façon sûre
+        removeSplashSafely();
+      } else {
+        var particlesContainer = document.getElementById('particles');
+        var particleCount = 15;
 
-      for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'splash-particle';
-        const size = Math.random() * 10 + 5;
-        particle.style.width = size + 'px';
-        particle.style.height = size + 'px';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.top = Math.random() * 100 + '%';
-        particle.style.animationDelay = Math.random() * 20 + 's';
-        particlesContainer.appendChild(particle);
-      }
-
-      // Mise à jour du pourcentage
-      const progressText = document.getElementById('progress-text');
-      const statusElement = document.getElementById('status');
-
-      const statusMessages = [
-        { text: 'Connexion à la base de données...', time: 1000 },
-        { text: 'Chargement des configurations...', time: 2000 },
-        { text: 'Vérification des permis...', time: 3000 },
-        { text: 'Préparation de l\'interface...', time: 4500 },
-        { text: 'Finalisation...', time: 6000 }
-      ];
-
-      let currentIndex = 0;
-      const updateStatus = () => {
-        if (currentIndex < statusMessages.length) {
-          setTimeout(() => {
-            statusElement.textContent = statusMessages[currentIndex].text;
-            currentIndex++;
-            updateStatus();
-          }, statusMessages[currentIndex].time);
+        for (var i = 0; i < particleCount; i++) {
+          var particle = document.createElement('div');
+          particle.className = 'splash-particle';
+          var size = Math.random() * 10 + 5;
+          particle.style.width = size + 'px';
+          particle.style.height = size + 'px';
+          particle.style.left = Math.random() * 100 + '%';
+          particle.style.top = Math.random() * 100 + '%';
+          particle.style.animationDelay = Math.random() * 20 + 's';
+          particlesContainer.appendChild(particle);
         }
-      };
-      updateStatus();
 
-      // Mise à jour du pourcentage
-      let progress = 0;
-      const updateProgress = setInterval(() => {
-        if (progress < 95) {
-          progress += 1;
-          progressText.textContent = progress + '%';
-        }
-      }, 80);
+        var progressText = document.getElementById('progress-text');
+        var statusElement = document.getElementById('status');
 
-      // Fonction globale pour masquer le splashscreen (appelée par React)
-      window.hideSplashScreen = function() {
-        clearInterval(updateProgress);
-        progressText.textContent = '100%';
-        statusElement.textContent = 'Prêt!';
-        setTimeout(() => {
-          const splash = document.getElementById('initial-splash');
-          if (splash) {
-            splash.classList.add('splash-hidden');
-            setTimeout(() => splash.remove(), 500);
+        var statusMessages = [
+          { text: 'Connexion à la base de données...', time: 1000 },
+          { text: 'Chargement des configurations...', time: 2000 },
+          { text: 'Vérification des permis...', time: 3000 },
+          { text: 'Préparation de l\'interface...', time: 4500 },
+          { text: 'Finalisation...', time: 6000 }
+        ];
+
+        var currentIndex = 0;
+        var updateStatus = function() {
+          if (currentIndex < statusMessages.length) {
+            setTimeout(function() {
+              statusElement.textContent = statusMessages[currentIndex].text;
+              currentIndex++;
+              updateStatus();
+            }, statusMessages[currentIndex].time);
           }
-        }, 300);
-      };
+        };
+        updateStatus();
+
+        var progress = 0;
+        var updateProgress = setInterval(function() {
+          if (progress < 95) {
+            progress += 1;
+            progressText.textContent = progress + '%';
+          }
+        }, 80);
+
+        // Fonction globale pour masquer le splashscreen (appelée par React)
+        window.hideSplashScreen = function() {
+          clearInterval(updateProgress);
+          progressText.textContent = '100%';
+          statusElement.textContent = 'Prêt!';
+          setTimeout(function() {
+            var splash = document.getElementById('initial-splash');
+            if (splash) {
+              splash.classList.add('splash-hidden');
+              setTimeout(function() { removeSplashSafely(); }, 500);
+            }
+          }, 300);
+        };
+      }
 
       // ===== BLOQUER LE MENU CONTEXTUEL ET LES RACCOURCIS DÉVELOPPEUR =====
+      // Ces listeners sont toujours actifs, indépendamment du splash screen.
 
-      // Bloquer le clic droit (menu contextuel)
       document.addEventListener('contextmenu', function(e) {
         e.preventDefault();
         return false;
       }, false);
 
-      // Bloquer les raccourcis clavier pour ouvrir les outils de développement
       document.addEventListener('keydown', function(e) {
         // F12 - Outils de développement
         if (e.key === 'F12' || e.keyCode === 123) {
           e.preventDefault();
           return false;
         }
-
-        // Ctrl+Shift+I - Outils de développement
+        // Ctrl+Shift+I
         if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.keyCode === 73)) {
           e.preventDefault();
           return false;
         }
-
         // Ctrl+Shift+J - Console JavaScript
         if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.keyCode === 74)) {
           e.preventDefault();
           return false;
         }
-
         // Ctrl+Shift+C - Inspecteur d'éléments
         if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.keyCode === 67)) {
           e.preventDefault();
           return false;
         }
-
         // Ctrl+U - Afficher le code source
         if (e.ctrlKey && (e.key === 'U' || e.keyCode === 85)) {
           e.preventDefault();
           return false;
         }
-
-        // F5 et Ctrl+R - Rafraîchir (optionnel, décommentez si vous voulez bloquer)
-        // if (e.key === 'F5' || e.keyCode === 116 || (e.ctrlKey && (e.key === 'R' || e.keyCode === 82))) {
-        //   e.preventDefault();
-        //   return false;
-        // }
       }, false);
 
-      // Bloquer la sélection de texte (optionnel)
       document.addEventListener('selectstart', function(e) {
         e.preventDefault();
         return false;
       }, false);
 
-      // Bloquer le copier-coller (optionnel)
       document.addEventListener('copy', function(e) {
         e.preventDefault();
         return false;

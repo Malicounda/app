@@ -22,7 +22,7 @@ export interface SendInternalGroupMessageParams {
 
 interface UseInternalMessagingOptions {
   autoLoad?: boolean;
-  domaineId?: number;
+  domaineId?: number | "null";
 }
 
 export interface InternalMessageRecord {
@@ -100,7 +100,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     } finally {
       setLoadingInbox(false);
     }
-  }, []);
+  }, [domaineId]);
 
   const fetchSent = useCallback(async () => {
     setLoadingSent(true);
@@ -120,7 +120,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     } finally {
       setLoadingSent(false);
     }
-  }, []);
+  }, [domaineId]);
 
   const refreshAll = useCallback(async () => {
     await Promise.allSettled([fetchInbox(), fetchSent()]);
@@ -173,7 +173,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         setSending(false);
       }
     },
-    []
+    [domaineId]
   );
 
   const sendGroup = useCallback(
@@ -228,7 +228,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         setSending(false);
       }
     },
-    []
+    [domaineId]
   );
 
   const removeMessageFromState = useCallback((id: number, isGroup: boolean) => {

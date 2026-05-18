@@ -1,6 +1,6 @@
 // @ts-nocheck
 import bcrypt from "bcryptjs";
-import { and, count, desc, eq, getTableColumns, gte, inArray, lt, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, gte, inArray, lt, or, sql, isNull } from "drizzle-orm";
 import { sql as sqlRaw } from 'drizzle-orm/sql';
 import jwt from "jsonwebtoken";
 import {
@@ -2156,7 +2156,7 @@ import { db } from "./db.js";
     async getMessagesBySender(senderId: number, domaineId?: number): Promise<Message[]> {
       const conditions = [
         eq(messages.senderId, senderId),
-        eq(messages.deletedAtSender, null as any) // Aligné avec le schéma (deletedAtSender)
+        isNull(messages.deletedAtSender) // Aligné avec le schéma (deletedAtSender)
       ];
       if (domaineId !== undefined) {
         conditions.push(eq(messages.domaineId, domaineId));
@@ -2169,7 +2169,7 @@ import { db } from "./db.js";
     async getMessagesByRecipient(recipientId: number, domaineId?: number): Promise<Message[]> {
       const conditions = [
         eq(messages.recipientId, recipientId),
-        eq(messages.deletedAt, null as any) // Aligné avec le schéma (deletedAt)
+        isNull(messages.deletedAt) // Aligné avec le schéma (deletedAt)
       ];
       if (domaineId !== undefined) {
         conditions.push(
@@ -2365,7 +2365,7 @@ import { db } from "./db.js";
         const individualConditions = [
           eq(messages.recipientId, userId),
           eq(messages.isRead, false),
-          eq(messages.deletedAt, null as any)
+          isNull(messages.deletedAt)
         ];
         if (domaineId !== undefined) {
           individualConditions.push(
@@ -2582,9 +2582,20 @@ import { db } from "./db.js";
       if (domaineId !== undefined) {
         conditions.push(eq(groupMessages.domaineId, domaineId));
       }
-      return await db.select().from(groupMessages)
+      // Join groupMessageReads to exclude messages soft-deleted by the sender
+      const rows = await db
+        .select({ msg: groupMessages, readIsDeleted: groupMessageReads.isDeleted })
+        .from(groupMessages)
+        .leftJoin(
+          groupMessageReads,
+          and(eq(groupMessageReads.messageId, groupMessages.id), eq(groupMessageReads.userId, senderId))
+        )
         .where(and(...conditions))
         .orderBy(desc(groupMessages.createdAt));
+      // Exclude rows where sender explicitly deleted
+      return rows
+        .filter(r => !r.readIsDeleted)
+        .map(r => r.msg);
     }
 
     async getGroupReadsWithUsers(messageId: number): Promise<any[]> {
