@@ -774,17 +774,7 @@ export default function SimpleSMSPage() {
               <div className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Options du message</div>
               
               <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 divide-y divide-gray-100">
-                <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(activeActionMessage.content);
-                    toast({ title: "Texte copié !", description: "Le message a été copié dans votre presse-papiers." });
-                    setActiveActionMessage(null);
-                  }}
-                  className="w-full text-left px-5 py-4 text-sm font-semibold text-gray-700 hover:bg-gray-100 active:bg-gray-200 flex items-center gap-3 transition-colors"
-                >
-                  <span className="text-lg">📋</span> Copier le message
-                </button>
-                
+
                 <button 
                   onClick={async () => {
                     const msgObj = activeActionMessage.rawMsgObj;
@@ -1179,17 +1169,7 @@ export default function SimpleSMSPage() {
           <div className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Options du message</div>
           
           <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 divide-y divide-gray-100">
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(activeActionMessage.content);
-                toast({ title: "Texte copié !", description: "Le message a été copié dans votre presse-papiers." });
-                setActiveActionMessage(null);
-              }}
-              className="w-full text-left px-5 py-4 text-sm font-semibold text-gray-700 hover:bg-gray-100 active:bg-gray-200 flex items-center gap-3 transition-colors"
-            >
-              <span className="text-lg">📋</span> Copier le message
-            </button>
-            
+
             <button 
               onClick={async () => {
                 const msgObj = activeActionMessage.rawMsgObj;
