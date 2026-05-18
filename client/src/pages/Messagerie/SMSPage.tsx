@@ -29,7 +29,7 @@ export default function SimpleSMSPage() {
     userDeptLabel ? `Agent secteur — ${userDeptLabel}` : 'Agent secteur',
   ].join(' ; ');
   const inboxOnly = role === 'hunter' || role === 'hunting-guide';
-  const domaineId = 1;
+  const domaineId = isAlerteDomain ? undefined : 1;
   const [recipientOptions, setRecipientOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [activeTab, setActiveTab] = useState<"reçus" | "envoyés">("reçus");
   const [query, setQuery] = useState("");
@@ -124,7 +124,10 @@ export default function SimpleSMSPage() {
           requests.push(fetch(`/api/messages/agents?role=sector&departement=${encodeURIComponent(userDept)}`, { credentials: 'include' }));
         }
 
-        if (!requests.length) { setAutoRecipients([]); return; }
+        // Fallback: si l'agent n'a pas de région/département défini, on charge au moins les admins
+        if (!requests.length) { 
+          requests.push(fetch(`/api/messages/agents?role=admin`, { credentials: 'include' }));
+        }
         const responses = await Promise.all(requests);
         const jsons = await Promise.all(responses.map(r => r.ok ? r.json() : Promise.resolve([])));
         const allAgents = jsons.flatMap(arr => Array.isArray(arr) ? arr : []);
