@@ -59,10 +59,39 @@ export function registerServiceWorker() {
       navigator.serviceWorker.register('/service-worker.js')
         .then(registration => {
           console.log('Service Worker enregistré avec succès:', registration.scope);
+
+          // Vérifier régulièrement les mises à jour (optionnel, mais utile pour les PWA ouvertes longtemps)
+          setInterval(() => {
+            registration.update();
+          }, 1000 * 60 * 60); // Toutes les heures
+
+          // Écouter l'arrivée d'un nouveau Service Worker
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                // Si le nouveau SW est installé et qu'un ancien contrôle déjà la page
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('Nouvelle version disponible !');
+                  // Déclencher un événement personnalisé que React pourra écouter
+                  window.dispatchEvent(new CustomEvent('pwa-update-available', { detail: newWorker }));
+                }
+              });
+            }
+          });
         })
         .catch(error => {
           console.error('Erreur lors de l\'enregistrement du Service Worker:', error);
         });
+    });
+
+    // Recharger la page dès que le nouveau Service Worker prend le contrôle
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
     });
   }
 }

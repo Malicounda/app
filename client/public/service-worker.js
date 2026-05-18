@@ -79,41 +79,37 @@ self.addEventListener('fetch', (event) => {
                 headers.append('X-Cache-Source', 'service-worker');
                 return cachedResponse;
               }
-              
+
               // IMPORTANT: Pour les API, ne pas renvoyer 503 statique si le serveur est juste lent (Cold Start)
               // ou s'il y a une erreur CORS. On laisse l'erreur remonter pour que le client puisse 
               // la gérer (ex: retry) et pour voir la vraie erreur dans la console.
               console.warn('Service Worker: API fetch failed:', event.request.url, err);
-              throw err; 
+              throw err;
             });
         })
     );
   } else {
-    // Stratégie Cache First pour les ressources statiques
+    // Stratégie Stale-While-Revalidate pour les ressources statiques
     event.respondWith(
       caches.match(event.request)
         .then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          
-          return fetch(event.request)
-            .then((response) => {
+          const fetchPromise = fetch(event.request)
+            .then((networkResponse) => {
               // Ne pas mettre en cache les réponses d'erreur
-              if (!response || response.status !== 200 || response.type !== 'basic') {
-                return response;
+              if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+                return networkResponse;
               }
-              
-              // Mettre en cache la nouvelle ressource
-              const responseToCache = response.clone();
+
+              // Mettre en cache la nouvelle ressource (en arrière-plan)
+              const responseToCache = networkResponse.clone();
               caches.open(CACHE_NAME).then((cache) => {
                 cache.put(event.request, responseToCache);
               });
-              
-              return response;
+
+              return networkResponse;
             })
             .catch(() => {
-              // Retourner la page hors ligne pour les navigations
+              // Retourner la page hors ligne pour les navigations si pas de réseau et pas de cache
               if (event.request.mode === 'navigate') {
                 return caches.match(OFFLINE_URL);
               }
@@ -125,8 +121,18 @@ self.addEventListener('fetch', (event) => {
                 })
               });
             });
+
+          // Retourner la réponse en cache immédiatement si elle existe, sinon attendre le réseau
+          return cachedResponse || fetchPromise;
         })
     );
+  }
+});
+
+// Écouter les messages pour forcer la mise à jour de la PWA (skipWaiting)
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });
 
@@ -144,22 +150,22 @@ function saveRequestForSync(request) {
       body: body,
       timestamp: Date.now()
     };
-    
+
     return new Promise((resolve, reject) => {
       const dbRequest = indexedDB.open(DB_NAME, 1);
-      
+
       dbRequest.onupgradeneeded = (event) => {
         const db = event.target.result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
         }
       };
-      
+
       dbRequest.onsuccess = (event) => {
         const db = event.target.result;
         const transaction = db.transaction(STORE_NAME, 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
-        
+
         const addRequest = store.add(requestData);
         addRequest.onsuccess = () => {
           console.log('Requête enregistrée pour synchronisation ultérieure');
@@ -170,7 +176,7 @@ function saveRequestForSync(request) {
           reject();
         };
       };
-      
+
       dbRequest.onerror = () => {
         console.error('Erreur lors de l\'ouverture de la base de données IndexedDB');
         reject();
@@ -183,47 +189,47 @@ function saveRequestForSync(request) {
 function syncPendingRequests() {
   return new Promise((resolve, reject) => {
     const dbRequest = indexedDB.open(DB_NAME, 1);
-    
+
     dbRequest.onsuccess = (event) => {
       const db = event.target.result;
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-      
+
       const getAllRequest = store.getAll();
       getAllRequest.onsuccess = () => {
         const pendingRequests = getAllRequest.result;
-        
+
         if (pendingRequests.length === 0) {
           console.log('Aucune requête en attente à synchroniser');
           resolve();
           return;
         }
-        
+
         console.log(`Synchronisation de ${pendingRequests.length} requêtes en attente`);
-        
+
         const syncPromises = pendingRequests.map(requestData => {
           const { url, method, headers, body } = requestData;
-          
+
           return fetch(url, {
             method: method,
             headers: new Headers(headers),
             body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
             credentials: 'include'
           })
-          .then(response => {
-            if (response.ok) {
-              // Supprimer la requête synchronisée
-              const deleteRequest = store.delete(requestData.id);
-              return new Promise((resolve) => {
-                deleteRequest.onsuccess = resolve;
-              });
-            }
-          })
-          .catch(error => {
-            console.error('Erreur lors de la synchronisation de la requête:', error);
-          });
+            .then(response => {
+              if (response.ok) {
+                // Supprimer la requête synchronisée
+                const deleteRequest = store.delete(requestData.id);
+                return new Promise((resolve) => {
+                  deleteRequest.onsuccess = resolve;
+                });
+              }
+            })
+            .catch(error => {
+              console.error('Erreur lors de la synchronisation de la requête:', error);
+            });
         });
-        
+
         Promise.all(syncPromises)
           .then(() => {
             console.log('Synchronisation terminée');
@@ -234,13 +240,13 @@ function syncPendingRequests() {
             reject(error);
           });
       };
-      
+
       getAllRequest.onerror = (error) => {
         console.error('Erreur lors de la récupération des requêtes en attente:', error);
         reject(error);
       };
     };
-    
+
     dbRequest.onerror = (error) => {
       console.error('Erreur lors de l\'ouverture de la base de données IndexedDB:', error);
       reject(error);
@@ -305,7 +311,7 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action !== 'close') {
     const urlToOpen = event.notification.data.url;
-    
+
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true })
         .then((windowClients) => {

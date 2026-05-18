@@ -17,6 +17,7 @@ import { isUserSuperAdmin } from "@/utils/navigation";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
+import { PwaUpdatePrompt } from "@/components/ui/PwaUpdatePrompt";
 
 import HomePageWrapper from "@/components/auth/HomePageWrapper";
 import RegisterForm from "@/components/auth/RegisterForm";
@@ -271,6 +272,7 @@ function Router() {
     return (
       <>
       {lockOverlay}
+      <PwaUpdatePrompt />
       <Switch>
         <Route path="/" component={HomePageWrapper} />
         <Route path="/login" component={Login} />
@@ -344,6 +346,7 @@ function Router() {
     return (
       <>
       {lockOverlay}
+      <PwaUpdatePrompt />
       <ReforestLayout>
         <Switch>
           <Route path="/reboisement/admin">
@@ -428,6 +431,7 @@ function Router() {
   return (
     <>
     {lockOverlay}
+    <PwaUpdatePrompt />
     <MainLayout>
       <Switch>
         <Route path="/dashboard">
