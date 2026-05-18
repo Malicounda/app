@@ -80,7 +80,20 @@ export function useAuth() {
 const SESSION_KEY = 'scodi_session';
 
 function saveSession(u: User) {
-  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ id: u.id, role: u.role, type: u.type, isDefaultRole: (u as any).isDefaultRole, isSupervisorRole: (u as any).isSupervisorRole, firstName: u.firstName, lastName: u.lastName })); } catch {}
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      id: u.id,
+      role: u.role,
+      type: u.type,
+      isDefaultRole: (u as any).isDefaultRole,
+      isSupervisorRole: (u as any).isSupervisorRole,
+      isSuperAdmin: (u as any).isSuperAdmin,   // ← CRITIQUE: présence pour le guard au rechargement
+      publicId: (u as any).publicId ?? null,   // ← CRITIQUE: présence pour le routage basé UUID
+      firstName: u.firstName,
+      lastName: u.lastName,
+      username: (u as any).username,
+    }));
+  } catch {}
 }
 function clearSession() {
   try { localStorage.removeItem(SESSION_KEY); } catch {}
@@ -169,21 +182,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("userRegion", response.user.region || "");
 
         // IMPORTANT: /api/auth/login ne renvoie pas toujours les champs enrichis (ex: grade/genre).
-        // On recharge donc l'utilisateur depuis /api/auth/me pour éviter d'avoir à recharger la page.
+        // On recharge depuis /api/auth/me puis on re-persiste la session AVEC isSuperAdmin + publicId.
+        let enrichedUser = response.user;
         try {
-          await refreshUser();
+          const meData = await apiRequest<User>({ url: "/api/auth/me", method: "GET" });
+          if (meData) {
+            enrichedUser = { ...response.user, ...meData };
+            setUser(enrichedUser);
+            setIsAuthenticated(true);
+            // Re-persister : isSuperAdmin et publicId maintenant inclus
+            saveSession(enrichedUser);
+          }
         } catch {}
 
         // Rafraîchir toutes les données (requêtes actives) immédiatement après connexion
         try { await afterLoginRefreshAll(); } catch {}
-        // Redirection centralisée via getHomePage
-        const isSuperAdmin = isUserSuperAdmin(response.user);
+        // Redirection centralisée — on utilise enrichedUser (isSuperAdmin garanti)
+        const isSuperAdmin = isUserSuperAdmin(enrichedUser);
 
         const domain = (localStorage.getItem('domain') || '').toUpperCase();
         let homePage: string;
 
-        if (domain === 'ALERTE' || (response.user as any).isSupervisorRole || (response.user as any).isDefaultRole) {
-          if (isSuperAdmin || (response.user as any).isSupervisorRole) {
+        if (domain === 'ALERTE' || (enrichedUser as any).isSupervisorRole || (enrichedUser as any).isDefaultRole) {
+          if (isSuperAdmin || (enrichedUser as any).isSupervisorRole) {
             homePage = '/supervisor';
           } else {
             homePage = '/default-home';
@@ -193,16 +214,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem('domain');
           homePage = '/superadmin/agents';
         } else if (domain === 'REBOISEMENT') {
-          homePage = response.user.role === 'admin' ? '/reboisement/admin' : '/reboisement';
+          homePage = enrichedUser.role === 'admin' ? '/reboisement/admin' : '/reboisement';
         } else {
-          homePage = getHomePage(response.user.role, response.user.type);
+          homePage = getHomePage(enrichedUser.role, enrichedUser.type);
         }
 
-        if ((response.user as any).publicId) {
-          const pubId = (response.user as any).publicId;
+        if ((enrichedUser as any).publicId) {
+          const pubId = (enrichedUser as any).publicId;
           homePage = homePage.startsWith('/') ? `/${pubId}${homePage}` : `/${pubId}/${homePage}`;
         }
-        console.log(`[LOGIN] → ${homePage} (role=${response.user.role}, domain=${domain}, superAdmin=${isSuperAdmin})`);
+        console.log(`[LOGIN] → ${homePage} (role=${enrichedUser.role}, domain=${domain}, superAdmin=${isSuperAdmin})`);
         setLocation(homePage);
       } else {
         throw new Error("La réponse ne contient pas d'informations utilisateur");
