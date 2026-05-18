@@ -79,7 +79,7 @@ export default function AgentTopHeader() {
                     </div>
                     <span className="text-sm font-bold uppercase tracking-wide">Alertes</span>
                   </button>
-                  
+
                   <button
                     onClick={() => setLocation("/sms")}
                     className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all ${location === '/sms' ? 'bg-white text-emerald-600 shadow-lg' : 'bg-white/15 text-white hover:bg-white/25'}`}
@@ -119,8 +119,8 @@ export default function AgentTopHeader() {
                         <span className="text-emerald-500 opacity-60">/</span>
                         <span className="text-xs text-white font-bold uppercase tracking-wider hidden sm:block">
                           {location === '/alerts' ? 'Alertes' :
-                           location === '/sms' ? 'Messagerie' :
-                           location.replace('/', '')}
+                            location === '/sms' ? 'Messagerie' :
+                              location.replace('/', '')}
                         </span>
                       </>
                     )}
@@ -151,7 +151,7 @@ export default function AgentTopHeader() {
                 <p className="text-[9px] text-slate-500 leading-[1.25] mt-0.5 line-clamp-2">Consulter les alertes et notifications</p>
               </div>
             </button>
-            
+
             <button
               onClick={() => setLocation("/sms")}
               className={`bg-white shadow-sm hover:shadow-md border ${location === '/sms' ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-slate-100'} rounded-[18px] p-3.5 text-left active:scale-95 transition-all flex items-center gap-3 w-full`}
