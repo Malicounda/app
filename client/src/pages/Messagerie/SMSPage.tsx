@@ -763,11 +763,11 @@ export default function SimpleSMSPage() {
         {/* Tiroir d'actions tactiles de type smartphone */}
         {activeActionMessage && (
           <div 
-            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-end justify-center p-4"
+            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-end justify-center p-4 pb-20"
             onClick={() => setActiveActionMessage(null)}
           >
             <div 
-              className="bg-white w-full max-w-sm rounded-2xl p-4 space-y-4 pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 border border-gray-100"
+              className="bg-white w-full max-w-xs rounded-2xl p-4 space-y-4 pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 border border-gray-100"
               onClick={e => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-1" />
@@ -1158,11 +1158,11 @@ export default function SimpleSMSPage() {
     {/* Tiroir d'actions tactiles de type smartphone */}
     {activeActionMessage && (
       <div 
-        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-end justify-center p-4"
+        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-end justify-center p-4 pb-20"
         onClick={() => setActiveActionMessage(null)}
       >
         <div 
-          className="bg-white w-full max-w-sm rounded-2xl p-4 space-y-4 pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 border border-gray-100"
+          className="bg-white w-full max-w-xs rounded-2xl p-4 space-y-4 pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 border border-gray-100"
           onClick={e => e.stopPropagation()}
         >
           <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-1" />
