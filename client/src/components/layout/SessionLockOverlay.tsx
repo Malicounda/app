@@ -21,7 +21,7 @@ export default function SessionLockOverlay({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   // Poser/retirer un flag sur <body> pour que les Dialog sachent que la session est verrouillée
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function SessionLockOverlay({
           <Button
             variant="destructive"
             className="w-full"
-            onClick={forceLogout}
+            onClick={logout}
           >
             <LogOut className="h-4 w-4 mr-2" />
             Se reconnecter
@@ -149,7 +149,7 @@ export default function SessionLockOverlay({
             variant="ghost"
             size="sm"
             className="text-gray-500 hover:text-red-600"
-            onClick={forceLogout}
+            onClick={logout}
           >
             <LogOut className="h-4 w-4 mr-1" />
             Se déconnecter
