@@ -822,35 +822,23 @@ function AlertsPage() {
 
   const markAllAsRead = async () => {
     try {
-      // Mettre à jour toutes les alertes dans l'API
       const response = await fetch(`/api/alerts/user/${user?.id}/read-all`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
+      if (!response.ok) throw new Error('Erreur lors de la mise à jour des alertes');
 
-      if (!response.ok) {
-        throw new Error('Erreur lors de la mise à jour des alertes');
-      }
-
-      toast({
-        title: "Toutes les alertes marquées comme lues",
-        description: "Toutes vos alertes ont été marquées comme lues.",
-      });
-
-      // Vider immédiatement la boîte de réception
+      // Vider localement la boîte de réception + invalider tous les caches liés
       queryClient.setQueryData(["/api/alerts/received", user?.id], []);
-
-      // Rafraîchir les données depuis le serveur
+      queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
+      queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
+      queryClient.invalidateQueries({ queryKey: ["alerts-unread-count"] });
       refetch();
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Une erreur s'est produite. Veuillez réessayer.",
-      });
+
+      toast({ title: "Toutes les alertes marquées comme lues" });
+    } catch {
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible de marquer toutes les alertes comme lues." });
     }
   };
 
@@ -1762,7 +1750,7 @@ function AlertsPage() {
         </div>
       </div>
 
-      {/* Modal détails alerte */}
+      {/* Modal détails alerte — compact, auto-marqué lu à l'ouverture */}
       <Dialog
         open={detailsOpen}
         onOpenChange={(open) => {
@@ -1770,40 +1758,37 @@ function AlertsPage() {
           if (!open) setDetailsAlert(null);
         }}
       >
-        <DialogContent className="w-[95vw] max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[92vw] max-w-md">
           <DialogHeader>
             <DialogTitle>Détails de l'alerte</DialogTitle>
           </DialogHeader>
 
           {detailsAlert && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="font-semibold text-gray-900">{detailsAlert.title}</div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-gray-900">{detailsAlert.title}</span>
                 {getUrgencyTag(detailsAlert.type, detailsAlert.nature)}
-                {!detailsAlert.isRead && (
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">Non lu</Badge>
-                )}
               </div>
 
-              <div className="text-sm text-gray-700 whitespace-pre-line">{detailsAlert.message}</div>
+              <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{detailsAlert.message}</p>
 
-              <div className="text-sm text-gray-600">
-                Reçu de : {detailsAlert.sender?.firstName ?? detailsAlert.sender?.username ?? 'Utilisateur'}
-                {detailsAlert.sender?.lastName ? ` ${detailsAlert.sender.lastName}` : ''}
-                {' '}({getProvenanceLabel(detailsAlert.sender?.role ?? 'unknown')})
-              </div>
+              <p className="text-sm text-gray-600">
+                Reçu de : <span className="font-medium">
+                  {detailsAlert.sender?.firstName ?? detailsAlert.sender?.username ?? 'Utilisateur'}
+                  {detailsAlert.sender?.lastName ? ` ${detailsAlert.sender.lastName}` : ''}
+                </span> ({getProvenanceLabel(detailsAlert.sender?.role ?? 'unknown')})
+              </p>
 
-              <div className="text-sm text-gray-600">
-                Lieux : {String(detailsAlert.departement || 'NON DÉFINI').toUpperCase()}{detailsAlert.region ? `/${detailsAlert.region}` : ''}
-              </div>
+              <p className="text-sm text-gray-600">
+                Lieux : <span className="font-medium">
+                  {String(detailsAlert.departement || 'NON DÉFINI').toUpperCase()}{detailsAlert.region ? `/${detailsAlert.region}` : ''}
+                </span>
+              </p>
 
-              <div className="flex flex-wrap gap-2 justify-end pt-2">
-                {!detailsAlert.isRead && (
-                  <Button variant="outline" onClick={() => markAsRead(detailsAlert.id)}>
-                    Marquer comme lu
-                  </Button>
-                )}
-                <Button variant="outline" className="text-red-600" onClick={() => deleteAlert(detailsAlert.id)}>
+              <div className="flex justify-end pt-1">
+                <Button variant="outline" size="sm" className="text-red-600 border-red-200"
+                  onClick={() => { deleteAlert(detailsAlert.id); setDetailsOpen(false); }}
+                >
                   Supprimer
                 </Button>
               </div>

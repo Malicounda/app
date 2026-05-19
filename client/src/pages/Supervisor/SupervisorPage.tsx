@@ -1,14 +1,15 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/api";
 import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bell, LogOut, Map, MessageSquare, User, ChevronRight } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Bell, Map, MessageSquare, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
 
 export default function SupervisorPage() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
   const { data: unreadData } = useUnreadNotificationsCount();
   const unread = unreadData?.count ?? 0;
@@ -82,43 +83,82 @@ export default function SupervisorPage() {
           <p className="text-[11px] text-gray-700 text-center max-w-xs leading-tight font-bold">Système de Contrôle et de Digitalisation</p>
           <img src="/icon-blason.svg" alt="Blason" className="h-20 object-contain" />
 
-          {/* Bandeau défilant des nouvelles alertes */}
+          {/* Bandeau ticker défilant style TV — alerte(s) non lues */}
           {recentNotifs && recentNotifs.length > 0 && (
             <div className="w-full mt-4">
               <div className="bg-amber-50 border border-amber-200 rounded-lg overflow-hidden">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 border-b border-amber-200">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Nouvelles alertes ({recentNotifs.length})</span>
+                {/* Titre + compteur + bouton tout marquer lu */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 border-b border-amber-200 justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">
+                      Nouvelle alerte{recentNotifs.length > 1 ? `s (${recentNotifs.length})` : ''}
+                    </span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await fetch(`/api/alerts/user/${user?.id}/read-all`, { method: 'PATCH', credentials: 'include' });
+                        queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
+                        queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
+                      } catch {}
+                    }}
+                    className="text-[9px] font-bold text-amber-700 underline hover:text-amber-900 transition-colors"
+                  >
+                    Tout marquer lu
+                  </button>
                 </div>
-                <div className="max-h-32 overflow-y-auto">
-                  {recentNotifs.map((n: any) => {
-                    const sender = n.alert?.sender;
-                    const grade = sender?.grade || "";
-                    const fullName = [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") || "Agent inconnu";
-                    const title = n.alert?.title || n.message || "Alerte";
-                    return (
-                      <button
-                        key={n.id}
-                        onClick={() => setLocation("/alerts")}
-                        className="w-full text-left px-3 py-2 border-b border-amber-100 last:border-b-0 hover:bg-amber-100/50 active:bg-amber-200/50 transition-colors flex items-start gap-2"
-                      >
-                        <AlertTriangle className="h-3 w-3 text-red-500 mt-0.5 shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-semibold text-gray-800 truncate">
-                            {grade ? `${grade} ` : ""}{fullName}
-                          </p>
-                          <p className="text-[9px] text-gray-500 truncate">{title}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <button
+
+                {/* Ticker défilant une seule ligne */}
+                <div
+                  className="overflow-hidden cursor-pointer relative"
                   onClick={() => setLocation("/alerts")}
-                  className="w-full text-center py-1.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+                  style={{ height: '32px' }}
                 >
-                  Voir la boîte de réception →
-                </button>
+                  <style>{`
+                    @keyframes supervisor-ticker {
+                      0%   { transform: translateX(100%); }
+                      100% { transform: translateX(-100%); }
+                    }
+                    .supervisor-ticker-inner { animation: supervisor-ticker linear infinite; }
+                  `}</style>
+                  <div
+                    className="supervisor-ticker-inner flex items-center gap-6 whitespace-nowrap absolute top-0 left-0 h-full px-4"
+                    style={{ animationDuration: `${Math.max(12, recentNotifs.length * 8)}s` }}
+                  >
+                    {recentNotifs.map((n: any) => {
+                      const sender = n.alert?.sender;
+                      const grade = sender?.grade || "";
+                      const fullName = [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") || "Agent inconnu";
+                      const title = n.alert?.title || n.message || "Alerte";
+                      return (
+                        <span key={n.id} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
+                          <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
+                          <span className="font-bold">{grade ? `${grade} ` : ""}{fullName}</span>
+                          <span className="text-amber-700">—</span>
+                          <span>{title}</span>
+                          <span className="text-amber-300 mx-3">◆</span>
+                        </span>
+                      );
+                    })}
+                    {/* Doublon pour boucle continue */}
+                    {recentNotifs.map((n: any) => {
+                      const sender = n.alert?.sender;
+                      const grade = sender?.grade || "";
+                      const fullName = [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") || "Agent inconnu";
+                      const title = n.alert?.title || n.message || "Alerte";
+                      return (
+                        <span key={`dup-${n.id}`} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
+                          <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
+                          <span className="font-bold">{grade ? `${grade} ` : ""}{fullName}</span>
+                          <span className="text-amber-700">—</span>
+                          <span>{title}</span>
+                          <span className="text-amber-300 mx-3">◆</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           )}
