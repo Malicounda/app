@@ -1141,6 +1141,34 @@ export default function SimpleSMSPage() {
             </div>
           </div>
         )}
+
+        {/* === Dialog Agent introuvable === */}
+        {showAgentNotFoundDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-4 max-w-xs w-full animate-in fade-in zoom-in-95 duration-200">
+              {/* Icône agent */}
+              <div className="h-16 w-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-9 w-9 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636" className="text-red-400" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-base font-bold text-gray-800">Agent introuvable</p>
+                <p className="text-xs text-gray-500 mt-1">Aucun agent ne correspond à cet identifiant dans le système.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAgentNotFoundDialog(false);
+                  setNewRecipientSearch('');
+                }}
+                className="w-full py-2.5 rounded-xl bg-green-600 text-white text-sm font-bold hover:bg-green-700 active:scale-95 transition-all"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
