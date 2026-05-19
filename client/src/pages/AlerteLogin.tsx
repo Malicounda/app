@@ -26,9 +26,10 @@ const schema = z.object({
 // Détection fiable du mode APK (Capacitor)
 const isApkMode = (): boolean => {
   try {
-    // Paramètre URL explicite
-    if (typeof window !== "undefined" && window.location.search.includes("isApk=true")) return true;
-    // Détection Capacitor natif
+    if (typeof window !== "undefined") {
+      if (window.navigator.userAgent.includes("AlerteAPK")) return true;
+      if (window.location.search.includes("isApk=true")) return true;
+    }
     if (typeof (window as any).Capacitor !== "undefined" && (window as any).Capacitor.isNativePlatform?.()) return true;
   } catch {}
   return false;
@@ -53,7 +54,23 @@ export default function AlerteLogin() {
     try {
       localStorage.setItem("domain", "ALERTE");
     } catch {}
-  }, []);
+
+    // Demander les permissions de géolocalisation pour l'APK
+    if (isApk) {
+      const requestLocation = async () => {
+        try {
+          const { Geolocation } = await import('@capacitor/geolocation');
+          const status = await Geolocation.checkPermissions();
+          if (status.location !== 'granted') {
+            await Geolocation.requestPermissions();
+          }
+        } catch (e) {
+          console.log("Capacitor geolocation not available or failed", e);
+        }
+      };
+      requestLocation();
+    }
+  }, [isApk]);
 
   // Interception du bouton Back Android en mode APK
   useEffect(() => {

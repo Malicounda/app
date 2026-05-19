@@ -277,7 +277,10 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
       {/* Entête verte plein écran pour les agents Alerte */}
       {chromeless && location !== '/sms' && (
-        <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[44px]">
+        <nav 
+          className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[44px]"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 24px))' }}
+        >
           {/* Gauche : Drapeau + descriptions */}
           <div className="flex items-center gap-2 min-w-0 shrink">
             <img src="/assets/Flag_of_Senegal.svg" alt="Drapeau du Sénégal" width="28" height="19" className="shrink-0" draggable={false} />
@@ -454,7 +457,11 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
                 {showRestrictedAccess ? restrictedContent : children}
               </div>
             ) : chromeless ? (
-              <div ref={(el) => { if (el) el.scrollTop = 0; }} className="w-full min-h-full">
+              <div 
+                ref={(el) => { if (el) el.scrollTop = 0; }} 
+                className={`w-full min-h-full ${location !== '/sms' ? 'pb-20' : ''}`}
+                style={chromeless && location !== '/sms' ? { paddingTop: 'calc(4rem + env(safe-area-inset-top, 24px))' } : undefined}
+              >
                 {showRestrictedAccess ? restrictedContent : children}
               </div>
             ) : (

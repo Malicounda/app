@@ -15,6 +15,7 @@ const config: CapacitorConfig = {
     captureInput: true,
     webContentsDebuggingEnabled: false,
     backgroundColor: '#114b26',
+    appendUserAgent: 'AlerteAPK',
   },
   plugins: {
     App: {
