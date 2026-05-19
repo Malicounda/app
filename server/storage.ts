@@ -2308,6 +2308,11 @@ import { db } from "./db.js";
         type: (data as any).type ?? (data as any).messageType,
         ...(data.subject && { subject: data.subject }),
         ...(data.parentMessageId && { parentMessageId: data.parentMessageId }),
+        ...(data.attachmentPath && { attachmentPath: data.attachmentPath }),
+        ...(data.attachmentName && { attachmentName: data.attachmentName }),
+        ...(data.attachmentMime && { attachmentMime: data.attachmentMime }),
+        ...(data.attachmentSize && { attachmentSize: data.attachmentSize }),
+        ...(data.domaineId && { domaineId: data.domaineId }),
       };
       const [newMessage] = await db.insert(messages).values(valuesToInsert as InsertMessage).returning();
       if (!newMessage) {
@@ -2627,6 +2632,11 @@ import { db } from "./db.js";
         type: message.type,
         targetRole: message.targetRole,
         targetRegion: message.targetRegion ?? null,
+        ...(message.attachmentPath && { attachmentPath: message.attachmentPath }),
+        ...(message.attachmentName && { attachmentName: message.attachmentName }),
+        ...(message.attachmentMime && { attachmentMime: message.attachmentMime }),
+        ...(message.attachmentSize && { attachmentSize: message.attachmentSize }),
+        ...(message.domaineId && { domaineId: message.domaineId }),
       } as any;
       const result = await db.insert(groupMessages).values(values).returning();
       return result[0];

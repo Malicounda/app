@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { InternalMessageRecord } from "@/hooks/useInternalMessaging";
@@ -502,18 +502,21 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
                       </div>
 
                       {context === 'inbox' ? (
-                        <button
-                          type="button"
-                          className="mt-2 text-left w-full"
+                        <div
+                          className="mt-2 text-left w-full cursor-pointer group"
                           onClick={() => toggleOpen(message)}
                           aria-label={isOpen ? 'Fermer le message' : 'Ouvrir le message'}
                         >
-                          {isOpen && (
+                          {isOpen ? (
                             <p className="text-sm text-gray-700 whitespace-pre-wrap break-words text-justify leading-relaxed">
                               {wrapByWords(content, 20)}
                             </p>
+                          ) : (
+                            <p className="text-sm text-gray-500 truncate group-hover:text-gray-700 transition-colors">
+                              {content}
+                            </p>
                           )}
-                        </button>
+                        </div>
                       ) : (
                         isOpen && (
                           <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap break-words text-justify leading-relaxed">
@@ -553,7 +556,7 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
                           )}
                         </div>
 
-                        {context === 'inbox' && (normalizedRole === 'admin' || (normalizedRole === 'agent' && (user as any)?.type !== 'secteur')) && (
+                        {context === 'inbox' && (
                           <Button
                             variant="outline"
                             className="h-8 rounded-full border-green-200 text-green-700 hover:bg-green-50"
@@ -737,50 +740,50 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
             </label>
             {!selectAllSectors && (
               <>
-              {deptOptions.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-700">Département</label>
-                  <select
-                    className="rounded border px-2 py-1 text-sm"
-                    value={sectorDeptFilter}
-                    onChange={(e) => setSectorDeptFilter(e.target.value)}
-                  >
-                    <option value="">Tous</option>
-                    {deptOptions.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="max-h-48 overflow-auto rounded border p-2">
-                {sectorLoading ? (
-                  <p className="text-sm text-gray-500">Chargement…</p>
-                ) : sectorError ? (
-                  <p className="text-sm text-red-600">{sectorError}</p>
-                ) : sectorAgents.length === 0 ? (
-                  <p className="text-sm text-gray-500">Aucun agent de secteur disponible</p>
-                ) : (
-                  sectorAgents.map((a) => {
-                    const checked = selectedSectorIds.has(a.id);
-                    return (
-                      <label key={a.id} className="flex items-center gap-2 text-sm py-1">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            setSelectedSectorIds((prev) => {
-                              const next = new Set(prev);
-                              if (e.target.checked) next.add(a.id); else next.delete(a.id);
-                              return next;
-                            });
-                          }}
-                        />
-                        <span>{a.label}</span>
-                      </label>
-                    );
-                  })
+                {deptOptions.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-700">Département</label>
+                    <select
+                      className="rounded border px-2 py-1 text-sm"
+                      value={sectorDeptFilter}
+                      onChange={(e) => setSectorDeptFilter(e.target.value)}
+                    >
+                      <option value="">Tous</option>
+                      {deptOptions.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
                 )}
-              </div>
+                <div className="max-h-48 overflow-auto rounded border p-2">
+                  {sectorLoading ? (
+                    <p className="text-sm text-gray-500">Chargement…</p>
+                  ) : sectorError ? (
+                    <p className="text-sm text-red-600">{sectorError}</p>
+                  ) : sectorAgents.length === 0 ? (
+                    <p className="text-sm text-gray-500">Aucun agent de secteur disponible</p>
+                  ) : (
+                    sectorAgents.map((a) => {
+                      const checked = selectedSectorIds.has(a.id);
+                      return (
+                        <label key={a.id} className="flex items-center gap-2 text-sm py-1">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setSelectedSectorIds((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(a.id); else next.delete(a.id);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span>{a.label}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
               </>
             )}
             <div className="space-y-1">

@@ -215,7 +215,9 @@ export async function apiRequest<T>({
     const parsed = await safeParseResponse<T>(res);
     return parsed as T;
   } catch (error: any) {
-    console.error("Erreur lors de la requête:", error);
+    if (error?.status !== 401) {
+      console.error("Erreur lors de la requête:", error);
+    }
     // Préserver les informations structurées d'erreur si disponibles
     if (error?.response) {
       throw error; // contient status, response, body

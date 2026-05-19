@@ -2,9 +2,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import { Bell, MessageSquare } from "lucide-react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 
 export default function AgentDefaultPage() {
   const [, setLocation] = useLocation();
+
+  const { data: unreadMsgCount } = useQuery({
+    queryKey: ["messages-unread-count-main"],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/messages/unread-count`, { credentials: "include" });
+        if (!res.ok) return { total: 0 };
+        return await res.json();
+      } catch {
+        return { total: 0 };
+      }
+    },
+    refetchInterval: 30000
+  });
+  const msgUnread = unreadMsgCount?.total || 0;
 
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-50">
@@ -29,8 +45,13 @@ export default function AgentDefaultPage() {
 
           <button
             onClick={() => setLocation("/sms")}
-            className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[24px] p-4 text-center active:scale-95 transition-all flex flex-col items-center gap-3 w-full"
+            className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[24px] p-4 text-center active:scale-95 transition-all flex flex-col items-center gap-3 w-full relative"
           >
+            {msgUnread > 0 && (
+              <div className="absolute top-3 right-3 h-5 min-w-[20px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse shadow-sm">
+                {msgUnread}
+              </div>
+            )}
             <div className="h-[64px] w-[64px] shrink-0 rounded-2xl bg-emerald-50 flex items-center justify-center relative">
               <MessageSquare className="h-[32px] w-[32px] text-emerald-500" strokeWidth={2.5} />
             </div>

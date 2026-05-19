@@ -87,6 +87,7 @@ export default function SimpleSMSPage() {
     sendGroup,
     sendIndividual,
     deleteMessage,
+    markMessageAsRead,
     refreshSent,
     refreshAll,
   } = useInternalMessaging({ domaineId, autoLoad: true });
@@ -399,6 +400,19 @@ export default function SimpleSMSPage() {
     }
   }, [phoneView, selectedConversation]);
 
+  // Mark unread messages as read when viewing conversation
+  useEffect(() => {
+    if (phoneView === 'chat' && selectedConversation) {
+      selectedConversation.messages.forEach(m => {
+        if (!m.isSent && m.rawMsgObj && !m.rawMsgObj.isRead) {
+          markMessageAsRead(m.id);
+          // Optimistically update
+          m.rawMsgObj.isRead = true;
+        }
+      });
+    }
+  }, [phoneView, selectedConversation, markMessageAsRead]);
+
   // Scroll to bottom of chat when messages change
   useEffect(() => {
     if (phoneView === 'chat') chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -639,8 +653,8 @@ export default function SimpleSMSPage() {
                     <button type="button" onClick={() => { setDefaultAttachment(null); if (defaultFileRef.current) defaultFileRef.current.value = ''; }} className="text-xs text-red-500 hover:underline">✕</button>
                   </div>
                 )}
-                <div className="px-3 py-2 border-t border-gray-200 bg-white shrink-0">
-                  <div className="flex items-end gap-2">
+                <div className="px-1 sm:px-3 py-2 border-t border-gray-200 bg-white shrink-0">
+                  <div className="flex items-end gap-1 sm:gap-2">
                     <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
                     <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
                     <div className="flex-1 relative">
@@ -719,7 +733,7 @@ export default function SimpleSMSPage() {
             </div>
 
             <div className="p-4 sm:p-6">
-              <div className="max-w-xl mx-auto space-y-4">
+              <div className="max-w-3xl mx-auto space-y-4">
                 <div className="space-y-2">
                   <div className="text-xs text-gray-600 font-medium">Destinataire</div>
                   <input
@@ -953,7 +967,7 @@ export default function SimpleSMSPage() {
             {!inboxOnly && isDefaultRole && (
               <aside id="composer-panel" className="bg-white border-2 border-gray-200 shadow-sm flex flex-col overflow-hidden w-full h-auto rounded-none sm:rounded-2xl">
                 <div className="p-4 sm:p-6 overflow-y-auto">
-                  <div className="max-w-xl mx-auto space-y-4">
+                  <div className="max-w-3xl mx-auto space-y-4">
                     <div className="space-y-2">
                       <div className="text-xs text-gray-600 font-medium">Destinataire</div>
                       <input
@@ -1151,8 +1165,8 @@ export default function SimpleSMSPage() {
                         <button type="button" onClick={() => { setDefaultAttachment(null); if (defaultFileRef.current) defaultFileRef.current.value = ''; }} className="text-xs text-red-500 hover:underline">✕</button>
                       </div>
                     )}
-                    <div className="px-3 py-2 border-t border-gray-200 bg-white shrink-0">
-                      <div className="flex items-end gap-2">
+                    <div className="px-1 sm:px-3 py-2 border-t border-gray-200 bg-white shrink-0">
+                      <div className="flex items-end gap-1 sm:gap-2">
                         <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
                         <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
                         <div className="flex-1 relative">
