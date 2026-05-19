@@ -23,10 +23,22 @@ const schema = z.object({
   identifier: z.string().min(1, "Matricule requis"),
 });
 
+// Détection fiable du mode APK (Capacitor)
+const isApkMode = (): boolean => {
+  try {
+    // Paramètre URL explicite
+    if (typeof window !== "undefined" && window.location.search.includes("isApk=true")) return true;
+    // Détection Capacitor natif
+    if (typeof (window as any).Capacitor !== "undefined" && (window as any).Capacitor.isNativePlatform?.()) return true;
+  } catch {}
+  return false;
+};
+
 export default function AlerteLogin() {
   const { login, isLoading, isAuthenticated, user } = useAuth();
   const [, setLocation] = useLocation();
   const { icon: DomainIcon, logoUrl } = useDomainVisual('ALERTE');
+  const isApk = isApkMode();
 
   // Si déjà authentifié (rechargement de page), rediriger vers le bon dashboard
   useEffect(() => {
@@ -42,6 +54,28 @@ export default function AlerteLogin() {
       localStorage.setItem("domain", "ALERTE");
     } catch {}
   }, []);
+
+  // Interception du bouton Back Android en mode APK
+  useEffect(() => {
+    if (!isApk) return;
+
+    const handleBackButton = async () => {
+      try {
+        // Import dynamique pour éviter les erreurs sur le web
+        const { App } = await import('@capacitor/app');
+        App.addListener('backButton', ({ canGoBack }) => {
+          if (!canGoBack) {
+            // Si aucune page en arrière, quitter l'application plutôt que de naviguer
+            App.exitApp();
+          }
+          // Sinon : ne rien faire — on reste sur la page de connexion
+        });
+      } catch {
+        // Silently fail on web
+      }
+    };
+    handleBackButton();
+  }, [isApk]);
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -73,18 +107,21 @@ export default function AlerteLogin() {
   return (
     <div className="fixed inset-0 z-[100] bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 flex items-center justify-center overflow-auto p-4">
       <div className="w-full max-w-md bg-white/70 backdrop-blur rounded-2xl shadow-xl p-6">
-        <button
-          type="button"
-          onClick={() => {
-            // Effacer le domaine pour revenir proprement à la page d'accueil
-            try { localStorage.removeItem("domain"); } catch {}
-            setLocation("/");
-          }}
-          className="mb-3 inline-flex items-center gap-2 text-amber-700 hover:text-amber-800"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Retour</span>
-        </button>
+
+        {/* Bouton Retour — masqué en mode APK */}
+        {!isApk && (
+          <button
+            type="button"
+            onClick={() => {
+              try { localStorage.removeItem("domain"); } catch {}
+              setLocation("/");
+            }}
+            className="mb-3 inline-flex items-center gap-2 text-amber-700 hover:text-amber-800"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Retour</span>
+          </button>
+        )}
 
         <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">
           {logoUrl ? (
