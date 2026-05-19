@@ -705,9 +705,18 @@ export default function SimpleSMSPage() {
                 </div>
                 {!isSelectionMode && conversations.length > 0 && (
                   <div className="px-3 py-2 border-b border-gray-100 shrink-0 flex items-center gap-2">
-                    <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2">
+                    <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2 relative">
                       <Search className="h-4 w-4 text-gray-400" />
-                      <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher" className="bg-transparent outline-none text-sm w-full" />
+                      <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher" className="bg-transparent outline-none text-sm w-full pr-8" />
+                      {query.length > 0 && (
+                        <button
+                          onClick={() => setQuery('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                          aria-label="Effacer"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                     <div className="relative shrink-0">
                       <button onClick={() => setShowListMenu(!showListMenu)} className="h-9 w-9 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-600">

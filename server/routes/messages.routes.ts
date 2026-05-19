@@ -98,7 +98,7 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
     const isSupervisorRoleUser = !!(resolvedCurrent as any)?.roleMetierIsSupervisor;
 
     const rawDomaineId = (req.query as any)?.domaineId;
-    const sanitizedDomaineId = (!rawDomaineId || rawDomaineId === 'undefined' || rawDomaineId === 'null')
+    const sanitizedDomaineId = (!rawDomaineId || rawDomaineId === 'undefined')
       ? undefined
       : rawDomaineId;
     const domaineId = isDefaultRoleUser
