@@ -45,10 +45,6 @@ export default function SimpleSMSPage() {
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
 
   const handleDeleteEntireConversation = async (contactKey: string) => {
-    if (!window.confirm("Supprimer toute la discussion ? Cette action est irréversible.")) {
-      setShowHeaderMenu(false);
-      return;
-    }
     setDeletingConv(true);
     try {
       // Cas groupe ou destinataire supprimé : suppression message par message
