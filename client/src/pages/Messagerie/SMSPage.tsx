@@ -24,10 +24,12 @@ export default function SimpleSMSPage() {
   const usePhoneMessagingUi = isAlerteDomain;
   const userRegionLabel = String((user as any)?.region || '').trim();
   const userDeptLabel = String((user as any)?.departement || '').trim();
-  const fallbackRecipientsLabel = [
-    userRegionLabel ? `Agent régional — ${userRegionLabel}` : 'Agent régional',
-    userDeptLabel ? `Agent secteur — ${userDeptLabel}` : 'Agent secteur',
-  ].join(' ; ');
+  const fallbackRecipientsLabel = isAlerteDomain
+    ? (userDeptLabel ? `Superviseur — ${userDeptLabel}` : userRegionLabel ? `Superviseur — ${userRegionLabel}` : 'Chargement du superviseur...')
+    : [
+        userRegionLabel ? `Agent régional — ${userRegionLabel}` : 'Agent régional',
+        userDeptLabel ? `Agent secteur — ${userDeptLabel}` : 'Agent secteur',
+      ].join(' ; ');
   const inboxOnly = role === 'hunter' || role === 'hunting-guide';
   const domaineId = isAlerteDomain ? "null" : 1;
   const [recipientOptions, setRecipientOptions] = useState<Array<{ value: string; label: string }>>([]);
@@ -849,11 +851,15 @@ export default function SimpleSMSPage() {
                     placeholder="Chargement des destinataires..."
                   />
                   <div className="text-[11px] text-gray-500 leading-snug">
-                    Destinataires automatiques selon votre région et votre département.
+                    {isAlerteDomain
+                      ? "Superviseur(s) de votre zone (département ou région) qui recevront votre message."
+                      : "Destinataires automatiques selon votre région et votre département."}
                   </div>
                   {autoRecipients.length === 0 && (
                     <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                      Aucun compte destinataire trouvé/actif pour votre zone. Dès qu'un agent régional et/ou un agent secteur sera enregistré dans votre région/département, il recevra vos messages.
+                      {isAlerteDomain
+                        ? "Aucun superviseur trouvé pour votre zone. Utilisez la messagerie directe (tél/email/matricule) pour contacter un superviseur spécifique."
+                        : "Aucun compte destinataire trouvé/actif pour votre zone. Dès qu'un agent régional et/ou un agent secteur sera enregistré dans votre région/département, il recevra vos messages."}
                     </div>
                   )}
                 </div>
