@@ -773,10 +773,16 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                                      .map(u => ({ id: u.id }));
         }
 
-        // 2bis) Rôles métier superviseur: recevoir les alertes de leur zone (région + département)
+        // 2bis) Superviseurs (isSupervisor = true) du domaine ALERTE
+        // Règle de routage hiérarchique géographique :
+        //   - Un superviseur dont region = alertRegion reçoit TOUTES les alertes de sa région
+        //     (qu'elles soient dans un département précis ou pas)
+        //   - Un superviseur dont departement = alertDepartement reçoit les alertes de son département
+        // => Si alertDepartement est défini → superviseurs du département + superviseurs de la région reçoivent tous les deux
+        // => Si seule alertRegion est définie → uniquement les superviseurs de la région reçoivent
         let supervisorUsers: { id: number }[] = [];
-        if (normEffectiveRegion || normAlertDepartement) {
-            const candidates = await db
+        {
+            const allSupervisors = await db
                 .select({
                     id: users.id as any,
                     region: users.region as any,
@@ -785,18 +791,29 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                 .from(users as any)
                 .innerJoin(agents as any, eq(agents.userId as any, users.id as any))
                 .innerJoin(rolesMetier as any, eq(rolesMetier.id as any, agents.roleMetierId as any))
-                .where(and(eq((rolesMetier as any).isSupervisor as any, true as any), eq(users.isActive as any, true as any)) as any);
+                .where(and(
+                    eq((rolesMetier as any).isSupervisor as any, true as any),
+                    eq(users.isActive as any, true as any)
+                ) as any);
 
-            supervisorUsers = candidates
+            supervisorUsers = allSupervisors
                 .filter((u: any) => {
-                    const okRegion = normEffectiveRegion ? normalize(u.region) === normEffectiveRegion : false;
-                    const okDept = normAlertDepartement ? normalize(u.departement) === normAlertDepartement : false;
-                    return okRegion || okDept;
+                    const supRegion = normalize(u.region);
+                    const supDept   = normalize(u.departement);
+
+                    // Superviseur de région : couvre toute la région (y compris tous ses départements)
+                    const coversRegion = normEffectiveRegion && supRegion === normEffectiveRegion;
+
+                    // Superviseur de département : couvre spécifiquement ce département
+                    const coversDept = normAlertDepartement && supDept && supDept === normAlertDepartement;
+
+                    return coversRegion || coversDept;
                 })
                 .map((u: any) => ({ id: u.id }));
         }
 
-        // 2ter) Roles metier par defaut (isDefaultRole): recevoir les alertes de leur zone
+        // 2ter) Rôles métier par défaut (isDefault) : agents terrain dans la même zone
+        // Ils reçoivent également les alertes de leur région ou département
         let defaultRoleUsers: { id: number }[] = [];
         if (normEffectiveRegion || normAlertDepartement) {
             const candidates = await db
