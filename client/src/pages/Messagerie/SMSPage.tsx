@@ -907,7 +907,7 @@ export default function SimpleSMSPage() {
                           
                           setIsResolvingContact(true);
                           try {
-                            const res = await fetch(`/api/users/resolve-identifier/${encodeURIComponent(ident)}`, {
+                            const res = await fetch(`/api/users/resolve-identifier?ident=${encodeURIComponent(ident)}`, {
                                credentials: 'include'
                             });
                             

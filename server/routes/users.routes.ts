@@ -1,6 +1,6 @@
 // @ts-nocheck
 import bcrypt from 'bcryptjs';
-import { and, count, asc as dslAsc, desc as dslDesc, eq, ilike, isNotNull, or, SQL } from 'drizzle-orm';
+import { and, count, asc as dslAsc, desc as dslDesc, eq, ilike, isNotNull, or, SQL, sql } from 'drizzle-orm';
 import express, { Request, Router } from 'express';
 import { z } from 'zod';
 import { agents, insertUserSchema as baseInsertUserSchema, domaines, userDomains, userRoleEnum, users as usersTableSchema } from '../../shared/schema.js';
@@ -1711,9 +1711,10 @@ router.put('/me/hunter-profile', isAuthenticated, async (req, res) => {
 });
 
 // Résoudre un utilisateur par identifiant (matricule, tel, email) pour messagerie directe
-router.get('/resolve-identifier/:identifier', isAuthenticated, async (req, res) => {
+router.get('/resolve-identifier', isAuthenticated, async (req, res) => {
   try {
-    const ident = req.params.identifier;
+    const ident = req.query.ident as string;
+    if (!ident) return res.status(400).json({ message: "Identifiant requis" });
     const user = await storage.findUserByIdentifier(ident);
     if (!user || !user.id) {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
