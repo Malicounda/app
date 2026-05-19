@@ -44,11 +44,16 @@ export default function SimpleSMSPage() {
   const [deletingConv, setDeletingConv] = useState(false);
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
 
-  const handleDeleteEntireConversation = async (contactIdentifier: string) => {
+  const handleDeleteEntireConversation = async (contactKey: string) => {
+    if (!window.confirm("Supprimer toute la discussion ? Cette action est irréversible.")) {
+      setShowHeaderMenu(false);
+      return;
+    }
     setDeletingConv(true);
     try {
-      if (contactIdentifier.startsWith('group_') || contactIdentifier === 'deleted') {
-        const conv = conversations.find(c => c.contactKey === contactIdentifier);
+      // Cas groupe ou destinataire supprimé : suppression message par message
+      if (contactKey.startsWith('group_') || contactKey === 'deleted') {
+        const conv = conversations.find(c => c.contactKey === contactKey);
         if (conv) {
           await Promise.all(conv.messages.map(m => deleteMessage(m.rawMsgObj)));
         }
@@ -59,13 +64,30 @@ export default function SimpleSMSPage() {
         return;
       }
 
-      const response = await fetch(`/api/messages/conversation/${encodeURIComponent(contactIdentifier)}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        throw new Error("Erreur lors de la suppression");
+      // Conversations individuelles : essayer d'abord le contactKey (ID numérique),
+      // puis l'identifiant textuel (username/matricule) en fallback
+      const conv = conversations.find(c => c.contactKey === contactKey);
+      const identifiers = [contactKey];
+      if (conv?.contactIdentifier && conv.contactIdentifier !== contactKey) {
+        identifiers.push(conv.contactIdentifier);
       }
+
+      let deleted = false;
+      for (const ident of identifiers) {
+        const response = await fetch(`/api/messages/conversation/${encodeURIComponent(ident)}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        if (response.ok || response.status === 204) {
+          deleted = true;
+          break;
+        }
+      }
+
+      if (!deleted) {
+        throw new Error("Aucun message correspondant trouvé pour ce contact.");
+      }
+
       toast({ title: "Discussion supprimée", description: "La conversation a été entièrement supprimée." });
       setPhoneView('list');
       setSelectedContactKey(null);

@@ -34,8 +34,8 @@ export default function AgentDefaultPage() {
             onClick={() => setLocation("/alerts")}
             className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[24px] p-4 text-center active:scale-95 transition-all flex flex-col items-center gap-3 w-full"
           >
-            <div className="h-[64px] w-[64px] shrink-0 rounded-2xl bg-red-50 flex items-center justify-center relative">
-              <Bell className="h-[32px] w-[32px] text-red-500" strokeWidth={2.5} />
+            <div className="h-[80px] w-[80px] shrink-0 rounded-2xl bg-red-50 flex items-center justify-center relative">
+              <Bell className="h-[44px] w-[44px] text-red-500" strokeWidth={2} />
             </div>
             <div className="flex flex-col items-center justify-center">
               <p className="text-[12px] font-black text-slate-800 uppercase tracking-wide">Alertes</p>
@@ -52,8 +52,8 @@ export default function AgentDefaultPage() {
                 {msgUnread}
               </div>
             )}
-            <div className="h-[64px] w-[64px] shrink-0 rounded-2xl bg-emerald-50 flex items-center justify-center relative">
-              <MessageSquare className="h-[32px] w-[32px] text-emerald-500" strokeWidth={2.5} />
+            <div className="h-[80px] w-[80px] shrink-0 rounded-2xl bg-emerald-50 flex items-center justify-center relative">
+              <MessageSquare className="h-[44px] w-[44px] text-emerald-500" strokeWidth={2} />
             </div>
             <div className="flex flex-col items-center justify-center">
               <p className="text-[12px] font-black text-slate-800 uppercase tracking-wide">Messages</p>
