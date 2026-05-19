@@ -65,7 +65,7 @@ export default function AgentTopHeader() {
           {isAlerteDomain && (
             <>
               {/* Desktop : onglets inline dans le header — Masqué sur la page profil */}
-              {location !== '/profile' && (
+              {location !== '/profile' && location !== '/default-home' && location !== '/supervisor' && (
                 <div className="hidden md:flex items-center gap-3 mr-4">
                   <button
                     onClick={() => setLocation("/alerts")}
@@ -133,7 +133,7 @@ export default function AgentTopHeader() {
       </div>
 
       {/* Cartes statistiques — Mobile uniquement — Masqué sur la page profil et sur default-home */}
-      {isAlerteDomain && location !== '/profile' && location !== '/default-home' && (
+      {isAlerteDomain && location !== '/profile' && location !== '/default-home' && location !== '/supervisor' && (
         <div className="px-4 md:hidden max-w-md mx-auto w-full">
           <div className="grid grid-cols-2 gap-3 relative z-10 pt-3 pb-1">
             <button
