@@ -1,3 +1,4 @@
+import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -247,14 +248,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       const endpoint = isGroup ? `/api/messages/group/${id}/delete` : `/api/messages/${id}`;
       const method = isGroup ? "PATCH" : "DELETE";
 
-      const response = await fetch(endpoint, {
-        method,
-        credentials: "include",
-      });
-
-      if (!response.ok && response.status !== 204) {
-        throw new Error(await extractErrorMessage(response));
-      }
+      await apiRequest({ url: endpoint, method });
 
       removeMessageFromState(id, isGroup);
       // Forcer un rafraîchissement serveur pour garantir la cohérence
@@ -265,13 +259,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
   );
 
   const markMessageAsRead = useCallback(async (messageId: number) => {
-    const response = await fetch(`/api/messages/${messageId}/read`, {
-      method: "PATCH",
-      credentials: "include",
-    });
-    if (!response.ok) {
-      throw new Error(await extractErrorMessage(response));
-    }
+    await apiRequest({ url: `/api/messages/${messageId}/read`, method: 'PATCH' });
     setInbox((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, isRead: true } : msg)));
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
   }, [queryClient]);

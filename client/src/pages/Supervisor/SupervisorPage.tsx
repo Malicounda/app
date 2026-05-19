@@ -58,8 +58,11 @@ export default function SupervisorPage() {
     <div className="fixed inset-0 flex flex-col bg-slate-50">
       <AgentTopHeader />
 
-      {/* Contenu scrollable */}
-      <div className="flex-1 px-4 pb-20 space-y-4 overflow-y-auto overscroll-contain">
+      {/* Contenu scrollable avec padding pour éviter le chevauchement avec le header fixe global */}
+      <div 
+        className="flex-1 px-4 pb-20 space-y-4 overflow-y-auto overscroll-contain"
+        style={{ paddingTop: 'calc(4rem + env(safe-area-inset-top, 24px))' }}
+      >
         {/* Cartes statistiques (Carte Map) */}
         <div className="relative z-10 pt-2 px-4 max-w-[280px] mx-auto w-full">
           <button
@@ -98,7 +101,7 @@ export default function SupervisorPage() {
                   <button
                     onClick={async () => {
                       try {
-                        await fetch(`/api/alerts/user/${user?.id}/read-all`, { method: 'PATCH', credentials: 'include' });
+                        await apiRequest("PATCH", `/alerts/user/${user?.id}/read-all`);
                         queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
                         queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
                       } catch { }
@@ -130,12 +133,13 @@ export default function SupervisorPage() {
                       const sender = n.alert?.sender;
                       const grade = sender?.grade || "";
                       const fullName = [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") || "Agent inconnu";
+                      const localisationStr = [sender?.departement, sender?.region].filter(Boolean).join(" / ") || "Lieu inconnu";
                       const title = n.alert?.title || n.message || "Alerte";
                       return (
                         <span key={n.id} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
                           <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
                           <span className="font-bold">{grade ? `${grade} ` : ""}{fullName}</span>
-                          <span className="text-amber-700">—</span>
+                          <span className="text-amber-700">— {localisationStr} —</span>
                           <span>{title}</span>
                           <span className="text-amber-300 mx-3">◆</span>
                         </span>
@@ -146,12 +150,13 @@ export default function SupervisorPage() {
                       const sender = n.alert?.sender;
                       const grade = sender?.grade || "";
                       const fullName = [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") || "Agent inconnu";
+                      const localisationStr = [sender?.departement, sender?.region].filter(Boolean).join(" / ") || "Lieu inconnu";
                       const title = n.alert?.title || n.message || "Alerte";
                       return (
                         <span key={`dup-${n.id}`} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
                           <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
                           <span className="font-bold">{grade ? `${grade} ` : ""}{fullName}</span>
-                          <span className="text-amber-700">—</span>
+                          <span className="text-amber-700">— {localisationStr} —</span>
                           <span>{title}</span>
                           <span className="text-amber-300 mx-3">◆</span>
                         </span>

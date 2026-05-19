@@ -43,9 +43,12 @@ export default function AgentTopHeader() {
   return (
     <div className="shrink-0 flex flex-col">
       {/* En-tête vert foncé style dashboard */}
-      <div className="bg-gradient-to-br from-green-800 to-emerald-900 px-5 pt-8 pb-1 md:pb-4 text-white">
+      <div
+        className="bg-gradient-to-br from-green-800 to-emerald-900 px-5 pb-1 md:pb-4 text-white"
+        style={{ paddingTop: 'calc(1.25rem + env(safe-area-inset-top, 24px))' }}
+      >
         {/* Ligne du haut : avatar + nom + (desktop: onglets inline) */}
-        <div className="flex items-center justify-between gap-3 pt-6">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             {/* Avatar style contact téléphone */}
             <div className="w-12 h-12 rounded-full bg-white/25 backdrop-blur flex items-center justify-center shrink-0 border-2 border-white/40">

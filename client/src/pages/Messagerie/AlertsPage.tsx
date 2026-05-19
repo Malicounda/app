@@ -137,9 +137,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       className={`flex ${isSent ? "justify-end" : "justify-start"} mb-3 sm:mb-4`}
     >
       <div
-        className={`max-w-[80%] sm:max-w-[70%] md:max-w-[60%] p-3 sm:p-4 rounded-2xl shadow-md transition-all duration-300 ${
-          isSent ? "bg-blue-100 text-gray-800" : "bg-gray-200 text-gray-800"
-        } ${senderRoleStyle}`}
+        className={`max-w-[80%] sm:max-w-[70%] md:max-w-[60%] p-3 sm:p-4 rounded-2xl shadow-md transition-all duration-300 ${isSent ? "bg-blue-100 text-gray-800" : "bg-gray-200 text-gray-800"
+          } ${senderRoleStyle}`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -464,8 +463,8 @@ function AlertsPage() {
       );
     const easting =
       k0 *
-        N *
-        (A + ((1 - T + C) * A ** 3) / 6 + ((5 - 18 * T + T ** 2 + 72 * C - 58 * (eSq / (1 - eSq))) * A ** 5) / 120) +
+      N *
+      (A + ((1 - T + C) * A ** 3) / 6 + ((5 - 18 * T + T ** 2 + 72 * C - 58 * (eSq / (1 - eSq))) * A ** 5) / 120) +
       500000;
     let northing =
       k0 * (M + N * Math.tan(latRad) * (A ** 2 / 2 + ((5 - T + 9 * C + 4 * C ** 2) * A ** 4) / 24 + ((61 - 58 * T + T ** 2 + 600 * C - 330 * (eSq / (1 - eSq))) * A ** 6) / 720));
@@ -602,7 +601,7 @@ function AlertsPage() {
     queryFn: async () => {
       if (!user) return [];
       try {
-        const resp: any = await apiRequest({ url: `/api/alerts/received/${user.id}` , method: 'GET' });
+        const resp: any = await apiRequest({ url: `/api/alerts/received/${user.id}`, method: 'GET' });
         console.log('[AlertsPage] Raw response from /api/alerts/received:', resp);
         const raw = Array.isArray(resp) ? resp : (resp?.data ?? resp);
         console.log('[AlertsPage] Raw notifications array:', raw);
@@ -618,43 +617,43 @@ function AlertsPage() {
             return hasAlert;
           })
           .map((notif: any) => {
-          const a = notif?.alert || {};
-          const zone = a?.zone || null;
-          let lat: number | null = null;
-          let lon: number | null = null;
-          if (typeof zone === 'string' && zone.includes(',')) {
-            const parts = zone.split(',').map((p: string) => p.trim());
-            const latNum = parseFloat(parts[0]);
-            const lonNum = parseFloat(parts[1]);
-            if (isFinite(latNum) && isFinite(lonNum)) {
-              lat = latNum; lon = lonNum;
+            const a = notif?.alert || {};
+            const zone = a?.zone || null;
+            let lat: number | null = null;
+            let lon: number | null = null;
+            if (typeof zone === 'string' && zone.includes(',')) {
+              const parts = zone.split(',').map((p: string) => p.trim());
+              const latNum = parseFloat(parts[0]);
+              const lonNum = parseFloat(parts[1]);
+              if (isFinite(latNum) && isFinite(lonNum)) {
+                lat = latNum; lon = lonNum;
+              }
             }
-          }
-          const s = a?.sender || {};
-          const alert: Alert = {
-            id: a.id,
-            title: a.title,
-            message: a.message,
-            type: a.type || 'info',
-            nature: a.nature,
-            isRead: !!notif.is_read,
-            createdAt: a.created_at,
-            region: a.region || undefined,
-            departement: a.departement || undefined,
-            sender: {
-              username: s.username || 'inconnu',
-              firstName: s.first_name || '',
-              lastName: s.last_name || '',
-              role: s.role || 'unknown',
-              // Prefer region from alert (resolved from coords), then sender
-              region: a.region || s.region || undefined,
-              // Prefer departement from alert (resolved from coords), then sender
-              departement: a.departement || s.departement || undefined,
-            },
-            location: lat !== null && lon !== null ? { latitude: lat, longitude: lon } : undefined,
-          };
-          return alert;
-        });
+            const s = a?.sender || {};
+            const alert: Alert = {
+              id: a.id,
+              title: a.title,
+              message: a.message,
+              type: a.type || 'info',
+              nature: a.nature,
+              isRead: !!notif.is_read,
+              createdAt: a.created_at,
+              region: a.region || undefined,
+              departement: a.departement || undefined,
+              sender: {
+                username: s.username || 'inconnu',
+                firstName: s.first_name || '',
+                lastName: s.last_name || '',
+                role: s.role || 'unknown',
+                // Prefer region from alert (resolved from coords), then sender
+                region: a.region || s.region || undefined,
+                // Prefer departement from alert (resolved from coords), then sender
+                departement: a.departement || s.departement || undefined,
+              },
+              location: lat !== null && lon !== null ? { latitude: lat, longitude: lon } : undefined,
+            };
+            return alert;
+          });
         console.log('[AlertsPage] Mapped alerts count:', mapped.length);
         console.log('[AlertsPage] Mapped alerts:', mapped);
         return mapped;
@@ -759,12 +758,12 @@ function AlertsPage() {
     const filtered = !q
       ? base
       : base.filter((a) => {
-          const t = String(a?.title || "").toLowerCase();
-          const m = String(a?.message || "").toLowerCase();
-          const sender = `${a?.sender?.firstName || ""} ${a?.sender?.lastName || ""} ${a?.sender?.username || ""}`.toLowerCase();
-          const loc = `${a?.departement || ""} ${a?.region || ""}`.toLowerCase();
-          return t.includes(q) || m.includes(q) || sender.includes(q) || loc.includes(q);
-        });
+        const t = String(a?.title || "").toLowerCase();
+        const m = String(a?.message || "").toLowerCase();
+        const sender = `${a?.sender?.firstName || ""} ${a?.sender?.lastName || ""} ${a?.sender?.username || ""}`.toLowerCase();
+        const loc = `${a?.departement || ""} ${a?.region || ""}`.toLowerCase();
+        return t.includes(q) || m.includes(q) || sender.includes(q) || loc.includes(q);
+      });
     return filtered.sort((a, b) => {
       const at = new Date(a.createdAt || 0).getTime();
       const bt = new Date(b.createdAt || 0).getTime();
@@ -784,19 +783,7 @@ function AlertsPage() {
 
   const markAsRead = async (alertId: number) => {
     try {
-      // Mettre à jour l'alerte dans l'API
-      const response = await fetch(`/api/alerts/${alertId}/read`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ isRead: true }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la mise à jour de l\'alerte');
-      }
+      await apiRequest({ url: `/api/alerts/${alertId}/read`, method: 'PATCH', data: { isRead: true } });
 
       toast({
         title: "Alerte marquée comme lue",
@@ -822,12 +809,7 @@ function AlertsPage() {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(`/api/alerts/user/${user?.id}/read-all`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Erreur lors de la mise à jour des alertes');
+      await apiRequest({ url: `/api/alerts/user/${user?.id}/read-all`, method: 'PATCH' });
 
       // Vider localement la boîte de réception + invalider tous les caches liés
       queryClient.setQueryData(["/api/alerts/received", user?.id], []);
@@ -844,23 +826,18 @@ function AlertsPage() {
 
   const deleteAlert = async (alertId: number) => {
     try {
-      // Supprimer l'alerte dans l'API
-      const response = await fetch(`/api/alerts/${alertId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la suppression de l\'alerte');
-      }
+      await apiRequest({ url: `/api/alerts/${alertId}`, method: 'DELETE' });
 
       // Mettre à jour les données locales
-      const updatedAlerts = alerts.filter((alert: Alert) => alert.id !== alertId);
-      queryClient.setQueryData(["/api/alerts/received", user?.id], updatedAlerts);
+      queryClient.setQueryData(["/api/alerts/received", user?.id], (old: any) => {
+        const arr = Array.isArray(old) ? old : [];
+        return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
+      });
+      queryClient.setQueryData(["/api/alerts/sent", user?.id], (old: any) => {
+        const arr = Array.isArray(old) ? old : [];
+        return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
+      });
 
-      // Mettre à jour les alertes envoyées si nécessaire
-      const updatedSentAlerts = sentAlertsData.filter((alert: Alert) => alert.id !== alertId);
-      queryClient.setQueryData(["/api/alerts/sent", user?.id], updatedSentAlerts);
       toast({
         title: "Alerte supprimée",
         description: "L'alerte a été supprimée définitivement.",
@@ -903,7 +880,7 @@ function AlertsPage() {
           border: "border-blue-200",
           badge: "bg-blue-500",
           icon: <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />,
-      };
+        };
     }
   };
 
@@ -915,7 +892,7 @@ function AlertsPage() {
     // Si le type est 'info' (ou par défaut) et que la nature est spécifique, changer la couleur du badge en rouge.
     // On garde le texte "Info" mais avec un fond rouge.
     if ((type === "info" || (type !== "error" && type !== "warning" && type !== "success")) &&
-        (nature === "braconnage" || nature === "trafic-bois" || nature === "feux_de_brousse")) {
+      (nature === "braconnage" || nature === "trafic-bois" || nature === "feux_de_brousse")) {
       styles = { ...styles, badge: "bg-red-500" }; // Utilise la même classe que pour le type 'error'
     }
 
@@ -1020,12 +997,12 @@ function AlertsPage() {
           toast({
             variant: "destructive",
             title: "Contexte non sécurisé",
-        description: "Sur mobile, la géolocalisation exige HTTPS. Servez le site en HTTPS (ou utilisez localhost) pour activer la capture GPS.",
+            description: "Sur mobile, la géolocalisation exige HTTPS. Servez le site en HTTPS (ou utilisez localhost) pour activer la capture GPS.",
             duration: 7000,
           });
         }
       }
-    } catch {}
+    } catch { }
 
     // Demander explicitement la permission avant de continuer
     const hasPermission = await requestGeolocationPermission();
@@ -1104,16 +1081,16 @@ function AlertsPage() {
       maximumAge: 10000          // Autoriser une position récente (<= 10s) pour réduire les échecs
     };
 
-    return new Promise<{latitude: number, longitude: number} | null>((resolve) => {
+    return new Promise<{ latitude: number, longitude: number } | null>((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           // Fermer le toast de chargement
-      const toastElements = document.querySelectorAll('[data-sonner-toast]');
-      if (toastElements.length > 0) {
-        const lastToast = toastElements[toastElements.length - 1];
-        const closeButton = lastToast.querySelector('[data-sonner-toast-close]') as HTMLElement;
-        if (closeButton) closeButton.click();
-      }
+          const toastElements = document.querySelectorAll('[data-sonner-toast]');
+          if (toastElements.length > 0) {
+            const lastToast = toastElements[toastElements.length - 1];
+            const closeButton = lastToast.querySelector('[data-sonner-toast-close]') as HTMLElement;
+            if (closeButton) closeButton.click();
+          }
 
           const { latitude, longitude, accuracy } = position.coords;
           const locationData = { latitude, longitude };
@@ -1140,27 +1117,27 @@ function AlertsPage() {
           resolve(locationData);
         },
         (error) => {
-        setIsLoadingLocation(false);
-        
-        console.error("Erreur de géolocalisation:", error);
-        
-        let message = "Impossible d'obtenir votre position.";
-        if (error.code === error.PERMISSION_DENIED) {
-          message = "L'accès à la géolocalisation a été refusé. Veuillez l'activer dans vos paramètres.";
-          setLocationPermissionDenied(true);
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          message = "La position GPS est indisponible.";
-        } else if (error.code === error.TIMEOUT) {
-          message = "Délai d'attente dépassé pour la géolocalisation.";
-        }
-        
-        toast({
-          title: "Erreur GPS",
-          description: message,
-          variant: "destructive"
-        });
-        resolve(null);
-      },
+          setIsLoadingLocation(false);
+
+          console.error("Erreur de géolocalisation:", error);
+
+          let message = "Impossible d'obtenir votre position.";
+          if (error.code === error.PERMISSION_DENIED) {
+            message = "L'accès à la géolocalisation a été refusé. Veuillez l'activer dans vos paramètres.";
+            setLocationPermissionDenied(true);
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            message = "La position GPS est indisponible.";
+          } else if (error.code === error.TIMEOUT) {
+            message = "Délai d'attente dépassé pour la géolocalisation.";
+          }
+
+          toast({
+            title: "Erreur GPS",
+            description: message,
+            variant: "destructive"
+          });
+          resolve(null);
+        },
         options
       );
     });
@@ -1347,7 +1324,7 @@ function AlertsPage() {
               <span className="font-medium">Retour</span>
             </Button>
             <div className="flex flex-wrap gap-2">
-              {unreadCount > 0 && activeTab === "inbox" && (
+              {unreadCount > 0 && activeTab === "inbox" && !isDefaultRole && (
                 <Button
                   variant="outline"
                   className="border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors rounded-lg text-xs sm:text-sm h-9"
@@ -1377,7 +1354,7 @@ function AlertsPage() {
             {canSendAlerts && !((isHunter || isGuide) && activeTab === 'outbox') && !(activeTab === 'inbox' && (isRegionalAgent || isSectorAgent)) && (
               <div className="bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 p-4 lg:sticky lg:top-4 lg:self-start">
                 <h3 className="text-lg font-semibold mb-3 text-gray-800">{(isHunter || isGuide) ? 'Envoyer une information' : 'Envoyer une alerte rapide'}</h3>
-                
+
                 {/* Géolocalisation status */}
                 {!location ? (
                   <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${locationPermissionDenied ? 'bg-red-50 border-red-200 text-red-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
@@ -1405,50 +1382,50 @@ function AlertsPage() {
 
                 {/* Type d'alerte buttons */}
                 {!isHunter && !isGuide && location && (
-                <div className="grid grid-cols-3 gap-2 mt-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedAlertType('braconnage')}
-                    className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all ${selectedAlertType === 'braconnage'
-                      ? 'bg-red-50 border-red-400 text-red-600 ring-2 ring-red-100'
-                      : 'hover:bg-red-50 hover:border-red-300 border-gray-200'
-                    }`}
-                  >
-                    <NatureIcon nature="braconnage" size={24} />
-                    <span className="text-[10px] sm:text-xs">Braconnage</span>
-                    {selectedAlertType === 'braconnage' && (
-                      <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedAlertType('trafic-bois')}
-                    className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all ${selectedAlertType === 'trafic-bois'
-                      ? 'bg-amber-50 border-amber-400 text-amber-700 ring-2 ring-amber-100'
-                      : 'hover:bg-amber-50 hover:border-amber-300 border-gray-200'
-                    }`}
-                  >
-                    <NatureIcon nature="trafic-bois" size={24} />
-                    <span className="text-[10px] sm:text-xs">Trafic de bois</span>
-                    {selectedAlertType === 'trafic-bois' && (
-                      <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full"></span>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedAlertType('feux_de_brousse')}
-                    className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all ${selectedAlertType === 'feux_de_brousse'
-                      ? 'bg-orange-50 border-orange-400 text-orange-600 ring-2 ring-orange-100'
-                      : 'hover:bg-orange-50 hover:border-orange-300 border-gray-200'
-                    }`}
-                  >
-                    <NatureIcon nature="feux_de_brousse" size={24} />
-                    <span className="text-[10px] sm:text-xs">Feux de brousse</span>
-                    {selectedAlertType === 'feux_de_brousse' && (
-                      <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
-                    )}
-                  </Button>
-                </div>
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedAlertType('braconnage')}
+                      className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all ${selectedAlertType === 'braconnage'
+                        ? 'bg-red-50 border-red-400 text-red-600 ring-2 ring-red-100'
+                        : 'hover:bg-red-50 hover:border-red-300 border-gray-200'
+                        }`}
+                    >
+                      <NatureIcon nature="braconnage" size={24} />
+                      <span className="text-[10px] sm:text-xs">Braconnage</span>
+                      {selectedAlertType === 'braconnage' && (
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedAlertType('trafic-bois')}
+                      className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all ${selectedAlertType === 'trafic-bois'
+                        ? 'bg-amber-50 border-amber-400 text-amber-700 ring-2 ring-amber-100'
+                        : 'hover:bg-amber-50 hover:border-amber-300 border-gray-200'
+                        }`}
+                    >
+                      <NatureIcon nature="trafic-bois" size={24} />
+                      <span className="text-[10px] sm:text-xs">Trafic de bois</span>
+                      {selectedAlertType === 'trafic-bois' && (
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full"></span>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedAlertType('feux_de_brousse')}
+                      className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all ${selectedAlertType === 'feux_de_brousse'
+                        ? 'bg-orange-50 border-orange-400 text-orange-600 ring-2 ring-orange-100'
+                        : 'hover:bg-orange-50 hover:border-orange-300 border-gray-200'
+                        }`}
+                    >
+                      <NatureIcon nature="feux_de_brousse" size={24} />
+                      <span className="text-[10px] sm:text-xs">Feux de brousse</span>
+                      {selectedAlertType === 'feux_de_brousse' && (
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
+                      )}
+                    </Button>
+                  </div>
                 )}
 
                 {/* Action Area (Textarea + Send Button) */}
@@ -1488,7 +1465,7 @@ function AlertsPage() {
                               ? 'Envoyer une information'
                               : `Envoyer l'alerte ${selectedAlertType === 'braconnage' ? 'de braconnage' :
                                 selectedAlertType === 'trafic-bois' ? 'de trafic de bois' :
-                                selectedAlertType === 'feux_de_brousse' ? 'de feux de brousse' : 'd\'informations'}`)
+                                  selectedAlertType === 'feux_de_brousse' ? 'de feux de brousse' : 'd\'informations'}`)
                           )}
                         </Button>
                       </div>
@@ -1539,212 +1516,212 @@ function AlertsPage() {
                 </div>
               )}
 
-            {activeTab === "inbox" ? (
-              isLoadingAlerts ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : filteredInbox.length === 0 ? (
-                (isHunter || isGuide)
-                  ? null
-                  : (
-                    <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
-                      <CardContent className="flex flex-col items-center justify-center py-8">
-                        <Bell className="h-10 w-10 text-gray-400 mb-2" />
-                        <p className="text-gray-500 text-center">Aucune alerte reçue pour le moment.</p>
-                      </CardContent>
-                    </Card>
-                  )
-              ) : (
-                <>
-                  <div className="px-4 py-3 border-b bg-slate-50">
-                    <div className="font-semibold text-gray-800">Liste des Alertes</div>
+              {activeTab === "inbox" ? (
+                isLoadingAlerts ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
-                  {/* Grille responsive pour les cartes d'alerte */}
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:gap-3 xl:p-3">
-                    {getPaginatedInbox(filteredInbox).map((alert: Alert) => {
-                      const styles = getAlertTypeStyles(alert.type);
-                      const senderStrip = getSenderRoleStyle(alert.sender);
-                      const createdAtDate = alert.createdAt ? new Date(alert.createdAt) : null;
-                      const timeAgo = createdAtDate && !isNaN(createdAtDate.getTime())
-                        ? formatDistanceToNow(createdAtDate, { addSuffix: true, locale: fr })
-                        : '';
-                      const formatted = createdAtDate && !isNaN(createdAtDate.getTime())
-                        ? format(createdAtDate, "dd/MM/yyyy à HH:mm", { locale: fr })
-                        : '';
+                ) : filteredInbox.length === 0 ? (
+                  (isHunter || isGuide)
+                    ? null
+                    : (
+                      <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
+                        <CardContent className="flex flex-col items-center justify-center py-8">
+                          <Bell className="h-10 w-10 text-gray-400 mb-2" />
+                          <p className="text-gray-500 text-center">Aucune alerte reçue pour le moment.</p>
+                        </CardContent>
+                      </Card>
+                    )
+                ) : (
+                  <>
+                    <div className="px-4 py-3 border-b bg-slate-50">
+                      <div className="font-semibold text-gray-800">Liste des Alertes</div>
+                    </div>
+                    {/* Grille responsive pour les cartes d'alerte */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:gap-3 xl:p-3">
+                      {getPaginatedInbox(filteredInbox).map((alert: Alert) => {
+                        const styles = getAlertTypeStyles(alert.type);
+                        const senderStrip = getSenderRoleStyle(alert.sender);
+                        const createdAtDate = alert.createdAt ? new Date(alert.createdAt) : null;
+                        const timeAgo = createdAtDate && !isNaN(createdAtDate.getTime())
+                          ? formatDistanceToNow(createdAtDate, { addSuffix: true, locale: fr })
+                          : '';
+                        const formatted = createdAtDate && !isNaN(createdAtDate.getTime())
+                          ? format(createdAtDate, "dd/MM/yyyy à HH:mm", { locale: fr })
+                          : '';
 
-                      return (
-                        <div key={alert.id} className={"flex gap-3 px-4 py-3 xl:rounded-xl xl:border xl:border-gray-100 xl:shadow-sm xl:bg-white hover:bg-slate-50 transition-colors cursor-pointer " + senderStrip}
-                          onClick={() => {
-                            setDetailsAlert(alert);
-                            setDetailsOpen(true);
-                            if (!alert.isRead) markAsRead(alert.id);
-                          }}
-                        >
-                          <div className="shrink-0 flex items-center justify-center">
-                            <div className={"h-9 w-9 rounded-full flex items-center justify-center border " + styles.border + " " + styles.bg}>
-                              {alert.nature ? <NatureIcon nature={alert.nature} size={18} /> : styles.icon}
-                            </div>
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <div className="font-semibold text-gray-900 truncate">{alert.title}</div>
-                              {getUrgencyTag(alert.type, alert.nature)}
-                              {!alert.isRead && (
-                                <Badge variant="secondary" className="bg-blue-100 text-blue-800">Non lu</Badge>
-                              )}
-                            </div>
-
-                            <div className="mt-0.5 text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
-                              <div className="flex items-center gap-1">
-                                <User className="h-4 w-4 text-gray-500" />
-                                <span>
-                                  {alert.sender?.firstName ?? alert.sender?.username ?? 'Utilisateur'}
-                                  {alert.sender?.lastName ? ` ${alert.sender.lastName}` : ''}
-                                  {' '}({getProvenanceLabel(alert.sender?.role ?? 'unknown')})
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <MapPin className="h-4 w-4 text-gray-500" />
-                                <span>
-                                  {String(alert.departement || 'NON DÉFINI').toUpperCase()}
-                                  {alert.region ? `/${alert.region}` : ''}
-                                </span>
+                        return (
+                          <div key={alert.id} className={"flex gap-3 px-4 py-3 xl:rounded-xl xl:border xl:border-gray-100 xl:shadow-sm xl:bg-white hover:bg-slate-50 transition-colors cursor-pointer " + senderStrip}
+                            onClick={() => {
+                              setDetailsAlert(alert);
+                              setDetailsOpen(true);
+                              if (!alert.isRead) markAsRead(alert.id);
+                            }}
+                          >
+                            <div className="shrink-0 flex items-center justify-center">
+                              <div className={"h-9 w-9 rounded-full flex items-center justify-center border " + styles.border + " " + styles.bg}>
+                                {alert.nature ? <NatureIcon nature={alert.nature} size={18} /> : styles.icon}
                               </div>
                             </div>
 
-                            <div className="mt-0.5 text-sm text-gray-500">
-                              {timeAgo ? (
-                                <>
-                                  <span>{timeAgo}</span>
-                                  <span className="ml-2">({formatted})</span>
-                                </>
-                              ) : (
-                                <span>-</span>
-                              )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div className="font-semibold text-gray-900 truncate">{alert.title}</div>
+                                {getUrgencyTag(alert.type, alert.nature)}
+                                {!alert.isRead && (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">Non lu</Badge>
+                                )}
+                              </div>
+
+                              <div className="mt-0.5 text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
+                                <div className="flex items-center gap-1">
+                                  <User className="h-4 w-4 text-gray-500" />
+                                  <span>
+                                    {alert.sender?.firstName ?? alert.sender?.username ?? 'Utilisateur'}
+                                    {alert.sender?.lastName ? ` ${alert.sender.lastName}` : ''}
+                                    {' '}({getProvenanceLabel(alert.sender?.role ?? 'unknown')})
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="h-4 w-4 text-gray-500" />
+                                  <span>
+                                    {String(alert.departement || 'NON DÉFINI').toUpperCase()}
+                                    {alert.region ? `/${alert.region}` : ''}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="mt-0.5 text-sm text-gray-500">
+                                {timeAgo ? (
+                                  <>
+                                    <span>{timeAgo}</span>
+                                    <span className="ml-2">({formatted})</span>
+                                  </>
+                                ) : (
+                                  <span>-</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="shrink-0 flex flex-col sm:flex-row items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  const lat = alert.location?.latitude;
+                                  const lon = alert.location?.longitude;
+                                  if (lat && lon) {
+                                    markAsRead(alert.id).finally(() => {
+                                      handleLocate(lat, lon, alert.title);
+                                    });
+                                  }
+                                }}
+                                disabled={!alert.location}
+                                title="Localiser"
+                              >
+                                <MapPin className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => deleteAlert(alert.id)}
+                                title="Supprimer"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
+                        );
+                      })}
+                    </div>
 
-                          <div className="shrink-0 flex flex-col sm:flex-row items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => {
-                                const lat = alert.location?.latitude;
-                                const lon = alert.location?.longitude;
-                                if (lat && lon) {
-                                  markAsRead(alert.id).finally(() => {
-                                    handleLocate(lat, lon, alert.title);
-                                  });
-                                }
-                              }}
-                              disabled={!alert.location}
-                              title="Localiser"
-                            >
-                              <MapPin className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => deleteAlert(alert.id)}
-                              title="Supprimer"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                    {filteredInbox.length > 0 && (
+                      <div className="p-3 flex justify-between items-center text-sm bg-gray-50 border-t rounded-b-lg">
+                        <div className="text-muted-foreground">
+                          Affichage de {((currentPageInbox - 1) * itemsPerPage) + 1} à {Math.min(currentPageInbox * itemsPerPage, filteredInbox.length)} sur {filteredInbox.length} alertes
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  {filteredInbox.length > 0 && (
-                    <div className="p-3 flex justify-between items-center text-sm bg-gray-50 border-t rounded-b-lg">
-                      <div className="text-muted-foreground">
-                        Affichage de {((currentPageInbox - 1) * itemsPerPage) + 1} à {Math.min(currentPageInbox * itemsPerPage, filteredInbox.length)} sur {filteredInbox.length} alertes
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPageInbox(Math.max(1, currentPageInbox - 1))}
+                            disabled={currentPageInbox === 1}
+                          >
+                            Précédent
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPageInbox(currentPageInbox + 1)}
+                            disabled={currentPageInbox >= Math.ceil(filteredInbox.length / itemsPerPage)}
+                          >
+                            Suivant
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPageInbox(Math.max(1, currentPageInbox - 1))}
-                          disabled={currentPageInbox === 1}
-                        >
-                          Précédent
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPageInbox(currentPageInbox + 1)}
-                          disabled={currentPageInbox >= Math.ceil(filteredInbox.length / itemsPerPage)}
-                        >
-                          Suivant
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )
-            ) : (
-              isLoadingSent ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : sentAlertsData.length === 0 ? (
-                <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
-                  <CardContent className="flex flex-col items-center justify-center py-8">
-                    <Bell className="h-10 w-10 text-gray-400 mb-2" />
-                    <p className="text-gray-500 text-center">Aucune alerte envoyée pour le moment.</p>
-                  </CardContent>
-                </Card>
+                    )}
+                  </>
+                )
               ) : (
-                <>
-                  {getPaginatedOutbox(sentAlertsData).map((alert: Alert) => (
-                    <MessageBubble
-                      key={alert.id}
-                      alert={alert}
-                      isExpanded={expandedAlerts.includes(alert.id)}
-                      onLocate={handleLocate}
-                      toggleExpand={toggleExpand}
-                      markAsRead={markAsRead}
-                      deleteAlert={deleteAlert}
-                      getAlertTypeStyles={getAlertTypeStyles}
-                      getUrgencyTag={getUrgencyTag}
-                      getSenderRoleStyle={getSenderRoleStyle}
-                      getProvenanceLabel={getProvenanceLabel}
-                      isSent={true}
-                    />
-                  ))}
-                  {sentAlertsData.length > 0 && (
-                    <div className="p-3 flex justify-between items-center text-sm bg-gray-50 border-t rounded-b-lg">
-                      <div className="text-muted-foreground">
-                        Affichage de {((currentPageOutbox - 1) * itemsPerPage) + 1} à {Math.min(currentPageOutbox * itemsPerPage, sentAlertsData.length)} sur {sentAlertsData.length} alertes
+                isLoadingSent ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : sentAlertsData.length === 0 ? (
+                  <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
+                    <CardContent className="flex flex-col items-center justify-center py-8">
+                      <Bell className="h-10 w-10 text-gray-400 mb-2" />
+                      <p className="text-gray-500 text-center">Aucune alerte envoyée pour le moment.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    {getPaginatedOutbox(sentAlertsData).map((alert: Alert) => (
+                      <MessageBubble
+                        key={alert.id}
+                        alert={alert}
+                        isExpanded={expandedAlerts.includes(alert.id)}
+                        onLocate={handleLocate}
+                        toggleExpand={toggleExpand}
+                        markAsRead={markAsRead}
+                        deleteAlert={deleteAlert}
+                        getAlertTypeStyles={getAlertTypeStyles}
+                        getUrgencyTag={getUrgencyTag}
+                        getSenderRoleStyle={getSenderRoleStyle}
+                        getProvenanceLabel={getProvenanceLabel}
+                        isSent={true}
+                      />
+                    ))}
+                    {sentAlertsData.length > 0 && (
+                      <div className="p-3 flex justify-between items-center text-sm bg-gray-50 border-t rounded-b-lg">
+                        <div className="text-muted-foreground">
+                          Affichage de {((currentPageOutbox - 1) * itemsPerPage) + 1} à {Math.min(currentPageOutbox * itemsPerPage, sentAlertsData.length)} sur {sentAlertsData.length} alertes
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPageOutbox(Math.max(1, currentPageOutbox - 1))}
+                            disabled={currentPageOutbox === 1}
+                          >
+                            Précédent
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPageOutbox(currentPageOutbox + 1)}
+                            disabled={currentPageOutbox >= Math.ceil(sentAlertsData.length / itemsPerPage)}
+                          >
+                            Suivant
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPageOutbox(Math.max(1, currentPageOutbox - 1))}
-                          disabled={currentPageOutbox === 1}
-                        >
-                          Précédent
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPageOutbox(currentPageOutbox + 1)}
-                          disabled={currentPageOutbox >= Math.ceil(sentAlertsData.length / itemsPerPage)}
-                        >
-                          Suivant
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )
-            )}
+                    )}
+                  </>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -1875,7 +1852,7 @@ function AlertsPage() {
                   if (!c || isNaN(c.getTime())) return null;
                   const two = (n: number) => n.toString().padStart(2, '0');
                   const hhmm = `${two(c.getHours())}:${two(c.getMinutes())}`;
-                  const ddmmyyyy = `${two(c.getDate())}/${two(c.getMonth()+1)}/${c.getFullYear()}`;
+                  const ddmmyyyy = `${two(c.getDate())}/${two(c.getMonth() + 1)}/${c.getFullYear()}`;
                   return <span> — {hhmm} le {ddmmyyyy}</span>;
                 })()}
               </p>

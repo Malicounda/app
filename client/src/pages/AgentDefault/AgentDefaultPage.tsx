@@ -26,8 +26,11 @@ export default function AgentDefaultPage() {
     <div className="fixed inset-0 flex flex-col bg-slate-50">
       <AgentTopHeader />
 
-      {/* Contenu scrollable */}
-      <div className="flex-1 px-4 pb-20 space-y-4 overflow-y-auto overscroll-contain">
+      {/* Contenu scrollable avec padding pour le header global */}
+      <div 
+        className="flex-1 px-4 pb-20 space-y-4 overflow-y-auto overscroll-contain"
+        style={{ paddingTop: 'calc(4rem + env(safe-area-inset-top, 24px))' }}
+      >
         {/* Cartes d'actions côte à côte */}
         <div className="relative z-10 pt-6 px-4 max-w-[340px] sm:max-w-[420px] mx-auto w-full grid grid-cols-2 gap-3">
           <button
