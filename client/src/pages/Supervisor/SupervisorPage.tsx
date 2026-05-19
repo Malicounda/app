@@ -101,7 +101,7 @@ export default function SupervisorPage() {
                         await fetch(`/api/alerts/user/${user?.id}/read-all`, { method: 'PATCH', credentials: 'include' });
                         queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
                         queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
-                      } catch {}
+                      } catch { }
                     }}
                     className="text-[9px] font-bold text-amber-700 underline hover:text-amber-900 transition-colors"
                   >

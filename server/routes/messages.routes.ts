@@ -118,6 +118,64 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
       return rr === 'sector' || rr === 'sub-agent' || rr.includes('sector');
     };
 
+    // ── CAS SPÉCIAL : role=supervisor (domaine ALERTE) ────────────────────────
+    // Cherche les utilisateurs dont le rôle métier a isSupervisor = true
+    // Filtres optionnels : region et/ou departement
+    if (roleParam === 'supervisor') {
+      const supervisorUsers = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          matricule: users.matricule,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          region: users.region,
+          departement: users.departement,
+          role: users.role,
+          grade: agents.grade,
+          isSupervisor: (rolesMetier as any).isSupervisor,
+        })
+        .from(users)
+        .innerJoin(agents, eq(agents.userId as any, users.id as any))
+        .innerJoin(rolesMetier, eq(rolesMetier.id as any, agents.roleMetierId as any))
+        .where(
+          and(
+            eq((rolesMetier as any).isSupervisor as any, true as any),
+            eq(users.isActive as any, true as any)
+          ) as any
+        );
+
+      const norm = (s: any) => String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const regionFilter  = (req.query.region as string)?.trim() || null;
+      const deptFilter    = (req.query.departement as string)?.trim() || null;
+
+      const filteredSupervisors = (supervisorUsers as any[])
+        .filter(u => Number(u.id) !== currentUserId)
+        .filter(u => {
+          const matchRegion = regionFilter ? norm(u.region) === norm(regionFilter) : true;
+          const matchDept   = deptFilter   ? norm(u.departement) === norm(deptFilter) : true;
+          return matchRegion && matchDept;
+        });
+
+      const payload = filteredSupervisors.map((u: any) => ({
+        id: u.id,
+        username: u.username ?? null,
+        email: u.email ?? null,
+        matricule: u.matricule ?? null,
+        firstName: u.firstName ?? null,
+        lastName: u.lastName ?? null,
+        grade: u.grade ?? null,
+        label: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || (u.username ?? `#${u.id}`),
+        region: u.region ?? null,
+        departement: u.departement ?? null,
+        role: u.role ?? null,
+        isSupervisor: true,
+      }));
+      return res.json(payload);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const whereRole = roleParam === 'sector'
       ? inArray(users.role as any, ['sub-agent'] as any)
       : eq(users.role as any, roleParam as any);
@@ -215,6 +273,7 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
       region: u.region ?? null,
       departement: u.departement ?? null,
       role: u.role ?? null,
+      isSupervisor: false,
     }));
     res.json(payload);
   } catch (error) {

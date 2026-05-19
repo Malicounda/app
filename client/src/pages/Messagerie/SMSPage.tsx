@@ -136,49 +136,101 @@ export default function SimpleSMSPage() {
     return () => { cancelled = true; };
   }, [isDefaultRole]);
 
-  // Fetch regional agents + sector agent of same zone (no domaineId needed for default role)
+  // ── CHARGEMENT DES DESTINATAIRES AUTOMATIQUES ───────────────────────────────────────
+  // Domaine ALERTE : hiérarchie spécifique
+  //   - isDefaultRole (agent terrain) -> superviseurs de son département
+  //   - isSupervisorRole + département -> superviseurs régionaux de sa région
+  //   - isSupervisorRole sans département (régional) -> pas de remountée auto
+  // Autres domaines : logique inchangée (agent régional + secteur de la zone)
   useEffect(() => {
-    if (!isDefaultRole || !user) return;
+    if (!user) return;
     let cancelled = false;
     (async () => {
       try {
-        const userRegion = (user as any)?.region;
-        const userDept = (user as any)?.departement;
-        const requests: Array<Promise<Response>> = [];
+        const userRegion = String((user as any)?.region || '').trim();
+        const userDept   = String((user as any)?.departement || '').trim();
 
-        // Fetch regional agents in same region (no domaineId)
+        if (isAlerteDomain) {
+          // ══ ALERTE : routage hiérarchique vers superviseurs ══
+          let url = '';
+          if (isDefaultRole) {
+            // Agent terrain -> superviseurs du même département
+            // Fallback sur région si pas de département défini
+            if (userDept) {
+              url = `/api/messages/agents?role=supervisor&departement=${encodeURIComponent(userDept)}`;
+            } else if (userRegion) {
+              url = `/api/messages/agents?role=supervisor&region=${encodeURIComponent(userRegion)}`;
+            } else {
+              // Aucune zone -> pas de destinataire auto
+              if (!cancelled) setAutoRecipients([]);
+              return;
+            }
+          } else if (isSupervisorRole) {
+            // Superviseur départemental (a un departement) -> superviseurs régionaux de sa région
+            // Superviseur régional (pas de dept spécifique) -> pas de remountée auto
+            if (userDept && userRegion) {
+              // Super dept -> cherche superviseurs de la même région (sans filtre département)
+              url = `/api/messages/agents?role=supervisor&region=${encodeURIComponent(userRegion)}`;
+            } else {
+              if (!cancelled) setAutoRecipients([]);
+              return;
+            }
+          } else {
+            if (!cancelled) setAutoRecipients([]);
+            return;
+          }
+
+          const resp = await fetch(url, { credentials: 'include' });
+          const data: any[] = resp.ok ? await resp.json() : [];
+          const isSelf = (u: any) => Number(u?.id) === Number((user as any)?.id);
+
+          const opts = data
+            .filter(u => !isSelf(u))
+            .map(u => {
+              const value = String(u?.id || '').trim();
+              const full  = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
+              const grade = String(u?.grade || '').trim();
+              const name  = grade ? `${grade} ${full || u?.username}` : (full || u?.username || value);
+              // Étiquette : superviseur départemental ou régional
+              const isRegionalSup = !u?.departement;
+              const roleTag = isRegionalSup ? 'Superviseur régional' : 'Superviseur départemental';
+              const loc = u?.departement ? ` — ${u.departement}` : u?.region ? ` — ${u.region}` : '';
+              return { value, label: `${name}${loc} (${roleTag})`, roleTag };
+            })
+            .filter(o => Boolean(o.value));
+
+          const unique = Array.from(new Map(opts.map(o => [o.value, o])).values());
+          if (!cancelled) setAutoRecipients(unique);
+          return; // ne pas exécuter la logique des autres domaines
+        }
+
+        // ══ AUTRES DOMAINES : logique inchangée ══
+        if (!isDefaultRole) return; // les autres domaines gèrent leurs destinataires dans le 2ème useEffect
+        const requests: Array<Promise<Response>> = [];
         if (userRegion) {
           requests.push(fetch(`/api/messages/agents?role=agent&region=${encodeURIComponent(userRegion)}`, { credentials: 'include' }));
         }
-        // Fetch sector (sub-agent) of user's departement (no domaineId)
         if (userDept) {
           requests.push(fetch(`/api/messages/agents?role=sector&departement=${encodeURIComponent(userDept)}`, { credentials: 'include' }));
         }
-
-        // Fallback: si l'agent n'a pas de région/département défini, on charge au moins les admins
         if (!requests.length) {
           requests.push(fetch(`/api/messages/agents?role=admin`, { credentials: 'include' }));
         }
         const responses = await Promise.all(requests);
         const jsons = await Promise.all(responses.map(r => r.ok ? r.json() : Promise.resolve([])));
         const allAgents = jsons.flatMap(arr => Array.isArray(arr) ? arr : []);
-        const isSelf = (u: any) => {
-          const uid = (user as any)?.id;
-          if (uid && u?.id && Number(uid) === Number(u.id)) return true;
-          return false;
-        };
+        const isSelf = (u: any) => Number(u?.id) === Number((user as any)?.id);
         const opts = allAgents
-          .filter((u: any) => !isSelf(u))
+          .filter(u => !isSelf(u))
           .map((u: any) => {
             const value = String(u?.id || u?.username || u?.email || u?.matricule || '').trim();
             const full = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
-            const isSector = u?.departement && String(u?.role || '').toLowerCase().includes('sub-agent') || String(u?.role || '').toLowerCase().includes('sector');
+            const isSector = String(u?.role || '').toLowerCase().includes('sub-agent') || String(u?.role || '').toLowerCase().includes('sector');
             const roleTag = isSector ? 'Agent secteur' : 'Agent régional';
             const loc = u?.departement ? ` — ${u.departement}` : u?.region ? ` — ${u.region}` : '';
             return { value, label: `${full || value}${loc}`, roleTag };
           })
           .filter(o => Boolean(o.value));
-        // Deduplicate by value
         const unique = Array.from(new Map(opts.map(o => [o.value, o])).values());
         if (!cancelled) setAutoRecipients(unique);
       } catch {
@@ -186,7 +238,8 @@ export default function SimpleSMSPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [isDefaultRole, user]);
+  }, [isAlerteDomain, isDefaultRole, isSupervisorRole, user]);
+  // ───────────────────────────────────────────────────────────
 
   const handleDefaultSend = async () => {
     if (!defaultMsg.trim()) {
@@ -194,7 +247,10 @@ export default function SimpleSMSPage() {
       return;
     }
     if (!autoRecipients.length) {
-      toast({ title: "Aucun destinataire", description: "Aucun agent régional ou secteur trouvé pour votre zone.", variant: "destructive" });
+      const desc = isAlerteDomain
+        ? "Aucun superviseur trouvé pour votre zone. Vous pouvez utiliser la messagerie directe (tél/email/matricule)."
+        : "Aucun agent régional ou secteur trouvé pour votre zone.";
+      toast({ title: "Aucun destinataire", description: desc, variant: "destructive" });
       return;
     }
     setDefaultSending(true);
@@ -693,12 +749,8 @@ export default function SimpleSMSPage() {
                     <button onClick={() => setPhoneView('list')} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
                     <div className="text-sm font-semibold">Nouveau message</div>
                   </div>
-                  {/* Fil d'ariane */}
                   <div className="flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
-                    <Link
-                      href={isSupervisorRole ? "/supervisor" : "/default-home"}
-                      className="flex items-center gap-0.5 hover:text-white transition-colors"
-                    >
+                    <Link href={isSupervisorRole ? "/supervisor" : "/default-home"} className="flex items-center gap-0.5 hover:text-white transition-colors">
                       <span>Accueil</span>
                     </Link>
                     <span className="text-green-500 opacity-60">/</span>
@@ -708,7 +760,9 @@ export default function SimpleSMSPage() {
                 <div className="px-4 py-3 border-b border-gray-200 shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-500">À :</span>
-                    <input value={newRecipientSearch} onChange={e => setNewRecipientSearch(e.target.value)} placeholder="Rechercher un agent..." className="flex-1 bg-transparent outline-none text-sm" />
+                    <input value={newRecipientSearch} onChange={e => setNewRecipientSearch(e.target.value)}
+                      placeholder={isAlerteDomain ? "Rechercher un superviseur..." : "Rechercher un agent..."}
+                      className="flex-1 bg-transparent outline-none text-sm" />
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -721,7 +775,41 @@ export default function SimpleSMSPage() {
                     </button>
                   ))}
                   {recipientOptions.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).length === 0 && (
-                    <div className="flex items-center justify-center py-12"><p className="text-sm text-gray-400">Aucun agent trouvé</p></div>
+                    <div className="flex items-center justify-center py-8"><p className="text-sm text-gray-400">Aucun agent trouvé</p></div>
+                  )}
+
+                  {/* ── Section messagerie directe (domaine ALERTE) ── */}
+                  {isAlerteDomain && (
+                    <div className="px-4 pt-4 pb-6 border-t border-gray-100">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Messagerie directe</p>
+                      <p className="text-[11px] text-gray-400 mb-3">Saisir le téléphone, l&apos;email ou le matricule du destinataire</p>
+                      <div className="flex gap-2">
+                        <input
+                          id="direct-identifier-input-desktop"
+                          type="text"
+                          value={newRecipientSearch.startsWith('@') ? newRecipientSearch.slice(1) : ''}
+                          onChange={e => setNewRecipientSearch('@' + e.target.value)}
+                          placeholder="Ex : 77 123 45 67 / agent@eaux.sn / MAT001"
+                          className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-green-400"
+                        />
+                        <button
+                          onClick={() => {
+                            const ident = newRecipientSearch.startsWith('@') ? newRecipientSearch.slice(1).trim() : '';
+                            if (!ident) return;
+                            const key = `direct_${ident}`;
+                            const existingConv = conversations.find(c => c.contactIdentifier === ident);
+                            if (existingConv) { setSelectedContactKey(existingConv.contactKey); }
+                            else { setSelectedContactKey(key); conversations.push({ contactKey: key, contactName: ident, contactInitial: ident.charAt(0).toUpperCase(), contactIdentifier: ident, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); }
+                            setPhoneView('chat'); setDefaultMsg('');
+                            setNewRecipientSearch('');
+                          }}
+                          disabled={!newRecipientSearch.startsWith('@') || newRecipientSearch.length < 2}
+                          className="px-3 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-green-700 transition-colors"
+                        >
+                          OK
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </>
@@ -1207,10 +1295,14 @@ export default function SimpleSMSPage() {
                     <div className="px-4 py-3 border-b border-gray-200 shrink-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-500">À :</span>
-                        <input value={newRecipientSearch} onChange={e => setNewRecipientSearch(e.target.value)} placeholder="Rechercher un agent..." className="flex-1 bg-transparent outline-none text-sm" />
+                        <input value={newRecipientSearch} onChange={e => setNewRecipientSearch(e.target.value)}
+                          placeholder={isAlerteDomain ? "Rechercher un superviseur..." : "Rechercher un agent..."}
+                          className="flex-1 bg-transparent outline-none text-sm" />
                       </div>
                     </div>
                     <div className="flex-1 overflow-y-auto">
+
+                      {/* Superviseurs / destinataires automatiques */}
                       {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
                         <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
                           <div className="h-10 w-10 rounded-full bg-green-600 text-white flex items-center justify-center text-base font-bold shrink-0">{r.label.charAt(0).toUpperCase()}</div>
@@ -1220,8 +1312,49 @@ export default function SimpleSMSPage() {
                           </div>
                         </button>
                       ))}
-                      {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).length === 0 && (
-                        <div className="flex items-center justify-center py-12"><p className="text-sm text-gray-400">Aucun agent trouvé</p></div>
+
+                      {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).length === 0 && !newRecipientSearch && (
+                        <div className="flex items-center justify-center py-6">
+                          <p className="text-sm text-gray-400">{isAlerteDomain ? "Aucun superviseur de zone trouvé" : "Aucun agent trouvé"}</p>
+                        </div>
+                      )}
+
+                      {/* ── Messagerie directe par identifiant (domaine ALERTE) ── */}
+                      {isAlerteDomain && (
+                        <div className="mx-4 mt-4 mb-6 rounded-2xl border border-green-100 bg-green-50 p-4">
+                          <p className="text-xs font-bold text-green-800 uppercase tracking-wide mb-1">Messagerie directe</p>
+                          <p className="text-[11px] text-green-700 mb-3">Saisir téléphone, email ou matricule pour contacter directement un agent</p>
+                          <div className="flex gap-2">
+                            <input
+                              id="direct-identifier-input"
+                              type="text"
+                              value={newRecipientSearch.startsWith('@') ? newRecipientSearch.slice(1) : ''}
+                              onChange={e => setNewRecipientSearch('@' + e.target.value)}
+                              placeholder="Ex : 77 123 45 67 ou MAT001"
+                              className="flex-1 rounded-xl border border-green-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-green-500"
+                            />
+                            <button
+                              onClick={() => {
+                                const ident = newRecipientSearch.startsWith('@') ? newRecipientSearch.slice(1).trim() : '';
+                                if (!ident) return;
+                                const key = `direct_${ident}`;
+                                const existingConv = conversations.find(c => c.contactIdentifier === ident);
+                                if (existingConv) { setSelectedContactKey(existingConv.contactKey); }
+                                else {
+                                  setSelectedContactKey(key);
+                                  conversations.push({ contactKey: key, contactName: ident, contactInitial: ident.charAt(0).toUpperCase(), contactIdentifier: ident, contactGrade: '', contactRoleMetier: 'Contact direct', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] });
+                                }
+                                setPhoneView('chat');
+                                setDefaultMsg('');
+                                setNewRecipientSearch('');
+                              }}
+                              disabled={!newRecipientSearch.startsWith('@') || newRecipientSearch.length < 2}
+                              className="px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-bold disabled:opacity-40 hover:bg-green-700 active:scale-95 transition-all"
+                            >
+                              OK
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </>
