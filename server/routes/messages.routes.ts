@@ -176,9 +176,12 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
     }
     // ─────────────────────────────────────────────────────────────────────────
 
+    const validUserRoles = ['admin', 'chasse', 'agent', 'sub-agent', 'super-admin', 'hunter', 'guide'];
+    const safeRoleParam = validUserRoles.includes(roleParam) ? roleParam : 'agent';
+    
     const whereRole = roleParam === 'sector'
       ? inArray(users.role as any, ['sub-agent'] as any)
-      : eq(users.role as any, roleParam as any);
+      : eq(users.role as any, safeRoleParam as any);
 
     const domainUsers = isDefaultRoleUser
       ? await db

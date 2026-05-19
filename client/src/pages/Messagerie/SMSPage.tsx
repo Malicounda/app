@@ -193,7 +193,7 @@ export default function SimpleSMSPage() {
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch('/api/domaines', { credentials: 'include' });
+        const resp = await fetch('/api/domaines/public/active', { credentials: 'include' });
         if (resp.ok) {
           const data = await resp.json();
           if (!cancelled && Array.isArray(data)) setDomaines(data);
