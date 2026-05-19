@@ -124,7 +124,7 @@ export default function SupervisorPage() {
                   `}</style>
                   <div
                     className="supervisor-ticker-inner flex items-center gap-6 whitespace-nowrap absolute top-0 left-0 h-full px-4"
-                    style={{ animationDuration: `${Math.max(12, recentNotifs.length * 8)}s` }}
+                    style={{ animationDuration: `${Math.max(25, recentNotifs.length * 14)}s` }}
                   >
                     {recentNotifs.map((n: any) => {
                       const sender = n.alert?.sender;
