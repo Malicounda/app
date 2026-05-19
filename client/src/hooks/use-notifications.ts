@@ -23,9 +23,9 @@ export function useNotifications() {
   useEffect(() => {
     if (!user) return;
 
-    // Initialisation de la connexion Socket.io
+    // Initialisation de la connexion Socket.io avec fallback sur le polling
     const socket = io(window.location.origin, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });

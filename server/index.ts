@@ -1,4 +1,5 @@
 import cors from 'cors';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import { sql } from 'drizzle-orm/sql';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
@@ -122,6 +123,9 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   next();
 });
 */
+
+// Middleware de compression GZIP pour réduire la taille des réponses (optimisation prod)
+app.use(compression());
 
 // Middleware pour parser le JSON et les données de formulaire
 app.use(express.json({ limit: '10mb' }));
@@ -467,7 +471,10 @@ const startServer = async (): Promise<HttpServer> => {
     // Servir les fichiers statiques du client uniquement pour les routes non-API
     app.use((req, res, next) => {
       if (!req.path.startsWith('/api')) {
-        express.static(path.join(__dirname, '../client'))(req, res, next);
+        const clientDir = process.env.NODE_ENV === 'production'
+          ? path.join(process.cwd(), 'client', 'dist')
+          : path.join(process.cwd(), 'client');
+        express.static(clientDir)(req, res, next);
       } else {
         next();
       }
@@ -476,7 +483,9 @@ const startServer = async (): Promise<HttpServer> => {
     // Route catch-all pour le client (seulement si le fichier n'existe pas)
     app.get('*', (req: Request, res: Response, next: any) => {
       // Vérifier si le fichier statique existe
-      const clientDir = path.resolve(__dirname, '../client');
+      const clientDir = process.env.NODE_ENV === 'production'
+        ? path.join(process.cwd(), 'client', 'dist')
+        : path.join(process.cwd(), 'client');
 
       let fileExists = false;
 

@@ -74,6 +74,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "compression": "^1.8.1",
     "connect-pg-simple": "^10.0.0",
     "connect-redis": "^8.0.3",
     "cors": "^2.8.5",

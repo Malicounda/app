@@ -21,6 +21,13 @@ export default defineConfig({
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
         assetFileNames: 'assets/[name].[hash].[ext]',
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'wouter', 'zustand'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', 'lucide-react', 'framer-motion'],
+          maps: ['leaflet', 'react-leaflet-markercluster', 'maplibre-gl'],
+          charts: ['recharts'],
+          utils: ['axios', 'zod', 'date-fns']
+        }
       }
     }
   },
