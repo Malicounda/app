@@ -4,7 +4,7 @@ import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
-import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 
@@ -40,6 +40,7 @@ export default function SimpleSMSPage() {
   const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
   const [newRecipientSearch, setNewRecipientSearch] = useState('');
   const [isResolvingContact, setIsResolvingContact] = useState(false);
+  const [showAgentNotFoundDialog, setShowAgentNotFoundDialog] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Tactical phone-style deletion UI states
@@ -892,12 +893,23 @@ export default function SimpleSMSPage() {
                 <div className="px-4 py-3 border-b border-gray-200 shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-500 font-medium">À :</span>
-                    <input 
-                      value={newRecipientSearch} 
-                      onChange={e => setNewRecipientSearch(e.target.value)}
-                      placeholder={isAlerteDomain ? "Rechercher ou Tel / email / matricule..." : "Rechercher un agent..."}
-                      className="flex-1 bg-transparent outline-none text-sm placeholder:text-gray-400" 
-                    />
+                    <div className="flex-1 relative flex items-center">
+                      <input 
+                        value={newRecipientSearch} 
+                        onChange={e => setNewRecipientSearch(e.target.value)}
+                        placeholder={isAlerteDomain ? "Tel / email / matricule..." : "Rechercher un agent..."}
+                        className="w-full bg-transparent outline-none text-sm placeholder:text-gray-400 pr-6" 
+                      />
+                      {newRecipientSearch.length > 0 && (
+                        <button
+                          onClick={() => setNewRecipientSearch('')}
+                          className="absolute right-0 text-gray-400 hover:text-gray-600 transition-colors"
+                          aria-label="Effacer"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                     {isAlerteDomain && newRecipientSearch.trim().length >= 2 && (
                       <button
                         disabled={isResolvingContact}
@@ -912,7 +924,7 @@ export default function SimpleSMSPage() {
                             });
                             
                             if (!res.ok) {
-                               toast({ title: "Introuvable", description: "Ce destinataire n'existe pas.", variant: "destructive" });
+                               setShowAgentNotFoundDialog(true);
                                return;
                             }
                             
@@ -944,12 +956,12 @@ export default function SimpleSMSPage() {
                             setDefaultMsg('');
                             setNewRecipientSearch('');
                           } catch (e) {
-                            toast({ title: "Erreur", description: "Impossible de vérifier ce contact.", variant: "destructive" });
+                            setShowAgentNotFoundDialog(true);
                           } finally {
                             setIsResolvingContact(false);
                           }
                         }}
-                        className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700 active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700 active:scale-95 transition-all shadow-sm disabled:opacity-50 shrink-0"
                       >
                         {isResolvingContact ? "..." : "OK"}
                       </button>
@@ -1565,6 +1577,33 @@ export default function SimpleSMSPage() {
               className="w-full text-center py-3.5 text-sm font-bold text-gray-600 bg-gray-100 rounded-2xl hover:bg-gray-200 active:scale-98 transition-all"
             >
               Annuler
+            </button>
+          </div>
+        </div>
+      )}
+      {/* === Dialog Agent introuvable === */}
+      {showAgentNotFoundDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-4 max-w-xs w-full animate-in fade-in zoom-in-95 duration-200">
+            {/* Icône agent */}
+            <div className="h-16 w-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-9 w-9 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636" className="text-red-400" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-base font-bold text-gray-800">Agent introuvable</p>
+              <p className="text-xs text-gray-500 mt-1">Aucun agent ne correspond à cet identifiant dans le système.</p>
+            </div>
+            <button
+              onClick={() => {
+                setShowAgentNotFoundDialog(false);
+                setNewRecipientSearch('');
+              }}
+              className="w-full py-2.5 rounded-xl bg-green-600 text-white text-sm font-bold hover:bg-green-700 active:scale-95 transition-all"
+            >
+              OK
             </button>
           </div>
         </div>

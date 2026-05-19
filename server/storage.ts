@@ -607,11 +607,21 @@ import { db } from "./db.js";
         if (byEmail) return byEmail;
       }
 
-      // 2b. Phone number (users.phone exact match)
-      if (/^[+]?\d[\d\s-]{5,}$/.test(value)) {
+      // 2b. Phone number — essai exact + version normalisée (sans espaces ni tirets)
+      if (/^[+]?\d[\d\s\-\.]{4,}$/.test(value)) {
+        const phoneNorm = value.replace(/[\s\-\.]/g, ''); // ex: "77 123 45 67" -> "771234567"
         try {
-          const results = await db.select().from(users).where(eq(users.phone, value));
-          if (Array.isArray(results) && results[0]) return results[0] as unknown as User;
+          // Exact match d'abord
+          const exact = await db.select().from(users).where(eq(users.phone, value)).limit(1);
+          if (Array.isArray(exact) && exact[0]) return exact[0] as unknown as User;
+          // Match normalisé (compare en supprimant les espaces/tirets des deux côtés)
+          const normRes = await db.execute(sqlRaw`
+            SELECT * FROM users
+            WHERE replace(replace(replace(coalesce(phone,''), ' ', ''), '-', ''), '.', '') = ${phoneNorm}
+            LIMIT 1
+          `);
+          const normRow = Array.isArray(normRes) ? (normRes as any[])[0] : undefined;
+          if (normRow) return normRow as unknown as User;
         } catch (err) {
           console.warn('[storage.findUserByIdentifier] phone lookup failed, continuing', err);
         }
