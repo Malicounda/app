@@ -1710,4 +1710,49 @@ router.put('/me/hunter-profile', isAuthenticated, async (req, res) => {
   }
 });
 
+// Résoudre un utilisateur par identifiant (matricule, tel, email) pour messagerie directe
+router.get('/resolve-identifier/:identifier', isAuthenticated, async (req, res) => {
+  try {
+    const ident = req.params.identifier;
+    const user = await storage.findUserByIdentifier(ident);
+    if (!user || !user.id) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    
+    // Récupérer le grade et le rôle métier depuis agents / rolesMetier
+    let grade = null;
+    let roleMetierLabel = null;
+    try {
+      const agentRows = await db.select({ grade: agents.grade, roleMetierId: agents.roleMetierId })
+        .from(agents)
+        .where(eq(agents.userId, user.id as any))
+        .limit(1);
+      if (agentRows?.[0]) {
+        grade = agentRows[0].grade;
+        if (agentRows[0].roleMetierId) {
+          // Utilisons une requête sql raw pour éviter d'importer rolesMetier qui manque
+          const rmRes = await db.execute(sql`SELECT label_fr FROM roles_metier WHERE id = ${agentRows[0].roleMetierId} LIMIT 1`);
+          if (rmRes && rmRes.length > 0) roleMetierLabel = (rmRes[0] as any).label_fr;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch agent info for resolve-identifier", e);
+    }
+    
+    return res.json({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
+      grade: grade,
+      roleMetier: roleMetierLabel,
+      departement: (user as any).departement,
+      region: user.region,
+      serviceLocation: (user as any).serviceLocation
+    });
+  } catch (e: any) {
+    return res.status(500).json({ message: e?.message || "Erreur serveur" });
+  }
+});
+
 export default router;

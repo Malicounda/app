@@ -39,12 +39,19 @@ export default function SimpleSMSPage() {
   const [phoneView, setPhoneView] = useState<'list' | 'chat' | 'new'>('list');
   const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
   const [newRecipientSearch, setNewRecipientSearch] = useState('');
+  const [isResolvingContact, setIsResolvingContact] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Tactical phone-style deletion UI states
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [deletingConv, setDeletingConv] = useState(false);
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
+
+  // New multi-select states
+  const [showListMenu, setShowListMenu] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedConvKeys, setSelectedConvKeys] = useState<Set<string>>(new Set());
+  const [massDeleting, setMassDeleting] = useState(false);
 
   const handleDeleteEntireConversation = async (contactKey: string) => {
     setDeletingConv(true);
@@ -97,6 +104,64 @@ export default function SimpleSMSPage() {
       setShowHeaderMenu(false);
     }
   };
+
+  const handleMarkAllAsRead = async () => {
+    setShowListMenu(false);
+    for (const conv of conversations) {
+      if (conv.unreadCount > 0) {
+        for (const m of conv.messages) {
+          if (!m.isSent && m.rawMsgObj && !m.rawMsgObj.isRead) {
+            await markMessageAsRead(m.id).catch(() => {});
+          }
+        }
+      }
+    }
+    toast({ title: "Messages lus", description: "Toutes les conversations ont été marquées comme lues." });
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedConvKeys.size === 0) return;
+    setMassDeleting(true);
+    try {
+      for (const key of selectedConvKeys) {
+        if (key.startsWith('group_') || key === 'deleted') {
+          const conv = conversations.find(c => c.contactKey === key);
+          if (conv) {
+            await Promise.all(conv.messages.map(m => deleteMessage(m.rawMsgObj)));
+          }
+        } else {
+          const conv = conversations.find(c => c.contactKey === key);
+          const identifiers = [key];
+          if (conv?.contactIdentifier && conv.contactIdentifier !== key) {
+            identifiers.push(conv.contactIdentifier);
+          }
+          for (const ident of identifiers) {
+            const response = await fetch(`/api/messages/conversation/${encodeURIComponent(ident)}`, {
+              method: 'DELETE',
+              credentials: 'include',
+            });
+            if (response.ok || response.status === 204) break;
+          }
+        }
+      }
+      toast({ title: "Suppression terminée", description: `${selectedConvKeys.size} conversation(s) supprimée(s).` });
+      setSelectedConvKeys(new Set());
+      setIsSelectionMode(false);
+      await refreshAll();
+    } catch {
+      toast({ title: "Erreur", description: "Une erreur est survenue lors de la suppression.", variant: "destructive" });
+    } finally {
+      setMassDeleting(false);
+    }
+  };
+
+  const toggleConvSelection = (key: string) => {
+    const newSet = new Set(selectedConvKeys);
+    if (newSet.has(key)) newSet.delete(key);
+    else newSet.add(key);
+    setSelectedConvKeys(newSet);
+  };
+
 
   const {
     inbox,
@@ -587,55 +652,120 @@ export default function SimpleSMSPage() {
             {phoneView === 'list' && (
               <>
                 <div className="bg-[#114b26] text-white px-4 py-3 shrink-0 flex items-center justify-between relative">
-                  <div className="text-lg font-bold w-1/3">Messages</div>
+                  {isSelectionMode ? (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => { setIsSelectionMode(false); setSelectedConvKeys(new Set()); }} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
+                        <span className="text-base font-bold">{selectedConvKeys.size} sélectionné(s)</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm font-semibold">
+                        <button onClick={() => {
+                          if (selectedConvKeys.size === conversations.length) {
+                            setSelectedConvKeys(new Set());
+                          } else {
+                            setSelectedConvKeys(new Set(conversations.map(c => c.contactKey)));
+                          }
+                        }}>
+                          {selectedConvKeys.size === conversations.length ? 'Désélectionner tout' : 'Tout sélectionner'}
+                        </button>
+                        {selectedConvKeys.size > 0 && (
+                          <button onClick={handleDeleteSelected} disabled={massDeleting} className="text-white hover:text-red-300 disabled:opacity-50 transition-colors">
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-lg font-bold w-1/3">Messages</div>
 
-                  <div className="flex-1 flex justify-center">
-                    <button onClick={() => { setPhoneView('new'); setNewRecipientSearch(''); setDefaultMsg(''); }} className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-green-500 hover:bg-green-400 shadow flex items-center justify-center transition-all active:scale-90">
-                      <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                    </button>
-                  </div>
+                      <div className="flex-1 flex justify-center">
+                        <button onClick={() => { setPhoneView('new'); setNewRecipientSearch(''); setDefaultMsg(''); }} className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-green-500 hover:bg-green-400 shadow flex items-center justify-center transition-all active:scale-90">
+                          <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                        </button>
+                      </div>
 
-                  {/* Fil d'ariane */}
-                  <div className="flex items-center justify-end gap-1.5 text-xs text-green-200 font-medium shrink-0 w-1/3">
-                    <Link
-                      href={isSupervisorRole ? "/supervisor" : "/default-home"}
-                      className="flex items-center gap-0.5 hover:text-white transition-colors"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                      </svg>
-                      <span className="hidden sm:inline">Accueil</span>
-                    </Link>
-                    <span className="text-green-500 opacity-60">/</span>
-                    <span className="text-green-50 font-semibold hidden sm:inline">Messagerie</span>
-                  </div>
+                      {/* Fil d'ariane */}
+                      <div className="flex items-center justify-end gap-1.5 text-xs text-green-200 font-medium shrink-0 w-1/3">
+                        <Link
+                          href={isSupervisorRole ? "/supervisor" : "/default-home"}
+                          className="flex items-center gap-0.5 hover:text-white transition-colors"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                          </svg>
+                          <span className="hidden sm:inline">Accueil</span>
+                        </Link>
+                        <span className="text-green-500 opacity-60">/</span>
+                        <span className="text-green-50 font-semibold hidden sm:inline">Messagerie</span>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div className="px-3 py-2 border-b border-gray-100 shrink-0">
-                  <div className="flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2">
-                    <Search className="h-4 w-4 text-gray-400" />
-                    <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher" className="bg-transparent outline-none text-sm w-full" />
+                {!isSelectionMode && conversations.length > 0 && (
+                  <div className="px-3 py-2 border-b border-gray-100 shrink-0 flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2">
+                      <Search className="h-4 w-4 text-gray-400" />
+                      <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher" className="bg-transparent outline-none text-sm w-full" />
+                    </div>
+                    <div className="relative shrink-0">
+                      <button onClick={() => setShowListMenu(!showListMenu)} className="h-9 w-9 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-600">
+                        <MoreVertical className="h-5 w-5" />
+                      </button>
+                      {showListMenu && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowListMenu(false)} />
+                          <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 z-50 text-gray-800 animate-in fade-in slide-in-from-top-2 duration-150">
+                            <button onClick={handleMarkAllAsRead} className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50 flex items-center gap-3 transition-colors border-b border-gray-50">
+                              <span className="text-lg">✓</span> Tout marquer comme lu
+                            </button>
+                            <button onClick={() => { setIsSelectionMode(true); setShowListMenu(false); }} className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50 flex items-center gap-3 transition-colors">
+                              <span className="text-lg">☐</span> Sélectionner
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="flex-1 overflow-y-auto">
                   {conversations.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full gap-2 py-12">
                       <p className="text-sm text-gray-400">Aucune conversation</p>
                     </div>
                   )}
-                  {conversations.filter(c => !normalizedQuery || c.contactName.toLowerCase().includes(normalizedQuery)).map(conv => (
-                    <button key={conv.contactKey} onClick={() => { setSelectedContactKey(conv.contactKey); setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
-                      <div className={`h-12 w-12 rounded-full ${conv.unreadCount > 0 ? 'bg-green-600' : 'bg-slate-400'} text-white flex items-center justify-center text-lg font-bold shrink-0`}>{conv.contactInitial}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{conv.contactName}</span>
-                          <span className="text-[10px] text-gray-400 shrink-0">{formatRelTime(conv.lastTime)}</span>
+                  {conversations.filter(c => !normalizedQuery || c.contactName.toLowerCase().includes(normalizedQuery)).map(conv => {
+                    const isSelected = selectedConvKeys.has(conv.contactKey);
+                    return (
+                      <div key={conv.contactKey}
+                           className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors text-left select-none ${isSelectionMode ? 'cursor-pointer hover:bg-gray-50' : 'cursor-pointer hover:bg-gray-50 active:bg-gray-100'} ${isSelected ? 'bg-green-50/50' : ''}`}
+                           onClick={() => {
+                             if (isSelectionMode) toggleConvSelection(conv.contactKey);
+                             else { setSelectedContactKey(conv.contactKey); setPhoneView('chat'); setDefaultMsg(''); }
+                           }}
+                           onContextMenu={(e) => {
+                             e.preventDefault();
+                             if (!isSelectionMode) { setIsSelectionMode(true); toggleConvSelection(conv.contactKey); }
+                           }}>
+                        {isSelectionMode ? (
+                          <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-green-600 border-green-600' : 'border-gray-300'}`}>
+                             {isSelected && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                          </div>
+                        ) : (
+                          <div className={`h-12 w-12 rounded-full ${conv.unreadCount > 0 ? 'bg-green-600' : 'bg-slate-400'} text-white flex items-center justify-center text-lg font-bold shrink-0`}>{conv.contactInitial}</div>
+                        )}
+                        <div className="flex-1 min-w-0 pointer-events-none">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{conv.contactName}</span>
+                            <span className="text-[10px] text-gray-400 shrink-0">{formatRelTime(conv.lastTime)}</span>
+                          </div>
+                          {conv.contactRoleMetier && <p className="text-[10px] text-green-700 font-medium truncate">{conv.contactRoleMetier}</p>}
+                          <p className={`text-xs truncate mt-0.5 ${conv.unreadCount > 0 ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>{conv.lastIsSent ? 'Vous : ' : ''}{conv.lastMessage}</p>
                         </div>
-                        {conv.contactRoleMetier && <p className="text-[10px] text-green-700 font-medium truncate">{conv.contactRoleMetier}</p>}
-                        <p className={`text-xs truncate mt-0.5 ${conv.unreadCount > 0 ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>{conv.lastIsSent ? 'Vous : ' : ''}{conv.lastMessage}</p>
+                        {conv.unreadCount > 0 && !isSelectionMode && <span className="h-5 min-w-[20px] px-1 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">{conv.unreadCount}</span>}
                       </div>
-                      {conv.unreadCount > 0 && <span className="h-5 min-w-[20px] px-1 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">{conv.unreadCount}</span>}
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
 
               </>
@@ -761,15 +891,74 @@ export default function SimpleSMSPage() {
                 </div>
                 <div className="px-4 py-3 border-b border-gray-200 shrink-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">À :</span>
-                    <input value={newRecipientSearch} onChange={e => setNewRecipientSearch(e.target.value)}
-                      placeholder={isAlerteDomain ? "Rechercher un superviseur..." : "Rechercher un agent..."}
-                      className="flex-1 bg-transparent outline-none text-sm" />
+                    <span className="text-sm text-gray-500 font-medium">À :</span>
+                    <input 
+                      value={newRecipientSearch} 
+                      onChange={e => setNewRecipientSearch(e.target.value)}
+                      placeholder={isAlerteDomain ? "Rechercher ou Tel / email / matricule..." : "Rechercher un agent..."}
+                      className="flex-1 bg-transparent outline-none text-sm placeholder:text-gray-400" 
+                    />
+                    {isAlerteDomain && newRecipientSearch.trim().length >= 2 && (
+                      <button
+                        disabled={isResolvingContact}
+                        onClick={async () => {
+                          const ident = newRecipientSearch.trim();
+                          if (!ident) return;
+                          
+                          setIsResolvingContact(true);
+                          try {
+                            const res = await fetch(`/api/users/resolve-identifier/${encodeURIComponent(ident)}`, {
+                               credentials: 'include'
+                            });
+                            
+                            if (!res.ok) {
+                               toast({ title: "Introuvable", description: "Ce destinataire n'existe pas.", variant: "destructive" });
+                               return;
+                            }
+                            
+                            const userObj = await res.json();
+                            const key = `direct_${userObj.id}`;
+                            const contactName = [userObj.grade, userObj.firstName, userObj.lastName].filter(Boolean).join(' ').trim() || userObj.username || ident;
+                            const roleMetier = userObj.roleMetier || userObj.serviceLocation || userObj.role || '';
+                            
+                            const existingConv = conversations.find(c => c.contactKey === key || c.contactIdentifier === ident);
+                            if (existingConv) { 
+                              setSelectedContactKey(existingConv.contactKey); 
+                            } else { 
+                              setSelectedContactKey(key); 
+                              conversations.push({ 
+                                contactKey: key, 
+                                contactName: contactName, 
+                                contactInitial: contactName.charAt(0).toUpperCase(), 
+                                contactIdentifier: String(userObj.id), 
+                                contactGrade: userObj.grade || '', 
+                                contactRoleMetier: roleMetier, 
+                                lastMessage: '', 
+                                lastTime: new Date(), 
+                                lastIsSent: false, 
+                                unreadCount: 0, 
+                                messages: [] 
+                              }); 
+                            }
+                            setPhoneView('chat'); 
+                            setDefaultMsg('');
+                            setNewRecipientSearch('');
+                          } catch (e) {
+                            toast({ title: "Erreur", description: "Impossible de vérifier ce contact.", variant: "destructive" });
+                          } finally {
+                            setIsResolvingContact(false);
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700 active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                      >
+                        {isResolvingContact ? "..." : "OK"}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {recipientOptions.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
-                    <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                    <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); setNewRecipientSearch(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
                       <div className="h-10 w-10 rounded-full bg-green-600 text-white flex items-center justify-center text-base font-bold shrink-0">{r.label.charAt(0).toUpperCase()}</div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-800 truncate">{r.label}</div>
@@ -777,40 +966,11 @@ export default function SimpleSMSPage() {
                     </button>
                   ))}
                   {recipientOptions.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).length === 0 && (
-                    <div className="flex items-center justify-center py-8"><p className="text-sm text-gray-400">Aucun agent trouvé</p></div>
-                  )}
-
-                  {/* ── Section messagerie directe (domaine ALERTE) ── */}
-                  {isAlerteDomain && (
-                    <div className="px-4 pt-4 pb-6 border-t border-gray-100">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Messagerie directe</p>
-                      <p className="text-[11px] text-gray-400 mb-3">Saisir le téléphone, l&apos;email ou le matricule du destinataire</p>
-                      <div className="flex gap-2">
-                        <input
-                          id="direct-identifier-input-desktop"
-                          type="text"
-                          value={newRecipientSearch.startsWith('@') ? newRecipientSearch.slice(1) : ''}
-                          onChange={e => setNewRecipientSearch('@' + e.target.value)}
-                          placeholder="Ex : 77 123 45 67 / agent@eaux.sn / MAT001"
-                          className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-green-400"
-                        />
-                        <button
-                          onClick={() => {
-                            const ident = newRecipientSearch.startsWith('@') ? newRecipientSearch.slice(1).trim() : '';
-                            if (!ident) return;
-                            const key = `direct_${ident}`;
-                            const existingConv = conversations.find(c => c.contactIdentifier === ident);
-                            if (existingConv) { setSelectedContactKey(existingConv.contactKey); }
-                            else { setSelectedContactKey(key); conversations.push({ contactKey: key, contactName: ident, contactInitial: ident.charAt(0).toUpperCase(), contactIdentifier: ident, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); }
-                            setPhoneView('chat'); setDefaultMsg('');
-                            setNewRecipientSearch('');
-                          }}
-                          disabled={!newRecipientSearch.startsWith('@') || newRecipientSearch.length < 2}
-                          className="px-3 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-green-700 transition-colors"
-                        >
-                          OK
-                        </button>
-                      </div>
+                    <div className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-2">
+                      <p className="text-sm text-gray-500 font-medium">Aucun agent trouvé dans la liste</p>
+                      {isAlerteDomain && newRecipientSearch.trim().length > 0 && (
+                        <p className="text-xs text-gray-400 max-w-xs mx-auto">Cliquez sur <span className="font-bold text-green-600">OK</span> pour vérifier si l'identifiant <span className="font-bold text-gray-700">{newRecipientSearch}</span> existe et démarrer une discussion.</p>
+                      )}
                     </div>
                   )}
                 </div>
