@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { AuthProvider as AndroidAuthProvider } from '../../contexts/AndroidAuthContext';
 import { AuthProvider } from '../../contexts/AuthContext';
 import { getEnvironment } from '../../utils/environment';
+import { SplashScreen } from '../ui/SplashScreen';
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -29,14 +30,7 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   }, []);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Initialisation de l'application...</p>
-        </div>
-      </div>
-    );
+    return <SplashScreen message="Initialisation de l'application..." />;
   }
 
   // Utiliser le contexte Android pour les applications mobiles

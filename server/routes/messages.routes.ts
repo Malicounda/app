@@ -703,6 +703,17 @@ router.post('/', isAuthenticated, upload.single('attachment'), async (req: Reque
       }
     }
 
+    const notificationService = (req.app as any).notificationService;
+    if (notificationService) {
+      recipientIds.forEach(recipientId => {
+        notificationService.sendToUser(recipientId, {
+          title: "Nouveau message",
+          body: subject ? subject : "Vous avez reçu un nouveau message",
+          data: { type: 'MESSAGE' }
+        });
+      });
+    }
+
     res.status(201).json(createdMessages);
   } catch (error) {
     console.error("Erreur lors de l'envoi du message:", error);
@@ -747,6 +758,19 @@ router.post('/group', isAuthenticated, upload.single('attachment'), async (req, 
       attachmentSize: req.file ? req.file.size : undefined,
       domaineId: domaineId ?? null,
     });
+
+    const notificationService = (req.app as any).notificationService;
+    if (notificationService) {
+      // Pour les messages de groupe, on devrait idéalement récupérer les IDs des utilisateurs cibles.
+      // Si la fonction n'est pas directement disponible, le client s'appuiera sur le polling,
+      // ou on peut émettre un événement global si c'est pertinent.
+      // Pour l'instant, on notifie au moins l'expéditeur pour mettre à jour son UI.
+      notificationService.sendToUser(senderId, {
+        title: "Message de groupe envoyé",
+        body: subject ? subject : "Votre message a été envoyé",
+        data: { type: 'MESSAGE' }
+      });
+    }
 
     res.status(201).json(groupMessage);
   } catch (error) {

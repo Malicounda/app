@@ -49,6 +49,14 @@ export function useNotifications() {
       // Rafraîchir les données concernées
       if (payload.data?.type === 'ALERT') {
         queryClient.invalidateQueries({ queryKey: ['/api/alerts'] });
+        queryClient.invalidateQueries({ queryKey: ['alerts-unread-count'] });
+      }
+      if (payload.data?.type === 'MESSAGE') {
+        // Invalider tous les compteurs de messages non lus (toutes les pages et layouts)
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/messages'] });
       }
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
     });

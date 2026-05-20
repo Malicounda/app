@@ -18,6 +18,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import { PwaUpdatePrompt } from "@/components/ui/PwaUpdatePrompt";
+import { SplashScreen } from "@/components/ui/SplashScreen";
 
 import HomePageWrapper from "@/components/auth/HomePageWrapper";
 import RegisterForm from "@/components/auth/RegisterForm";
@@ -117,8 +118,12 @@ function ProfileRouteGuard() {
 
 function Router() {
   const [location, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const isAuthenticated = !!user;
+
+  if (isLoading) {
+    return <SplashScreen message={user ? "Déconnexion en cours..." : "Chargement..."} />;
+  }
 
   // Déterminer si l'utilisateur doit avoir le verrouillage désactivé (Alerte, Chasseurs, Guides)
   const isAlerteDomain = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole || (typeof window !== 'undefined' && localStorage.getItem('domain')?.toUpperCase() === 'ALERTE');

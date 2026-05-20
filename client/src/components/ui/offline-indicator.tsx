@@ -129,7 +129,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
   // Vue compacte (réduite)
   if (collapsed) {
     return (
-      <div className={`fixed bottom-4 left-8 z-50 ${className}`}>
+      <div className={`fixed bottom-[72px] md:bottom-4 left-8 z-[900] ${className}`}>
         <button
           onClick={() => setCollapsed(false)}
           className={`flex items-center gap-2 rounded-full px-3 py-2 shadow-md border text-sm ${isOnline ? 'bg-white' : 'bg-red-50 border-red-200'} hover:opacity-90`}
@@ -150,7 +150,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
 
   // Vue étendue
   return (
-    <div className={`fixed bottom-4 left-8 z-50 transition-opacity ${showAlert || !isOnline || pendingSyncs > 0 ? 'opacity-100' : 'opacity-0'} ${className}`}>
+    <div className={`fixed bottom-[72px] md:bottom-4 left-8 z-[900] transition-opacity ${showAlert || !isOnline || pendingSyncs > 0 ? 'opacity-100' : 'opacity-0'} ${className}`}>
       <Alert variant={isOnline ? "default" : "destructive"} className="w-80 shadow-lg">
         {isOnline ? (
           <>
