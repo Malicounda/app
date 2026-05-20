@@ -3,6 +3,7 @@ import InternalMessageComposer from "@/components/messaging/InternalMessageCompo
 import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
 import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -80,9 +81,8 @@ export default function SimpleSMSPage() {
 
       let deleted = false;
       for (const ident of identifiers) {
-        const response = await fetch(`/api/messages/conversation/${encodeURIComponent(ident)}`, {
+        const response = await authenticatedFetch(`/api/messages/conversation/${encodeURIComponent(ident)}`, {
           method: 'DELETE',
-          credentials: 'include',
         });
         if (response.ok || response.status === 204) {
           deleted = true;
@@ -137,9 +137,8 @@ export default function SimpleSMSPage() {
             identifiers.push(conv.contactIdentifier);
           }
           for (const ident of identifiers) {
-            const response = await fetch(`/api/messages/conversation/${encodeURIComponent(ident)}`, {
+            const response = await authenticatedFetch(`/api/messages/conversation/${encodeURIComponent(ident)}`, {
               method: 'DELETE',
-              credentials: 'include',
             });
             if (response.ok || response.status === 204) break;
           }
@@ -194,7 +193,7 @@ export default function SimpleSMSPage() {
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch('/api/domaines/public/active', { credentials: 'include' });
+        const resp = await authenticatedFetch('/api/domaines/public/active');
         if (resp.ok) {
           const data = await resp.json();
           if (!cancelled && Array.isArray(data)) setDomaines(data);
@@ -248,7 +247,7 @@ export default function SimpleSMSPage() {
             return;
           }
 
-          const resp = await fetch(url, { credentials: 'include' });
+          const resp = await authenticatedFetch(url);
           const data: any[] = resp.ok ? await resp.json() : [];
           const isSelf = (u: any) => Number(u?.id) === Number((user as any)?.id);
 
@@ -276,13 +275,13 @@ export default function SimpleSMSPage() {
         if (!isDefaultRole) return; // les autres domaines gèrent leurs destinataires dans le 2ème useEffect
         const requests: Array<Promise<Response>> = [];
         if (userRegion) {
-          requests.push(fetch(`/api/messages/agents?role=agent&region=${encodeURIComponent(userRegion)}`, { credentials: 'include' }));
+          requests.push(authenticatedFetch(`/api/messages/agents?role=agent&region=${encodeURIComponent(userRegion)}`));
         }
         if (userDept) {
-          requests.push(fetch(`/api/messages/agents?role=sector&departement=${encodeURIComponent(userDept)}`, { credentials: 'include' }));
+          requests.push(authenticatedFetch(`/api/messages/agents?role=sector&departement=${encodeURIComponent(userDept)}`));
         }
         if (!requests.length) {
-          requests.push(fetch(`/api/messages/agents?role=admin`, { credentials: 'include' }));
+          requests.push(authenticatedFetch(`/api/messages/agents?role=admin`));
         }
         const responses = await Promise.all(requests);
         const jsons = await Promise.all(responses.map(r => r.ok ? r.json() : Promise.resolve([])));
@@ -332,9 +331,8 @@ export default function SimpleSMSPage() {
         if (defaultAttachment) {
           formData.append("attachment", defaultAttachment);
         }
-        const response = await fetch("/api/messages/", {
+        const response = await authenticatedFetch("/api/messages/", {
           method: "POST",
-          credentials: "include",
           body: formData,
         });
         if (!response.ok) {
@@ -363,11 +361,11 @@ export default function SimpleSMSPage() {
         const isRegional = role === 'agent' || role === 'regional' || role === 'chef-regional';
 
         const requests: Array<Promise<Response>> = [
-          fetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }),
-          fetch(`/api/messages/agents?role=agent&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }),
+          authenticatedFetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(domaineId))}`),
+          authenticatedFetch(`/api/messages/agents?role=agent&domaineId=${encodeURIComponent(String(domaineId))}`),
         ];
         if (isRegional) {
-          requests.push(fetch(`/api/messages/agents?role=sector&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }));
+          requests.push(authenticatedFetch(`/api/messages/agents?role=sector&domaineId=${encodeURIComponent(String(domaineId))}`));
         }
 
         const responses = await Promise.all(requests);
@@ -928,9 +926,7 @@ export default function SimpleSMSPage() {
                           
                           setIsResolvingContact(true);
                           try {
-                            const res = await fetch(`/api/users/resolve-identifier?ident=${encodeURIComponent(ident)}`, {
-                               credentials: 'include'
-                            });
+                            const res = await authenticatedFetch(`/api/users/resolve-identifier?ident=${encodeURIComponent(ident)}`);
                             
                             if (!res.ok) {
                                setShowAgentNotFoundDialog(true);

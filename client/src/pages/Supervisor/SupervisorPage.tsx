@@ -18,9 +18,9 @@ export default function SupervisorPage() {
     queryKey: ["messages-unread-count-alerte"],
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/messages/unread-count`, { credentials: "include" });
+        const res = await apiRequest<{ total: number }>("GET", "/messages/unread-count");
         if (!res.ok) return { total: 0 };
-        return await res.json();
+        return res.data || { total: 0 };
       } catch { return { total: 0 }; }
     },
     enabled: !!user,

@@ -3,6 +3,7 @@ import InternalMessageComposer from "@/components/messaging/InternalMessageCompo
 import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { useInternalMessaging, type InternalMessageRecord } from "@/hooks/useInternalMessaging";
 import { useEffect, useMemo, useState } from "react";
 
@@ -31,8 +32,8 @@ export default function RegionalSMSPage() {
     (async () => {
       try {
         const [adminsResp, sectorsResp] = await Promise.all([
-          fetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }),
-          fetch(`/api/messages/agents?role=sector&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }),
+          authenticatedFetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(domaineId))}`),
+          authenticatedFetch(`/api/messages/agents?role=sector&domaineId=${encodeURIComponent(String(domaineId))}`),
         ]);
         if (!adminsResp.ok && !sectorsResp.ok) return;
         const [adminsData, sectorsData] = await Promise.all([

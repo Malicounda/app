@@ -3,6 +3,7 @@ import InternalMessageComposer, { type InternalMessageComposerSubmitPayload } fr
 import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { useInternalMessaging, type InternalMessageRecord } from "@/hooks/useInternalMessaging";
 import { useEffect, useMemo, useState } from "react";
 
@@ -50,9 +51,9 @@ export default function SectorSMSPage() {
     (async () => {
       try {
         const requests: Array<Promise<Response>> = [
-          fetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }),
-          fetch(`/api/messages/agents?role=agent&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }),
-          fetch(`/api/messages/agents?role=sector&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }),
+          authenticatedFetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(domaineId))}`),
+          authenticatedFetch(`/api/messages/agents?role=agent&domaineId=${encodeURIComponent(String(domaineId))}`),
+          authenticatedFetch(`/api/messages/agents?role=sector&domaineId=${encodeURIComponent(String(domaineId))}`),
         ];
 
         const responses = await Promise.all(requests);

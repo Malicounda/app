@@ -3,6 +3,7 @@ import InternalMessageComposer from "@/components/messaging/InternalMessageCompo
 import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
 import { useEffect, useMemo, useState } from "react";
 
@@ -44,11 +45,11 @@ export default function ReforestationSMSPage() {
         const isRegional = role === 'agent' || role === 'regional' || role === 'chef-regional';
 
         const requests: Array<Promise<Response>> = [
-          fetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }),
-          fetch(`/api/messages/agents?role=agent&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }),
+          authenticatedFetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(domaineId))}`),
+          authenticatedFetch(`/api/messages/agents?role=agent&domaineId=${encodeURIComponent(String(domaineId))}`),
         ];
         if (isRegional) {
-          requests.push(fetch(`/api/messages/agents?role=sector&domaineId=${encodeURIComponent(String(domaineId))}`, { credentials: 'include' }));
+          requests.push(authenticatedFetch(`/api/messages/agents?role=sector&domaineId=${encodeURIComponent(String(domaineId))}`));
         }
 
         const responses = await Promise.all(requests);

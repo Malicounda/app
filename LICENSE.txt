@@ -1,4 +1,4 @@
-Système de Contrôle et de Digitalisation des Permis et des Prélèvements (SCoDiPP)
+Système de Contrôle et de Digitalisation (SCoDi)
 Copyright (c) 2025 Abdoulaye SENE - Ingénieur des Travaux des Eaux et Forêts
 
 Tous droits réservés.
