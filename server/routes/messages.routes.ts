@@ -183,7 +183,7 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
       ? inArray(users.role as any, ['sub-agent'] as any)
       : eq(users.role as any, safeRoleParam as any);
 
-    const domainUsers = isDefaultRoleUser
+    const domainUsers = (isDefaultRoleUser || domaineId === null)
       ? await db
           .select({
             id: users.id,
