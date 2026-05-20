@@ -445,7 +445,8 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
           {/* Main Section - responsive */}
           <main
             className={[
-              "main-content flex-1 overflow-y-auto overflow-x-hidden transition-all duration-200",
+              "main-content flex-1 overflow-x-hidden transition-all duration-200",
+              location && location.includes('sms') ? "overflow-hidden flex flex-col" : "overflow-y-auto",
               location && location.startsWith('/map')
                 ? "bg-transparent"
                 : chromeless ? "bg-[#f8fafc]" : isSuperAdmin ? "bg-[#0b1326]" : "bg-[#e9edf3]",
@@ -463,7 +464,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
             ) : chromeless ? (
               <div 
                 ref={(el) => { if (el) el.scrollTop = 0; }} 
-                className={`w-full min-h-full ${location !== '/sms' ? 'pb-20' : ''}`}
+                className={`w-full ${location && location.includes('sms') ? 'h-full overflow-hidden' : 'min-h-full'} ${location !== '/sms' ? 'pb-20' : ''}`}
                 style={chromeless && location !== '/sms' && location !== '/profile' ? { paddingTop: '1.5rem' } : undefined}
               >
                 {showRestrictedAccess ? restrictedContent : children}

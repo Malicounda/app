@@ -476,7 +476,7 @@ export default function SimpleSMSPage() {
       const sName = [mAny?.sender?.firstName, mAny?.sender?.lastName].filter(Boolean).join(' ') || 'Inconnu';
       const sGrade = String(mAny?.sender?.grade || '').trim();
       const sRoleMetier = String(mAny?.sender?.roleMetierLabel || mAny?.sender?.role_metier_label || '').trim();
-      const sIdent = String(mAny?.sender?.username || mAny?.sender?.email || mAny?.sender?.matricule || sName);
+      const sIdent = String(mAny?.sender?.id || mAny?.sender?.username || mAny?.sender?.email || mAny?.sender?.matricule || sName);
       const key = sId || sIdent;
       const time = new Date(mAny?.createdAt || 0);
       const conv = convMap.get(key) || { contactKey: key, contactName: sGrade ? `${sGrade} ${sName}` : sName, contactInitial: sName.charAt(0).toUpperCase(), contactIdentifier: sIdent, contactGrade: sGrade, contactRoleMetier: sRoleMetier, lastMessage: mAny?.content || '', lastTime: time, lastIsSent: false, unreadCount: 0, messages: [] as any[] };
@@ -512,7 +512,7 @@ export default function SimpleSMSPage() {
 
         baseName = [mAny?.recipient?.firstName, mAny?.recipient?.lastName].filter(Boolean).join(' ') || reader?.name || mAny?.recipientIdentifier || (rId ? `Utilisateur #${rId}` : 'Destinataire');
         rName = rGrade ? `${rGrade} ${baseName}` : baseName;
-        rIdent = String(mAny?.recipientIdentifier || mAny?.recipient?.username || mAny?.recipient?.email || reader?.matricule || (rId ? `Utilisateur #${rId}` : 'deleted'));
+        rIdent = String(rId || mAny?.recipientIdentifier || mAny?.recipient?.username || mAny?.recipient?.email || reader?.matricule || 'deleted');
       }
 
       const key = rId || rIdent;

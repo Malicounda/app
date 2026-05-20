@@ -8,7 +8,7 @@ Toute reproduction, distribution, modification ou utilisation non autorisée de 
 Contact :
 Email : [bisnetprofit@gmail.com](mailto:bisnetprofit@gmail.com)
 
-══════════════════════════════════════════════════════════
+══════════════════════════════════
 
 CONTRAT DE LICENCE D’UTILISATION DE L’APPLICATION (CLUF)
 
@@ -66,8 +66,7 @@ Sauf autorisation écrite préalable de l’auteur, il est strictement interdit 
 * La présente licence est régie par les lois de la République du Sénégal.
 * Tout litige relatif à l’interprétation ou à l’exécution de cette licence sera soumis aux juridictions compétentes du Sénégal.
 
-══════════════════════════════════════════════════════════
-
+═══════════════════════════════
 Pour toute demande d’autorisation, d’information ou d’acquisition de licence :
 
 Abdoulaye SENE
@@ -75,7 +74,7 @@ Ingénieur des Travaux des Eaux et Forêts
 
 Email : [bisnetprofit@gmail.com](mailto:bisnetprofit@gmail.com)
 
-══════════════════════════════════════════════════════════
+══════════════════════════════════
 
 Version 1.0.0 – 2025
 
