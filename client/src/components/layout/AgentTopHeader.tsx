@@ -94,6 +94,9 @@ export default function AgentTopHeader() {
                   >
                     <div className="relative">
                       <MessageSquare className="h-5 w-5" />
+                      {unreadMsg > 0 && (
+                        <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center shadow-sm animate-pulse">{unreadMsg}</span>
+                      )}
                     </div>
                     <span className="text-sm font-bold uppercase tracking-wide">Messages</span>
                   </button>
@@ -166,6 +169,9 @@ export default function AgentTopHeader() {
             >
               <div className="h-[46px] w-[46px] shrink-0 rounded-2xl bg-emerald-50 flex items-center justify-center relative">
                 <MessageSquare className={`h-[22px] w-[22px] ${location === '/sms' ? 'text-emerald-600' : 'text-emerald-500'}`} strokeWidth={2.5} />
+                {unreadMsg > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow-sm border border-white animate-pulse">{unreadMsg}</span>
+                )}
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-center">
                 <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide">Messages</p>

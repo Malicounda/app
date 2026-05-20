@@ -29,7 +29,7 @@ export default function LicenseDialog({ isOpen, onClose }: LicenseDialogProps) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 text-xs text-slate-600 leading-relaxed font-sans whitespace-pre-wrap select-text selection:bg-blue-100">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-5 text-xs text-slate-600 leading-relaxed font-sans whitespace-pre-wrap select-text selection:bg-blue-100">
 {`Système de Contrôle et de Digitalisation (SCoDi)
 Copyright © 2025 Abdoulaye SENE – Ingénieur des Travaux des Eaux et Forêts
 
@@ -40,7 +40,7 @@ Toute reproduction, distribution, modification ou utilisation non autorisée de 
 Contact :
 Email : bisnetprofit@gmail.com
 
-══════════════════════════════════════════════════════════
+═══════════════════
 
 CONTRAT DE LICENCE D’UTILISATION DE L’APPLICATION (CLUF)
 
@@ -98,8 +98,7 @@ Sauf autorisation écrite préalable de l’auteur, il est strictement interdit 
 * La présente licence est régie par les lois de la République du Sénégal.
 * Tout litige relatif à l’interprétation ou à l’exécution de cette licence sera soumis aux juridictions compétentes du Sénégal.
 
-══════════════════════════════════════════════════════════
-
+════════════════
 Pour toute demande d’autorisation, d’information ou d’acquisition de licence :
 
 Abdoulaye SENE
@@ -107,7 +106,7 @@ Ingénieur des Travaux des Eaux et Forêts
 
 Email : bisnetprofit@gmail.com
 
-══════════════════════════════════════════════════════════
+════════════════
 
 Version 1.0.0 – 2025
 

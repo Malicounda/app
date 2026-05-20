@@ -3,6 +3,8 @@ import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 
 // Clé publique VAPID (doit correspondre à celle du serveur)
 const VAPID_PUBLIC_KEY = 'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
@@ -18,6 +20,22 @@ export function useNotifications() {
   const socketRef = useRef<Socket | null>(null);
   const [isPushSupported, setIsPushSupported] = useState(false);
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
+
+  // Demander la permission pour les notifications locales sur mobile (Capacitor)
+  useEffect(() => {
+    if (!user) return;
+    const requestMobilePermissions = async () => {
+      try {
+        const check = await LocalNotifications.checkPermissions();
+        if (check.display !== 'granted') {
+          await LocalNotifications.requestPermissions();
+        }
+      } catch (e) {
+        console.log('[LocalNotifications] Permissions check/request not supported or failed:', e);
+      }
+    };
+    void requestMobilePermissions();
+  }, [user]);
 
   // 1. Gestion de Socket.io
   useEffect(() => {
@@ -45,6 +63,25 @@ export function useNotifications() {
         description: payload.body,
         variant: payload.data?.type === 'ALERT' ? 'destructive' : 'default',
       });
+
+      // Si sur mobile/Capacitor, déclencher une notification système locale (avec son)
+      try {
+        LocalNotifications.schedule({
+          notifications: [
+            {
+              title: payload.title,
+              body: payload.body,
+              id: Math.floor(Math.random() * 1000000),
+              extra: payload.data || {},
+              sound: 'default'
+            }
+          ]
+        }).catch((err) => {
+          console.warn('[LocalNotifications] Schedule failed:', err);
+        });
+      } catch (e) {
+        console.log('[LocalNotifications] Not available:', e);
+      }
 
       // Rafraîchir les données concernées
       if (payload.data?.type === 'ALERT') {
@@ -131,7 +168,7 @@ export function useNotifications() {
       });
 
       // Envoyer l'abonnement au backend
-      const response = await fetch('/api/push/subscribe', {
+      const response = await authenticatedFetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(subscription)
