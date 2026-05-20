@@ -30,6 +30,57 @@ interface AttachmentPreview {
   size?: number | null;
 }
 
+const AuthPreviewImage = ({ url, alt, className }: { url: string, alt: string, className?: string }) => {
+  const [src, setSrc] = useState<string>('');
+  useEffect(() => {
+    let objectUrl = '';
+    authenticatedFetch(url)
+      .then(res => res.ok ? res.blob() : Promise.reject('Erreur HTTP'))
+      .then(blob => {
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(console.error);
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [url]);
+  return src ? <img src={src} alt={alt} className={className} /> : <div className="flex items-center justify-center h-48 animate-pulse text-gray-400">Chargement...</div>;
+};
+
+const AuthPreviewPdf = ({ url, title, className }: { url: string, title: string, className?: string }) => {
+  const [src, setSrc] = useState<string>('');
+  useEffect(() => {
+    let objectUrl = '';
+    authenticatedFetch(url)
+      .then(res => res.ok ? res.blob() : Promise.reject('Erreur HTTP'))
+      .then(blob => {
+        objectUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+        setSrc(objectUrl);
+      })
+      .catch(console.error);
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [url]);
+  return src ? <iframe src={src} title={title} className={className} /> : <div className="flex items-center justify-center h-48 animate-pulse text-gray-400">Chargement PDF...</div>;
+};
+
+const handleAuthDownload = async (e: React.MouseEvent<HTMLAnchorElement>, url: string, filename: string) => {
+  e.preventDefault();
+  try {
+    const res = await authenticatedFetch(url);
+    if (!res.ok) throw new Error('Échec du téléchargement');
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  } catch (err) {
+    console.error('Erreur téléchargement', err);
+  }
+};
+
 const DATE_KEYS = ["createdAt", "created_at", "sentAt", "sent_at", "updatedAt", "updated_at"];
 const SUBJECT_KEYS = ["subject", "title", "heading"];
 const CONTENT_KEYS = ["content", "body", "message", "text", "description"];
@@ -633,21 +684,31 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
           {preview && (
             <div className="space-y-4">
               {isImagePreview ? (
-                <img
-                  src={preview.url}
+                <AuthPreviewImage
+                  url={preview.url}
                   alt={preview.name ?? "Pièce jointe"}
                   className="max-h-[60vh] w-full rounded-md object-contain"
                 />
               ) : isPdfPreview ? (
-                <iframe
+                <AuthPreviewPdf
                   title={preview.name ?? "Document PDF"}
-                  src={preview.url}
+                  url={preview.url}
                   className="h-[60vh] w-full rounded-md border"
                 />
               ) : (
-                <p className="text-sm text-gray-600">
-                  Aperçu non disponible pour ce type de fichier. Vous pouvez le télécharger pour le consulter.
-                </p>
+                <div className="flex flex-col items-center py-8">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Aperçu non disponible pour ce type de fichier. Vous pouvez le télécharger pour le consulter.
+                  </p>
+                  <Button asChild>
+                    <a
+                      href="#"
+                      onClick={(e) => handleAuthDownload(e, preview.url, preview.name || "document")}
+                    >
+                      Télécharger
+                    </a>
+                  </Button>
+                </div>
               )}
             </div>
           )}
@@ -658,10 +719,8 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
             {preview?.url && (
               <Button asChild>
                 <a
-                  href={`${preview.url}?download=1`}
-                  download={preview.name ?? undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#"
+                  onClick={(e) => handleAuthDownload(e, preview.url, preview.name || "document")}
                 >
                   Télécharger
                 </a>

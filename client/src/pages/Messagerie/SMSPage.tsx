@@ -29,6 +29,57 @@ const formatFileSize = (bytes?: number | null) => {
   return (bytes / (1024 * 1024)).toFixed(1) + " Mo";
 };
 
+const AuthPreviewImage = ({ url, alt, className }: { url: string, alt: string, className?: string }) => {
+  const [src, setSrc] = useState<string>('');
+  useEffect(() => {
+    let objectUrl = '';
+    authenticatedFetch(url)
+      .then(res => res.ok ? res.blob() : Promise.reject('Erreur HTTP'))
+      .then(blob => {
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(console.error);
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [url]);
+  return src ? <img src={src} alt={alt} className={className} /> : <div className="flex items-center justify-center h-48 animate-pulse text-gray-400">Chargement...</div>;
+};
+
+const AuthPreviewPdf = ({ url, title, className }: { url: string, title: string, className?: string }) => {
+  const [src, setSrc] = useState<string>('');
+  useEffect(() => {
+    let objectUrl = '';
+    authenticatedFetch(url)
+      .then(res => res.ok ? res.blob() : Promise.reject('Erreur HTTP'))
+      .then(blob => {
+        objectUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+        setSrc(objectUrl);
+      })
+      .catch(console.error);
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [url]);
+  return src ? <iframe src={src} title={title} className={className} /> : <div className="flex items-center justify-center h-48 animate-pulse text-gray-400">Chargement PDF...</div>;
+};
+
+const handleAuthDownload = async (e: React.MouseEvent<HTMLAnchorElement>, url: string, filename: string) => {
+  e.preventDefault();
+  try {
+    const res = await authenticatedFetch(url);
+    if (!res.ok) throw new Error('Échec du téléchargement');
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  } catch (err) {
+    console.error('Erreur téléchargement', err);
+  }
+};
+
 const GLOBAL_TARGETS = [
   { key: "hunters", label: "Tous les chasseurs", target: { role: "hunter" } },
   { key: "guides", label: "Guides", target: { role: "hunting-guide" } },
@@ -1730,9 +1781,9 @@ export default function SimpleSMSPage() {
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center bg-gray-50/50 rounded-md border border-gray-100 p-2">
               {preview.mime?.startsWith('image/') ? (
-                <img src={preview.url} alt={preview.name || ''} className="max-w-full max-h-[60vh] object-contain rounded" />
+                <AuthPreviewImage url={preview.url} alt={preview.name || ''} className="max-w-full max-h-[60vh] object-contain rounded" />
               ) : preview.mime === 'application/pdf' ? (
-                <iframe src={preview.url} className="w-full h-[60vh] border-0 rounded" title={preview.name || ''} />
+                <AuthPreviewPdf url={preview.url} title={preview.name || ''} className="w-full h-[60vh] border-0 rounded" />
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -1743,10 +1794,8 @@ export default function SimpleSMSPage() {
                     Ce type de fichier ({preview.mime || 'inconnu'}) ne peut pas être prévisualisé.
                   </p>
                   <a
-                    href={preview.url}
-                    download
-                    target="_blank"
-                    rel="noreferrer"
+                    href="#"
+                    onClick={(e) => handleAuthDownload(e, preview.url, preview.name || 'document')}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
                   >
                     <Download className="w-4 h-4" />
@@ -1758,10 +1807,8 @@ export default function SimpleSMSPage() {
             {preview.mime && (preview.mime.startsWith('image/') || preview.mime === 'application/pdf') && (
               <div className="flex justify-end mt-4">
                 <a
-                  href={preview.url}
-                  download
-                  target="_blank"
-                  rel="noreferrer"
+                  href="#"
+                  onClick={(e) => handleAuthDownload(e, preview.url, preview.name || 'document')}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
                 >
                   <Download className="w-4 h-4" />
