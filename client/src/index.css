@@ -531,3 +531,20 @@ body {
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* Fixation absolue de la page de messagerie Alerte sous l'entête principale */
+.sms-alerte-fixed-container {
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: calc(52px + env(safe-area-inset-top, 0px)) !important;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+  border-top: 4px solid rgb(248 250 252) !important;
+}
+
+@media (min-width: 768px) {
+  .sms-alerte-fixed-container {
+    bottom: 0 !important;
+  }
+}
+

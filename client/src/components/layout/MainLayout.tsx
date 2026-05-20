@@ -279,7 +279,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       {/* Entête verte plein écran pour les agents Alerte */}
       {chromeless && (
         <nav 
-          className="w-full flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[52px] shrink-0"
+          className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[52px]"
           style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 0px))' }}
         >
           {/* Gauche : Drapeau + descriptions */}
@@ -335,7 +335,8 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       <div
         className={chromeless ? `flex flex-1 overflow-hidden ${location === '/sms' ? 'pb-[56px] md:pb-0' : ''}` : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
         style={{ 
-          ...(!chromeless ? { height: 'calc(100vh - var(--fixed-top))' } : {})
+          ...(!chromeless ? { height: 'calc(100vh - var(--fixed-top))' } : {}),
+          paddingTop: chromeless && location !== '/sms' ? 'calc(52px + env(safe-area-inset-top, 0px))' : undefined
         }}
       >
         {/* Sidebar desktop: FIXED pour une scrollbar toujours visible au-dessus du contenu - MASQUÉ SUR MOBILE */}

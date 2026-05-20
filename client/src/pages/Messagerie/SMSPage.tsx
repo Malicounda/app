@@ -643,7 +643,7 @@ export default function SimpleSMSPage() {
 
   if (isAlerteUser) {
     return (
-      <div className="flex flex-col bg-slate-50 w-full h-full min-h-0 overflow-hidden">
+      <div className="sms-alerte-fixed-container flex flex-col bg-slate-50 overflow-hidden">
         {/* supervisor phone Messaging UI */}
         {usePhoneMessagingUi && (
           <div className="bg-white flex-1 flex flex-col min-h-0 w-full h-full relative">
