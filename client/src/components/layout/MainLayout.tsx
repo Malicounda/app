@@ -272,14 +272,14 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   );
 
   return (
-    <div className="w-full h-screen overflow-hidden">
+    <div className="w-full overflow-hidden flex flex-col" style={{ height: '100dvh' }}>
       {/* Header */}
       {!hideMinistryHeader && !chromeless && <Header />}
 
       {/* Entête verte plein écran pour les agents Alerte */}
       {chromeless && (
         <nav 
-          className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[52px]"
+          className="w-full flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[52px] shrink-0"
           style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 0px))' }}
         >
           {/* Gauche : Drapeau + descriptions */}
@@ -335,8 +335,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       <div
         className={chromeless ? `flex flex-1 overflow-hidden ${location === '/sms' ? 'pb-[56px] md:pb-0' : ''}` : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
         style={{ 
-          height: chromeless ? '100vh' : 'calc(100vh - var(--fixed-top))',
-          paddingTop: chromeless ? 'max(52px, calc(env(safe-area-inset-top, 0px) + 40px))' : undefined
+          ...(!chromeless ? { height: 'calc(100vh - var(--fixed-top))' } : {})
         }}
       >
         {/* Sidebar desktop: FIXED pour une scrollbar toujours visible au-dessus du contenu - MASQUÉ SUR MOBILE */}
