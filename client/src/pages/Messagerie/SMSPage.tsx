@@ -1179,10 +1179,10 @@ export default function SimpleSMSPage() {
   }
 
   return (
-    <div className="flex flex-col bg-slate-50 min-h-screen">
-      <ResponsivePage className="bg-transparent flex-1 w-full">
-        <div className={usePhoneMessagingUi || isDefaultRole ? "w-full" : "mx-auto max-w-6xl"}>
-          <div className={`grid ${(usePhoneMessagingUi || isDefaultRole) ? 'gap-0' : 'gap-4'} ${inboxOnly || usePhoneMessagingUi || isDefaultRole ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} ${usePhoneMessagingUi ? 'h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)]' : isDefaultRole ? 'h-auto pb-8' : 'lg:h-[78vh]'}`}>
+    <div className={`flex flex-col bg-slate-50 ${usePhoneMessagingUi ? 'h-full' : 'min-h-screen'}`}>
+      <ResponsivePage className={`bg-transparent w-full ${usePhoneMessagingUi ? 'flex-1 h-full flex flex-col' : 'flex-1'}`}>
+        <div className={`${usePhoneMessagingUi || isDefaultRole ? 'w-full' : 'mx-auto max-w-6xl'} ${usePhoneMessagingUi ? 'h-full flex flex-col flex-1' : ''}`}>
+          <div className={`grid ${(usePhoneMessagingUi || isDefaultRole) ? 'gap-0' : 'gap-4'} ${inboxOnly || usePhoneMessagingUi || isDefaultRole ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} ${usePhoneMessagingUi ? 'h-full flex-1' : isDefaultRole ? 'h-auto pb-8' : 'lg:h-[78vh]'}`}>
             {!usePhoneMessagingUi && !isDefaultRole && (
               <section className="bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden flex flex-col min-h-0 shadow-sm lg:h-[78vh]">
                 <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
