@@ -15,7 +15,7 @@ import { useSessionHeartbeat } from "@/hooks/useSessionHeartbeat";
 import NotFound from "@/pages/not-found";
 import { isUserSuperAdmin } from "@/utils/navigation";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import { PwaUpdatePrompt } from "@/components/ui/PwaUpdatePrompt";
 import { SplashScreen } from "@/components/ui/SplashScreen";
@@ -120,6 +120,16 @@ function Router() {
   const [location, setLocation] = useLocation();
   const { user, isLoading } = useAuth();
   const isAuthenticated = !!user;
+
+  // Mémoriser si l'utilisateur était connecté AVANT que isLoading devienne true.
+  // Cela évite le flash "Déconnexion en cours..." qui apparaissait lors d'une connexion
+  // car l'AuthContext définit user avant de passer isLoading à false.
+  const wasAuthenticatedRef = useRef(!!user);
+  useEffect(() => {
+    if (!isLoading) {
+      wasAuthenticatedRef.current = !!user;
+    }
+  }, [isLoading, user]);
 
   // Déterminer si l'utilisateur doit avoir le verrouillage désactivé (Alerte, Chasseurs, Guides)
   const isAlerteDomain = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole || (typeof window !== 'undefined' && localStorage.getItem('domain')?.toUpperCase() === 'ALERTE');
@@ -267,7 +277,7 @@ function Router() {
   // Plus aucune logique de redirection globale ici pour éviter les conflits.
 
   if (isLoading) {
-    return <SplashScreen message={user ? "Déconnexion en cours..." : "Connexion en cours..."} />;
+    return <SplashScreen message={wasAuthenticatedRef.current ? "Déconnexion en cours..." : "Connexion en cours..."} />;
   }
 
   // Verrouillage de session (overlay au-dessus de tout)

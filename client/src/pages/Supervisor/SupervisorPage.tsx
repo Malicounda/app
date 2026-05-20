@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/api";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Bell, Map, MessageSquare, ChevronRight, Info } from "lucide-react";
+import { AlertTriangle, Map, MessageSquare, Info } from "lucide-react";
 import { useLocation } from "wouter";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import LicenseDialog from "@/components/layout/LicenseDialog";
@@ -21,9 +22,9 @@ export default function SupervisorPage() {
     queryKey: ["messages-unread-count-alerte"],
     queryFn: async () => {
       try {
-        const res = await apiRequest<{ total: number }>("GET", "/messages/unread-count");
+        const res = await authenticatedFetch(`/api/messages/unread-count`);
         if (!res.ok) return { total: 0 };
-        return res.data || { total: 0 };
+        return await res.json();
       } catch { return { total: 0 }; }
     },
     enabled: !!user,
@@ -66,18 +67,38 @@ export default function SupervisorPage() {
         className="flex-1 px-4 pb-20 space-y-4 overflow-hidden overscroll-contain"
         style={{ paddingTop: '1rem' }}
       >
-        {/* Cartes statistiques (Carte Map) */}
-        <div className="relative z-10 pt-2 px-4 max-w-[280px] mx-auto w-full">
+        {/* Cartes d'actions côte à côte : Carte + Messages */}
+        <div className="relative z-10 pt-2 px-4 max-w-[340px] mx-auto w-full grid grid-cols-2 gap-3">
+          {/* Carte Map */}
           <button
             onClick={() => setLocation("/map")}
-            className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[20px] p-4 text-left active:scale-95 transition-all flex items-center gap-4 w-full"
+            className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[24px] p-4 text-center active:scale-95 transition-all flex flex-col items-center gap-3 w-full"
           >
-            <div className="h-[64px] w-[64px] shrink-0 rounded-2xl bg-blue-50 flex items-center justify-center relative">
-              <Map className="h-[32px] w-[32px] text-blue-500" strokeWidth={2.5} />
+            <div className="h-[80px] w-[80px] shrink-0 rounded-2xl bg-blue-50 flex items-center justify-center">
+              <Map className="h-[44px] w-[44px] text-blue-500" strokeWidth={2} />
             </div>
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <p className="text-[14px] font-black text-slate-800 uppercase tracking-wide">Carte</p>
-              <p className="text-[10px] text-slate-500 leading-[1.3] mt-0.5 line-clamp-2">Voir la carte interactive et la géolocalisation</p>
+            <div className="flex flex-col items-center justify-center">
+              <p className="text-[12px] font-black text-slate-800 uppercase tracking-wide">Carte</p>
+              <p className="text-[8px] text-slate-400 leading-[1.3] mt-1 line-clamp-2">Carte interactive</p>
+            </div>
+          </button>
+
+          {/* Messages avec badge */}
+          <button
+            onClick={() => setLocation("/sms")}
+            className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[24px] p-4 text-center active:scale-95 transition-all flex flex-col items-center gap-3 w-full relative"
+          >
+            {unreadMsg > 0 && (
+              <div className="absolute top-3 right-3 h-5 min-w-[20px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse shadow-sm">
+                {unreadMsg}
+              </div>
+            )}
+            <div className="h-[80px] w-[80px] shrink-0 rounded-2xl bg-emerald-50 flex items-center justify-center">
+              <MessageSquare className="h-[44px] w-[44px] text-emerald-500" strokeWidth={2} />
+            </div>
+            <div className="flex flex-col items-center justify-center">
+              <p className="text-[12px] font-black text-slate-800 uppercase tracking-wide">Messages</p>
+              <p className="text-[8px] text-slate-400 leading-[1.3] mt-1 line-clamp-2">Messagerie SMS interne</p>
             </div>
           </button>
         </div>
