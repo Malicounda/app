@@ -533,9 +533,7 @@ export default function SimpleSMSPage() {
     return conversations.find(c => c.contactKey === selectedContactKey) || null;
   }, [conversations, selectedContactKey]);
 
-  const hasUnread = useMemo(() => {
-    return conversations.some(c => c.unreadCount > 0);
-  }, [conversations]);
+  const hasUnread = useMemo(() => conversations.some(c => c.unreadCount > 0), [conversations]);
 
   // Prevent white screen: If we are in chat view but the conversation is lost, go back to the list
   useEffect(() => {
@@ -729,13 +727,9 @@ export default function SimpleSMSPage() {
                           <div className="fixed inset-0 z-40" onClick={() => setShowListMenu(false)} />
                           <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 z-50 text-gray-800 animate-in fade-in slide-in-from-top-2 duration-150">
                             <button
-                              onClick={hasUnread ? handleMarkAllAsRead : undefined}
+                              onClick={handleMarkAllAsRead}
                               disabled={!hasUnread}
-                              className={`w-full text-left px-4 py-3 text-sm font-medium flex items-center gap-3 transition-colors border-b border-gray-50 ${
-                                hasUnread
-                                  ? 'hover:bg-gray-50 text-gray-800 cursor-pointer'
-                                  : 'text-gray-400 opacity-50 cursor-not-allowed'
-                              }`}
+                              className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50 disabled:hover:bg-transparent flex items-center gap-3 transition-colors border-b border-gray-50 disabled:text-gray-400 disabled:opacity-50"
                             >
                               <span className="text-lg">✓</span> Tout marquer comme lu
                             </button>

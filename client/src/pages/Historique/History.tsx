@@ -191,7 +191,7 @@ export default function History() {
       case "create":
         return "Création";
       case "update":
-        return "Modification";
+        return "Donnée";
       case "delete":
         return "Suppression";
       case "login":

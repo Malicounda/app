@@ -546,7 +546,7 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
       case "create":
         return "Création";
       case "update":
-        return "Modification";
+        return "Donnée";
       case "delete":
         return "Suppression";
       case "view":

@@ -9,7 +9,6 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  loadingMessage?: string;
   login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
@@ -29,7 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadingMessage, setLoadingMessage] = useState<string>("Chargement...");
   const [error, setError] = useState<string | null>(null);
 
   const authService = AuthService.getInstance();
@@ -41,7 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const initializeAuth = async () => {
-    setLoadingMessage("Chargement...");
     try {
       // Initialiser la base de données
       await initializeDatabase();
@@ -65,7 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (identifier: string, password: string) => {
-    setLoadingMessage("Connexion en cours...");
     setIsLoading(true);
     setError(null);
 
@@ -91,7 +87,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    setLoadingMessage("Déconnexion en cours...");
     setIsLoading(true);
     try {
       await authService.logout();
@@ -109,7 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     isAuthenticated,
     isLoading,
-    loadingMessage,
     login,
     logout,
     error

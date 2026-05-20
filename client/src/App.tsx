@@ -118,7 +118,7 @@ function ProfileRouteGuard() {
 
 function Router() {
   const [location, setLocation] = useLocation();
-  const { user, isLoading, loadingMessage } = useAuth();
+  const { user, isLoading } = useAuth();
   const isAuthenticated = !!user;
 
   // Déterminer si l'utilisateur doit avoir le verrouillage désactivé (Alerte, Chasseurs, Guides)
@@ -267,7 +267,7 @@ function Router() {
   // Plus aucune logique de redirection globale ici pour éviter les conflits.
 
   if (isLoading) {
-    return <SplashScreen message={loadingMessage || (user ? "Déconnexion en cours..." : "Chargement...")} />;
+    return <SplashScreen message={user ? "Déconnexion en cours..." : "Connexion en cours..."} />;
   }
 
   // Verrouillage de session (overlay au-dessus de tout)
