@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -17,7 +18,7 @@
   <link rel="manifest" href="/manifest.json">
 
   <!-- Meta tags pour le SEO -->
-  <meta name="description" content="Système de Contrôle de Digitalisation des Permis et des Prélèvements">
+  <meta name="description" content="Système de Contrôle et de Digitalisation">
   <meta name="theme-color" content="#ffffff">
 
   <!-- Anti-cache: forcer le navigateur à toujours vérifier une version fraîche de index.html -->
@@ -216,38 +217,88 @@
     }
 
     @keyframes splash-fadeInUp {
-      from { opacity: 0; transform: translateY(30px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     @keyframes splash-spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     @keyframes splash-shine {
-      0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-      100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+      0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+      }
+
+      100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+      }
     }
 
     @keyframes splash-shimmer {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
+      0% {
+        transform: translateX(-100%);
+      }
+
+      100% {
+        transform: translateX(100%);
+      }
     }
 
     @keyframes splash-float {
-      0% { transform: translateY(0) translateX(0); opacity: 0; }
-      10%, 90% { opacity: 1; }
-      100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
+      0% {
+        transform: translateY(0) translateX(0);
+        opacity: 0;
+      }
+
+      10%,
+      90% {
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(-100px) translateX(20px);
+        opacity: 0;
+      }
     }
 
     @keyframes splash-progress {
-      0% { width: 0%; }
-      20% { width: 30%; }
-      40% { width: 50%; }
-      60% { width: 70%; }
-      80% { width: 85%; }
-      100% { width: 95%; }
+      0% {
+        width: 0%;
+      }
+
+      20% {
+        width: 30%;
+      }
+
+      40% {
+        width: 50%;
+      }
+
+      60% {
+        width: 70%;
+      }
+
+      80% {
+        width: 85%;
+      }
+
+      100% {
+        width: 95%;
+      }
     }
 
     /* Masquer le splashscreen une fois React chargé */
@@ -258,6 +309,7 @@
     }
   </style>
 </head>
+
 <body>
   <!-- Splashscreen HTML statique - S'affiche instantanément -->
   <div id="initial-splash">
@@ -266,7 +318,8 @@
     <div class="splash-container">
       <div class="splash-logo-container">
         <div class="splash-logo">
-          <img src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png" alt="Logo Scodi" style="width: 120px; height: 120px; object-fit: contain;" />
+          <img src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png" alt="Logo Scodi"
+            style="width: 120px; height: 120px; object-fit: contain;" />
         </div>
         <div class="splash-logo-ring"></div>
       </div>
@@ -299,7 +352,7 @@
 
   <!-- Script pour créer les particules -->
   <script>
-    (function() {
+    (function () {
       const ENABLE_SPLASH = false;
 
       // --- Suppression sécurisée du splash screen ---
@@ -343,9 +396,9 @@
         ];
 
         var currentIndex = 0;
-        var updateStatus = function() {
+        var updateStatus = function () {
           if (currentIndex < statusMessages.length) {
-            setTimeout(function() {
+            setTimeout(function () {
               statusElement.textContent = statusMessages[currentIndex].text;
               currentIndex++;
               updateStatus();
@@ -355,7 +408,7 @@
         updateStatus();
 
         var progress = 0;
-        var updateProgress = setInterval(function() {
+        var updateProgress = setInterval(function () {
           if (progress < 95) {
             progress += 1;
             progressText.textContent = progress + '%';
@@ -363,15 +416,15 @@
         }, 80);
 
         // Fonction globale pour masquer le splashscreen (appelée par React)
-        window.hideSplashScreen = function() {
+        window.hideSplashScreen = function () {
           clearInterval(updateProgress);
           progressText.textContent = '100%';
           statusElement.textContent = 'Prêt!';
-          setTimeout(function() {
+          setTimeout(function () {
             var splash = document.getElementById('initial-splash');
             if (splash) {
               splash.classList.add('splash-hidden');
-              setTimeout(function() { removeSplashSafely(); }, 500);
+              setTimeout(function () { removeSplashSafely(); }, 500);
             }
           }, 300);
         };
@@ -380,12 +433,12 @@
       // ===== BLOQUER LE MENU CONTEXTUEL ET LES RACCOURCIS DÉVELOPPEUR =====
       // Ces listeners sont toujours actifs, indépendamment du splash screen.
 
-      document.addEventListener('contextmenu', function(e) {
+      document.addEventListener('contextmenu', function (e) {
         e.preventDefault();
         return false;
       }, false);
 
-      document.addEventListener('keydown', function(e) {
+      document.addEventListener('keydown', function (e) {
         // F12 - Outils de développement
         if (e.key === 'F12' || e.keyCode === 123) {
           e.preventDefault();
@@ -413,12 +466,12 @@
         }
       }, false);
 
-      document.addEventListener('selectstart', function(e) {
+      document.addEventListener('selectstart', function (e) {
         e.preventDefault();
         return false;
       }, false);
 
-      document.addEventListener('copy', function(e) {
+      document.addEventListener('copy', function (e) {
         e.preventDefault();
         return false;
       }, false);
@@ -429,4 +482,5 @@
   <!-- Le script sera injecté automatiquement par Vite -->
   <script type="module" src="/src/main.tsx"></script>
 </body>
+
 </html>

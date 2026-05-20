@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, FileText, LayoutDashboard, LogOut, MapPin, MessageSquare, RefreshCw, Sprout, TreePine, User } from 'lucide-react';
 import React from 'react';
 import { Link, useLocation } from 'wouter';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 export default function ReforestLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, isLoading } = useAuth();
@@ -23,7 +24,7 @@ export default function ReforestLayout({ children }: { children: React.ReactNode
     queryKey: ['messages-unread-count', 33],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/messages/unread-count?domaineId=33', { credentials: 'include' });
+        const res = await authenticatedFetch('/api/messages/unread-count?domaineId=33');
         if (!res.ok) return { total: 0 };
         return await res.json();
       } catch {

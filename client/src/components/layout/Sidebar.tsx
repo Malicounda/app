@@ -36,6 +36,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -173,7 +174,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
     queryKey: ['messages-unread-count', currentDomaineId],
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/messages/unread-count?domaineId=${currentDomaineId}`, { credentials: 'include' });
+        const res = await authenticatedFetch(`/api/messages/unread-count?domaineId=${currentDomaineId}`);
         if (!res.ok) return { total: 0 };
         return await res.json();
       } catch {

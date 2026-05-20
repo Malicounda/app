@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Bell, LogOut, MessageSquare, User as UserIcon, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 
 export default function AgentTopHeader() {
   const { user, logout } = useAuth();
@@ -25,7 +26,7 @@ export default function AgentTopHeader() {
     queryKey: ["messages-unread-count-alerte"],
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/messages/unread-count`, { credentials: "include" });
+        const res = await authenticatedFetch(`/api/messages/unread-count`);
         if (!res.ok) return { total: 0 };
         return await res.json();
       } catch { return { total: 0 }; }

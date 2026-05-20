@@ -159,7 +159,7 @@ export default function ProfilePage() {
     const fullRole = `${roleUpper((user as any)?.roleMetierLabel) || "AGENT"}${levelSuffix}`;
 
     return (
-      <main className="min-h-screen bg-slate-50 pb-20">
+      <main className={isAlerteDomain ? "h-screen overflow-hidden bg-slate-50 pb-20" : "min-h-screen bg-slate-50 pb-20"}>
         {isAlerteDomain ? (
           <AgentTopHeader />
         ) : (

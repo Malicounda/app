@@ -12,6 +12,7 @@ import { InternalMessageRecord } from "@/hooks/useInternalMessaging";
 import { useQueryClient } from "@tanstack/react-query";
 import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 
 interface InternalMessageListProps {
   messages: InternalMessageRecord[];
@@ -156,7 +157,7 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
       setSectorDeptFilter("");
       (async () => {
         try {
-          const resp = await fetch('/api/messages/agents?role=sector', { credentials: 'include' });
+          const resp = await authenticatedFetch('/api/messages/agents?role=sector');
           if (!resp.ok) throw new Error('Échec du chargement des agents de secteur');
           const data = await resp.json();
           const arr = Array.isArray(data) ? data : [];
@@ -179,7 +180,7 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
       setSectorError(null);
       try {
         const qs = sectorDeptFilter ? `&departement=${encodeURIComponent(sectorDeptFilter)}` : '';
-        const resp = await fetch(`/api/messages/agents?role=sector${qs}`, { credentials: 'include' });
+        const resp = await authenticatedFetch(`/api/messages/agents?role=sector${qs}`);
         if (!resp.ok) throw new Error('Échec du chargement des agents de secteur');
         const data = await resp.json();
         const arr = Array.isArray(data) ? data : [];
@@ -227,7 +228,7 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
       openedRef.current.add(id);
       try {
         const endpoint = m.isGroupMessage ? `/api/messages/group/${id}/read` : `/api/messages/${id}/read`;
-        await fetch(endpoint, { method: 'PATCH', credentials: 'include' });
+        await authenticatedFetch(endpoint, { method: 'PATCH' });
         // Invalidation immédiate pour mettre à jour les badges (Sidebar/Layout)
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
       } catch (e) {
@@ -837,10 +838,9 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
                     setForwardSubmitting(false);
                     return;
                   }
-                  const resp = await fetch(`/api/messages/${id}/forward`, {
+                  const resp = await authenticatedFetch(`/api/messages/${id}/forward`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
                     body: JSON.stringify({ recipientIds: ids, recipientIdentifiers: identifiers, subject: forwardSubject || undefined, content: forwardContent || undefined }),
                   });
                   if (!resp.ok) {

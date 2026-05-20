@@ -1,15 +1,18 @@
+import React, { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/api";
 import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Bell, Map, MessageSquare, ChevronRight } from "lucide-react";
+import { AlertTriangle, Bell, Map, MessageSquare, ChevronRight, Info } from "lucide-react";
 import { useLocation } from "wouter";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
+import LicenseDialog from "@/components/layout/LicenseDialog";
 
 export default function SupervisorPage() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const [showLicense, setShowLicense] = useState(false);
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
   const { data: unreadData } = useUnreadNotificationsCount();
   const unread = unreadData?.count ?? 0;
@@ -60,7 +63,7 @@ export default function SupervisorPage() {
 
       {/* Contenu scrollable */}
       <div 
-        className="flex-1 px-4 pb-20 space-y-4 overflow-y-auto overscroll-contain"
+        className="flex-1 px-4 pb-20 space-y-4 overflow-hidden overscroll-contain"
         style={{ paddingTop: '1rem' }}
       >
         {/* Cartes statistiques (Carte Map) */}
@@ -80,11 +83,12 @@ export default function SupervisorPage() {
         </div>
         {/* Logos partenaires */}
         <div className="flex flex-col items-center gap-4 pt-4 pb-2">
-          <div className="flex items-center justify-center">
-          </div>
           <img src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png" alt="ScoDi" className="h-20 object-contain" />
           <p className="text-[11px] text-gray-700 text-center max-w-xs leading-tight font-bold">Système de Contrôle et de Digitalisation</p>
-          <img src="/icon-blason.svg" alt="Blason" className="h-20 object-contain" />
+          <div className="flex items-center justify-center gap-6 mt-2">
+            <img src="/icon-blason.svg" alt="Blason" className="h-20 object-contain" />
+            <img src="/logo_forets.png" alt="Eaux et Forêts" className="h-20 object-contain mix-blend-multiply" />
+          </div>
 
           {/* Bandeau ticker défilant style TV — alerte(s) non lues */}
           {recentNotifs && recentNotifs.length > 0 && (
@@ -168,12 +172,21 @@ export default function SupervisorPage() {
             </div>
           )}
         </div>
-        <div className="flex flex-col items-center pt-6 pb-2">
-          <img src="/logo_forets.png" alt="Eaux et Forêts" className="h-24 object-contain" />
-        </div>
-
-        <p className="text-center text-[9px] text-gray-300 py-1">V1.0</p>
       </div>
+
+      {/* Version et Licence en bas à droite, juste au-dessus du bouton profil */}
+      <div className="absolute bottom-[85px] right-6 flex flex-col items-center z-50">
+        <span className="text-[9px] text-gray-300 font-bold select-none leading-none mb-1">V1.0</span>
+        <button 
+          onClick={() => setShowLicense(true)}
+          className="text-blue-500 hover:text-blue-700 active:scale-90 transition-all"
+          title="Licence SCoDi"
+        >
+          <Info className="h-5 w-5" />
+        </button>
+      </div>
+
+      <LicenseDialog isOpen={showLicense} onClose={() => setShowLicense(false)} />
     </div>
   );
 }

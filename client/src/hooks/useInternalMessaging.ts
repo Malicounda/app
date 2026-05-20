@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 
 export interface InternalMessagingTarget {
   role: string;
@@ -69,8 +70,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     try {
       const queryParams = domaineId ? `?domaineId=${domaineId}` : "";
       const [individualRes, groupRes] = await Promise.all([
-        fetch(`/api/messages/inbox${queryParams}`, { credentials: "include" }),
-        fetch(`/api/messages/group/inbox${queryParams}`, { credentials: "include" }),
+        authenticatedFetch(`/api/messages/inbox${queryParams}`),
+        authenticatedFetch(`/api/messages/group/inbox${queryParams}`),
       ]);
 
       if (!individualRes.ok) {
@@ -107,7 +108,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     setLoadingSent(true);
     try {
       const queryParams = domaineId ? `?domaineId=${domaineId}` : "";
-      const response = await fetch(`/api/messages/sent${queryParams}`, { credentials: "include" });
+      const response = await authenticatedFetch(`/api/messages/sent${queryParams}`);
       if (!response.ok) {
         throw new Error(await extractErrorMessage(response));
       }
@@ -148,9 +149,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           formData.append("domaineId", String(domaineId));
         }
 
-        const response = await fetch("/api/messages/", {
+        const response = await authenticatedFetch("/api/messages/", {
           method: "POST",
-          credentials: "include",
           body: formData,
         });
 
@@ -200,9 +200,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
             formData.append("domaineId", String(domaineId));
           }
 
-          const response = await fetch("/api/messages/group", {
+          const response = await authenticatedFetch("/api/messages/group", {
             method: "POST",
-            credentials: "include",
             body: formData,
           });
           if (!response.ok) {

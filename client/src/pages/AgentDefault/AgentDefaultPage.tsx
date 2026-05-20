@@ -1,17 +1,21 @@
+import React, { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
-import { Bell, MessageSquare } from "lucide-react";
+import { Bell, MessageSquare, Info } from "lucide-react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import LicenseDialog from "@/components/layout/LicenseDialog";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 
 export default function AgentDefaultPage() {
   const [, setLocation] = useLocation();
+  const [showLicense, setShowLicense] = useState(false);
 
   const { data: unreadMsgCount } = useQuery({
     queryKey: ["messages-unread-count-main"],
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/messages/unread-count`, { credentials: "include" });
+        const res = await authenticatedFetch(`/api/messages/unread-count`);
         if (!res.ok) return { total: 0 };
         return await res.json();
       } catch {
@@ -28,7 +32,7 @@ export default function AgentDefaultPage() {
 
       {/* Contenu scrollable */}
       <div 
-        className="flex-1 px-4 pb-20 space-y-4 overflow-y-auto overscroll-contain"
+        className="flex-1 px-4 pb-20 space-y-4 overflow-hidden overscroll-contain"
         style={{ paddingTop: '1rem' }}
       >
         {/* Cartes d'actions côte à côte */}
@@ -67,19 +71,28 @@ export default function AgentDefaultPage() {
 
         {/* Logos partenaires */}
         <div className="flex flex-col items-center gap-4 pt-4 pb-2">
-          <div className="flex items-center justify-center">
-            {/* Logo Eaux et Forêts supprimé d'ici pour être mis en bas */}
-          </div>
           <img src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png" alt="ScoDi" className="h-20 object-contain" />
           <p className="text-[11px] text-gray-700 text-center max-w-xs leading-tight font-bold">Système de Contrôle et de Digitalisation</p>
-          <img src="/icon-blason.svg" alt="Blason" className="h-20 object-contain" />
+          <div className="flex items-center justify-center gap-6 mt-2">
+            <img src="/icon-blason.svg" alt="Blason" className="h-20 object-contain" />
+            <img src="/logo_forets.png" alt="Eaux et Forêts" className="h-20 object-contain mix-blend-multiply" />
+          </div>
         </div>
-
-        <div className="flex flex-col items-center pt-2 pb-2">
-          <img src="/logo_forets.png" alt="Eaux et Forêts" className="h-24 object-contain" />
-        </div>
-        <p className="text-center text-[9px] text-gray-300 pb-2">V1.0</p>
       </div>
+
+      {/* Version et Licence en bas à droite, juste au-dessus du bouton profil */}
+      <div className="absolute bottom-[85px] right-6 flex flex-col items-center z-50">
+        <span className="text-[9px] text-gray-300 font-bold select-none leading-none mb-1">V1.0</span>
+        <button 
+          onClick={() => setShowLicense(true)}
+          className="text-blue-500 hover:text-blue-700 active:scale-90 transition-all"
+          title="Licence SCoDi"
+        >
+          <Info className="h-5 w-5" />
+        </button>
+      </div>
+
+      <LicenseDialog isOpen={showLicense} onClose={() => setShowLicense(false)} />
     </div>
   );
 }

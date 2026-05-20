@@ -1,4 +1,36 @@
-Système de Contrôle et de Digitalisation (SCoDi)
+import React from "react";
+import { Info, X } from "lucide-react";
+
+interface LicenseDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function LicenseDialog({ isOpen, onClose }: LicenseDialogProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50 shrink-0">
+          <div className="flex items-center gap-2.5 text-blue-600 font-bold">
+            <Info className="h-5 w-5 text-blue-500" />
+            <span className="text-slate-800 text-base">Licence SCoDi</span>
+          </div>
+          <button 
+            onClick={onClose}
+            className="h-8 w-8 rounded-full hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-400 hover:text-slate-600"
+            aria-label="Fermer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 text-xs text-slate-600 leading-relaxed font-sans whitespace-pre-wrap select-text selection:bg-blue-100">
+{`Système de Contrôle et de Digitalisation (SCoDi)
 Copyright © 2025 Abdoulaye SENE – Ingénieur des Travaux des Eaux et Forêts
 
 Tous droits réservés.
@@ -6,7 +38,7 @@ Tous droits réservés.
 Toute reproduction, distribution, modification ou utilisation non autorisée de cette application est strictement interdite.
 
 Contact :
-Email : [bisnetprofit@gmail.com](mailto:bisnetprofit@gmail.com)
+Email : bisnetprofit@gmail.com
 
 ══════════════════════════════════════════════════════════
 
@@ -73,10 +105,25 @@ Pour toute demande d’autorisation, d’information ou d’acquisition de licen
 Abdoulaye SENE
 Ingénieur des Travaux des Eaux et Forêts
 
-Email : [bisnetprofit@gmail.com](mailto:bisnetprofit@gmail.com)
+Email : bisnetprofit@gmail.com
 
 ══════════════════════════════════════════════════════════
 
 Version 1.0.0 – 2025
 
-Cette licence entre en vigueur dès l’installation ou l’utilisation de l’application.
+Cette licence entre en vigueur dès l’installation ou l’utilisation de l’application.`}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end shrink-0">
+          <button
+            onClick={onClose}
+            className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-100 transition-all active:scale-95"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

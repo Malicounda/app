@@ -14,6 +14,7 @@ import { Bell, MessageSquare, Map, User, LogOut, Home } from "lucide-react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -31,7 +32,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     queryKey: ["messages-unread-count-main"],
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/messages/unread-count`, { credentials: "include" });
+        const res = await authenticatedFetch(`/api/messages/unread-count`);
         if (!res.ok) return { total: 0 };
         return await res.json();
       } catch { return { total: 0 }; }
