@@ -276,10 +276,10 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       {!hideMinistryHeader && !chromeless && <Header />}
 
       {/* Entête verte plein écran pour les agents Alerte */}
-      {chromeless && location !== '/sms' && (
+      {chromeless && (
         <nav 
-          className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[44px]"
-          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 24px))' }}
+          className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[52px]"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 0px))' }}
         >
           {/* Gauche : Drapeau + descriptions */}
           <div className="flex items-center gap-2 min-w-0 shrink">
@@ -332,8 +332,11 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
       {/* Main Content */}
       <div
-        className={chromeless ? `flex flex-1 overflow-hidden ${location === '/sms' ? 'pt-0 pb-[56px] md:pb-0' : 'pt-[44px]'}` : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
-        style={{ height: chromeless ? '100vh' : 'calc(100vh - var(--fixed-top))' }}
+        className={chromeless ? `flex flex-1 overflow-hidden ${location === '/sms' ? 'pb-[56px] md:pb-0' : ''}` : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
+        style={{ 
+          height: chromeless ? '100vh' : 'calc(100vh - var(--fixed-top))',
+          paddingTop: chromeless ? 'max(52px, calc(env(safe-area-inset-top, 0px) + 40px))' : undefined
+        }}
       >
         {/* Sidebar desktop: FIXED pour une scrollbar toujours visible au-dessus du contenu - MASQUÉ SUR MOBILE */}
         {!chromeless && (
@@ -460,7 +463,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
               <div 
                 ref={(el) => { if (el) el.scrollTop = 0; }} 
                 className={`w-full min-h-full ${location !== '/sms' ? 'pb-20' : ''}`}
-                style={chromeless && location !== '/sms' ? { paddingTop: 'calc(4rem + env(safe-area-inset-top, 24px))' } : undefined}
+                style={chromeless && location !== '/sms' && location !== '/profile' ? { paddingTop: '1.5rem' } : undefined}
               >
                 {showRestrictedAccess ? restrictedContent : children}
               </div>

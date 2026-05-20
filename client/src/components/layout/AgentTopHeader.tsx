@@ -45,7 +45,11 @@ export default function AgentTopHeader() {
       {/* En-tête vert foncé style dashboard */}
       <div
         className="bg-gradient-to-br from-green-800 to-emerald-900 px-5 pb-1 md:pb-4 text-white"
-        style={{ paddingTop: 'calc(1.25rem + env(safe-area-inset-top, 24px))' }}
+        style={{ 
+          paddingTop: (location === '/supervisor' || location === '/default-home')
+            ? 'calc(4rem + env(safe-area-inset-top, 24px))'
+            : '1.25rem'
+        }}
       >
         {/* Ligne du haut : avatar + nom + (desktop: onglets inline) */}
         <div className="flex items-center justify-between gap-3">

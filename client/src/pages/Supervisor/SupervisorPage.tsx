@@ -58,10 +58,10 @@ export default function SupervisorPage() {
     <div className="fixed inset-0 flex flex-col bg-slate-50">
       <AgentTopHeader />
 
-      {/* Contenu scrollable avec padding pour éviter le chevauchement avec le header fixe global */}
+      {/* Contenu scrollable */}
       <div 
         className="flex-1 px-4 pb-20 space-y-4 overflow-y-auto overscroll-contain"
-        style={{ paddingTop: 'calc(4rem + env(safe-area-inset-top, 24px))' }}
+        style={{ paddingTop: '1rem' }}
       >
         {/* Cartes statistiques (Carte Map) */}
         <div className="relative z-10 pt-2 px-4 max-w-[280px] mx-auto w-full">

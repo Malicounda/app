@@ -43,7 +43,7 @@ export const ICONS: Record<string, LucideIcon> = {
 const DEFAULT_ICONS: Record<string, LucideIcon> = {
   CHASSE: Target,
   REBOISEMENT: Sprout,
-  ALERTE: AlertTriangle,
+  ALERTE: Bell,
   "PRODUITS FORESTIERS": Trees,
   "PRODUITS_FORESTIERS": Trees,
   PRODUITSFORESTIERS: Trees,
