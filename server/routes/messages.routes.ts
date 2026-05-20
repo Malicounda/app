@@ -761,10 +761,45 @@ router.post('/group', isAuthenticated, upload.single('attachment'), async (req, 
 
     const notificationService = (req.app as any).notificationService;
     if (notificationService) {
-      // Pour les messages de groupe, on devrait idéalement récupérer les IDs des utilisateurs cibles.
-      // Si la fonction n'est pas directement disponible, le client s'appuiera sur le polling,
-      // ou on peut émettre un événement global si c'est pertinent.
-      // Pour l'instant, on notifie au moins l'expéditeur pour mettre à jour son UI.
+      // Pour les messages de groupe, récupérer les IDs des utilisateurs cibles.
+      try {
+        const queryConditions = [
+          eq(users.role, normalizedTargetRole as any)
+        ];
+        if (targetRegion) {
+          queryConditions.push(eq(users.region, targetRegion as any));
+        }
+        
+        let targetUsersQuery = db
+          .select({ id: users.id })
+          .from(users);
+          
+        if (domaineId) {
+          targetUsersQuery = targetUsersQuery.innerJoin(
+            userDomains,
+            and(
+              eq(userDomains.userId, users.id),
+              eq(userDomains.active as any, true as any),
+              eq(userDomains.domaineId as any, domaineId as any)
+            )
+          ) as any;
+        }
+        
+        const targetUsers = await targetUsersQuery.where(and(...queryConditions));
+        const recipientIds = targetUsers.map(u => u.id).filter(id => id !== senderId);
+        
+        if (recipientIds.length > 0) {
+          await notificationService.broadcastToUsers(recipientIds, {
+            title: "Nouveau message de groupe",
+            body: subject ? subject : "Votre groupe a reçu un nouveau message",
+            data: { type: 'MESSAGE' }
+          });
+        }
+      } catch (err) {
+        console.error('[POST /api/messages/group] Notification broadcast failed', err);
+      }
+      
+      // Notifier également l'expéditeur pour mettre à jour son UI
       notificationService.sendToUser(senderId, {
         title: "Message de groupe envoyé",
         body: subject ? subject : "Votre message a été envoyé",

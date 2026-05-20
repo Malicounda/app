@@ -121,10 +121,6 @@ function Router() {
   const { user, isLoading } = useAuth();
   const isAuthenticated = !!user;
 
-  if (isLoading) {
-    return <SplashScreen message={user ? "Déconnexion en cours..." : "Chargement..."} />;
-  }
-
   // Déterminer si l'utilisateur doit avoir le verrouillage désactivé (Alerte, Chasseurs, Guides)
   const isAlerteDomain = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole || (typeof window !== 'undefined' && localStorage.getItem('domain')?.toUpperCase() === 'ALERTE');
   const isHunterOrGuide = user?.role === 'hunter' || user?.role === 'hunting-guide';
@@ -269,6 +265,10 @@ function Router() {
 
   // La redirection par domaine est désormais centralisée dans DashboardRedirector.tsx
   // Plus aucune logique de redirection globale ici pour éviter les conflits.
+
+  if (isLoading) {
+    return <SplashScreen message={user ? "Déconnexion en cours..." : "Chargement..."} />;
+  }
 
   // Verrouillage de session (overlay au-dessus de tout)
   const lockOverlay = (isAuthenticated && !disableLockScreen) ? (

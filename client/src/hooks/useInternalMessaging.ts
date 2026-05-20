@@ -134,6 +134,18 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     }
   }, [autoLoad, refreshAll]);
 
+  useEffect(() => {
+    const handleRefreshAll = () => {
+      console.log("[useInternalMessaging] Refreshing message list due to custom refresh event");
+      void refreshAll();
+    };
+
+    window.addEventListener('messaging-refresh-all', handleRefreshAll);
+    return () => {
+      window.removeEventListener('messaging-refresh-all', handleRefreshAll);
+    };
+  }, [refreshAll]);
+
   const sendIndividual = useCallback(
     async ({ recipientIdentifier, content, subject = "Message", attachment }: SendInternalMessageParams) => {
       setSending(true);

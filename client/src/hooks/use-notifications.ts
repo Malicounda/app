@@ -57,6 +57,9 @@ export function useNotifications() {
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
         queryClient.invalidateQueries({ queryKey: ['/api/messages'] });
+        
+        // Déclencher un rafraîchissement global pour les listes de messages actives
+        window.dispatchEvent(new CustomEvent('messaging-refresh-all'));
       }
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
     });
