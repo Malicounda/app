@@ -408,7 +408,7 @@ export default function SimpleSMSPage() {
         };
 
         const optsRaw = [
-          ...adminsArr.map((u: any) => ({ u, roleLabel: 'Administrateur' })),
+          ...(!isAlerteDomain ? adminsArr.map((u: any) => ({ u, roleLabel: 'Administrateur' })) : []),
           ...regionalsArr.map((u: any) => ({ u, roleLabel: 'Agent régional' })),
           ...sectorsArr.map((u: any) => ({ u, roleLabel: 'Secteur' })),
         ];
@@ -431,7 +431,7 @@ export default function SimpleSMSPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [role, user]);
+  }, [role, user, isAlerteDomain]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const filterMessages = (arr: any[]) => {
@@ -940,6 +940,10 @@ export default function SimpleSMSPage() {
                             }
                             
                             const userObj = await res.json();
+                            if (userObj.role === 'admin' || userObj.role === 'superadmin') {
+                              setShowAgentNotFoundDialog(true);
+                              return;
+                            }
                             const key = `direct_${userObj.id}`;
                             const contactName = [userObj.grade, userObj.firstName, userObj.lastName].filter(Boolean).join(' ').trim() || userObj.username || ident;
                             const roleMetier = userObj.roleMetier || userObj.serviceLocation || userObj.role || '';
