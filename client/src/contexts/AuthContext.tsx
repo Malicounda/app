@@ -50,6 +50,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  loadingMessage?: string;
   login: (identifier: string, password?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -60,6 +61,7 @@ const defaultContext: AuthContextType = {
   user: null,
   isAuthenticated: false,
   isLoading: true,
+  loadingMessage: "Chargement...",
   login: async () => { },
   logout: async () => { },
   refreshUser: async () => { },
@@ -109,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(cachedSession && hasToken ? cachedSession as User : null);
   const [isAuthenticated, setIsAuthenticated] = React.useState(hasToken && !!cachedSession);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [loadingMessage, setLoadingMessage] = React.useState<string>("Chargement...");
   const [error, setError] = React.useState<string | null>(null);
   const [, setLocation] = useLocation();
   // Session-expired dialog disabled intentionally
@@ -153,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (identifier: string, password?: string) => {
     setError(null);
+    setLoadingMessage("Connexion en cours...");
     setIsLoading(true);
 
     try {
@@ -238,6 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    setLoadingMessage("Déconnexion en cours...");
     setIsLoading(true);
 
     try {
@@ -278,6 +283,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const checkAuth = async () => {
+      setLoadingMessage("Chargement...");
       setIsLoading(true);
       setError(null);
 
@@ -333,6 +339,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     isAuthenticated,
     isLoading,
+    loadingMessage,
     login,
     logout,
     refreshUser,

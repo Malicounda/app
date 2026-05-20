@@ -160,7 +160,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
                 <AlertTitle>Connecté</AlertTitle>
                 {pendingSyncs > 0 && (
                   <AlertDescription className="mt-2">
-                    {pendingSyncs} modification{pendingSyncs > 1 ? 's' : ''} en attente de synchronisation
+                    {pendingSyncs} donnée{pendingSyncs > 1 ? 's' : ''} en attente de synchronisation
                   </AlertDescription>
                 )}
                 <div className="mt-2 flex items-center gap-2">
@@ -191,7 +191,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
               <div className="flex-1">
                 <AlertTitle>Mode hors ligne</AlertTitle>
                 <AlertDescription className="mt-2">
-                  Vous êtes actuellement hors ligne. Vos modifications seront synchronisées automatiquement lorsque la connexion sera rétablie.
+                  Vous êtes actuellement hors ligne. Vos données seront synchronisées automatiquement lorsque la connexion sera rétablie.
                 </AlertDescription>
                 <div className="mt-2">
                   <Button
