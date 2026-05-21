@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
-  base: './',
+  // Racine absolue : obligatoire pour Cloudflare Pages + routes SPA (/superadmin/*).
+  // base: './' casse les assets sur les sous-chemins (./assets → /superadmin/assets → index.html).
+  base: '/',
   plugins: [react()],
   resolve: {
     alias: {

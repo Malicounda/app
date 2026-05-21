@@ -26,7 +26,7 @@ const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:3000'
 const WS_BACKEND_URL = BACKEND_URL.replace(/^http/, 'ws')
 
 export default defineConfig({
-  base: isDev ? '/' : './',
+  base: '/',
   plugins: [
     react({
       babel: { configFile: './babel.config.js' }
