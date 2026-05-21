@@ -4,6 +4,7 @@ import { and, count, desc, eq, getTableColumns, gte, inArray, lt, or, sql, isNul
 import { sql as sqlRaw } from 'drizzle-orm/sql';
 import jwt from "jsonwebtoken";
 import {
+    affectations,
     agents,
     domaines,
     groupMessageReads,
@@ -474,6 +475,30 @@ import { db } from "./db.js";
       }
 
       const result = await db.insert(users).values(insertData).returning();
+
+      // Auto-créer un agent si le rôle correspond à un agent
+      if (result[0]) {
+        const createdUser = result[0];
+        const agentRoles = ['agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur'];
+        if (agentRoles.includes(createdUser.role)) {
+          try {
+            const matriculeSol = String(createdUser.matricule || createdUser.username || `SOL_${createdUser.id}`).trim();
+            await db.insert(agents).values({
+              userId: createdUser.id,
+              matriculeSol: matriculeSol,
+              nom: createdUser.lastName || null,
+              prenom: createdUser.firstName || null,
+              contact: {
+                telephone: createdUser.phone || null,
+                email: createdUser.email || null,
+              },
+            } as any).onConflictDoNothing();
+          } catch (err) {
+            console.error(`[storage.createUser] Error auto-creating agent:`, err);
+          }
+        }
+      }
+
       return result[0];
     }
 
@@ -515,6 +540,52 @@ import { db } from "./db.js";
         .set(allowedUpdates as any)
         .where(eq(users.id, id))
         .returning();
+
+      // Mettre à jour / Synchroniser / Créer le profil agent
+      if (result[0]) {
+        const updatedUser = result[0];
+        const agentRoles = ['agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur'];
+        if (agentRoles.includes(updatedUser.role)) {
+          try {
+            const matriculeSol = String(updatedUser.matricule || updatedUser.username || `SOL_${updatedUser.id}`).trim();
+            await db.insert(agents).values({
+              userId: updatedUser.id,
+              matriculeSol: matriculeSol,
+              nom: updatedUser.lastName || null,
+              prenom: updatedUser.firstName || null,
+              contact: {
+                telephone: updatedUser.phone || null,
+                email: updatedUser.email || null,
+              },
+            } as any).onConflictDoUpdate({
+              target: agents.userId,
+              set: {
+                nom: updatedUser.lastName || null,
+                prenom: updatedUser.firstName || null,
+                contact: {
+                  telephone: updatedUser.phone || null,
+                  email: updatedUser.email || null,
+                },
+              },
+            });
+          } catch (err) {
+            console.error(`[storage.updateUser] Error syncing/upserting agent:`, err);
+          }
+        } else {
+          // Si le rôle a changé pour un non-agent, nettoyer le profil de l'agent et ses affectations
+          try {
+            const agentRows = await db.select().from(agents).where(eq(agents.userId, updatedUser.id));
+            if (agentRows.length > 0) {
+              const agentId = agentRows[0].idAgent;
+              await db.delete(affectations).where(eq(affectations.agentId, agentId));
+              await db.delete(agents).where(eq(agents.idAgent, agentId));
+            }
+          } catch (err) {
+            console.error(`[storage.updateUser] Error removing agent profile on role change:`, err);
+          }
+        }
+      }
+
       return result[0];
     }
 
@@ -659,6 +730,20 @@ import { db } from "./db.js";
         if (!user) {
           console.error(`L'utilisateur ${id} n'existe pas ou a déjà été supprimé`);
           return false;
+        }
+
+        // Supprimer d'abord l'agent et ses affectations pour éviter les violations de clés étrangères
+        try {
+          const agentRows = await db.select().from(agents).where(eq(agents.userId, id));
+          if (agentRows.length > 0) {
+            const agentId = agentRows[0].idAgent;
+            console.log(`Suppression des affectations de l'agent ID: ${agentId}`);
+            await db.delete(affectations).where(eq(affectations.agentId, agentId));
+            console.log(`Suppression de l'agent associé ID: ${agentId}`);
+            await db.delete(agents).where(eq(agents.idAgent, agentId));
+          }
+        } catch (err) {
+          console.log(`Erreur lors de la suppression en cascade de l'agent/affectations:`, err);
         }
 
         // Si l'utilisateur est associé à un chasseur, détacher le chasseur au lieu de refuser

@@ -62,7 +62,7 @@ import { AlertTriangle, Check, ChevronDownIcon, Download, Edit, Eye, EyeOff, Pri
 import { useState } from "react";
 
 // Types
-type TabKey = 'admins' | 'agents' | 'subagents' | 'guides' | 'hunters';
+type TabKey = 'allUsers' | 'admins' | 'agents' | 'subagents' | 'guides' | 'hunters';
 
 interface User {
   id: number;
@@ -111,7 +111,7 @@ export default function Accounts() {
   const [suspensionAction, setSuspensionAction] = useState<'suspend' | 'reactivate'>('suspend');
   const [isAddAgentDialogOpen, setIsAddAgentDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState<Record<TabKey, number>>({ admins: 1, agents: 1, subagents: 1, guides: 1, hunters: 1 });
+  const [currentPage, setCurrentPage] = useState<Record<TabKey, number>>({ allUsers: 1, admins: 1, agents: 1, subagents: 1, guides: 1, hunters: 1 });
   const itemsPerPage = 5;
 
   // --- Feature flag: override national pour agents ---
@@ -560,7 +560,7 @@ export default function Accounts() {
     const totalPages = getTotalPages(filteredList);
     const startIndex = (currentPage[tab] - 1) * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, filteredList.length);
-    const hideId = tab === 'agents' || tab === 'subagents' || tab === 'hunters' || tab === 'admins';
+    const hideId = tab === 'agents' || tab === 'subagents' || tab === 'hunters' || tab === 'admins' || tab === 'allUsers';
     const emptyColSpan = hideId ? 7 : 8; // (optional ID) + username + nom + prenom + email + phone + region + actions
 
     return (
@@ -593,13 +593,16 @@ export default function Accounts() {
                   {!hideId && (<TableCell className="hidden md:table-cell">{user.id}</TableCell>)}
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      {(tab === 'agents' || tab === 'subagents' || tab === 'hunters' || tab === 'admins') && (
+                      {(tab === 'agents' || tab === 'subagents' || tab === 'hunters' || tab === 'admins' || tab === 'allUsers') && (
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback className={`${tab === 'hunters'
-                              ? 'bg-amber-100 text-amber-600'
-                              : tab === 'admins'
-                                ? 'bg-emerald-700 text-white'
-                                : 'bg-green-600 text-white'
+                          <AvatarFallback className={`${
+                              user.role === 'hunter'
+                                ? 'bg-amber-100 text-amber-600'
+                                : user.role === 'admin'
+                                  ? 'bg-emerald-700 text-white'
+                                  : user.role === 'sub-agent'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-green-600 text-white'
                             }`}>
                             <User className="h-4 w-4" />
                           </AvatarFallback>
@@ -615,10 +618,15 @@ export default function Accounts() {
                     }>
                       {
                         user.role === 'admin' ? 'Admin' :
-                          user.role === 'agent' ? 'Agent' :
+                          user.role === 'agent' ? 'Agent Régional' :
                             user.role === 'sub-agent' ? 'Agent Secteur' :
                               user.role === 'hunting-guide' ? 'Guide de chasse' :
-                                'Chasseur'
+                                user.role === 'hunter' ? 'Chasseur' :
+                                  user.role === 'brigade' ? 'Brigade' :
+                                    user.role === 'triage' ? 'Triage' :
+                                      user.role === 'poste-control' ? 'Poste Contrôle' :
+                                        user.role === 'sous-secteur' ? 'Sous-secteur' :
+                                          user.role
                       }
                     </Badge>
                   </TableCell>
@@ -637,7 +645,7 @@ export default function Accounts() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Options</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {user.role === 'agent' && (
+                        {(user.role === 'agent' || user.role === 'sub-agent') && (
                           <DropdownMenuItem onClick={() => handleEditAgent(user)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Modifier
@@ -911,9 +919,10 @@ export default function Accounts() {
         </CardHeader>
 
         <CardContent className="p-0">
-          <Tabs defaultValue="admins">
+          <Tabs defaultValue="allUsers">
             <div className="overflow-x-auto">
               <TabsList className="w-full flex overflow-x-auto whitespace-nowrap gap-2 rounded-none">
+                <TabsTrigger value="allUsers" className="font-semibold">Tous les utilisateurs ({users.length})</TabsTrigger>
                 <TabsTrigger value="admins">Administrateurs ({admins.length})</TabsTrigger>
                 <TabsTrigger value="agents">Agents Régionaux ({agents.length})</TabsTrigger>
                 <TabsTrigger value="subagents">Agents Secteur ({subAgents.length})</TabsTrigger>
@@ -922,6 +931,15 @@ export default function Accounts() {
               </TabsList>
               {/* Paramètre déplacé vers Options administratives */}
             </div>
+
+            <TabsContent value="allUsers" className="p-4">
+              <div className="pb-3">
+                <p className="text-sm text-muted-foreground">
+                  Vue globale de tous les comptes enregistrés dans le système, tous rôles confondus.
+                </p>
+              </div>
+              {renderUsersTable(users, 'allUsers')}
+            </TabsContent>
 
             <TabsContent value="admins" className="p-4">
               <div className="overflow-x-auto">

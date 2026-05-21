@@ -12,6 +12,8 @@ import cron from 'node-cron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
+import { eq, and, isNull } from 'drizzle-orm';
+import { users as usersTable, agents as agentsTable } from '../shared/schema.js';
 import alertsRoutes from './routes/alerts.routes.js';
 import ecoZonesRoutes from './routes/ecoZones.routes.js'; // Ajout des routes pour les zones écogéographiques
 import registerRoutes from './routes/index.js'; // Assuming 'routes' is a directory with an index file
@@ -346,6 +348,74 @@ const startServer = async (): Promise<HttpServer> => {
       // Vérifier la connexion en effectuant une requête simple
       await db.execute(sql.raw('SELECT 1'));
       log('✅ Connecté à la base de données', 'database');
+
+      // ── Script d'auto-guérison : synchronisation users <-> agents ──────────
+      // S'exécute en arrière-plan sans bloquer le démarrage du serveur
+      setImmediate(async () => {
+        try {
+          log('🔄 [sync] Démarrage de la vérification de cohérence users/agents...', 'database');
+          const agentRoles = ['agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur'];
+
+          // Récupérer tous les utilisateurs ayant un rôle d'agent
+          const agentUsers = await db
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.role, 'agent') as any);
+
+          // Récupérer aussi les autres rôles agents via une requête brute pour éviter l'IN dynamique compliqué
+          const otherAgentUsers: any[] = [];
+          for (const role of ['sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur']) {
+            const rows = await db.select().from(usersTable).where(eq(usersTable.role as any, role));
+            otherAgentUsers.push(...rows);
+          }
+
+          const allAgentUsers = [...agentUsers, ...otherAgentUsers];
+          log(`🔄 [sync] ${allAgentUsers.length} utilisateurs agents trouvés en base.`, 'database');
+
+          let created = 0;
+          let already = 0;
+          let errors = 0;
+
+          for (const user of allAgentUsers) {
+            try {
+              // Vérifier si un profil agent existe déjà pour cet userId
+              const existing = await db
+                .select()
+                .from(agentsTable)
+                .where(eq(agentsTable.userId as any, user.id))
+                .limit(1);
+
+              if (existing.length === 0) {
+                // Créer le profil agent manquant
+                const matriculeSol = String(user.matricule || user.username || `SOL_${user.id}`).trim();
+                await db.insert(agentsTable).values({
+                  userId: user.id,
+                  matriculeSol: matriculeSol,
+                  nom: user.lastName || null,
+                  prenom: user.firstName || null,
+                  contact: {
+                    telephone: user.phone || null,
+                    email: user.email || null,
+                  },
+                } as any).onConflictDoNothing();
+                created++;
+                log(`✅ [sync] Profil agent créé pour utilisateur ID=${user.id} (${user.username})`, 'database');
+              } else {
+                already++;
+              }
+            } catch (userErr) {
+              errors++;
+              log(`⚠️ [sync] Impossible de traiter l'utilisateur ID=${user.id}: ${String(userErr)}`, 'database');
+            }
+          }
+
+          log(`✅ [sync] Synchronisation terminée : ${created} profil(s) créé(s), ${already} déjà synchronisé(s), ${errors} erreur(s).`, 'database');
+        } catch (syncErr) {
+          log(`⚠️ [sync] Erreur lors de la synchronisation users/agents: ${String(syncErr)}`, 'database');
+        }
+      });
+      // ── Fin script d'auto-guérison ──────────────────────────────────────────
+
     } catch (error) {
       log('❌ Erreur de connexion à la base de données:', 'database');
       console.error(error);
