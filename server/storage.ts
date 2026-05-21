@@ -76,6 +76,7 @@ import {
     type InsertPushSubscription
 } from "../shared/schema.js";
 import { db } from "./db.js";
+import { getJwtExpiresInSeconds } from "./sessionConfig.js";
 
   // Type guard pour vérifier si une valeur est un objet Date
   function isDateObject(value: any): value is Date {
@@ -362,8 +363,7 @@ import { db } from "./db.js";
     // Auth token generation
     generateAuthToken(payload: { id: number; role: string; region?: string; isSuperAdmin?: boolean; hunterId?: number }): string {
       const secret = process.env.JWT_SECRET || process.env.JWT_TOKEN || "changeme_secret";
-      // 8 heures (durée d'une journée de travail)
-      return jwt.sign(payload, secret, { expiresIn: "8h" });
+      return jwt.sign(payload, secret, { expiresIn: getJwtExpiresInSeconds() });
     }
 
     // User operations

@@ -26,7 +26,7 @@ export interface SessionHeartbeatState {
  * - Après 4min, l'écran se verrouille (overlay opaque).
  *   L'utilisateur peut saisir son mot de passe pour reprendre sans perdre
  *   son état React (formulaires en cours, etc.).
- * - Si la session côté serveur a expiré (8h), l'état passe à "expired"
+ * - Si la session côté serveur a expiré, l'état passe à "expired"
  *   et l'utilisateur est redirigé vers /login.
  */
 export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boolean = false): SessionHeartbeatState {

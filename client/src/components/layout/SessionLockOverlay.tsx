@@ -61,7 +61,7 @@ export default function SessionLockOverlay({
     );
   }
 
-  // ── Session expirée (8h dépassé côté serveur) ────────────────────
+  // ── Session expirée (jeton invalide ou déconnexion serveur) ───────
   if (lockState === "expired") {
     return (
       <div className="fixed inset-0 z-[20000] bg-black/80 backdrop-blur-md flex items-center justify-center">
@@ -73,7 +73,7 @@ export default function SessionLockOverlay({
             Session expirée
           </h2>
           <p className="text-gray-600 mb-6">
-            Votre session a expiré (durée maximale de 8h atteinte). Veuillez vous reconnecter.
+            Votre session n&apos;est plus valide (connexion expirée ou serveur redémarré). Reconnectez-vous pour continuer.
           </p>
           <Button
             variant="destructive"

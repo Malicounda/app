@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { agents, rolesMetier, users } from '../../shared/schema.js';
 import { db } from '../db.js';
 import { storage } from '../storage.js';
+import { getSessionMaxAgeMs } from '../sessionConfig.js';
 
 // Schéma de validation pour l'inscription
 const registerSchema = z.object({
@@ -422,8 +423,7 @@ export const heartbeat = async (req: Request, res: Response) => {
         }
         // Le simple fait de toucher req.session rafraîchit la session (grâce à rolling:true)
         // On renvoie l'heure d'expiration pour que le client puisse afficher un countdown
-        const maxAge = 8 * 60 * 60 * 1000; // 8h en ms
-        const expiresAt = Date.now() + maxAge;
+        const expiresAt = Date.now() + getSessionMaxAgeMs();
         res.json({ active: true, expiresAt, username: sessionUser.username });
     } catch (error) {
         console.error("Erreur heartbeat:", error);

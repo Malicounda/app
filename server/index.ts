@@ -12,6 +12,7 @@ import cron from 'node-cron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
+import { getSessionMaxAgeMs } from './sessionConfig.js';
 import { eq, and, isNull } from 'drizzle-orm';
 import { users as usersTable, agents as agentsTable } from '../shared/schema.js';
 import alertsRoutes from './routes/alerts.routes.js';
@@ -157,7 +158,7 @@ const sessionConfig: session.SessionOptions = {
     secure: isProd && !allowInsecure,
     // En prod, pour autoriser les requêtes cross-domain (Cloudflare Pages -> Backend API), SameSite doit être 'none'
     sameSite: isProd && !allowInsecure ? 'none' : 'lax',
-    maxAge: 8 * 60 * 60 * 1000, // 8 heures (durée d'une journée de travail)
+    maxAge: getSessionMaxAgeMs(),
     // Ne pas spécifier de domaine pour permettre l'utilisation avec localhost et IP
     domain: undefined
   },

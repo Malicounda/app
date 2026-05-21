@@ -952,7 +952,18 @@ export default function Accounts() {
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={() => setIsAddAgentDialogOpen(true)}
+                  onClick={() => {
+                    if (document.body.hasAttribute("data-session-locked")) {
+                      toast({
+                        variant: "destructive",
+                        title: "Session expirée ou verrouillée",
+                        description:
+                          "Reconnectez-vous ou déverrouillez l'écran avant d'ajouter un agent.",
+                      });
+                      return;
+                    }
+                    setIsAddAgentDialogOpen(true);
+                  }}
                 >
                   <UserPlus className="mr-2 h-4 w-4" />
                   Ajouter un agent

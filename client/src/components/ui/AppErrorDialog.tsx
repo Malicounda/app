@@ -25,14 +25,18 @@ export default function AppErrorDialog() {
     const handler = (e: Event) => {
       const ce = e as CustomEvent<ApiRefusalDetail>;
       const d = ce.detail || {};
-      // Ne pas afficher pour 401 (session expirée gérée ailleurs) ou pour /api/auth/me
-      const isAuthMe = typeof d.url === 'string' && d.url.includes('/api/auth/me');
-      // Ne pas afficher pour la recherche d'agent par matricule (géré par une modale dédiée)
-      const isAgentProfileByMatricule = typeof d.url === 'string' && d.url.includes('/api/users/agent-profile-by-matricule');
-      // Ne pas afficher pour doublon d'alerte (409) sur /api/alerts: géré par une modale dédiée côté page
-      const isDuplicateAlert = Number(d.status) === 409 && typeof d.url === 'string' && d.url.includes('/api/alerts');
-      if (Number(d.status) === 401 || isAuthMe || isDuplicateAlert || isAgentProfileByMatricule) {
-        return; // suppression de l'affichage de ce message
+      const url = typeof d.url === 'string' ? d.url : '';
+      const isAuthMe = url.includes('/api/auth/me');
+      const isBackgroundPoll =
+        url.includes('unread-count') ||
+        url.includes('/api/auth/heartbeat');
+      const isAgentProfileByMatricule = url.includes('/api/users/agent-profile-by-matricule');
+      const isDuplicateAlert = Number(d.status) === 409 && url.includes('/api/alerts');
+      if (isAuthMe || isDuplicateAlert || isAgentProfileByMatricule) {
+        return;
+      }
+      if (Number(d.status) === 401 && isBackgroundPoll) {
+        return; // heartbeat / compteurs : géré par SessionLockOverlay
       }
       setDetail(d);
       setOpen(true);
@@ -61,10 +65,21 @@ export default function AppErrorDialog() {
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 text-sm text-gray-700">
-          {detail?.message ? (
+          {detail?.status === 401 ? (
+            <p>
+              Votre session n&apos;est plus valide. Cliquez sur « Se reconnecter » (écran de verrouillage)
+              ou retournez à la page de connexion, puis réessayez.
+            </p>
+          ) : detail?.message ? (
             <p className="whitespace-pre-line">{detail.message}</p>
           ) : (
             <p>Une erreur est survenue lors du traitement de votre requête.</p>
+          )}
+          {detail?.url && (
+            <p className="text-xs text-muted-foreground break-all">
+              {detail.method || "GET"} {detail.url}
+              {detail.status ? ` — ${detail.status}` : ""}
+            </p>
           )}
         </div>
         <DialogFooter>

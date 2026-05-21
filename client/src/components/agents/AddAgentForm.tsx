@@ -160,6 +160,9 @@ export default function AddAgentForm({ open, onClose }: AddAgentFormProps) {
   const [matriculeLookupMessage, setMatriculeLookupMessage] = useState<string>("");
   const [isMatriculeLookupLoading, setIsMatriculeLookupLoading] = useState(false);
   const [agentNotFoundOpen, setAgentNotFoundOpen] = useState(false);
+  const [submitErrorOpen, setSubmitErrorOpen] = useState(false);
+  const [submitErrorTitle, setSubmitErrorTitle] = useState("Erreur");
+  const [submitErrorMessage, setSubmitErrorMessage] = useState("");
 
   const handleAgentNotFoundOpenChange = (open: boolean) => {
     setAgentNotFoundOpen(open);
@@ -254,7 +257,7 @@ export default function AddAgentForm({ open, onClose }: AddAgentFormProps) {
         description: "L'agent a été créé avec succès.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/users/agents"] });
-      // Compatibilité: certaines pages historiques utilisaient une clé générique
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["agents"] });
       form.reset();
       onClose();
@@ -262,39 +265,48 @@ export default function AddAgentForm({ open, onClose }: AddAgentFormProps) {
     onError: (error: any) => {
       console.error(" Erreur détaillée lors de la création:", error);
 
-      // Si c'est une erreur de validation (422), afficher les erreurs sur les champs
-      if (error.response?.status === 422 && error.response?.data?.errors) {
-        const validationErrors = error.response.data.errors;
+      const status = error?.status ?? error?.response?.status;
+      const body = error?.body ?? error?.response?.data;
 
-        // Appliquer les erreurs aux champs correspondants
+      if (status === 401) {
+        setSubmitErrorTitle("Session expirée");
+        setSubmitErrorMessage(
+          "Vous n'êtes plus authentifié. Reconnectez-vous (bouton « Se reconnecter » sur l'écran de verrouillage), puis rouvrez ce formulaire."
+        );
+        setSubmitErrorOpen(true);
+        return;
+      }
+
+      if (status === 422 && body?.errors) {
+        const validationErrors = body.errors;
         validationErrors.forEach((err: any) => {
           if (err.path) {
             form.setError(err.path as any, {
               type: "server",
-              message: err.message || "Ce champ est invalide"
+              message: err.message || "Ce champ est invalide",
             });
           }
         });
-
-        toast({
-          variant: "destructive",
-          title: "Erreur de validation",
-          description: "Veuillez corriger les erreurs dans le formulaire.",
-        });
-      } else {
-        // Autres erreurs
-        let errorMessage = "Impossible de créer l'agent.";
-
-        if (error.response?.data?.message) {
-          errorMessage = error.response.data.message;
-        }
-
-        toast({
-          variant: "destructive",
-          title: "Erreur",
-          description: errorMessage,
-        });
+        setSubmitErrorTitle("Erreur de validation");
+        setSubmitErrorMessage("Corrigez les champs signalés dans le formulaire.");
+        setSubmitErrorOpen(true);
+        return;
       }
+
+      const errorMessage =
+        body?.message ||
+        error?.message ||
+        (status ? `Impossible de créer l'agent (erreur ${status}).` : "Impossible de créer l'agent.");
+
+      setSubmitErrorTitle(status === 403 ? "Accès refusé" : "Erreur");
+      setSubmitErrorMessage(errorMessage);
+      setSubmitErrorOpen(true);
+
+      toast({
+        variant: "destructive",
+        title: status === 403 ? "Accès refusé" : "Erreur",
+        description: errorMessage,
+      });
     },
   });
 
@@ -320,6 +332,25 @@ export default function AddAgentForm({ open, onClose }: AddAgentFormProps) {
         onClose();
       }
     }}>
+      <AlertDialog open={submitErrorOpen} onOpenChange={setSubmitErrorOpen}>
+        <AlertDialogPrimitive.Portal>
+          <AlertDialogPrimitive.Overlay className="fixed inset-0 z-[10040] bg-black/40" />
+          <AlertDialogPrimitive.Content className="fixed left-[50%] top-[50%] z-[10050] grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-border bg-background p-5 shadow-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl font-bold text-center text-red-700">
+                {submitErrorTitle}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-center text-foreground/90 whitespace-pre-line">
+                {submitErrorMessage}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex justify-center">
+              <AlertDialogAction onClick={() => setSubmitErrorOpen(false)}>Compris</AlertDialogAction>
+            </div>
+          </AlertDialogPrimitive.Content>
+        </AlertDialogPrimitive.Portal>
+      </AlertDialog>
+
       <AlertDialog open={agentNotFoundOpen} onOpenChange={handleAgentNotFoundOpenChange}>
         <AlertDialogPrimitive.Portal>
           <AlertDialogPrimitive.Overlay className="fixed inset-0 z-[10020] bg-transparent" />
