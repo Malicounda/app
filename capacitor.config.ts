@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'client/dist',
   server: {
     // L'APK charge directement l'URL de production
-    url: 'https://eforets.pages.dev/alerte-login?isApk=true',
+    // url: 'https://eforets.pages.dev/alerte-login?isApk=true',
     cleartext: false,
     allowNavigation: ['eforets.pages.dev'],
   },
