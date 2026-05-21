@@ -1,9 +1,9 @@
+import { getApiBaseUrl } from '@/utils/environment';
+
 // Configuration de l'API
 export const API_CONFIG = {
   // URL de base de l'API (sera remplacée par les variables d'environnement en production)
-  BASE_URL: (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
-    ? `${import.meta.env.VITE_API_URL}`
-    : '/api',
+  BASE_URL: getApiBaseUrl(),
   
   // Timeout des requêtes en millisecondes
   TIMEOUT: 30000, // 30 secondes

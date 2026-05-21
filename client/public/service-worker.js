@@ -59,9 +59,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Mettre en cache la réponse fraîche uniquement pour GET valides same-origin
+          // Mettre en cache la réponse fraîche uniquement pour GET valides (same-origin basic ou cross-origin cors)
           const responseClone = response.clone();
-          if (event.request.method === 'GET' && response && response.ok && response.type === 'basic') {
+          if (event.request.method === 'GET' && response && response.ok && (response.type === 'basic' || response.type === 'cors')) {
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, responseClone).catch((e) => {
                 console.warn('Cache put échoué:', e);

@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from '@/utils/environment';
+
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 interface ApiResponse<T = any> {
@@ -70,38 +72,7 @@ export async function apiRequestBlob(
   }
 }
 
-// Détection automatique de l'URL de l'API basée sur l'URL actuelle
-const getApiBaseUrl = () => {
-  const mode = import.meta.env.MODE || import.meta.env.NODE_ENV || 'development';
-  const rawEnv = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL) as string | undefined;
-
-  // 1) En production, respecter la variable si fournie (URL absolue ou relative)
-  if (mode === 'production' && rawEnv) {
-    const base = rawEnv.replace(/\/+$/, '');
-    return base.endsWith('/api') ? base : `${base}/api`;
-  }
-
-  // 2) En développement: accepter une valeur relative commençant par '/'
-  if (rawEnv && rawEnv.startsWith('/')) {
-    const base = rawEnv.replace(/\/+$/, '');
-    return base.endsWith('/api') ? base : `${base}/api`;
-  }
-
-  // 3) Contexte d'exécution en développement (Vite dev server)
-  // IMPORTANT: Ne jamais forcer "localhost" quand on est sur le port 5173, car
-  // en accès LAN (ex: 192.168.x.x:5173) sur mobile, "localhost" pointerait sur
-  // le téléphone et casserait toutes les requêtes.
-  // On utilise le proxy Vite via le chemin relatif "/api".
-  try {
-    const loc = typeof window !== 'undefined' ? window.location : undefined;
-    if (loc && loc.port === '5173') {
-      return '/api';
-    }
-  } catch (_) {}
-
-  // 4) Par défaut, utiliser le proxy Vite (/api) en dev
-  return '/api';
-};
+// Note: getApiBaseUrl is now imported from '@/utils/environment'
 
 // Parse la réponse en toute sécurité (JSON si possible), gère 204 / corps vide / non-JSON
 async function safeParseResponse<T = any>(response: Response): Promise<T | undefined> {

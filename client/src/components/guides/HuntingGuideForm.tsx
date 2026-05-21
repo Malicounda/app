@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { departmentsByRegion } from "@/lib/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getApiBaseUrl } from "@/utils/environment";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { regionDisplayNames } from "@shared/schema";
 import React, { useEffect, useRef, useState } from "react";
@@ -240,12 +241,11 @@ export function HuntingGuideForm({ mode = "create", initialValues, onSuccess, on
   // Pré-remplir l'aperçu photo en mode édition
   useEffect(() => {
     if (mode === "edit" && initialValues && initialValues.photo != null) {
-      const apiUrl = (import.meta as any)?.env?.VITE_API_URL || '/api';
-      let serverOrigin = window.location.origin;
-      try {
-        const u = new URL(apiUrl, window.location.origin);
-        serverOrigin = `${u.protocol}//${u.host}`;
-      } catch {}
+      // Derive server origin from the centralized API base URL resolver
+      // In dev: getApiBaseUrl() returns '/api' → serverOrigin = '' → relative URL
+      // In prod: returns 'https://malicounda-api.onrender.com/api' → strips '/api'
+      const apiBase = getApiBaseUrl();
+      const serverOrigin = apiBase.replace(/\/api$/, '');
       const raw: any = (initialValues as any).photo;
       let vStr = "";
       if (typeof raw === "string") {

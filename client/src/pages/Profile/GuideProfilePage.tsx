@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequestBlob } from "@/lib/api";
 import { apiRequest } from "@/lib/queryClient";
+import { getApiBaseUrl } from "@/utils/environment";
 import "@/styles/profile.css"; // Importer un style spécifique pour la page de profil
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -246,7 +247,7 @@ export default function GuideProfilePage() {
             return "";
         }
 
-        const apiUrl = (import.meta as any)?.env?.VITE_API_URL || '/api';
+        const apiUrl = getApiBaseUrl();
         let serverOrigin = window.location.origin;
         try {
             const u = new URL(apiUrl, window.location.origin);

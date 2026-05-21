@@ -56,11 +56,37 @@ const extractErrorMessage = async (response: Response) => {
   return `Erreur ${response.status}`;
 };
 
+// ── LocalStorage cache helpers ────────────────────────────────────────────────
+const getCacheKey = (type: "inbox" | "sent", domaineId?: number | "null") =>
+  `msg_cache_${type}_${domaineId ?? "all"}`;
+
+const loadFromCache = (type: "inbox" | "sent", domaineId?: number | "null"): InternalMessageRecord[] => {
+  try {
+    const raw = localStorage.getItem(getCacheKey(type, domaineId));
+    if (!raw) return [];
+    return JSON.parse(raw) as InternalMessageRecord[];
+  } catch {
+    return [];
+  }
+};
+
+const saveToCache = (type: "inbox" | "sent", domaineId: number | "null" | undefined, data: InternalMessageRecord[]) => {
+  try {
+    localStorage.setItem(getCacheKey(type, domaineId), JSON.stringify(data));
+  } catch {
+    // Ignore quota errors
+  }
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function useInternalMessaging(options: UseInternalMessagingOptions = {}) {
   const { autoLoad = true, domaineId } = options;
   const queryClient = useQueryClient();
-  const [inbox, setInbox] = useState<InternalMessageRecord[]>([]);
-  const [sent, setSent] = useState<InternalMessageRecord[]>([]);
+
+  // Initialize state from localStorage cache immediately so data is visible
+  // on first render even before the network request completes.
+  const [inbox, setInbox] = useState<InternalMessageRecord[]>(() => loadFromCache("inbox", domaineId));
+  const [sent, setSent] = useState<InternalMessageRecord[]>(() => loadFromCache("sent", domaineId));
   const [loadingInbox, setLoadingInbox] = useState(false);
   const [loadingSent, setLoadingSent] = useState(false);
   const [sending, setSending] = useState(false);
@@ -97,8 +123,15 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       })) as InternalMessageRecord[];
 
       const merged: InternalMessageRecord[] = [...normalizeIndividual, ...normalizeGroup];
-      setInbox(sortMessagesByDate(merged));
+      const sorted = sortMessagesByDate(merged);
+      setInbox(sorted);
+      // Persist to cache so the next mount shows data instantly
+      saveToCache("inbox", domaineId, sorted);
       return merged;
+    } catch (err) {
+      // Network failure — keep existing cached state, don't wipe the inbox
+      console.warn("[useInternalMessaging] fetchInbox failed, keeping cached data:", err);
+      throw err;
     } finally {
       setLoadingInbox(false);
     }
@@ -117,8 +150,15 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         ...message,
         isGroupMessage: message?.isGroupMessage === true,
       }));
-      setSent(sortMessagesByDate(list));
+      const sorted = sortMessagesByDate(list);
+      setSent(sorted);
+      // Persist to cache
+      saveToCache("sent", domaineId, sorted);
       return list;
+    } catch (err) {
+      // Network failure — keep existing cached state
+      console.warn("[useInternalMessaging] fetchSent failed, keeping cached data:", err);
+      throw err;
     } finally {
       setLoadingSent(false);
     }
@@ -175,7 +215,11 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           ...message,
           isGroupMessage: message?.isGroupMessage === true,
         })) as InternalMessageRecord[];
-        setSent((prev) => sortMessagesByDate([...created, ...prev]));
+        setSent((prev) => {
+          const updated = sortMessagesByDate([...created, ...prev]);
+          saveToCache("sent", domaineId, updated);
+          return updated;
+        });
         
         // Refresh depuis le serveur pour garantir la cohérence
         setTimeout(() => fetchSent(), 500);
@@ -186,7 +230,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         setSending(false);
       }
     },
-    [domaineId]
+    [domaineId, fetchSent, queryClient]
   );
 
   const sendGroup = useCallback(
@@ -228,7 +272,11 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         }
         const flattened = sortMessagesByDate(responses.flat());
         if (flattened.length) {
-          setSent((prev) => sortMessagesByDate([...flattened, ...prev]));
+          setSent((prev) => {
+            const updated = sortMessagesByDate([...flattened, ...prev]);
+            saveToCache("sent", domaineId, updated);
+            return updated;
+          });
         }
         
         // Refresh depuis le serveur pour garantir la cohérence
@@ -240,13 +288,21 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         setSending(false);
       }
     },
-    [domaineId]
+    [domaineId, fetchSent, queryClient]
   );
 
   const removeMessageFromState = useCallback((id: number, isGroup: boolean) => {
-    setInbox((prev) => prev.filter((message) => !(message.id === id && Boolean(message.isGroupMessage) === isGroup)));
-    setSent((prev) => prev.filter((message) => !(message.id === id && Boolean(message.isGroupMessage) === isGroup)));
-  }, []);
+    setInbox((prev) => {
+      const updated = prev.filter((message) => !(message.id === id && Boolean(message.isGroupMessage) === isGroup));
+      saveToCache("inbox", domaineId, updated);
+      return updated;
+    });
+    setSent((prev) => {
+      const updated = prev.filter((message) => !(message.id === id && Boolean(message.isGroupMessage) === isGroup));
+      saveToCache("sent", domaineId, updated);
+      return updated;
+    });
+  }, [domaineId]);
 
   const deleteMessageRecord = useCallback(
     async (message: InternalMessageRecord) => {
@@ -271,9 +327,13 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
 
   const markMessageAsRead = useCallback(async (messageId: number) => {
     await apiRequest({ url: `/api/messages/${messageId}/read`, method: 'PATCH' });
-    setInbox((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, isRead: true } : msg)));
+    setInbox((prev) => {
+      const updated = prev.map((msg) => (msg.id === messageId ? { ...msg, isRead: true } : msg));
+      saveToCache("inbox", domaineId, updated);
+      return updated;
+    });
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
-  }, [queryClient]);
+  }, [queryClient, domaineId]);
 
   const state = useMemo(
     () => ({

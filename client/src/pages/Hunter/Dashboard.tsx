@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/api';
+import { getApiBaseUrl } from '@/utils/environment';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
@@ -273,8 +274,8 @@ const formatDate = (dateString: string): string => {
 };
 
 const getDocumentViewUrl = (doc: HunterDocument): string => {
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-  return `${baseUrl}/api/hunters/documents/${doc.id}/view`;
+  const baseUrl = getApiBaseUrl();
+  return `${baseUrl}/hunters/documents/${doc.id}/view`;
 };
 
 export default function HunterDashboard() {
@@ -468,8 +469,8 @@ export default function HunterDashboard() {
 
         // Charger la photo du chasseur
         try {
-          const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-          const photoUrl = `${baseUrl}/api/attachments/${permit.hunterId}/hunterPhoto?inline=1`;
+          const baseUrl = getApiBaseUrl();
+          const photoUrl = `${baseUrl}/attachments/${permit.hunterId}/hunterPhoto?inline=1`;
 
           const photoResponse = await fetch(photoUrl, {
             headers: {

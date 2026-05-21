@@ -671,6 +671,61 @@ import { db } from "./db.js";
             .returning();
         }
 
+        // Nullifier les références createdByUserId dans la table hunters
+        try {
+          console.log(`Nullification de hunters.createdByUserId pour l'utilisateur ${id}`);
+          await db.update(hunters)
+            .set({ createdByUserId: null })
+            .where(eq(hunters.createdByUserId, id));
+        } catch (err) {
+          console.log(`Erreur lors de la nullification de hunters.createdByUserId:`, err);
+        }
+
+        // Supprimer les messages envoyés ou reçus par cet utilisateur
+        try {
+          console.log(`Suppression des messages de l'utilisateur ${id}`);
+          await db.delete(messages)
+            .where(or(eq(messages.senderId, id), eq(messages.recipientId, id)));
+        } catch (err) {
+          console.log(`Erreur lors de la suppression des messages:`, err);
+        }
+
+        // Supprimer les lectures de messages groupés de cet utilisateur
+        try {
+          console.log(`Suppression des lectures de messages groupés de l'utilisateur ${id}`);
+          await db.delete(groupMessageReads)
+            .where(eq(groupMessageReads.userId, id));
+        } catch (err) {
+          console.log(`Erreur lors de la suppression des groupMessageReads:`, err);
+        }
+
+        // Supprimer les messages groupés envoyés par cet utilisateur
+        try {
+          console.log(`Suppression des messages groupés envoyés par l'utilisateur ${id}`);
+          await db.delete(groupMessages)
+            .where(eq(groupMessages.senderId, id));
+        } catch (err) {
+          console.log(`Erreur lors de la suppression des groupMessages:`, err);
+        }
+
+        // Supprimer les domaines de l'utilisateur
+        try {
+          console.log(`Suppression des userDomains de l'utilisateur ${id}`);
+          await db.delete(userDomains)
+            .where(eq(userDomains.userId, id));
+        } catch (err) {
+          console.log(`Erreur lors de la suppression des userDomains:`, err);
+        }
+
+        // Supprimer les abonnements push de l'utilisateur
+        try {
+          console.log(`Suppression des pushSubscriptions de l'utilisateur ${id}`);
+          await db.delete(pushSubscriptions)
+            .where(eq(pushSubscriptions.userId, id));
+        } catch (err) {
+          console.log(`Erreur lors de la suppression des pushSubscriptions:`, err);
+        }
+
         // Supprimer toutes les demandes de permis créées par cet utilisateur
         try {
           console.log(`Suppression des demandes de permis associées à l'utilisateur ${id}`);
@@ -2171,9 +2226,13 @@ import { db } from "./db.js";
       if (domaineId !== undefined) {
         conditions.push(eq(messages.domaineId, domaineId));
       }
-      return await db.select().from(messages)
+      // Filtrer les messages dont le destinataire n'existe plus (utilisateur supprimé)
+      return await db.select({ message: messages })
+        .from(messages)
+        .innerJoin(users, eq(users.id, messages.recipientId))
         .where(and(...conditions))
-        .orderBy(desc(messages.createdAt));
+        .orderBy(desc(messages.createdAt))
+        .then(rows => rows.map(r => r.message));
     }
 
     async getMessagesByRecipient(recipientId: number, domaineId?: number): Promise<Message[]> {
@@ -2189,9 +2248,13 @@ import { db } from "./db.js";
           ) as any
         );
       }
-      return await db.select().from(messages)
+      // Filtrer les messages dont l'expéditeur n'existe plus (utilisateur supprimé)
+      return await db.select({ message: messages })
+        .from(messages)
+        .innerJoin(users, eq(users.id, messages.senderId))
         .where(and(...conditions))
-        .orderBy(desc(messages.createdAt));
+        .orderBy(desc(messages.createdAt))
+        .then(rows => rows.map(r => r.message));
     }
 
     async getMessagesByParent(parentMessageId: number): Promise<Message[]> {

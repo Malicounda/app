@@ -65,11 +65,14 @@ const corsOptions: cors.CorsOptions = {
 
     // En production, on restreint aux origines autorisées
     const allowedOrigins = [
+      // ── Production frontends ──────────────────────────────────────────
+      'https://eforets.pages.dev',             // Cloudflare Pages (production)
+      // ── Développement local ───────────────────────────────────────────
       'http://localhost:5173',
       'http://127.0.0.1:5173',
       'http://192.168.252.85:5173',
       'http://192.168.166.85:5173',
-      'http://192.168.1.11:5173', // IP réseau actuelle
+      'http://192.168.1.11:5173',              // IP réseau LAN
       'http://localhost:5174',
       'http://127.0.0.1:5174',
       'http://localhost:3000',

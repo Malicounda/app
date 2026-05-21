@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/api';
+import { getApiBaseUrl } from '@/utils/environment';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -384,7 +385,7 @@ export default function Infractions() {
   // Compute server base URL (without /api) for static uploads
   const getServerBaseUrlForUploads = (): string => {
     try {
-      const envBase = (import.meta as any)?.env?.VITE_API_BASE_URL || (import.meta as any)?.env?.VITE_API_URL;
+      const envBase = getApiBaseUrl();
       if (envBase && typeof envBase === 'string' && /^https?:\/\//i.test(envBase)) {
         const base = envBase.replace(/\/+$/, '');
         return base.endsWith('/api') ? base.slice(0, -4) : base;

@@ -1,25 +1,20 @@
-import { getEnvironment } from "@/utils/environment";
+import { getEnvironment, getApiBaseUrl } from "@/utils/environment";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// Toujours utiliser le proxy Vite en développement pour éviter les cookies cross-site
-const getApiBaseUrl = () => {
-  const mode = import.meta.env.MODE || import.meta.env.NODE_ENV || 'development';
-  const rawEnv = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL) as string | undefined;
-  // En production, on respecte la variable si fournie
-  if (mode === 'production' && rawEnv) {
-    const base = rawEnv.replace(/\/+$/, "");
-    return base.endsWith("/api") ? base : `${base}/api`;
-  }
-  // En dev, n'autoriser qu'une valeur relative (commençant par /) sinon forcer /api
-  if (rawEnv && rawEnv.startsWith('/')) {
-    const base = rawEnv.replace(/\/+$/, "");
-    return base.endsWith('/api') ? base : `${base}/api`;
-  }
-  return '/api';
-};
-
 const API_BASE_URL = getApiBaseUrl();
-console.log('[API Base URL detected]', API_BASE_URL);
+
+function getFriendlyErrorMessage(error: any): string {
+  if (error?.message === "Failed to fetch" || (error instanceof TypeError && error.message.includes("Failed to fetch"))) {
+    const isLocal = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'));
+    if (isLocal) {
+      return "Impossible de se connecter au serveur de développement local. Vérifiez que le serveur backend est démarré sur http://localhost:3000 et que PostgreSQL est accessible.";
+    } else {
+      return "Impossible de se connecter au serveur de production. Veuillez vérifier votre connexion Internet ou réessayer plus tard. Le serveur est peut-être en cours de redémarrage.";
+    }
+  }
+  return error?.message || "Une erreur s'est produite lors de la requête.";
+}
 
 let __envPromise: Promise<'android' | 'desktop' | 'web'> | null = null;
 async function getEnvCached() {
@@ -222,10 +217,7 @@ export async function apiRequest<T>({
     if (error?.response) {
       throw error; // contient status, response, body
     }
-    const errorMessage =
-      error?.message === "Failed to fetch"
-        ? "Impossible de se connecter au serveur. Vérifiez que le serveur est en cours d'exécution sur http://127.0.0.1:3000 et que PostgreSQL est accessible."
-        : error?.message || "Une erreur s'est produite lors de la requête.";
+    const errorMessage = getFriendlyErrorMessage(error);
     throw new Error(errorMessage);
   }
 }
@@ -302,10 +294,7 @@ export function getQueryFn<T = any>(options: {
       if (error?.response) {
         throw error;
       }
-      const errorMessage =
-        error?.message === "Failed to fetch"
-          ? "Impossible de se connecter au serveur. Vérifiez que le serveur est en cours d'exécution sur http://127.0.0.1:3000 et que PostgreSQL est accessible."
-          : error?.message || "Une erreur s'est produite lors de la requête.";
+      const errorMessage = getFriendlyErrorMessage(error);
       throw new Error(errorMessage);
     }
   };

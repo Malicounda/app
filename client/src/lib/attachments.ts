@@ -1,9 +1,11 @@
+import { getApiBaseUrl } from "@/utils/environment";
+
 export function buildAttachmentUrl(fileName: string | null | undefined): string | null {
   if (!fileName) return null;
   const trimmed = fileName.trim();
   if (!trimmed) return null;
 
-  const base = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "";
+  const base = getApiBaseUrl();
   const origin = base ? base.replace(/\/api$/i, "") : "";
 
   if (trimmed.startsWith("http")) return trimmed;

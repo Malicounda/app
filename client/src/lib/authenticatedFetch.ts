@@ -1,16 +1,4 @@
-const getApiBaseUrl = () => {
-  const mode = import.meta.env.MODE || import.meta.env.NODE_ENV || 'development';
-  const rawEnv = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL) as string | undefined;
-  if (mode === 'production' && rawEnv) {
-    const base = rawEnv.replace(/\/+$/, '');
-    return base.endsWith('/api') ? base : `${base}/api`;
-  }
-  if (rawEnv && rawEnv.startsWith('/')) {
-    const base = rawEnv.replace(/\/+$/, '');
-    return base.endsWith('/api') ? base : `${base}/api`;
-  }
-  return '/api';
-};
+import { getApiBaseUrl } from "@/utils/environment";
 
 export const authenticatedFetch = async (url: string, init?: RequestInit): Promise<Response> => {
   const apiBaseUrl = getApiBaseUrl();

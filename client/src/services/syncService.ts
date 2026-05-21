@@ -1,5 +1,6 @@
 // Service de synchronisation pour Android
 import { getDatabaseConnection } from '../utils/database';
+import { getApiBaseUrl } from '../utils/environment';
 
 export interface SyncStatus {
   lastSync: string | null;
@@ -9,7 +10,8 @@ export interface SyncStatus {
 
 export class SyncService {
   private getApiBaseUrl() {
-    return 'http://localhost:3000';
+    const url = getApiBaseUrl();
+    return url.replace(/\/api$/, '');
   }
 
   private getAuthHeaders(): Record<string, string> {
