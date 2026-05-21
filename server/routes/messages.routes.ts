@@ -967,8 +967,23 @@ router.get('/unread-count', isAuthenticated, async (req, res) => {
     const userId = (req as any)?.user?.id;
     if (!userId) return res.status(401).json({ message: 'Non authentifié' });
 
-    const domaineId = await MessagingService.getAuthorizedContext(userId, req.query.domaineId, res);
-    if (domaineId === false) return;
+    let domaineId: number | undefined;
+    const rawDomaineId = req.query.domaineId;
+    const sanitizedDomaineId = (!rawDomaineId || rawDomaineId === 'undefined' || rawDomaineId === 'null')
+      ? undefined
+      : rawDomaineId;
+
+    if (sanitizedDomaineId !== undefined) {
+      const result = await DomainResolver.resolve(userId, sanitizedDomaineId);
+      if (result.status === "RESOLVED") {
+        domaineId = result.domaineId === null ? undefined : result.domaineId;
+      } else {
+        // En cas d'erreur ou de besoin de contexte (ex: multi-domaines sans contexte),
+        // pour l'unread-count (qui est un simple polling global de l'interface),
+        // on ne bloque pas avec une erreur HTTP. On ignore simplement le filtre.
+        domaineId = undefined;
+      }
+    }
 
     // null domaineId = no domain (default/supervisor agents) — don't filter by domain
     const counts = await storage.countUnreadMessages(userId, domaineId ?? undefined);

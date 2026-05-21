@@ -19,6 +19,11 @@ export class DomainResolver {
       return { status: "FORBIDDEN", message: "Utilisateur introuvable." };
     }
 
+    // Sanitize string versions of undefined or empty string
+    if (contextId === "undefined" || contextId === "") {
+      contextId = undefined;
+    }
+
     // Cas spécial: Si contextId est explicitement "null" ou null, on force le domaine Alerte (domaineId = null)
     if (contextId === "null" || contextId === null) {
       return { status: "RESOLVED", domaineId: null };

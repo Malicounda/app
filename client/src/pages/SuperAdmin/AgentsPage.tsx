@@ -61,6 +61,8 @@ type AgentRow = {
   phone: string | null;
   region: string | null;
   departement: string | null;
+  commune: string | null;
+  arrondissement: string | null;
   userRole: string | null;
   adminDomainName?: string | null;
 };
@@ -158,6 +160,12 @@ export default function SuperAdminAgentsPage() {
     queryFn: () => apiRequest<RoleMetier[]>({ url: "/api/roles-metier", method: "GET" }),
   });
 
+  const { data: departementsFeature } = useQuery({
+    queryKey: ["/api/departements"],
+    queryFn: () => apiRequest<any>({ url: "/api/departements", method: "GET" }),
+  });
+  const departementsList = departementsFeature?.features || [];
+
   const rows = useMemo(() => {
     const list = Array.isArray(data) ? data : [];
 
@@ -234,6 +242,8 @@ export default function SuperAdminAgentsPage() {
   const [contactEmailUnlocked, setContactEmailUnlocked] = useState(false);
   const [editRegion, setEditRegion] = useState("");
   const [editDepartement, setEditDepartement] = useState("");
+  const [editCommune, setEditCommune] = useState("");
+  const [editArrondissement, setEditArrondissement] = useState("");
   const [regionUnlocked, setRegionUnlocked] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -248,6 +258,49 @@ export default function SuperAdminAgentsPage() {
   const [newContactEmail, setNewContactEmail] = useState("");
   const [newRegion, setNewRegion] = useState("");
   const [newDepartement, setNewDepartement] = useState("");
+  const [newCommune, setNewCommune] = useState("");
+  const [newArrondissement, setNewArrondissement] = useState("");
+
+  // Normalize a string for comparison (remove accents, lowercase)
+  const normalizeStr = (s: string) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[-_\s]+/g, "");
+
+  const addDepId = departementsList.find((f: any) =>
+    normalizeStr(String(f.properties?.nom || "")) === normalizeStr(newDepartement) ||
+    normalizeStr(String(f.properties?.code || "")) === normalizeStr(newDepartement)
+  )?.properties?.id;
+  const editDepId = departementsList.find((f: any) =>
+    normalizeStr(String(f.properties?.nom || "")) === normalizeStr(editDepartement) ||
+    normalizeStr(String(f.properties?.code || "")) === normalizeStr(editDepartement)
+  )?.properties?.id;
+
+  const { data: arrondissementsAddFeature } = useQuery({
+    queryKey: ["/api/arrondissements", addDepId],
+    queryFn: () => apiRequest<any>({ url: `/api/arrondissements${addDepId ? `?departementId=${addDepId}` : ""}`, method: "GET" }),
+    enabled: !!addDepId,
+  });
+  const arrondissementsAddList = arrondissementsAddFeature?.features || [];
+
+  const { data: communesAddFeature } = useQuery({
+    queryKey: ["/api/communes", addDepId],
+    queryFn: () => apiRequest<any>({ url: `/api/communes${addDepId ? `?departementId=${addDepId}` : ""}`, method: "GET" }),
+    enabled: !!addDepId,
+  });
+  const communesAddList = communesAddFeature?.features || [];
+
+  const { data: arrondissementsEditFeature } = useQuery({
+    queryKey: ["/api/arrondissements", editDepId],
+    queryFn: () => apiRequest<any>({ url: `/api/arrondissements${editDepId ? `?departementId=${editDepId}` : ""}`, method: "GET" }),
+    enabled: !!editDepId,
+  });
+  const arrondissementsEditList = arrondissementsEditFeature?.features || [];
+
+  const { data: communesEditFeature } = useQuery({
+    queryKey: ["/api/communes", editDepId],
+    queryFn: () => apiRequest<any>({ url: `/api/communes${editDepId ? `?departementId=${editDepId}` : ""}`, method: "GET" }),
+    enabled: !!editDepId,
+  });
+  const communesEditList = communesEditFeature?.features || [];
+
 
   const handleAddOpenChange = (open: boolean) => {
     setAddOpen(open);
@@ -303,6 +356,8 @@ export default function SuperAdminAgentsPage() {
           roleMetierId: newRoleMetierId && newRoleMetierId !== "none" ? Number(newRoleMetierId) : null,
           region: newRegion || null,
           departement: newDepartement || null,
+          commune: newCommune || null,
+          arrondissement: newArrondissement || null,
           contact: {
             telephone: newContactTelephone.trim() || null,
             email: email || null,
@@ -325,9 +380,14 @@ export default function SuperAdminAgentsPage() {
       setNewContactEmail("");
       setNewRegion("");
       setNewDepartement("");
+      setNewCommune("");
+      setNewArrondissement("");
     },
     onError: (e: any) => {
-      const msg = String(e?.message || "Ajout impossible");
+      let msg = String(e?.message || "Ajout impossible");
+      if (e?.body?.errors && Array.isArray(e.body.errors)) {
+        msg = e.body.errors.map((err: any) => `${err.path?.join('.')}: ${err.message}`).join(', ');
+      }
       toast({ title: "Erreur", description: msg, variant: "destructive" });
     },
   });
@@ -359,6 +419,8 @@ export default function SuperAdminAgentsPage() {
     setContactEmail(String(c?.email || ""));
     setEditRegion(row.region || "");
     setEditDepartement(row.departement || "");
+    setEditCommune(row.commune || "");
+    setEditArrondissement(row.arrondissement || "");
     setRegionUnlocked(false);
   };
 
@@ -381,6 +443,8 @@ export default function SuperAdminAgentsPage() {
     setContactEmail("");
     setEditRegion("");
     setEditDepartement("");
+    setEditCommune("");
+    setEditArrondissement("");
     setRegionUnlocked(false);
     // Ne pas impacter la section mot de passe (gérée indépendamment)
   };
@@ -410,9 +474,13 @@ export default function SuperAdminAgentsPage() {
       setEditing(null);
     },
     onError: (e: any) => {
+      let msg = String(e?.message || "Mise à jour impossible");
+      if (e?.body?.errors && Array.isArray(e.body.errors)) {
+        msg = e.body.errors.map((err: any) => `${err.path?.join('.')}: ${err.message}`).join(', ');
+      }
       toast({
         title: "Erreur",
-        description: e?.message || "Mise à jour impossible",
+        description: msg,
         variant: "destructive",
       });
     },
@@ -438,48 +506,26 @@ export default function SuperAdminAgentsPage() {
       email: contactEmail || null,
     };
 
-    const nomNormalized = normalizeNom(nom);
-    const prenomNormalized = normalizePrenom(prenom);
-    const gradeNormalized = normalizeGrade(grade);
-
-    const normalizedGrade = genre === "F" ? feminizeGrade(gradeNormalized) : gradeNormalized;
-    if (genre === "F" && normalizedGrade !== grade) {
-      setGrade(normalizedGrade);
-    }
-
-    if (nomNormalized !== nom) setNom(nomNormalized);
-    if (prenomNormalized !== prenom) setPrenom(prenomNormalized);
-    if (gradeNormalized !== grade) setGrade(gradeNormalized);
-
-    const payload = {
-      matriculeSol,
-      prenom: prenomNormalized || null,
-      nom: nomNormalized || null,
-      grade: normalizedGrade || null,
-      genre: genre ? genre : null,
-      roleMetierId: roleMetierId ? Number(roleMetierId) : null,
-      contact,
-      password: enablePasswordChange && newPassword.trim() ? newPassword.trim() : undefined,
+    const data: any = {
+      __byUserId: editing.userId,
+      matriculeSol: matriculeSol.trim() || null,
+      nom: normalizeNom(nom) || null,
+      prenom: normalizePrenom(prenom) || null,
+      grade: normalizeGrade(grade) || null,
+      genre: genre && genre !== "none" ? genre : null,
+      roleMetierId: roleMetierId && roleMetierId !== "none" ? Number(roleMetierId) : null,
+      contact: Object.keys(contact).length ? contact : null,
+      region: editRegion || null,
+      departement: editDepartement || null,
+      commune: editCommune || null,
+      arrondissement: editArrondissement || null,
     };
 
-    // Update region/departement on users table if changed
-    if (regionUnlocked && editing.userId) {
-      const userPayload: Record<string, any> = {};
-      if (editRegion !== (editing.region || "")) userPayload.region = editRegion || null;
-      if (editDepartement !== (editing.departement || "")) userPayload.departement = editDepartement || null;
-      if (Object.keys(userPayload).length > 0) {
-        apiRequest({ url: `/api/users/${editing.userId}`, method: "PUT", data: userPayload }).catch((e: any) => {
-          console.warn("Failed to update user region/departement:", e);
-        });
-      }
+    if (enablePasswordChange && newPassword.trim()) {
+      data.password = newPassword.trim();
     }
 
-    if (editing.idAgent) {
-      updateMutation.mutate({ idAgent: editing.idAgent, data: payload });
-      return;
-    }
-
-    updateMutation.mutate({ idAgent: 0, data: { ...payload, __byUserId: editing.userId } });
+    updateMutation.mutate({ idAgent: editing.idAgent || 0, data });
   };
 
   return (
@@ -952,7 +998,7 @@ export default function SuperAdminAgentsPage() {
                   <Label>Département / Secteur</Label>
                   <Select
                     value={editDepartement || "none"}
-                    onValueChange={(v) => setEditDepartement(v === "none" ? "" : v)}
+                    onValueChange={(v) => { setEditDepartement(v === "none" ? "" : v); setEditArrondissement(""); setEditCommune(""); }}
                     disabled={!editUnlocked && !regionUnlocked}
                   >
                     <SelectTrigger className={!editUnlocked && !regionUnlocked ? "bg-muted text-muted-foreground" : ""}>
@@ -966,6 +1012,46 @@ export default function SuperAdminAgentsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              )}
+              {editDepartement && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Arrondissement</Label>
+                    <Select
+                      value={editArrondissement || "none"}
+                      onValueChange={(v) => setEditArrondissement(v === "none" ? "" : v)}
+                      disabled={!editUnlocked && !regionUnlocked}
+                    >
+                      <SelectTrigger className={!editUnlocked && !regionUnlocked ? "bg-muted text-muted-foreground" : ""}>
+                        <SelectValue placeholder="Sélectionner un arrondissement" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucun</SelectItem>
+                        {arrondissementsEditList.map((a: any) => (
+                          <SelectItem key={a.properties.id} value={a.properties.nom}>{a.properties.nom}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Commune</Label>
+                    <Select
+                      value={editCommune || "none"}
+                      onValueChange={(v) => setEditCommune(v === "none" ? "" : v)}
+                      disabled={!editUnlocked && !regionUnlocked}
+                    >
+                      <SelectTrigger className={!editUnlocked && !regionUnlocked ? "bg-muted text-muted-foreground" : ""}>
+                        <SelectValue placeholder="Sélectionner une commune" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucune</SelectItem>
+                        {communesEditList.map((c: any) => (
+                          <SelectItem key={c.properties.id} value={c.properties.nom}>{c.properties.nom}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
               )}
               <div className="md:col-span-2 flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -1135,7 +1221,7 @@ export default function SuperAdminAgentsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Niveau</Label>
-                <Select value={newRegion || "none"} onValueChange={(v) => { setNewRegion(v === "none" ? "" : v); setNewDepartement(""); }}>
+                <Select value={newRegion || "none"} onValueChange={(v) => { setNewRegion(v === "none" ? "" : v); setNewDepartement(""); setNewArrondissement(""); setNewCommune(""); }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un niveau" />
                   </SelectTrigger>
@@ -1151,7 +1237,7 @@ export default function SuperAdminAgentsPage() {
               {newRegion && (departmentsByRegion as any)[newRegion] && (
                 <div className="space-y-2">
                   <Label>Département</Label>
-                  <Select value={newDepartement || "none"} onValueChange={(v) => setNewDepartement(v === "none" ? "" : v)}>
+                  <Select value={newDepartement || "none"} onValueChange={(v) => { setNewDepartement(v === "none" ? "" : v); setNewArrondissement(""); setNewCommune(""); }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner un département" />
                     </SelectTrigger>
@@ -1163,6 +1249,38 @@ export default function SuperAdminAgentsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              )}
+              {newDepartement && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Arrondissement</Label>
+                    <Select value={newArrondissement || "none"} onValueChange={(v) => setNewArrondissement(v === "none" ? "" : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner un arrondissement" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucun</SelectItem>
+                        {arrondissementsAddList.map((a: any) => (
+                          <SelectItem key={a.properties.id} value={a.properties.nom}>{a.properties.nom}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Commune</Label>
+                    <Select value={newCommune || "none"} onValueChange={(v) => setNewCommune(v === "none" ? "" : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner une commune" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucune</SelectItem>
+                        {communesAddList.map((c: any) => (
+                          <SelectItem key={c.properties.id} value={c.properties.nom}>{c.properties.nom}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
               )}
             </div>
 

@@ -21,6 +21,8 @@ const createAgentSchema = z.object({
   contact: z.any().optional().nullable(),
   region: z.string().optional().nullable(),
   departement: z.string().optional().nullable(),
+  commune: z.string().optional().nullable(),
+  arrondissement: z.string().optional().nullable(),
 });
 
 const updateAgentSchema = z.object({
@@ -32,6 +34,8 @@ const updateAgentSchema = z.object({
   roleMetierId: z.number().int().optional().nullable(),
   contact: z.any().optional().nullable(),
   password: z.string().min(6).optional().nullable(),
+  commune: z.string().optional().nullable(),
+  arrondissement: z.string().optional().nullable(),
 });
 
 async function getAgentJoinedRow(idAgent: number) {
@@ -52,6 +56,8 @@ async function getAgentJoinedRow(idAgent: number) {
       phone: users.phone,
       region: users.region,
       departement: users.departement,
+      commune: users.commune,
+      arrondissement: users.arrondissement,
       userRole: users.role,
       roleMetierLabel: rolesMetier.labelFr,
     })
@@ -118,6 +124,8 @@ export async function listAgents(req: Request, res: Response) {
         phone: users.phone,
         region: users.region,
         departement: users.departement,
+        commune: users.commune,
+        arrondissement: users.arrondissement,
         userRole: users.role,
         roleMetierLabel: rolesMetier.labelFr,
       })
@@ -184,6 +192,8 @@ export async function listAgents(req: Request, res: Response) {
         phone: users.phone,
         region: users.region,
         departement: users.departement,
+        commune: users.commune,
+        arrondissement: users.arrondissement,
         firstName: users.firstName,
         lastName: users.lastName,
         userRole: users.role,
@@ -221,6 +231,8 @@ export async function listAgents(req: Request, res: Response) {
         phone: r?.phone ?? null,
         region: r?.region ?? null,
         departement: r?.departement ?? null,
+        commune: r?.commune ?? null,
+        arrondissement: r?.arrondissement ?? null,
         userRole: r?.userRole ?? 'admin',
         roleMetierLabel: null,
         adminDomainName: domainName,
@@ -257,6 +269,8 @@ export async function upsertAgentByUser(req: Request, res: Response) {
       if (parsed.contact.telephone !== undefined) userUpdateData.phone = parsed.contact.telephone;
       if (parsed.contact.email !== undefined) userUpdateData.email = parsed.contact.email;
     }
+    if (parsed.commune !== undefined) userUpdateData.commune = parsed.commune;
+    if (parsed.arrondissement !== undefined) userUpdateData.arrondissement = parsed.arrondissement;
 
     if (parsed.password) {
       const salt = await bcrypt.genSalt(10);
@@ -401,6 +415,8 @@ export async function createAgent(req: Request, res: Response) {
           active: false as any,
           region: (parsed.region ?? null) as any,
           departement: (parsed.departement ?? null) as any,
+          commune: (parsed.commune ?? null) as any,
+          arrondissement: (parsed.arrondissement ?? null) as any,
         } as any)
         .returning({ id: users.id });
 
@@ -479,6 +495,8 @@ export async function updateAgent(req: Request, res: Response) {
       if (parsed.contact.telephone !== undefined) userUpdateData.phone = parsed.contact.telephone;
       if (parsed.contact.email !== undefined) userUpdateData.email = parsed.contact.email;
     }
+    if (parsed.commune !== undefined) userUpdateData.commune = parsed.commune;
+    if (parsed.arrondissement !== undefined) userUpdateData.arrondissement = parsed.arrondissement;
 
     if (parsed.password) {
       const salt = await bcrypt.genSalt(10);
