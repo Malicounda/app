@@ -1312,7 +1312,10 @@ function AlertsPage() {
               size="sm"
               className="text-gray-600 hover:text-gray-900 flex items-center gap-2 transition-all hover:bg-gray-100"
               onClick={() => {
-                const isAlerte = (user as any)?.isSupervisorRole || (user as any)?.isDefaultRole || (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE');
+                const _alertDomain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
+                const isAlerte = _alertDomain === 'ALERTE' ||
+                  ((_alertDomain !== 'CHASSE' && _alertDomain !== 'REBOISEMENT') &&
+                    ((user as any)?.isSupervisorRole || (user as any)?.isDefaultRole));
                 if (isAlerte) {
                   navigate((user as any)?.isSupervisorRole ? '/supervisor' : '/default-home');
                 } else {

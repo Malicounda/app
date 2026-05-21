@@ -20,7 +20,11 @@ export const getHomePage = (role?: string, type?: string, isSuperAdmin?: boolean
     domain = (localStorage.getItem('domain') || '').toUpperCase();
   } catch (e) {}
 
-  if (domain === 'ALERTE' || isSupervisorRole || isDefaultRole) {
+  // Redirection Alerte : uniquement si le domaine est explicitement ALERTE,
+  // OU si les flags isDefaultRole/isSupervisorRole sont actifs MAIS que le domaine
+  // n'est pas CHASSE ni REBOISEMENT (évite la contamination inter-domaines).
+  const isAlerteDomain = domain === 'ALERTE' || ((domain !== 'CHASSE' && domain !== 'REBOISEMENT') && !!(isSupervisorRole || isDefaultRole));
+  if (isAlerteDomain) {
     if (isSupervisorRole) {
       return '/supervisor';
     } else {

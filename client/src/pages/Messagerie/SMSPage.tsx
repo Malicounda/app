@@ -92,7 +92,10 @@ export default function SimpleSMSPage() {
   const role = (user?.role || '').toLowerCase();
   const isDefaultRole = !!(user as any)?.isDefaultRole;
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
-  const isAlerteDomain = isDefaultRole || isSupervisorRole || (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE');
+  const _smsDomain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
+  const isAlerteDomain = _smsDomain === 'ALERTE' ||
+    ((_smsDomain !== 'CHASSE' && _smsDomain !== 'REBOISEMENT') &&
+      (isDefaultRole || isSupervisorRole));
   const usePhoneMessagingUi = isAlerteDomain;
   const userRegionLabel = String((user as any)?.region || '').trim();
   const userDeptLabel = String((user as any)?.departement || '').trim();

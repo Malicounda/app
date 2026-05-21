@@ -17,7 +17,13 @@ export default function HomePageWrapper() {
     if (isAuthenticated && user && !isLoading) {
       // Nouveau flux: ne plus rediriger vers la route d'inscription forcée.
       // Le tableau de bord chasseur gère lui-même l'affichage de la complétion de profil si nécessaire (mode embarqué/modal).
-      const homePage = getHomePage(user.role, user.type);
+      const homePage = getHomePage(
+        user.role,
+        user.type,
+        (user as any).isSuperAdmin,
+        !!(user as any).isDefaultRole,
+        !!(user as any).isSupervisorRole
+      );
       setLocation(homePage);
     }
   }, [isAuthenticated, user, isLoading, setLocation]);

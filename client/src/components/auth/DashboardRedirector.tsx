@@ -49,21 +49,21 @@ export default function DashboardRedirector() {
     let target = '/login';
 
     // ──────────────────────────────────────────────
-    // 1. DOMAINE ALERTE ou Rôles Alerte
+    // 1. SUPER ADMIN — priorité absolue
     // ──────────────────────────────────────────────
-    if (domain === 'ALERTE' || (user as any)?.isSupervisorRole || (user as any)?.isDefaultRole) {
-      if (isSuperAdmin || (user as any)?.isSupervisorRole) {
+    if (isSuperAdmin) {
+      localStorage.removeItem('domain');
+      target = '/superadmin/agents';
+
+      // ──────────────────────────────────────────────
+      // 2. DOMAINE ALERTE ou Rôles Alerte
+      // ──────────────────────────────────────────────
+    } else if (domain === 'ALERTE' || ((domain !== 'CHASSE' && domain !== 'REBOISEMENT') && ((user as any)?.isSupervisorRole || (user as any)?.isDefaultRole))) {
+      if ((user as any)?.isSupervisorRole) {
         target = '/supervisor';
       } else {
         target = '/default-home';
       }
-
-      // ──────────────────────────────────────────────
-      // 2. SUPER ADMIN — priorité absolue hors ALERTE
-      // ──────────────────────────────────────────────
-    } else if (isSuperAdmin) {
-      localStorage.removeItem('domain');
-      target = '/superadmin/agents';
 
       // ──────────────────────────────────────────────
       // 3. DOMAINE REBOISEMENT

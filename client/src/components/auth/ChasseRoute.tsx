@@ -25,8 +25,12 @@ export default function ChasseRoute({ children, allowedRoles }: ChasseRouteProps
 
   const domain = (localStorage.getItem('domain') || '').toUpperCase();
 
-  // Agents avec rôle par défaut ou superviseur (domaine Alerte) — accès aux pages partagées
-  if (domain === 'ALERTE' || (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole) return <>{children}</>;
+  // Agents du domaine Alerte (rôle par défaut ou superviseur) — accès aux pages partagées
+  // Note: on vérifie que le domaine est bien ALERTE et pas REBOISEMENT pour éviter la contamination cross-domaine
+  const isAlerteDomainUser = domain === 'ALERTE' ||
+    ((domain !== 'CHASSE' && domain !== 'REBOISEMENT') &&
+      ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
+  if (isAlerteDomainUser) return <>{children}</>;
 
   if (!isAuthenticated) {
     // Le useEffect dans le composant parent s'occupe de la redirection

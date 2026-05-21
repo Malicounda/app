@@ -132,7 +132,10 @@ function Router() {
   }, [isLoading, user]);
 
   // Déterminer si l'utilisateur doit avoir le verrouillage désactivé (Alerte, Chasseurs, Guides)
-  const isAlerteDomain = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole || (typeof window !== 'undefined' && localStorage.getItem('domain')?.toUpperCase() === 'ALERTE');
+  const _appDomain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
+  const isAlerteDomain = _appDomain === 'ALERTE' ||
+    ((_appDomain !== 'CHASSE' && _appDomain !== 'REBOISEMENT') &&
+      ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
   const isHunterOrGuide = user?.role === 'hunter' || user?.role === 'hunting-guide';
   const disableLockScreen = isAlerteDomain || isHunterOrGuide;
 

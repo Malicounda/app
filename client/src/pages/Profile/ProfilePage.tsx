@@ -143,7 +143,10 @@ export default function ProfilePage() {
     );
   } else {
     // Page de profil pour les administrateurs et les agents
-    const isAlerteDomain = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole;
+    const _profileDomain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
+    const isAlerteDomain = _profileDomain === 'ALERTE' ||
+      ((_profileDomain !== 'CHASSE' && _profileDomain !== 'REBOISEMENT') &&
+        ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
     const roleUpper = (s?: string | null) => (s || "").toUpperCase();
     const initials = ((user?.firstName?.[0] || "") + (user?.lastName?.[0] || "")).toUpperCase() || "A";
 

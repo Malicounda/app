@@ -280,15 +280,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const domain = (localStorage.getItem('domain') || '').toUpperCase();
         let homePage: string;
 
-        if (domain === 'ALERTE' || (enrichedUser as any).isSupervisorRole || (enrichedUser as any).isDefaultRole) {
-          if (isSuperAdmin || (enrichedUser as any).isSupervisorRole) {
+        // Redirection Alerte : uniquement si domaine ALERTE explicite OU si
+        // les flags isDefaultRole/isSupervisorRole sont présents SANS être en domaine CHASSE/REBOISEMENT
+        const isAlerteDomain = domain === 'ALERTE' ||
+          ((domain !== 'CHASSE' && domain !== 'REBOISEMENT') &&
+            ((enrichedUser as any).isSupervisorRole || (enrichedUser as any).isDefaultRole));
+
+        if (isSuperAdmin) {
+          await removePreference('domain');
+          homePage = '/superadmin/agents';
+        } else if (isAlerteDomain) {
+          if ((enrichedUser as any).isSupervisorRole) {
             homePage = '/supervisor';
           } else {
             homePage = '/default-home';
           }
-        } else if (isSuperAdmin) {
-          await removePreference('domain');
-          homePage = '/superadmin/agents';
         } else if (domain === 'REBOISEMENT') {
           homePage = enrichedUser.role === 'admin' ? '/reboisement/admin' : '/reboisement';
         } else {

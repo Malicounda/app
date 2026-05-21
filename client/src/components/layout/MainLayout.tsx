@@ -43,7 +43,9 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   const unreadMsg = unreadMsgCount?.total ?? 0;
 
   const isSuperAdmin = (user as any)?.isSuperAdmin === true;
-  const isAlerteAgent = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole || (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE');
+  const isAlerteAgent = (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE') ||
+    ((() => { const d = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase(); return d !== 'CHASSE' && d !== 'REBOISEMENT'; })() &&
+      ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
   const chromeless = isAlerteAgent && !isSuperAdmin;
 
   const normalizedRole = (user?.role || '')

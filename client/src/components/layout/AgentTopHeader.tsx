@@ -39,7 +39,10 @@ export default function AgentTopHeader() {
   const localisation = [(user as any)?.region, (user as any)?.departement].filter(Boolean).join(" — ") || null;
   const roleUpper = (s?: string | null) => (s || "").toUpperCase();
 
-  const isAlerteDomain = (user as any)?.isDefaultRole || (user as any)?.isSupervisorRole || (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE');
+  const _domain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
+  const isAlerteDomain = _domain === 'ALERTE' ||
+    ((_domain !== 'CHASSE' && _domain !== 'REBOISEMENT') &&
+      ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
 
   return (
     <div className="shrink-0 flex flex-col">
