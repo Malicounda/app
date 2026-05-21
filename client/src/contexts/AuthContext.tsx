@@ -346,7 +346,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (prevDomain === "ALERTE") {
         setLocation("/alerte-login");
       } else if (prevDomain === "REBOISEMENT") {
-        setLocation("/reboisement/login");
+        setLocation("/reboisement-login");
       } else {
         setLocation("/");
       }

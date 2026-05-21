@@ -76,7 +76,7 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
     if (prevDomain === "ALERTE") {
       window.location.href = "/alerte-login";
     } else if (prevDomain === "REBOISEMENT") {
-      window.location.href = "/reboisement/login";
+      window.location.href = "/reboisement-login";
     } else {
       window.location.href = "/login";
     }
