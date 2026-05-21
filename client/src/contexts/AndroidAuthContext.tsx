@@ -9,8 +9,12 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  authInitialized: boolean;
+  serverUnavailable: boolean;
+  lastSuccessfulAuthSync: string | null;
   login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   error: string | null;
 }
 
@@ -28,6 +32,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
+  const [serverUnavailable, setServerUnavailable] = useState(false);
+  const [lastSuccessfulAuthSync, setLastSuccessfulAuthSync] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const authService = AuthService.getInstance();
@@ -52,12 +59,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser && authService.isAuthenticated()) {
         setUser(currentUser);
         setIsAuthenticated(true);
+        setLastSuccessfulAuthSync(new Date().toISOString());
       }
     } catch (error) {
       console.error('Erreur lors de l\'initialisation:', error);
       setError('Erreur lors de l\'initialisation de l\'application');
     } finally {
       setIsLoading(false);
+      setAuthInitialized(true);
+    }
+  };
+
+  const refreshUser = async () => {
+    // Implémentation optionnelle pour Android / SQLite local
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      setUser(currentUser);
     }
   };
 
@@ -74,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.success && result.user) {
         setUser(result.user);
         setIsAuthenticated(true);
+        setLastSuccessfulAuthSync(new Date().toISOString());
       } else {
         throw new Error(result.error || 'Erreur de connexion');
       }
@@ -93,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setIsAuthenticated(false);
       setError(null);
+      setLastSuccessfulAuthSync(null);
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
     } finally {
@@ -104,8 +123,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     isAuthenticated,
     isLoading,
+    authInitialized,
+    serverUnavailable,
+    lastSuccessfulAuthSync,
     login,
     logout,
+    refreshUser,
     error
   };
 

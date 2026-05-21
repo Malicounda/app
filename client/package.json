@@ -24,8 +24,9 @@
   },
   "dependencies": {
     "@babel/runtime-corejs3": "^7.28.4",
-    "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/local-notifications": "^8.2.0",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.1",
     "@hookform/resolvers": "^3.3.4",
     "@radix-ui/react-avatar": "^1.0.4",
     "@radix-ui/react-dialog": "^1.1.2",

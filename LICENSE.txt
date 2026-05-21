@@ -1,81 +1,25 @@
 Système de Contrôle et de Digitalisation (SCoDi)
-Copyright © 2025 Abdoulaye SENE – Ingénieur des Travaux des Eaux et Forêts
+SCoDi est une application de gestion forestière destinée à la digitalisation et au contrôle des activités des Eaux et Forêts au Sénégal.
+Elle permet la traçabilité des opérations, le suivi des activités forestières et l'amélioration de la réponse face aux menaces (braconnage, trafic de bois, feux de brousse).
 
-Tous droits réservés.
+CONDITIONS D'UTILISATION
+En utilisant cette application, vous acceptez les conditions suivantes :
+Usage strictement professionnel et autorisé uniquement
+Interdiction de copie, modification ou distribution
+Interdiction de rétro-ingénierie
+Protection des données et confidentialité obligatoire
+L'application reste la propriété exclusive de son auteur
 
-Toute reproduction, distribution, modification ou utilisation non autorisée de cette application est strictement interdite.
+LIMITATION DE RESPONSABILITÉ
+L'application est fournie « en l'état », sans garantie. L'auteur ne peut être tenu responsable des dommages liés à son utilisation.
 
-Contact :
-Email : [bisnetprofit@gmail.com](mailto:bisnetprofit@gmail.com)
+APPUI 
+Lt-Col Elhadji Malick JOHN
+Lt-Col Daniel MANGA
 
-═══════════════════
-
-CONTRAT DE LICENCE D’UTILISATION DE L’APPLICATION (CLUF)
-
-Cette application ainsi que toute sa documentation associée sont protégées par les lois relatives au droit d’auteur et à la propriété intellectuelle.
-
-L’installation, l’accès ou l’utilisation de cette application implique l’acceptation complète des conditions définies dans la présente licence.
-
-1. DROITS D’UTILISATION
-
-* L’utilisateur bénéficie d’un droit d’utilisation limité, non exclusif et non transférable.
-* L’utilisation de l’application est strictement limitée aux usages autorisés par l’auteur.
-* Chaque installation de l’application nécessite une licence valide délivrée par l’auteur.
-* Une copie de sauvegarde peut être réalisée uniquement à des fins de sécurité et de restauration.
-
-2. RESTRICTIONS
-
-Sauf autorisation écrite préalable de l’auteur, il est strictement interdit de :
-
-* reproduire, copier ou dupliquer tout ou partie de l’application ;
-* modifier, adapter ou altérer l’application ;
-* distribuer, vendre, louer ou céder l’application à des tiers ;
-* utiliser l’application à des fins commerciales non autorisées ;
-* effectuer de la rétro-ingénierie, décompiler ou tenter d’extraire le code source de l’application ;
-* supprimer ou modifier les mentions de propriété intellectuelle présentes dans l’application.
-
-3. GARANTIE ET RESPONSABILITÉ
-
-* Cette application est fournie « telle quelle », sans garantie expresse ou implicite.
-* L’auteur ne garantit pas que l’application sera exempte d’erreurs, d’interruptions ou de dysfonctionnements.
-* L’auteur ne pourra être tenu responsable des dommages directs ou indirects résultant de l’utilisation ou de l’impossibilité d’utiliser l’application.
-
-4. PROPRIÉTÉ INTELLECTUELLE
-
-* Tous les droits de propriété intellectuelle relatifs à l’application demeurent la propriété exclusive de l’auteur.
-* Les noms, logos, marques et éléments graphiques associés à l’application sont protégés.
-* Aucun droit de propriété sur le code source ou les composants internes de l’application n’est transféré à l’utilisateur.
-
-5. CONFIDENTIALITÉ ET DONNÉES
-
-* L’utilisateur s’engage à respecter la confidentialité des données traitées par l’application.
-* Toute utilisation des données doit être conforme aux lois et réglementations en vigueur.
-
-6. SUPPORT ET MISES À JOUR
-
-* Le support technique est fourni selon les modalités définies par l’auteur.
-* Les mises à jour, améliorations ou correctifs peuvent être fournis à la discrétion exclusive de l’auteur.
-
-7. RÉSILIATION
-
-* Cette licence peut être suspendue ou résiliée immédiatement en cas de non-respect des présentes conditions.
-* En cas de résiliation, l’utilisateur doit cesser immédiatement toute utilisation de l’application et supprimer toutes les copies en sa possession.
-
-8. LOI APPLICABLE ET JURIDICTION
-
-* La présente licence est régie par les lois de la République du Sénégal.
-* Tout litige relatif à l’interprétation ou à l’exécution de cette licence sera soumis aux juridictions compétentes du Sénégal.
-
-════════════════
-Pour toute demande d’autorisation, d’information ou d’acquisition de licence :
-
-Abdoulaye SENE
-Ingénieur des Travaux des Eaux et Forêts
-
-Email : [bisnetprofit@gmail.com](mailto:bisnetprofit@gmail.com)
-
-════════════════
-
-Version 1.0.0 – 2025
-
-Cette licence entre en vigueur dès l’installation ou l’utilisation de l’application.
+VALIDATION
+En installant ou utilisant SCoDi, vous acceptez automatiquement cette licence.
+VERSION
+v1.0.0 — 2025-00-491
+© Abdoulaye SENE — Tous droits réservés
+Contact : bisnetprofit@gmail.com

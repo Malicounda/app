@@ -24,7 +24,7 @@ interface MainLayoutProps {
 export default function MainLayout({ children, hideMinistryHeader = false }: MainLayoutProps) {
   const { stats } = useStats();
   const [location, setLocation] = useLocation();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, authInitialized, serverUnavailable } = useAuth();
   const { data: unreadData } = useUnreadNotificationsCount();
   const unread = unreadData?.count ?? 0;
 
@@ -258,7 +258,14 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   // - <main>: flex-1 overflow-y-auto (the only scrollable element)
   // No wheel handler needed anymore.
 
-  const showRestrictedAccess = chromeless && !(user as any)?.isDefaultRole && !(user as any)?.isSupervisorRole && location !== '/profile';
+  const showRestrictedAccess =
+    authInitialized &&
+    !serverUnavailable &&
+    chromeless &&
+    !!user &&
+    !(user as any)?.isDefaultRole &&
+    !(user as any)?.isSupervisorRole &&
+    location !== '/profile';
 
   const restrictedContent = (
     <div className="w-full min-h-[75vh] flex flex-col items-center justify-center px-4 bg-[#f8fafc]">
