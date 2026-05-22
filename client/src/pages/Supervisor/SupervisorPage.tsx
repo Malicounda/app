@@ -8,20 +8,40 @@ import { AlertTriangle, Map, MessageSquare, Info } from "lucide-react";
 import { useLocation } from "wouter";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import LicenseDialog from "@/components/layout/LicenseDialog";
-import { formatAlertLocation } from "@/utils/alertZoneScope";
+import { buildSupervisorTickerParts } from "@/utils/alertZoneScope";
 
+/**
+ * Format ticker : Grade Nom — Grade — Région — Titre alerte — commune / arrondissement / département / région
+ * Ex. GEF Ndèye Astou DIBA — GEF — Dakar — Alerte feux_de_brousse — Rufisque / Ouest / Dakar / Dakar
+ * (lieu GPS via resolveAdministrativeAreas + tables shapefile côté API)
+ */
 function renderTickerItem(n: any) {
-  const sender = n.alert?.sender ?? n.alert?.users;
-  const grade = sender?.grade || "";
-  const fullName = [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") || "Agent inconnu";
-  const localisationStr = formatAlertLocation(n.alert);
-  const title = n.alert?.title || n.message || "Alerte";
+  const { grade, fullName, zoneSummary, title, gpsLocation } = buildSupervisorTickerParts(n);
+  const sep = <span className="text-amber-600 mx-0.5">—</span>;
+
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900">
       <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
-      <span className="font-bold">{grade ? `${grade} ` : ""}{fullName}</span>
-      <span className="text-amber-700">— {localisationStr} —</span>
-      <span>{title}</span>
+      <span className="font-bold whitespace-nowrap">
+        {grade ? `${grade} ` : ""}
+        {fullName}
+      </span>
+      {grade ? (
+        <>
+          {sep}
+          <span className="whitespace-nowrap">{grade}</span>
+        </>
+      ) : null}
+      {zoneSummary ? (
+        <>
+          {sep}
+          <span className="whitespace-nowrap text-amber-800">{zoneSummary}</span>
+        </>
+      ) : null}
+      {sep}
+      <span className="whitespace-nowrap">{title}</span>
+      {sep}
+      <span className="whitespace-nowrap text-amber-700 font-medium">{gpsLocation}</span>
       <span className="text-amber-300 mx-3">◆</span>
     </span>
   );

@@ -60,17 +60,56 @@ export function filterAlertsForSupervisor<T extends ZoneFields>(
   return alerts.filter((a) => alertMatchesSupervisorZone(a, supervisor));
 }
 
-/** Libellé lieu d'une alerte pour affichage (ticker, listes). */
-export function formatAlertLocation(alert?: {
-  commune?: string | null;
-  arrondissement?: string | null;
-  departement?: string | null;
-  region?: string | null;
-} | null): string {
+export type AlertLocationFields = ZoneFields & {
+  title?: string | null;
+  message?: string | null;
+  nature?: string | null;
+};
+
+/**
+ * Lieu GPS de l'alerte (commune / arrondissement / département / région),
+ * résolu côté API via resolveAdministrativeAreas() + tables shapefile.
+ */
+export function formatAlertLocation(alert?: ZoneFields | null): string {
   if (!alert) return 'Lieu inconnu';
   const parts = [alert.commune, alert.arrondissement, alert.departement, alert.region]
     .map((s) => String(s || '').trim())
     .filter(Boolean);
   const unique = parts.filter((p, i) => parts.indexOf(p) === i);
   return unique.length > 0 ? unique.join(' / ') : 'Lieu inconnu';
+}
+
+export function formatAlertTickerTitle(alert?: AlertLocationFields | null): string {
+  if (!alert) return 'Alerte';
+  const title = String(alert.title || '').trim();
+  if (title) return title;
+  const nature = String(alert.nature || '').trim();
+  if (nature) return `Alerte ${nature.replace(/_/g, ' ')}`;
+  const msg = String(alert.message || '').trim();
+  return msg || 'Alerte';
+}
+
+/** Région ou département résumé (avant le titre dans le ticker). */
+export function formatAlertZoneSummary(alert?: ZoneFields | null): string {
+  if (!alert) return '';
+  return String(alert.region || alert.departement || '').trim();
+}
+
+/** Segments pour le bandeau superviseur (format demandé). */
+export function buildSupervisorTickerParts(notification: {
+  alert?: AlertLocationFields & {
+    sender?: { grade?: string | null; first_name?: string | null; last_name?: string | null };
+    users?: { grade?: string | null; first_name?: string | null; last_name?: string | null };
+  };
+  message?: string | null;
+}) {
+  const alert = notification.alert;
+  const sender = alert?.sender ?? alert?.users;
+  const grade = String(sender?.grade || '').trim();
+  const fullName =
+    [sender?.first_name, sender?.last_name].filter(Boolean).join(' ') || 'Agent inconnu';
+  const zoneSummary = formatAlertZoneSummary(alert);
+  const title = formatAlertTickerTitle(alert ?? { message: notification.message });
+  const gpsLocation = formatAlertLocation(alert);
+  return { grade, fullName, zoneSummary, title, gpsLocation };
 }
