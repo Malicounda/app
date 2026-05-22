@@ -87,7 +87,10 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
       // Ne pas afficher la boîte globale pour les doublons d'alerte (409) gérés localement
       const isAlertsEndpoint = typeof detail.url === 'string' && detail.url.includes('/api/alerts');
       const isDuplicateAlert = res.status === 409 && (body?.code === 'ALERT_DUPLICATE' || isAlertsEndpoint);
-      if (!isDuplicateAlert) {
+      const isMessagingEndpoint =
+        typeof detail.url === 'string' && detail.url.includes('/api/messages/');
+      const isStaleMessaging404 = res.status === 404 && isMessagingEndpoint;
+      if (!isDuplicateAlert && !isStaleMessaging404) {
         window.dispatchEvent(new CustomEvent('apiRefusal', { detail }));
       }
     } catch {}

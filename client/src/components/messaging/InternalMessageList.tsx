@@ -20,6 +20,7 @@ interface InternalMessageListProps {
   loading?: boolean;
   emptyLabel: string;
   onDelete?: (message: InternalMessageRecord) => Promise<void> | void;
+  onStaleMessage?: (message: InternalMessageRecord) => void;
   context?: 'inbox' | 'sent';
   onReply?: (payload: { recipientIdentifier: string; content: string; original: InternalMessageRecord }) => Promise<void> | void;
 }
@@ -148,7 +149,15 @@ const wrapByWords = (text: string, chunkSize: number) => {
   return lines.join('\n');
 };
 
-export default function InternalMessageList({ messages, loading, emptyLabel, onDelete, context = 'inbox', onReply }: InternalMessageListProps) {
+export default function InternalMessageList({
+  messages,
+  loading,
+  emptyLabel,
+  onDelete,
+  onStaleMessage,
+  context = 'inbox',
+  onReply,
+}: InternalMessageListProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   // Toujours utiliser un tableau pour éviter les erreurs quand la prop n'est pas un Array
@@ -280,11 +289,17 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
       openedRef.current.add(id);
       try {
         const endpoint = m.isGroupMessage ? `/api/messages/group/${id}/read` : `/api/messages/${id}/read`;
-        await authenticatedFetch(endpoint, { method: 'PATCH' });
-        // Invalidation immédiate pour mettre à jour les badges (Sidebar/Layout)
+        const res = await authenticatedFetch(endpoint, { method: 'PATCH' });
+        if (res.status === 404) {
+          onStaleMessage?.(m);
+          return;
+        }
+        if (!res.ok) return;
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
-      } catch (e) {
-        // silencieux
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
+      } catch {
+        onStaleMessage?.(m);
       }
     }
   };
@@ -513,7 +528,11 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
               return (
                 <article
                   key={key}
-                  className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm ${isUnread ? 'border-l-4 border-l-green-600' : ''}`}
+                  className={`rounded-lg border p-4 shadow-sm ${
+                    isUnread
+                      ? 'border-gray-200 bg-white border-l-4 border-l-green-600'
+                      : 'border-gray-100 bg-gray-50/80 text-gray-500'
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isUnread ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>

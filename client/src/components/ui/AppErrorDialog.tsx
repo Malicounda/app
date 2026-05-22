@@ -32,7 +32,11 @@ export default function AppErrorDialog() {
         url.includes('/api/auth/heartbeat');
       const isAgentProfileByMatricule = url.includes('/api/users/agent-profile-by-matricule');
       const isDuplicateAlert = Number(d.status) === 409 && url.includes('/api/alerts');
-      if (isAuthMe || isDuplicateAlert || isAgentProfileByMatricule) {
+      const isStaleMessaging404 =
+        Number(d.status) === 404 &&
+        url.includes('/api/messages/') &&
+        (url.includes('/read') || /\/api\/messages\/\d+/.test(url) || url.includes('/delete'));
+      if (isAuthMe || isDuplicateAlert || isAgentProfileByMatricule || isStaleMessaging404) {
         return;
       }
       if (Number(d.status) === 401 && isBackgroundPoll) {

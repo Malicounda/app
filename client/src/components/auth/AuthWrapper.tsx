@@ -1,9 +1,17 @@
 // Wrapper pour choisir le bon contexte d'authentification selon l'environnement
 import React, { useEffect, useState } from 'react';
-import { AuthProvider as AndroidAuthProvider } from '../../contexts/AndroidAuthContext';
-import { AuthProvider } from '../../contexts/AuthContext';
+import { AuthProvider as AndroidAuthProvider, useAuth as useAndroidAuth } from '../../contexts/AndroidAuthContext';
+import { AuthProvider, useAuth as useWebAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../hooks/use-notifications';
 import { getEnvironment } from '../../utils/environment';
 import { SplashScreen } from '../ui/SplashScreen';
+
+function NotificationsBridge({ useAuthHook }: { useAuthHook: () => { user: { id?: number } | null } }) {
+  const { user } = useAuthHook();
+  const uid = user?.id != null ? Number(user.id) : null;
+  useNotifications(Boolean(user), Number.isFinite(uid) ? uid : null);
+  return null;
+}
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -37,14 +45,15 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   if (environment === 'android') {
     return (
       <AndroidAuthProvider>
+        <NotificationsBridge useAuthHook={useAndroidAuth} />
         {children}
       </AndroidAuthProvider>
     );
   }
 
-  // Utiliser le contexte desktop/web pour les autres environnements
   return (
     <AuthProvider>
+      <NotificationsBridge useAuthHook={useWebAuth} />
       {children}
     </AuthProvider>
   );

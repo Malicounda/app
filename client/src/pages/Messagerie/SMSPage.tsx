@@ -7,6 +7,10 @@ import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import ChatAttachmentBlock from "@/components/messaging/ChatAttachmentBlock";
 import { guessAttachmentMime } from "@/lib/attachmentMime";
 import { buildMessageAttachmentUrl } from "@/lib/messageAttachments";
+import {
+  isGroupConversationKey,
+  resolveConversationDeleteIdentifier,
+} from "@/lib/messagingUtils";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
 import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Download, Image as ImageIcon, FileText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -155,41 +159,40 @@ export default function SimpleSMSPage() {
   const [selectedConvKeys, setSelectedConvKeys] = useState<Set<string>>(new Set());
   const [massDeleting, setMassDeleting] = useState(false);
 
+  const deleteConversationByKey = async (contactKey: string): Promise<boolean> => {
+    const conv = conversations.find((c) => c.contactKey === contactKey);
+    if (isGroupConversationKey(contactKey)) {
+      if (conv?.messages?.length) {
+        await Promise.all(conv.messages.map((m) => deleteMessage(m.rawMsgObj).catch(() => {})));
+      }
+      return true;
+    }
+
+    const identifiers = [
+      resolveConversationDeleteIdentifier(contactKey, conv?.contactIdentifier),
+      conv?.contactIdentifier,
+      contactKey.startsWith('direct_') ? contactKey.slice('direct_'.length) : null,
+    ].filter((v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i);
+
+    for (const ident of identifiers) {
+      const response = await authenticatedFetch(
+        `/api/messages/conversation/${encodeURIComponent(ident)}`,
+        { method: 'DELETE' }
+      );
+      if (response.ok || response.status === 204) return true;
+    }
+
+    if (conv?.messages?.length) {
+      await Promise.all(conv.messages.map((m) => deleteMessage(m.rawMsgObj).catch(() => {})));
+      return true;
+    }
+    return false;
+  };
+
   const handleDeleteEntireConversation = async (contactKey: string) => {
     setDeletingConv(true);
     try {
-      // Cas groupe ou destinataire supprimé : suppression message par message
-      if (contactKey.startsWith('group_') || contactKey === 'deleted') {
-        const conv = conversations.find(c => c.contactKey === contactKey);
-        if (conv) {
-          await Promise.all(conv.messages.map(m => deleteMessage(m.rawMsgObj)));
-        }
-        toast({ title: "Discussion supprimée", description: "La conversation a été entièrement supprimée." });
-        setPhoneView('list');
-        setSelectedContactKey(null);
-        await refreshAll();
-        return;
-      }
-
-      // Conversations individuelles : essayer d'abord le contactKey (ID numérique),
-      // puis l'identifiant textuel (username/matricule) en fallback
-      const conv = conversations.find(c => c.contactKey === contactKey);
-      const identifiers = [contactKey];
-      if (conv?.contactIdentifier && conv.contactIdentifier !== contactKey) {
-        identifiers.push(conv.contactIdentifier);
-      }
-
-      let deleted = false;
-      for (const ident of identifiers) {
-        const response = await authenticatedFetch(`/api/messages/conversation/${encodeURIComponent(ident)}`, {
-          method: 'DELETE',
-        });
-        if (response.ok || response.status === 204) {
-          deleted = true;
-          break;
-        }
-      }
-
+      const deleted = await deleteConversationByKey(contactKey);
       if (!deleted) {
         throw new Error("Aucun message correspondant trouvé pour ce contact.");
       }
@@ -207,47 +210,53 @@ export default function SimpleSMSPage() {
   };
 
   const handleMarkAllAsRead = async () => {
+    if (!conversations.some((c) => c.unreadCount > 0)) return;
     setShowListMenu(false);
     for (const conv of conversations) {
       if (conv.unreadCount > 0) {
         for (const m of conv.messages) {
           if (!m.isSent && m.rawMsgObj && !m.rawMsgObj.isRead) {
-            await markMessageAsRead(m.id).catch(() => {});
+            await markMessageAsRead(
+              m.id,
+              Boolean(m.rawMsgObj?.isGroupMessage)
+            ).catch(() => {});
           }
         }
       }
     }
+    await refreshAll();
     toast({ title: "Messages lus", description: "Toutes les conversations ont été marquées comme lues." });
   };
 
   const handleDeleteSelected = async () => {
     if (selectedConvKeys.size === 0) return;
     setMassDeleting(true);
+    let ok = 0;
+    let fail = 0;
     try {
       for (const key of selectedConvKeys) {
-        if (key.startsWith('group_') || key === 'deleted') {
-          const conv = conversations.find(c => c.contactKey === key);
-          if (conv) {
-            await Promise.all(conv.messages.map(m => deleteMessage(m.rawMsgObj)));
-          }
-        } else {
-          const conv = conversations.find(c => c.contactKey === key);
-          const identifiers = [key];
-          if (conv?.contactIdentifier && conv.contactIdentifier !== key) {
-            identifiers.push(conv.contactIdentifier);
-          }
-          for (const ident of identifiers) {
-            const response = await authenticatedFetch(`/api/messages/conversation/${encodeURIComponent(ident)}`, {
-              method: 'DELETE',
-            });
-            if (response.ok || response.status === 204) break;
-          }
-        }
+        const deleted = await deleteConversationByKey(key);
+        if (deleted) ok += 1;
+        else fail += 1;
       }
-      toast({ title: "Suppression terminée", description: `${selectedConvKeys.size} conversation(s) supprimée(s).` });
       setSelectedConvKeys(new Set());
       setIsSelectionMode(false);
       await refreshAll();
+      if (ok > 0) {
+        toast({
+          title: "Suppression terminée",
+          description:
+            fail > 0
+              ? `${ok} conversation(s) supprimée(s), ${fail} en échec.`
+              : `${ok} conversation(s) supprimée(s).`,
+        });
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de supprimer les conversations sélectionnées.",
+          variant: "destructive",
+        });
+      }
     } catch {
       toast({ title: "Erreur", description: "Une erreur est survenue lors de la suppression.", variant: "destructive" });
     } finally {
@@ -273,6 +282,7 @@ export default function SimpleSMSPage() {
     sendIndividual,
     deleteMessage,
     markMessageAsRead,
+    purgeStaleMessage,
     refreshSent,
     refreshAll,
   } = useInternalMessaging({ domaineId, autoLoad: true });
@@ -647,7 +657,7 @@ export default function SimpleSMSPage() {
     if (phoneView === 'chat' && selectedConversation) {
       selectedConversation.messages.forEach(m => {
         if (!m.isSent && m.rawMsgObj && !m.rawMsgObj.isRead) {
-          void markMessageAsRead(m.id).catch(() => {});
+          void markMessageAsRead(m.id, Boolean(m.rawMsgObj?.isGroupMessage)).catch(() => {});
           m.rawMsgObj.isRead = true;
         }
       });
@@ -885,7 +895,7 @@ export default function SimpleSMSPage() {
                         )}
                         <div className="flex-1 min-w-0 pointer-events-none">
                           <div className="flex items-center justify-between gap-2">
-                            <span className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{conv.contactName}</span>
+                            <span className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-400'}`}>{conv.contactName}</span>
                             <span className="text-[10px] text-gray-400 shrink-0">{formatRelTime(conv.lastTime)}</span>
                           </div>
                           {conv.contactRoleMetier && <p className="text-[10px] text-green-700 font-medium truncate">{conv.contactRoleMetier}</p>}
@@ -1410,6 +1420,9 @@ export default function SimpleSMSPage() {
                       loading={loadingInbox}
                       emptyLabel="Aucun message reçu pour le moment."
                       onDelete={handleDelete}
+                      onStaleMessage={(m) =>
+                        purgeStaleMessage(Number(m.id), Boolean(m.isGroupMessage))
+                      }
                       onReply={async ({ recipientIdentifier, content }) => {
                         try {
                           await sendIndividual({ recipientIdentifier, content });
@@ -1429,6 +1442,9 @@ export default function SimpleSMSPage() {
                       emptyLabel="Aucun message envoyé pour le moment."
                       context="sent"
                       onDelete={handleDelete}
+                      onStaleMessage={(m) =>
+                        purgeStaleMessage(Number(m.id), Boolean(m.isGroupMessage))
+                      }
                     />
                   )}
                 </div>
@@ -1566,7 +1582,7 @@ export default function SimpleSMSPage() {
                           <div className={`h-12 w-12 rounded-full ${conv.unreadCount > 0 ? 'bg-green-600' : 'bg-slate-400'} text-white flex items-center justify-center text-lg font-bold shrink-0`}>{conv.contactInitial}</div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <span className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{conv.contactName}</span>
+                              <span className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-400'}`}>{conv.contactName}</span>
                               <span className="text-[10px] text-gray-400 shrink-0">{formatRelTime(conv.lastTime)}</span>
                             </div>
                             {conv.contactRoleMetier && <p className="text-[10px] text-green-700 font-medium truncate">{conv.contactRoleMetier}</p>}

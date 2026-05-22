@@ -317,6 +317,13 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     });
   }, [domaineId]);
 
+  const purgeStaleMessage = useCallback(
+    (id: number, isGroup?: boolean) => {
+      removeMessageFromState(id, Boolean(isGroup));
+    },
+    [removeMessageFromState]
+  );
+
   const deleteMessageRecord = useCallback(
     async (message: InternalMessageRecord) => {
       const id = Number(message?.id);
@@ -328,34 +335,53 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       const endpoint = isGroup ? `/api/messages/group/${id}/delete` : `/api/messages/${id}`;
       const method = isGroup ? "PATCH" : "DELETE";
 
-      await apiRequest({ url: endpoint, method });
+      try {
+        await apiRequest({ url: endpoint, method });
+      } catch (err: unknown) {
+        const e = err as { message?: string; status?: number };
+        const msg = String(e?.message || '').toLowerCase();
+        if (e?.status === 404 || msg.includes('non trouvé')) {
+          purgeStaleMessage(id, isGroup);
+          await refreshAll();
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
+          return;
+        }
+        throw err;
+      }
 
       removeMessageFromState(id, isGroup);
-      // Forcer un rafraîchissement serveur pour garantir la cohérence
       await refreshAll();
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
     },
-    [removeMessageFromState, refreshAll, queryClient]
+    [removeMessageFromState, purgeStaleMessage, refreshAll, queryClient]
   );
 
-  const markMessageAsRead = useCallback(async (messageId: number) => {
+  const markMessageAsRead = useCallback(async (messageId: number, isGroup?: boolean) => {
+    const endpoint = isGroup
+      ? `/api/messages/group/${messageId}/read`
+      : `/api/messages/${messageId}/read`;
     try {
-      await apiRequest({ url: `/api/messages/${messageId}/read`, method: 'PATCH' });
+      await apiRequest({ url: endpoint, method: 'PATCH' });
     } catch (err: unknown) {
       const e = err as { message?: string; status?: number };
       const msg = String(e?.message || '').toLowerCase();
-      if (e?.status === 404 || msg.includes('non trouvé')) return;
+      if (e?.status === 404 || msg.includes('non trouvé')) {
+        purgeStaleMessage(messageId, isGroup);
+        return;
+      }
       throw err;
     }
     setInbox((prev) => {
-      const updated = prev.map((msg) => (msg.id === messageId ? { ...msg, isRead: true } : msg));
+      const updated = prev.map((msg) =>
+        msg.id === messageId ? { ...msg, isRead: true, is_read: true } : msg
+      );
       saveToCache("inbox", domaineId, updated);
       return updated;
     });
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
-  }, [queryClient, domaineId]);
+  }, [queryClient, domaineId, purgeStaleMessage]);
 
   const state = useMemo(
     () => ({
@@ -377,6 +403,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     sendGroup,
     markMessageAsRead,
     deleteMessage: deleteMessageRecord,
+    purgeStaleMessage,
     setInbox,
     setSent,
   };

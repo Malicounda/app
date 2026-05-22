@@ -839,10 +839,14 @@ router.delete('/conversation/:identifier', isAuthenticated, async (req: Request,
     if (!identifier) return res.status(400).json({ message: 'Identifiant du contact requis' });
 
     let contactId: number | null = null;
-    if (/^\d+$/.test(identifier)) {
-      contactId = Number(identifier);
+    let normalizedIdentifier = String(identifier).trim();
+    if (normalizedIdentifier.startsWith('direct_')) {
+      normalizedIdentifier = normalizedIdentifier.slice('direct_'.length);
+    }
+    if (/^\d+$/.test(normalizedIdentifier)) {
+      contactId = Number(normalizedIdentifier);
     } else {
-      const u = await storage.findUserByIdentifier(identifier);
+      const u = await storage.findUserByIdentifier(normalizedIdentifier);
       if (u?.id) {
         contactId = Number(u.id);
       }

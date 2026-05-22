@@ -1,213 +1,219 @@
 import { useEffect, useRef, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
-import { useAuth } from '../contexts/AuthContext';
-import { useToast } from './use-toast';
-import { useQueryClient } from '@tanstack/react-query';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { useQueryClient } from '@tanstack/react-query';
+import { io, Socket } from 'socket.io-client';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
+import { getApiBaseUrl } from '../utils/environment';
+import { useToast } from './use-toast';
 
-// Clé publique VAPID (doit correspondre à celle du serveur)
-const VAPID_PUBLIC_KEY = 'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
+const VAPID_PUBLIC_KEY =
+  'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
+
+const ANDROID_CHANNEL_ID = 'alerte_messages';
+
+function isNativeCapacitor(): boolean {
+  const cap = typeof window !== 'undefined' ? (window as Window & { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } }).Capacitor : undefined;
+  return Boolean(cap?.isNativePlatform?.());
+}
+
+function getCapacitorPlatform(): string {
+  const cap = typeof window !== 'undefined' ? (window as Window & { Capacitor?: { getPlatform?: () => string } }).Capacitor : undefined;
+  return cap?.getPlatform?.() || 'web';
+}
+
+function getSocketServerUrl(): string {
+  const api = getApiBaseUrl();
+  return api.replace(/\/api\/?$/, '');
+}
+
+async function ensureAndroidNotificationChannel(): Promise<void> {
+  if (getCapacitorPlatform() !== 'android') return;
+  try {
+    await LocalNotifications.createChannel({
+      id: ANDROID_CHANNEL_ID,
+      name: 'Messages et alertes',
+      description: 'Notifications sonores et écran verrouillé',
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
+      vibration: true,
+      lights: true,
+    });
+  } catch (e) {
+    console.warn('[LocalNotifications] createChannel:', e);
+  }
+}
+
+async function showSystemNotification(
+  title: string,
+  body: string,
+  extra?: Record<string, unknown>
+): Promise<void> {
+  if (!isNativeCapacitor()) return;
+  try {
+    await ensureAndroidNotificationChannel();
+    const id = Math.floor(Date.now() % 2147483640) + 1;
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id,
+          title,
+          body,
+          channelId: ANDROID_CHANNEL_ID,
+          sound: 'default',
+          extra: extra || {},
+        },
+      ],
+    });
+  } catch (e) {
+    console.warn('[LocalNotifications] schedule:', e);
+  }
+}
 
 /**
- * Hook pour gérer les notifications en temps réel (Socket.io) 
- * et les notifications système (Web Push)
+ * Socket.io + notifications système (APK Android et web).
+ * @param enabled activer uniquement si utilisateur connecté
  */
-export function useNotifications() {
-  const { user } = useAuth();
+export function useNotifications(enabled = true, userId?: number | null) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const socketRef = useRef<Socket | null>(null);
   const [isPushSupported, setIsPushSupported] = useState(false);
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
 
-  // Demander la permission pour les notifications locales sur mobile (Capacitor)
   useEffect(() => {
-    if (!user) return;
-    const requestMobilePermissions = async () => {
+    if (!enabled) return;
+    const setup = async () => {
       try {
         const check = await LocalNotifications.checkPermissions();
         if (check.display !== 'granted') {
           await LocalNotifications.requestPermissions();
         }
+        await ensureAndroidNotificationChannel();
       } catch (e) {
-        console.log('[LocalNotifications] Permissions check/request not supported or failed:', e);
+        console.log('[LocalNotifications] setup:', e);
       }
     };
-    void requestMobilePermissions();
-  }, [user]);
+    void setup();
+  }, [enabled]);
 
-  // 1. Gestion de Socket.io
   useEffect(() => {
-    if (!user) return;
+    if (!enabled) return;
 
-    // Initialisation de la connexion Socket.io avec fallback sur le polling
-    const socket = io(window.location.origin, {
+    const socketUrl = getSocketServerUrl();
+    const socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 20,
+      reconnectionDelay: 2000,
+      auth: {
+        token: localStorage.getItem('token') || undefined,
+      },
     });
 
     socket.on('connect', () => {
-      console.log('[Socket.io] Connecté au serveur');
-      // S'authentifier auprès du socket pour recevoir les notifications ciblées
-      socket.emit('authenticate', user.id);
+      console.log('[Socket.io] Connecté à', socketUrl);
+      const uid = Number(userId);
+      if (Number.isFinite(uid) && uid > 0) {
+        socket.emit('authenticate', uid);
+      }
     });
 
-    socket.on('notification', (payload) => {
-      console.log('[Socket.io] Notification reçue:', payload);
-      
-      // Afficher un toast dans l'application
-      toast({
-        title: payload.title,
-        description: payload.body,
-        variant: payload.data?.type === 'ALERT' ? 'destructive' : 'default',
-      });
+    socket.on('notification', (payload: { title?: string; body?: string; data?: { type?: string } }) => {
+      const title = payload?.title || 'Notification';
+      const body = payload?.body || '';
 
-      // Si sur mobile/Capacitor, déclencher une notification système locale (avec son)
-      try {
-        LocalNotifications.schedule({
-          notifications: [
-            {
-              title: payload.title,
-              body: payload.body,
-              id: Math.floor(Math.random() * 1000000),
-              extra: payload.data || {},
-              sound: 'default'
-            }
-          ]
-        }).catch((err) => {
-          console.warn('[LocalNotifications] Schedule failed:', err);
+      if (document.visibilityState === 'visible') {
+        toast({
+          title,
+          description: body,
+          variant: payload?.data?.type === 'ALERT' ? 'destructive' : 'default',
         });
-      } catch (e) {
-        console.log('[LocalNotifications] Not available:', e);
       }
 
-      // Rafraîchir les données concernées
-      if (payload.data?.type === 'ALERT') {
+      void showSystemNotification(title, body, payload?.data as Record<string, unknown>);
+
+      if (payload?.data?.type === 'ALERT') {
         queryClient.invalidateQueries({ queryKey: ['/api/alerts'] });
         queryClient.invalidateQueries({ queryKey: ['alerts-unread-count'] });
       }
-      if (payload.data?.type === 'MESSAGE') {
-        // Invalider tous les compteurs de messages non lus (toutes les pages et layouts)
+      if (payload?.data?.type === 'MESSAGE') {
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/messages'] });
-        
-        // Déclencher un rafraîchissement global pour les listes de messages actives
         window.dispatchEvent(new CustomEvent('messaging-refresh-all'));
       }
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
     });
 
-    socket.on('disconnect', () => {
-      console.log('[Socket.io] Déconnecté');
-    });
-
     socketRef.current = socket;
-
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
+      socket.disconnect();
+      socketRef.current = null;
     };
-  }, [user, toast, queryClient]);
+  }, [enabled, userId, toast, queryClient]);
 
-  // 2. Gestion de Web Push
   useEffect(() => {
-    const checkPushSupport = async () => {
-      const supported = 'serviceWorker' in navigator && 'PushManager' in window;
-      setIsPushSupported(supported);
+    if (!enabled) return;
+    const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+    setIsPushSupported(supported);
+    if (!supported) return;
 
-      if (supported && user) {
-        try {
-          const registration = await navigator.serviceWorker.ready;
-          const subscription = await registration.pushManager.getSubscription();
-          setIsPushSubscribed(!!subscription);
-        } catch (err) {
-          console.error('[Web Push] Erreur lors de la vérification de l\'abonnement:', err);
-        }
-      }
-    };
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => setIsPushSubscribed(!!sub))
+      .catch(() => setIsPushSubscribed(false));
+  }, [enabled]);
 
-    checkPushSupport();
-  }, [user]);
-
-  /**
-   * Demande la permission et inscrit l'utilisateur aux notifications Push
-   */
   const subscribeToPush = async () => {
-    if (!isPushSupported || !user) {
-      console.warn('[Web Push] Non supporté ou utilisateur non connecté');
-      return false;
-    }
-
+    if (!isPushSupported || !enabled) return false;
     try {
       const registration = await navigator.serviceWorker.ready;
-      
-      // Demander la permission si nécessaire
       let permission = Notification.permission;
       if (permission === 'default') {
         permission = await Notification.requestPermission();
       }
-
       if (permission !== 'granted') {
         toast({
           title: 'Notifications bloquées',
-          description: 'Veuillez autoriser les notifications dans les paramètres de votre navigateur.',
-          variant: 'destructive'
+          description: 'Autorisez les notifications dans les paramètres.',
+          variant: 'destructive',
         });
         return false;
       }
 
-      // S'abonner via le PushManager
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
 
-      // Envoyer l'abonnement au backend
       const response = await authenticatedFetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscription)
+        body: JSON.stringify(subscription),
       });
 
       if (response.ok) {
         setIsPushSubscribed(true);
-        toast({
-          title: 'Notifications activées',
-          description: 'Vous recevrez désormais des alertes système en temps réel.',
-        });
+        toast({ title: 'Notifications activées', description: 'Alertes en temps réel activées.' });
         return true;
-      } else {
-        throw new Error('Échec de l\'enregistrement sur le serveur');
       }
+      throw new Error('Échec enregistrement serveur');
     } catch (err) {
-      console.error('[Web Push] Erreur lors de l\'inscription:', err);
+      console.error('[Web Push]', err);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'activer les notifications push.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
       return false;
     }
   };
 
-  return { 
-    isPushSupported, 
-    isPushSubscribed, 
-    subscribeToPush,
-    socket: socketRef.current 
-  };
+  return { isPushSupported, isPushSubscribed, subscribeToPush, socket: socketRef.current };
 }
 
-/**
- * Convertit une clé VAPID base64 en Uint8Array
- */
 function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
