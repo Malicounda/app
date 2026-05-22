@@ -26,6 +26,7 @@ import settingsRoutes from './routes/settings.routes.js'; // Ajout de l'import
 import shapefileRoutes from './routes/shapefile.routes.js'; // Routes pour l'upload de shapefile
 import zonesRoutes from './routes/zones.routes.js'; // Nouvelles routes pour la table zones
 import { storage } from './storage.js';
+import { logAttachmentStorageStatus } from './lib/messageAttachmentStorage.js';
 import { getUploadsDir, migrateLegacyUploadsToCanonical } from './lib/uploadsPath.js';
 import { log } from './utils/logger.js';
 
@@ -519,6 +520,7 @@ const startServer = async (): Promise<HttpServer> => {
     (app as any).notificationService = notificationService;
 
     migrateLegacyUploadsToCanonical();
+    logAttachmentStorageStatus();
     const uploadsDir = getUploadsDir();
     log(`Dossier uploads (pièces jointes): ${uploadsDir}`, 'static');
 

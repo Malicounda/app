@@ -4,6 +4,8 @@ import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import ChatAttachmentBlock from "@/components/messaging/ChatAttachmentBlock";
+import { guessAttachmentMime } from "@/lib/attachmentMime";
 import { buildMessageAttachmentUrl } from "@/lib/messageAttachments";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
 import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Download, Image as ImageIcon, FileText } from "lucide-react";
@@ -954,22 +956,25 @@ export default function SimpleSMSPage() {
                   {selectedConversation.messages.map((m, i) => {
                     const hasAttachment = Boolean(m.rawMsgObj?.attachmentPath || m.rawMsgObj?.attachmentName);
                     const attachmentName = m.rawMsgObj?.attachmentName || 'Fichier joint';
-                    const attachmentMime = m.rawMsgObj?.attachmentMime || '';
-                    const isImage = attachmentMime.startsWith('image/');
+                    const attachmentMime = guessAttachmentMime(
+                      attachmentName,
+                      m.rawMsgObj?.attachmentMime
+                    );
+                    const isGroupMsg = Boolean(
+                      m.rawMsgObj?.isGroupMessage ||
+                        selectedConversation.contactKey.startsWith('group_')
+                    );
                     const url = m.rawMsgObj?.id
-                      ? buildMessageAttachmentUrl(Number(m.rawMsgObj.id), {
-                          isGroup: selectedConversation.contactKey.startsWith('group_'),
-                        })
+                      ? buildMessageAttachmentUrl(Number(m.rawMsgObj.id), { isGroup: isGroupMsg })
                       : '';
 
-                    const handleAttachmentClick = (e: React.MouseEvent) => {
-                      e.stopPropagation();
+                    const openAttachmentPreview = () => {
                       if (!url) return;
                       setPreview({
                         name: attachmentName,
                         url,
                         mime: attachmentMime,
-                        size: m.rawMsgObj?.attachmentSize
+                        size: m.rawMsgObj?.attachmentSize,
                       });
                     };
 
@@ -980,19 +985,15 @@ export default function SimpleSMSPage() {
                           className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-green-700 active:scale-95 transition-all flex flex-col gap-1.5"
                         >
                           {m.content && <span>{m.content}</span>}
-                          {hasAttachment && (
-                            <div 
-                              onClick={handleAttachmentClick}
-                              className="flex items-center gap-2 mt-1 bg-green-700/50 rounded-lg p-2 hover:bg-green-700/70 active:scale-[0.98] transition-colors border border-green-500/30"
-                            >
-                              {isImage ? <ImageIcon className="w-4 h-4 shrink-0" /> : <FileText className="w-4 h-4 shrink-0" />}
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-xs font-medium truncate w-32 md:w-48 text-white">{attachmentName}</span>
-                                {m.rawMsgObj?.attachmentSize && (
-                                  <span className="text-[9px] text-green-200">{formatFileSize(m.rawMsgObj.attachmentSize)}</span>
-                                )}
-                              </div>
-                            </div>
+                          {hasAttachment && url && (
+                            <ChatAttachmentBlock
+                              url={url}
+                              name={attachmentName}
+                              mime={attachmentMime}
+                              size={m.rawMsgObj?.attachmentSize}
+                              variant="sent"
+                              onOpen={openAttachmentPreview}
+                            />
                           )}
                         </div>
                         <span className="text-[9px] text-gray-400 mt-0.5 mr-1">
@@ -1006,19 +1007,15 @@ export default function SimpleSMSPage() {
                           className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all flex flex-col gap-1.5"
                         >
                           {m.content && <span>{m.content}</span>}
-                          {hasAttachment && (
-                            <div 
-                              onClick={handleAttachmentClick}
-                              className="flex items-center gap-2 mt-1 bg-gray-50 rounded-lg p-2 hover:bg-gray-100 active:scale-[0.98] transition-colors border border-gray-200"
-                            >
-                              {isImage ? <ImageIcon className="w-4 h-4 shrink-0 text-gray-500" /> : <FileText className="w-4 h-4 shrink-0 text-gray-500" />}
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-xs font-medium truncate w-32 md:w-48 text-gray-700">{attachmentName}</span>
-                                {m.rawMsgObj?.attachmentSize && (
-                                  <span className="text-[9px] text-gray-400">{formatFileSize(m.rawMsgObj.attachmentSize)}</span>
-                                )}
-                              </div>
-                            </div>
+                          {hasAttachment && url && (
+                            <ChatAttachmentBlock
+                              url={url}
+                              name={attachmentName}
+                              mime={attachmentMime}
+                              size={m.rawMsgObj?.attachmentSize}
+                              variant="received"
+                              onOpen={openAttachmentPreview}
+                            />
                           )}
                         </div>
                         <span className="text-[9px] text-gray-400 mt-0.5 ml-1">
@@ -1821,9 +1818,9 @@ export default function SimpleSMSPage() {
               <DialogTitle className="truncate pr-8">{preview.name || "Aperçu du fichier"}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center bg-gray-50/50 rounded-md border border-gray-100 p-2">
-              {preview.mime?.startsWith('image/') ? (
+              {guessAttachmentMime(preview.name, preview.mime).startsWith('image/') ? (
                 <AuthPreviewImage url={preview.url} alt={preview.name || ''} className="max-w-full max-h-[60vh] object-contain rounded" />
-              ) : preview.mime === 'application/pdf' ? (
+              ) : guessAttachmentMime(preview.name, preview.mime) === 'application/pdf' ? (
                 <AuthPreviewPdf url={preview.url} title={preview.name || ''} className="w-full h-[60vh] border-0 rounded" />
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -1845,7 +1842,10 @@ export default function SimpleSMSPage() {
                 </div>
               )}
             </div>
-            {preview.mime && (preview.mime.startsWith('image/') || preview.mime === 'application/pdf') && (
+            {(() => {
+              const pm = guessAttachmentMime(preview.name, preview.mime);
+              return pm.startsWith('image/') || pm === 'application/pdf';
+            })() && (
               <div className="flex justify-end mt-4">
                 <a
                   href="#"

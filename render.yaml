@@ -13,6 +13,8 @@ services:
         value: production
       - key: STORAGE_PATH
         value: /var/data/uploads
+      # Ajouter dans le dashboard Render (secret) pour sauvegarder les PJ dans Supabase Storage :
+      # SUPABASE_SERVICE_ROLE_KEY — Supabase → Project Settings → API → service_role
       - key: DATABASE_URL
         value: postgresql://postgres.botmsymjatdnizqtneoi:jesuisN0ir%4014@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
       - key: SHADOW_DATABASE_URL

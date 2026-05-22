@@ -1,56 +1,45 @@
 // @ts-nocheck
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { Request, Response, Router } from 'express';
-import fs from 'fs';
 import multer from 'multer';
-import path from 'path';
 import { agents, rolesMetier, superAdmins, userDomains, users, messages } from '../../shared/schema.js';
 import { db } from '../db.js';
-import { getUploadsDir, resolveAttachmentFilePath } from '../lib/uploadsPath.js';
+import {
+  guessMimeFromFilename,
+  persistMessageAttachment,
+  readMessageAttachment,
+} from '../lib/messageAttachmentStorage.js';
 import { MessagingService } from '../services/messaging.service.js';
 import { storage } from '../storage.js';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 
 const router = Router();
 
-const uploadsDir = getUploadsDir();
-
-
-
-// Configuration de Multer pour les pièces jointes avec encodage UTF-8
+// Mémoire → écriture explicite (disque + Supabase) pour éviter perte au redéploiement Render
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      try {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      } catch {}
-      cb(null, uploadsDir);
-    },
-    filename: (req, file, cb) => {
-      // Encoder correctement le nom de fichier en UTF-8
-      // Décoder d'abord si nécessaire, puis générer un nom sûr
-      const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-      const safeExtension = path.extname(originalName);
-      const timestamp = Date.now();
-      const randomSuffix = Math.random().toString(36).substring(2, 8);
-      const safeName = `${timestamp}-${randomSuffix}${safeExtension}`;
-      cb(null, safeName);
-    }
-  }),
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB max
+    fileSize: 5 * 1024 * 1024,
   },
-  fileFilter: (req, file, cb) => {
-    // S'assurer que le nom original est bien encodé en UTF-8
+  fileFilter: (_req, file, cb) => {
     try {
       file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
       cb(null, true);
     } catch (error) {
-      console.error('Erreur d\'encodage du nom de fichier:', error);
-      cb(null, true); // Accepter quand même le fichier
+      console.error("Erreur d'encodage du nom de fichier:", error);
+      cb(null, true);
     }
-  }
+  },
 });
+
+async function resolveUploadedAttachment(req: Request) {
+  if (!req.file?.buffer?.length) return null;
+  return persistMessageAttachment({
+    buffer: req.file.buffer,
+    originalName: req.file.originalname,
+    mimeType: req.file.mimetype,
+  });
+}
 
 // Lister des agents par rôle (ex: role=sector). Optionnel: filtrer par région/département de l'utilisateur connecté
 router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
@@ -657,15 +646,16 @@ router.post('/', isAuthenticated, upload.single('attachment'), async (req: Reque
     const domaineId = await MessagingService.getAuthorizedContext(senderId, req.body.domaineId, res);
     if (domaineId === false) return;
 
+    const savedAttachment = await resolveUploadedAttachment(req);
     const createdMessages = [] as any[];
     const basePayload = {
       senderId,
       subject,
       content: normalizedContent,
-      attachmentPath: req.file ? req.file.filename : undefined,
-      attachmentName: req.file ? req.file.originalname : undefined,
-      attachmentMime: req.file ? req.file.mimetype : undefined,
-      attachmentSize: req.file ? req.file.size : undefined,
+      attachmentPath: savedAttachment?.key,
+      attachmentName: savedAttachment?.name,
+      attachmentMime: savedAttachment?.mime,
+      attachmentSize: savedAttachment?.size,
     };
 
     for (const recipientId of recipientIds) {
@@ -731,17 +721,18 @@ router.post('/group', isAuthenticated, upload.single('attachment'), async (req, 
     const domaineId = await MessagingService.getAuthorizedContext(senderId, req.body.domaineId, res);
     if (domaineId === false) return;
 
-    // Créer le message de groupe
+    const savedAttachment = await resolveUploadedAttachment(req);
+
     const groupMessage = await storage.createGroupMessage({
       senderId,
       subject,
       content: normalizedContent,
       targetRole: normalizedTargetRole,
       targetRegion,
-      attachmentPath: req.file ? req.file.filename : undefined,
-      attachmentName: req.file ? req.file.originalname : undefined,
-      attachmentMime: req.file ? req.file.mimetype : undefined,
-      attachmentSize: req.file ? req.file.size : undefined,
+      attachmentPath: savedAttachment?.key,
+      attachmentName: savedAttachment?.name,
+      attachmentMime: savedAttachment?.mime,
+      attachmentSize: savedAttachment?.size,
       domaineId: domaineId ?? null,
     });
 
@@ -1004,19 +995,22 @@ router.get('/:id/attachment', isAuthenticated, async (req: Request, res: Respons
       return res.status(404).json({ message: 'Aucune pièce jointe' });
     }
 
-    const filePath = resolveAttachmentFilePath(message.attachmentPath);
-
-    if (!fs.existsSync(filePath)) {
-      console.warn('[attachment] Fichier absent:', {
+    const fileData = await readMessageAttachment(message.attachmentPath);
+    if (!fileData) {
+      console.warn('[attachment] Fichier absent (local + cloud):', {
         messageId,
         attachmentPath: message.attachmentPath,
-        resolved: filePath,
-        uploadsDir: getUploadsDir(),
       });
-      return res.status(404).json({ message: 'Fichier non trouvé sur le serveur (stockage local).' });
+      return res.status(404).json({
+        message:
+          'Fichier introuvable. Les anciennes pièces jointes peuvent avoir été perdues avant la mise en place du stockage persistant.',
+      });
     }
 
-    const mime = message.attachmentMime || 'application/octet-stream';
+    const mime = guessMimeFromFilename(
+      message.attachmentName || message.attachmentPath,
+      message.attachmentMime || undefined
+    );
     const fileName = message.attachmentName || 'fichier';
     const forceDownload = String(req.query.download || '').trim() === '1';
 
@@ -1027,15 +1021,8 @@ router.get('/:id/attachment', isAuthenticated, async (req: Request, res: Respons
     } else {
       res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     }
-    const stat = fs.statSync(filePath);
-    res.setHeader('Content-Length', String(stat.size));
-
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.on('error', (err) => {
-      console.error('[attachment] stream error:', err);
-      if (!res.headersSent) res.status(500).json({ message: 'Erreur lecture fichier' });
-    });
-    fileStream.pipe(res);
+    res.setHeader('Content-Length', String(fileData.size));
+    res.send(fileData.buffer);
   } catch (error) {
     console.error('Erreur lors du téléchargement de la pièce jointe:', error);
     res.status(500).json({ message: 'Erreur serveur' });
@@ -1059,19 +1046,22 @@ router.get('/group/:id/attachment', isAuthenticated, async (req: Request, res: R
       return res.status(404).json({ message: 'Aucune pièce jointe' });
     }
 
-    const filePath = resolveAttachmentFilePath(groupMessage.attachmentPath);
-
-    if (!fs.existsSync(filePath)) {
-      console.warn('[attachment] Fichier groupe absent:', {
+    const fileData = await readMessageAttachment(groupMessage.attachmentPath);
+    if (!fileData) {
+      console.warn('[attachment] Fichier groupe absent (local + cloud):', {
         messageId,
         attachmentPath: groupMessage.attachmentPath,
-        resolved: filePath,
-        uploadsDir: getUploadsDir(),
       });
-      return res.status(404).json({ message: 'Fichier non trouvé sur le serveur (stockage local).' });
+      return res.status(404).json({
+        message:
+          'Fichier introuvable. Les anciennes pièces jointes peuvent avoir été perdues avant la mise en place du stockage persistant.',
+      });
     }
 
-    const mime = groupMessage.attachmentMime || 'application/octet-stream';
+    const mime = guessMimeFromFilename(
+      groupMessage.attachmentName || groupMessage.attachmentPath,
+      groupMessage.attachmentMime || undefined
+    );
     const fileName = groupMessage.attachmentName || 'fichier';
     const forceDownload = String(req.query.download || '').trim() === '1';
 
@@ -1082,15 +1072,8 @@ router.get('/group/:id/attachment', isAuthenticated, async (req: Request, res: R
     } else {
       res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     }
-    const stat = fs.statSync(filePath);
-    res.setHeader('Content-Length', String(stat.size));
-
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.on('error', (err) => {
-      console.error('[attachment] stream error (group):', err);
-      if (!res.headersSent) res.status(500).json({ message: 'Erreur lecture fichier' });
-    });
-    fileStream.pipe(res);
+    res.setHeader('Content-Length', String(fileData.size));
+    res.send(fileData.buffer);
   } catch (error) {
     console.error('Erreur lors du téléchargement de la pièce jointe:', error);
     res.status(500).json({ message: 'Erreur serveur' });
