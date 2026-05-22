@@ -4,9 +4,15 @@ services:
     env: node
     buildCommand: "npm install && npm run build"
     startCommand: "npm run start"
+    disk:
+      name: scodi-uploads
+      mountPath: /var/data
+      sizeGB: 2
     envVars:
       - key: NODE_ENV
         value: production
+      - key: STORAGE_PATH
+        value: /var/data/uploads
       - key: DATABASE_URL
         value: postgresql://postgres.botmsymjatdnizqtneoi:jesuisN0ir%4014@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
       - key: SHADOW_DATABASE_URL

@@ -1,12 +1,15 @@
 import { getApiBaseUrl } from "@/utils/environment";
 
 export const authenticatedFetch = async (url: string, init?: RequestInit): Promise<Response> => {
-  const apiBaseUrl = getApiBaseUrl();
-  let path = url || '';
-  if (path.startsWith('/api/')) path = path.slice(4);
-  else if (path === '/api') path = '/';
-  if (!path.startsWith('/')) path = `/${path}`;
-  const fullUrl = `${apiBaseUrl}${path}`;
+  let fullUrl = url || '';
+  if (!/^https?:\/\//i.test(fullUrl)) {
+    const apiBaseUrl = getApiBaseUrl();
+    let path = fullUrl;
+    if (path.startsWith('/api/')) path = path.slice(4);
+    else if (path === '/api') path = '/';
+    if (!path.startsWith('/')) path = `/${path}`;
+    fullUrl = `${apiBaseUrl}${path}`;
+  }
 
   const headers = new Headers(init?.headers || {});
   const token = localStorage.getItem('token');

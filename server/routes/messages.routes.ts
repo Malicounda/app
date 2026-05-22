@@ -4,30 +4,16 @@ import { Request, Response, Router } from 'express';
 import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { agents, rolesMetier, superAdmins, userDomains, users, messages } from '../../shared/schema.js';
 import { db } from '../db.js';
+import { getUploadsDir, resolveAttachmentFilePath } from '../lib/uploadsPath.js';
 import { MessagingService } from '../services/messaging.service.js';
 import { storage } from '../storage.js';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 
 const router = Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRootDir = path.resolve(__dirname, '..', '..');
-const uploadsDir = path.resolve(projectRootDir, 'uploads');
-
-const resolveAttachmentFilePath = (attachmentPath: string): string => {
-  if (!attachmentPath) return attachmentPath;
-  if (path.isAbsolute(attachmentPath)) return attachmentPath;
-
-  const candidateFromProjectRoot = path.resolve(uploadsDir, attachmentPath);
-  if (fs.existsSync(candidateFromProjectRoot)) return candidateFromProjectRoot;
-
-  const candidateFromCwd = path.resolve(process.cwd(), 'uploads', attachmentPath);
-  return candidateFromCwd;
-};
+const uploadsDir = getUploadsDir();
 
 
 
@@ -1021,26 +1007,34 @@ router.get('/:id/attachment', isAuthenticated, async (req: Request, res: Respons
     const filePath = resolveAttachmentFilePath(message.attachmentPath);
 
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'Fichier non trouvé' });
+      console.warn('[attachment] Fichier absent:', {
+        messageId,
+        attachmentPath: message.attachmentPath,
+        resolved: filePath,
+        uploadsDir: getUploadsDir(),
+      });
+      return res.status(404).json({ message: 'Fichier non trouvé sur le serveur (stockage local).' });
     }
 
-    // Préparer les en-têtes: inline par défaut pour permettre l'aperçu, attachment si ?download=1
     const mime = message.attachmentMime || 'application/octet-stream';
     const fileName = message.attachmentName || 'fichier';
     const forceDownload = String(req.query.download || '').trim() === '1';
 
     res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
     if (forceDownload) {
       res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     } else {
       res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     }
-    if (message.attachmentSize) {
-      res.setHeader('Content-Length', String(message.attachmentSize));
-    }
+    const stat = fs.statSync(filePath);
+    res.setHeader('Content-Length', String(stat.size));
 
-    // Envoyer le fichier en mode binaire
     const fileStream = fs.createReadStream(filePath);
+    fileStream.on('error', (err) => {
+      console.error('[attachment] stream error:', err);
+      if (!res.headersSent) res.status(500).json({ message: 'Erreur lecture fichier' });
+    });
     fileStream.pipe(res);
   } catch (error) {
     console.error('Erreur lors du téléchargement de la pièce jointe:', error);
@@ -1068,26 +1062,34 @@ router.get('/group/:id/attachment', isAuthenticated, async (req: Request, res: R
     const filePath = resolveAttachmentFilePath(groupMessage.attachmentPath);
 
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'Fichier non trouvé' });
+      console.warn('[attachment] Fichier groupe absent:', {
+        messageId,
+        attachmentPath: groupMessage.attachmentPath,
+        resolved: filePath,
+        uploadsDir: getUploadsDir(),
+      });
+      return res.status(404).json({ message: 'Fichier non trouvé sur le serveur (stockage local).' });
     }
 
-    // Préparer les en-têtes: inline par défaut pour permettre l'aperçu, attachment si ?download=1
     const mime = groupMessage.attachmentMime || 'application/octet-stream';
     const fileName = groupMessage.attachmentName || 'fichier';
     const forceDownload = String(req.query.download || '').trim() === '1';
 
     res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
     if (forceDownload) {
       res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     } else {
       res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     }
-    if (groupMessage.attachmentSize) {
-      res.setHeader('Content-Length', String(groupMessage.attachmentSize));
-    }
+    const stat = fs.statSync(filePath);
+    res.setHeader('Content-Length', String(stat.size));
 
-    // Envoyer le fichier en mode binaire
     const fileStream = fs.createReadStream(filePath);
+    fileStream.on('error', (err) => {
+      console.error('[attachment] stream error (group):', err);
+      if (!res.headersSent) res.status(500).json({ message: 'Erreur lecture fichier' });
+    });
     fileStream.pipe(res);
   } catch (error) {
     console.error('Erreur lors du téléchargement de la pièce jointe:', error);

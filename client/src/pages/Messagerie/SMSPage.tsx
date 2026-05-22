@@ -4,6 +4,7 @@ import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { buildMessageAttachmentUrl } from "@/lib/messageAttachments";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
 import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Download, Image as ImageIcon, FileText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -31,17 +32,39 @@ const formatFileSize = (bytes?: number | null) => {
 
 const AuthPreviewImage = ({ url, alt, className }: { url: string, alt: string, className?: string }) => {
   const [src, setSrc] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let objectUrl = '';
+    setError(null);
+    setSrc('');
     authenticatedFetch(url)
-      .then(res => res.ok ? res.blob() : Promise.reject('Erreur HTTP'))
-      .then(blob => {
+      .then(async (res) => {
+        if (!res.ok) {
+          let msg = `Erreur ${res.status}`;
+          try {
+            const j = await res.json();
+            msg = j?.message || msg;
+          } catch {
+            try { msg = await res.text(); } catch { /* ignore */ }
+          }
+          throw new Error(msg);
+        }
+        return res.blob();
+      })
+      .then((blob) => {
+        if (!blob.size) throw new Error('Fichier vide');
         objectUrl = URL.createObjectURL(blob);
         setSrc(objectUrl);
       })
-      .catch(console.error);
+      .catch((e) => {
+        console.error('[AuthPreviewImage]', e);
+        setError(e?.message || 'Impossible de charger l\'image');
+      });
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [url]);
+  if (error) {
+    return <div className="flex items-center justify-center h-48 text-sm text-red-600 px-4 text-center">{error}</div>;
+  }
   return src ? <img src={src} alt={alt} className={className} /> : <div className="flex items-center justify-center h-48 animate-pulse text-gray-400">Chargement...</div>;
 };
 
@@ -934,9 +957,9 @@ export default function SimpleSMSPage() {
                     const attachmentMime = m.rawMsgObj?.attachmentMime || '';
                     const isImage = attachmentMime.startsWith('image/');
                     const url = m.rawMsgObj?.id
-                      ? (selectedConversation.contactKey.startsWith('group_')
-                        ? `/api/messages/group/${m.rawMsgObj.id}/attachment`
-                        : `/api/messages/${m.rawMsgObj.id}/attachment`)
+                      ? buildMessageAttachmentUrl(Number(m.rawMsgObj.id), {
+                          isGroup: selectedConversation.contactKey.startsWith('group_'),
+                        })
                       : '';
 
                     const handleAttachmentClick = (e: React.MouseEvent) => {

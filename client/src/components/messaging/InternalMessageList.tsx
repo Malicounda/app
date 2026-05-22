@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { buildMessageAttachmentUrl } from "@/lib/messageAttachments";
 
 interface InternalMessageListProps {
   messages: InternalMessageRecord[];
@@ -320,9 +321,7 @@ export default function InternalMessageList({ messages, loading, emptyLabel, onD
 
     // Construire l'URL correcte vers l'endpoint API de téléchargement
     const isGroupMessage = Boolean(message.isGroupMessage);
-    const endpoint = isGroupMessage
-      ? `/api/messages/group/${messageId}/attachment`
-      : `/api/messages/${messageId}/attachment`;
+    const endpoint = buildMessageAttachmentUrl(Number(messageId), { isGroup: isGroupMessage });
 
     const sizeValue = typeof message.attachmentSize === "number" ? message.attachmentSize : Number(message.attachmentSize ?? 0) || null;
     setPreview({

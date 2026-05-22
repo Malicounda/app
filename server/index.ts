@@ -26,6 +26,7 @@ import settingsRoutes from './routes/settings.routes.js'; // Ajout de l'import
 import shapefileRoutes from './routes/shapefile.routes.js'; // Routes pour l'upload de shapefile
 import zonesRoutes from './routes/zones.routes.js'; // Nouvelles routes pour la table zones
 import { storage } from './storage.js';
+import { getUploadsDir, migrateLegacyUploadsToCanonical } from './lib/uploadsPath.js';
 import { log } from './utils/logger.js';
 
 // Configuration des chemins de fichiers pour les modules ES
@@ -517,18 +518,14 @@ const startServer = async (): Promise<HttpServer> => {
     const notificationService = new NotificationService(app);
     (app as any).notificationService = notificationService;
 
-    // Exposer le dossier des uploads en statique (pour les photos, pièces jointes, etc.)
-    // Sert /uploads/... depuis le répertoire racine du projet
-    const uploadsDir = path.resolve(process.cwd(), 'uploads');
-    if (fs.existsSync(uploadsDir)) {
-      log(`Dossier uploads trouvé: ${uploadsDir}`, 'static');
-    } else {
-      log(`Dossier uploads introuvable: ${uploadsDir}`, 'static');
-    }
+    migrateLegacyUploadsToCanonical();
+    const uploadsDir = getUploadsDir();
+    log(`Dossier uploads (pièces jointes): ${uploadsDir}`, 'static');
 
-    // Route pour les fichiers uploads qui n'existent pas
+    // Exposer /uploads/* (secours ; la messagerie utilise surtout /api/messages/:id/attachment)
     app.get('/uploads/*', (req: Request, res: Response) => {
-      const filePath = path.join(uploadsDir, req.path.replace('/uploads/', ''));
+      const rel = req.path.replace(/^\/uploads\//, '').replace(/^\/+/, '');
+      const filePath = path.join(uploadsDir, rel);
       if (fs.existsSync(filePath)) {
         // Si le client fournit un type MIME, l'appliquer pour forcer un rendu inline (utile si le fichier n'a pas d'extension)
         const qMime = typeof req.query.mime === 'string' ? req.query.mime : undefined;
