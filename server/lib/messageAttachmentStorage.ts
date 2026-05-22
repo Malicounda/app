@@ -1,7 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { pg } from '../db.js';
+import { normalizeOriginalFilename } from './filenameEncoding.js';
 import { getUploadsDir, resolveAttachmentFilePath } from './uploadsPath.js';
+
+export { normalizeOriginalFilename } from './filenameEncoding.js';
 
 const BUCKET = 'message-attachments';
 
@@ -37,7 +40,7 @@ export function guessMimeFromFilename(filename: string, fallback?: string): stri
 }
 
 export function buildSafeAttachmentKey(originalName: string): string {
-  const decoded = Buffer.from(originalName, 'latin1').toString('utf8');
+  const decoded = normalizeOriginalFilename(originalName);
   const ext = path.extname(decoded);
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
 }
@@ -163,7 +166,7 @@ export async function persistMessageAttachment(opts: {
   originalName: string;
   mimeType?: string;
 }): Promise<PersistedAttachment> {
-  const name = Buffer.from(opts.originalName, 'latin1').toString('utf8');
+  const name = normalizeOriginalFilename(opts.originalName);
   const mime = guessMimeFromFilename(name, opts.mimeType);
   const key = buildSafeAttachmentKey(name);
   const uploadsDir = getUploadsDir();

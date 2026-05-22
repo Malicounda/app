@@ -13,7 +13,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
-import { buildMessageAttachmentUrl } from "@/lib/messageAttachments";
+import { repairAttachmentFileName } from "@/lib/attachmentMime";
+import MessageAttachmentViewer from "@/components/messaging/MessageAttachmentViewer";
 
 interface InternalMessageListProps {
   messages: InternalMessageRecord[];
@@ -26,62 +27,12 @@ interface InternalMessageListProps {
 }
 
 interface AttachmentPreview {
+  messageId: number;
+  isGroup?: boolean;
   name?: string | null;
-  url: string;
   mime?: string | null;
   size?: number | null;
 }
-
-const AuthPreviewImage = ({ url, alt, className }: { url: string, alt: string, className?: string }) => {
-  const [src, setSrc] = useState<string>('');
-  useEffect(() => {
-    let objectUrl = '';
-    authenticatedFetch(url)
-      .then(res => res.ok ? res.blob() : Promise.reject('Erreur HTTP'))
-      .then(blob => {
-        objectUrl = URL.createObjectURL(blob);
-        setSrc(objectUrl);
-      })
-      .catch(console.error);
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [url]);
-  return src ? <img src={src} alt={alt} className={className} /> : <div className="flex items-center justify-center h-48 animate-pulse text-gray-400">Chargement...</div>;
-};
-
-const AuthPreviewPdf = ({ url, title, className }: { url: string, title: string, className?: string }) => {
-  const [src, setSrc] = useState<string>('');
-  useEffect(() => {
-    let objectUrl = '';
-    authenticatedFetch(url)
-      .then(res => res.ok ? res.blob() : Promise.reject('Erreur HTTP'))
-      .then(blob => {
-        objectUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-        setSrc(objectUrl);
-      })
-      .catch(console.error);
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [url]);
-  return src ? <iframe src={src} title={title} className={className} /> : <div className="flex items-center justify-center h-48 animate-pulse text-gray-400">Chargement PDF...</div>;
-};
-
-const handleAuthDownload = async (e: React.MouseEvent<HTMLAnchorElement>, url: string, filename: string) => {
-  e.preventDefault();
-  try {
-    const res = await authenticatedFetch(url);
-    if (!res.ok) throw new Error('Échec du téléchargement');
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objectUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objectUrl);
-  } catch (err) {
-    console.error('Erreur téléchargement', err);
-  }
-};
 
 const DATE_KEYS = ["createdAt", "created_at", "sentAt", "sent_at", "updatedAt", "updated_at"];
 const SUBJECT_KEYS = ["subject", "title", "heading"];
@@ -165,7 +116,6 @@ export default function InternalMessageList({
   const normalizedRole = (user?.role || '').toLowerCase();
   const [listFilter, setListFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [preview, setPreview] = useState<AttachmentPreview | null>(null);
-  const hasPreview = !!preview;
   const [messageToDelete, setMessageToDelete] = useState<InternalMessageRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -304,18 +254,6 @@ export default function InternalMessageList({
     }
   };
 
-  const isImagePreview = useMemo(() => {
-    if (!preview) return false;
-    if (preview.mime) return preview.mime.startsWith("image/");
-    return preview.name ? /\.(png|jpe?g|gif|bmp|webp)$/i.test(preview.name) : false;
-  }, [preview]);
-
-  const isPdfPreview = useMemo(() => {
-    if (!preview) return false;
-    if (preview.mime) return preview.mime === "application/pdf";
-    return preview.name ? /\.pdf$/i.test(preview.name) : false;
-  }, [preview]);
-
   const formatFileSize = (size: number | null | undefined) => {
     if (!size || Number.isNaN(size)) return "";
     if (size < 1024) return `${size} o`;
@@ -330,18 +268,19 @@ export default function InternalMessageList({
   const canGoNext = page < totalPages;
 
   const openAttachmentPreview = (message: InternalMessageRecord) => {
-    const displayName = (message.attachmentName as string | undefined) ?? "Pièce jointe";
     const messageId = message.id;
     if (!messageId) return;
-
-    // Construire l'URL correcte vers l'endpoint API de téléchargement
+    const displayName =
+      repairAttachmentFileName(message.attachmentName as string | undefined) || 'Pièce jointe';
     const isGroupMessage = Boolean(message.isGroupMessage);
-    const endpoint = buildMessageAttachmentUrl(Number(messageId), { isGroup: isGroupMessage });
-
-    const sizeValue = typeof message.attachmentSize === "number" ? message.attachmentSize : Number(message.attachmentSize ?? 0) || null;
+    const sizeValue =
+      typeof message.attachmentSize === 'number'
+        ? message.attachmentSize
+        : Number(message.attachmentSize ?? 0) || null;
     setPreview({
+      messageId: Number(messageId),
+      isGroup: isGroupMessage,
       name: displayName,
-      url: endpoint,
       mime: (message.attachmentMime as string | undefined) ?? null,
       size: sizeValue,
     });
@@ -690,63 +629,7 @@ export default function InternalMessageList({
           </div>
         )}
       </div>
-      <Dialog open={hasPreview} onOpenChange={(open) => { if (!open) closePreview(); }}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Pièce jointe</DialogTitle>
-            <DialogDescription>
-              {preview?.name || "Aperçu de la pièce jointe"}
-              {preview?.size ? ` • ${formatFileSize(preview.size)}` : ""}
-            </DialogDescription>
-          </DialogHeader>
-          {preview && (
-            <div className="space-y-4">
-              {isImagePreview ? (
-                <AuthPreviewImage
-                  url={preview.url}
-                  alt={preview.name ?? "Pièce jointe"}
-                  className="max-h-[60vh] w-full rounded-md object-contain"
-                />
-              ) : isPdfPreview ? (
-                <AuthPreviewPdf
-                  title={preview.name ?? "Document PDF"}
-                  url={preview.url}
-                  className="h-[60vh] w-full rounded-md border"
-                />
-              ) : (
-                <div className="flex flex-col items-center py-8">
-                  <p className="text-sm text-gray-600 mb-4">
-                    Aperçu non disponible pour ce type de fichier. Vous pouvez le télécharger pour le consulter.
-                  </p>
-                  <Button asChild>
-                    <a
-                      href="#"
-                      onClick={(e) => handleAuthDownload(e, preview.url, preview.name || "document")}
-                    >
-                      Télécharger
-                    </a>
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={closePreview}>
-              Fermer
-            </Button>
-            {preview?.url && (
-              <Button asChild>
-                <a
-                  href="#"
-                  onClick={(e) => handleAuthDownload(e, preview.url, preview.name || "document")}
-                >
-                  Télécharger
-                </a>
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MessageAttachmentViewer payload={preview} onClose={closePreview} />
       <Dialog open={!!replyFor} onOpenChange={(open) => { if (!open) { setReplyFor(null); setReplyContent(""); setReplyRecipient(""); setReplySubmitting(false); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

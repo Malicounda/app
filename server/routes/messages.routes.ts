@@ -4,6 +4,7 @@ import { Request, Response, Router } from 'express';
 import multer from 'multer';
 import { agents, rolesMetier, superAdmins, userDomains, users, messages } from '../../shared/schema.js';
 import { db } from '../db.js';
+import { normalizeOriginalFilename } from '../lib/filenameEncoding.js';
 import {
   guessMimeFromFilename,
   persistMessageAttachment,
@@ -22,13 +23,10 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024,
   },
   fileFilter: (_req, file, cb) => {
-    try {
-      file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-      cb(null, true);
-    } catch (error) {
-      console.error("Erreur d'encodage du nom de fichier:", error);
-      cb(null, true);
+    if (file?.originalname) {
+      file.originalname = normalizeOriginalFilename(file.originalname);
     }
+    cb(null, true);
   },
 });
 
@@ -1015,7 +1013,7 @@ router.get('/:id/attachment', isAuthenticated, async (req: Request, res: Respons
       message.attachmentName || message.attachmentPath,
       message.attachmentMime || undefined
     );
-    const fileName = message.attachmentName || 'fichier';
+    const fileName = normalizeOriginalFilename(message.attachmentName || 'fichier');
     const forceDownload = String(req.query.download || '').trim() === '1';
 
     res.setHeader('Content-Type', mime);
@@ -1066,7 +1064,7 @@ router.get('/group/:id/attachment', isAuthenticated, async (req: Request, res: R
       groupMessage.attachmentName || groupMessage.attachmentPath,
       groupMessage.attachmentMime || undefined
     );
-    const fileName = groupMessage.attachmentName || 'fichier';
+    const fileName = normalizeOriginalFilename(groupMessage.attachmentName || 'fichier');
     const forceDownload = String(req.query.download || '').trim() === '1';
 
     res.setHeader('Content-Type', mime);

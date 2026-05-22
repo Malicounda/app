@@ -208,7 +208,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         formData.append("subject", subject);
         formData.append("content", content);
         if (attachment) {
-          formData.append("attachment", attachment);
+          formData.append("attachment", attachment, attachment.name);
         }
         if (domaineId) {
           formData.append("domaineId", String(domaineId));
@@ -263,7 +263,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
             formData.append("targetRegion", target.region);
           }
           if (attachment) {
-            formData.append("attachment", attachment);
+            formData.append("attachment", attachment, attachment.name);
           }
           if (domaineId) {
             formData.append("domaineId", String(domaineId));

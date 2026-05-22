@@ -9,7 +9,7 @@ import { useToast } from './use-toast';
 const VAPID_PUBLIC_KEY =
   'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
 
-const ANDROID_CHANNEL_ID = 'alerte_messages';
+const ANDROID_CHANNEL_ID = 'alerte_messages_v2';
 
 function isNativeCapacitor(): boolean {
   const cap = typeof window !== 'undefined' ? (window as Window & { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } }).Capacitor : undefined;
@@ -29,15 +29,20 @@ function getSocketServerUrl(): string {
 async function ensureAndroidNotificationChannel(): Promise<void> {
   if (getCapacitorPlatform() !== 'android') return;
   try {
+    try {
+      await LocalNotifications.deleteChannel({ id: 'alerte_messages' });
+    } catch {
+      /* ancien canal sans son */
+    }
     await LocalNotifications.createChannel({
       id: ANDROID_CHANNEL_ID,
       name: 'Messages et alertes',
-      description: 'Notifications sonores et écran verrouillé',
+      description: 'Son, vibration et écran verrouillé',
       importance: 5,
       visibility: 1,
-      sound: 'default',
       vibration: true,
       lights: true,
+      lightColor: '#114B26',
     });
   } catch (e) {
     console.warn('[LocalNotifications] createChannel:', e);
@@ -53,6 +58,7 @@ async function showSystemNotification(
   try {
     await ensureAndroidNotificationChannel();
     const id = Math.floor(Date.now() % 2147483640) + 1;
+    const isAndroid = getCapacitorPlatform() === 'android';
     await LocalNotifications.schedule({
       notifications: [
         {
@@ -60,7 +66,9 @@ async function showSystemNotification(
           title,
           body,
           channelId: ANDROID_CHANNEL_ID,
-          sound: 'default',
+          smallIcon: isAndroid ? 'ic_stat_notify' : undefined,
+          largeIcon: isAndroid ? 'ic_launcher_foreground' : undefined,
+          iconColor: '#114B26',
           extra: extra || {},
         },
       ],

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import ChatAttachmentBlock from "@/components/messaging/ChatAttachmentBlock";
+import MessageAttachmentViewer from "@/components/messaging/MessageAttachmentViewer";
 import { guessAttachmentMime, repairAttachmentFileName } from "@/lib/attachmentMime";
 import { buildMessageAttachmentUrl } from "@/lib/messageAttachments";
 import {
@@ -12,102 +13,17 @@ import {
   resolveConversationDeleteIdentifier,
 } from "@/lib/messagingUtils";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
-import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Download, Image as ImageIcon, FileText } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 interface AttachmentPreview {
+  messageId: number;
+  isGroup?: boolean;
   name?: string | null;
-  url: string;
   mime?: string | null;
   size?: number | null;
 }
-
-const formatFileSize = (bytes?: number | null) => {
-  if (!bytes) return "Taille inconnue";
-  if (bytes < 1024) return bytes + " o";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " Ko";
-  return (bytes / (1024 * 1024)).toFixed(1) + " Mo";
-};
-
-const AuthPreviewImage = ({ url, alt, className }: { url: string, alt: string, className?: string }) => {
-  const [src, setSrc] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    let objectUrl = '';
-    setError(null);
-    setSrc('');
-    authenticatedFetch(url)
-      .then(async (res) => {
-        if (!res.ok) {
-          let msg = `Erreur ${res.status}`;
-          try {
-            const j = await res.json();
-            msg = j?.message || msg;
-          } catch {
-            try { msg = await res.text(); } catch { /* ignore */ }
-          }
-          throw new Error(msg);
-        }
-        return res.blob();
-      })
-      .then((blob) => {
-        if (!blob.size) throw new Error('Fichier vide');
-        objectUrl = URL.createObjectURL(blob);
-        setSrc(objectUrl);
-      })
-      .catch((e) => {
-        console.error('[AuthPreviewImage]', e);
-        setError(e?.message || 'Impossible de charger l\'image');
-      });
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [url]);
-  if (error) {
-    return <div className="flex items-center justify-center h-48 text-sm text-red-600 px-4 text-center">{error}</div>;
-  }
-  return src ? <img src={src} alt={alt} className={className} /> : <div className="flex items-center justify-center h-48 animate-pulse text-gray-400">Chargement...</div>;
-};
-
-const AuthPreviewPdf = ({ url, title, className }: { url: string, title: string, className?: string }) => {
-  const [src, setSrc] = useState<string>('');
-  useEffect(() => {
-    let objectUrl = '';
-    authenticatedFetch(url)
-      .then(res => res.ok ? res.blob() : Promise.reject('Erreur HTTP'))
-      .then(blob => {
-        objectUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-        setSrc(objectUrl);
-      })
-      .catch(console.error);
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [url]);
-  return src ? <iframe src={src} title={title} className={className} /> : <div className="flex items-center justify-center h-48 animate-pulse text-gray-400">Chargement PDF...</div>;
-};
-
-const handleAuthDownload = async (e: React.MouseEvent<HTMLAnchorElement>, url: string, filename: string) => {
-  e.preventDefault();
-  try {
-    const res = await authenticatedFetch(url);
-    if (!res.ok) throw new Error('Échec du téléchargement');
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objectUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objectUrl);
-  } catch (err) {
-    console.error('Erreur téléchargement', err);
-  }
-};
 
 const GLOBAL_TARGETS = [
   { key: "hunters", label: "Tous les chasseurs", target: { role: "hunter" } },
@@ -439,7 +355,7 @@ export default function SimpleSMSPage() {
         formData.append("subject", "Message");
         formData.append("content", defaultMsg.trim());
         if (defaultAttachment) {
-          formData.append("attachment", defaultAttachment);
+          formData.append("attachment", defaultAttachment, defaultAttachment.name);
         }
         const response = await authenticatedFetch("/api/messages/", {
           method: "POST",
@@ -979,10 +895,11 @@ export default function SimpleSMSPage() {
                       : '';
 
                     const openAttachmentPreview = () => {
-                      if (!url) return;
+                      if (!m.rawMsgObj?.id) return;
                       setPreview({
+                        messageId: Number(m.rawMsgObj.id),
+                        isGroup: isGroupMsg,
                         name: attachmentName,
-                        url,
                         mime: attachmentMime,
                         size: m.rawMsgObj?.attachmentSize,
                       });
@@ -1826,56 +1743,7 @@ export default function SimpleSMSPage() {
           </div>
         </div>
       )}
-      {/* === Dialog Attachment Preview === */}
-      {preview && (
-        <Dialog open={!!preview} onOpenChange={(open) => !open && setPreview(null)}>
-          <DialogContent className="sm:max-w-xl flex flex-col max-h-[90vh]">
-            <DialogHeader>
-              <DialogTitle className="truncate pr-8">{preview.name || "Aperçu du fichier"}</DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center bg-gray-50/50 rounded-md border border-gray-100 p-2">
-              {guessAttachmentMime(preview.name, preview.mime).startsWith('image/') ? (
-                <AuthPreviewImage url={preview.url} alt={preview.name || ''} className="max-w-full max-h-[60vh] object-contain rounded" />
-              ) : guessAttachmentMime(preview.name, preview.mime) === 'application/pdf' ? (
-                <AuthPreviewPdf url={preview.url} title={preview.name || ''} className="w-full h-[60vh] border-0 rounded" />
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <FileText className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <p className="text-sm font-medium mb-1 text-gray-800">Aperçu non disponible</p>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Ce type de fichier ({preview.mime || 'inconnu'}) ne peut pas être prévisualisé.
-                  </p>
-                  <a
-                    href="#"
-                    onClick={(e) => handleAuthDownload(e, preview.url, preview.name || 'document')}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Télécharger
-                  </a>
-                </div>
-              )}
-            </div>
-            {(() => {
-              const pm = guessAttachmentMime(preview.name, preview.mime);
-              return pm.startsWith('image/') || pm === 'application/pdf';
-            })() && (
-              <div className="flex justify-end mt-4">
-                <a
-                  href="#"
-                  onClick={(e) => handleAuthDownload(e, preview.url, preview.name || 'document')}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Télécharger le fichier
-                </a>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
+      <MessageAttachmentViewer payload={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }
