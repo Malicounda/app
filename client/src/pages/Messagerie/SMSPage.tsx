@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import ChatAttachmentBlock from "@/components/messaging/ChatAttachmentBlock";
-import { guessAttachmentMime } from "@/lib/attachmentMime";
+import { guessAttachmentMime, repairAttachmentFileName } from "@/lib/attachmentMime";
 import { buildMessageAttachmentUrl } from "@/lib/messageAttachments";
 import {
   isGroupConversationKey,
@@ -965,7 +965,7 @@ export default function SimpleSMSPage() {
                   )}
                   {selectedConversation.messages.map((m, i) => {
                     const hasAttachment = Boolean(m.rawMsgObj?.attachmentPath || m.rawMsgObj?.attachmentName);
-                    const attachmentName = m.rawMsgObj?.attachmentName || 'Fichier joint';
+                    const attachmentName = repairAttachmentFileName(m.rawMsgObj?.attachmentName) || 'Fichier joint';
                     const attachmentMime = guessAttachmentMime(
                       attachmentName,
                       m.rawMsgObj?.attachmentMime

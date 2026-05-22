@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { pg } from '../db.js';
 import { getUploadsDir, resolveAttachmentFilePath } from './uploadsPath.js';
 
 const BUCKET = 'message-attachments';
@@ -41,12 +42,66 @@ export function buildSafeAttachmentKey(originalName: string): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
 }
 
+let blobsTableReady: Promise<void> | null = null;
+
+/** Table BYTEA dans PostgreSQL (Supabase) — persiste les PJ même si le disque Render est vide. */
+export function ensureAttachmentBlobsTable(): Promise<void> {
+  if (!blobsTableReady) {
+    blobsTableReady = pg
+      .query(`
+        CREATE TABLE IF NOT EXISTS message_attachment_blobs (
+          storage_key TEXT PRIMARY KEY,
+          data BYTEA NOT NULL,
+          mime_type TEXT,
+          size_bytes INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `)
+      .then(() => {
+        console.log('[attachments] table message_attachment_blobs prête (PostgreSQL)');
+      })
+      .catch((e) => {
+        blobsTableReady = null;
+        console.error('[attachments] création table message_attachment_blobs:', e);
+        throw e;
+      });
+  }
+  return blobsTableReady;
+}
+
+async function saveAttachmentBlob(storageKey: string, buffer: Buffer, mime: string): Promise<void> {
+  await ensureAttachmentBlobsTable();
+  await pg.query(
+    `INSERT INTO message_attachment_blobs (storage_key, data, mime_type, size_bytes)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (storage_key) DO UPDATE SET
+       data = EXCLUDED.data,
+       mime_type = EXCLUDED.mime_type,
+       size_bytes = EXCLUDED.size_bytes`,
+    [storageKey, buffer, mime, buffer.length]
+  );
+}
+
+async function readAttachmentBlob(storageKey: string): Promise<AttachmentReadResult | null> {
+  await ensureAttachmentBlobsTable();
+  const { rows } = await pg.query(
+    `SELECT data, size_bytes FROM message_attachment_blobs WHERE storage_key = $1 LIMIT 1`,
+    [storageKey]
+  );
+  const row = rows?.[0];
+  if (!row?.data) return null;
+  const buffer = Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data);
+  if (!buffer.length) return null;
+  return { buffer, size: Number(row.size_bytes) || buffer.length };
+}
+
 export function logAttachmentStorageStatus(): void {
   const dir = getUploadsDir();
   const supabase = getSupabaseConfig();
+  void ensureAttachmentBlobsTable().catch(() => {});
   console.log(
-    `[attachments] stockage local: ${dir}` +
-      (supabase ? ` | Supabase Storage: ${supabase.url}/storage/v1/object/${BUCKET}` : ' | Supabase Storage: désactivé (SUPABASE_SERVICE_ROLE_KEY manquant)')
+    `[attachments] stockage: disque=${dir} | PostgreSQL BYTEA=oui` +
+      (supabase ? ` | Supabase Storage=${supabase.url}/storage/v1/object/${BUCKET}` : ' | Supabase Storage=off (SUPABASE_SERVICE_ROLE_KEY)')
   );
 }
 
@@ -113,14 +168,25 @@ export async function persistMessageAttachment(opts: {
   const key = buildSafeAttachmentKey(name);
   const uploadsDir = getUploadsDir();
   const localPath = path.join(uploadsDir, key);
-  fs.writeFileSync(localPath, opts.buffer);
+  try {
+    fs.writeFileSync(localPath, opts.buffer);
+  } catch (e) {
+    console.warn('[attachments] écriture disque échouée, PostgreSQL seul:', e);
+  }
+
+  try {
+    await saveAttachmentBlob(key, opts.buffer, mime);
+  } catch (e) {
+    console.error('[attachments] échec enregistrement PostgreSQL:', e);
+    throw new Error('Impossible de sauvegarder la pièce jointe');
+  }
 
   const supabase = getSupabaseConfig();
   if (supabase) {
     try {
       await uploadToSupabase(supabase, key, opts.buffer, mime);
     } catch (e) {
-      console.error('[attachments] échec upload Supabase (fichier local conservé):', e);
+      console.error('[attachments] échec upload Supabase Storage (copie PostgreSQL OK):', e);
     }
   }
 
@@ -129,12 +195,30 @@ export async function persistMessageAttachment(opts: {
 
 export type AttachmentReadResult = { buffer: Buffer; size: number };
 
-/** Lit une PJ : disque local, puis Supabase ; met en cache local si trouvé dans le cloud. */
+/** Lit une PJ : disque → PostgreSQL BYTEA → Supabase Storage ; cache disque si trouvé en cloud. */
 export async function readMessageAttachment(storageKey: string): Promise<AttachmentReadResult | null> {
   const localPath = resolveAttachmentFilePath(storageKey);
   if (fs.existsSync(localPath)) {
     const buffer = fs.readFileSync(localPath);
+    void saveAttachmentBlob(storageKey, buffer, guessMimeFromFilename(storageKey)).catch(() => {});
     return { buffer, size: buffer.length };
+  }
+
+  try {
+    const fromDb = await readAttachmentBlob(storageKey);
+    if (fromDb) {
+      try {
+        const cachePath = path.join(getUploadsDir(), path.basename(storageKey));
+        if (!fs.existsSync(cachePath)) {
+          fs.writeFileSync(cachePath, fromDb.buffer);
+        }
+      } catch {
+        /* ignore */
+      }
+      return fromDb;
+    }
+  } catch (e) {
+    console.warn('[attachments] lecture PostgreSQL:', e);
   }
 
   const supabase = getSupabaseConfig();
@@ -142,6 +226,8 @@ export async function readMessageAttachment(storageKey: string): Promise<Attachm
 
   const buffer = await downloadFromSupabase(supabase, storageKey);
   if (!buffer?.length) return null;
+
+  void saveAttachmentBlob(storageKey, buffer, guessMimeFromFilename(storageKey)).catch(() => {});
 
   try {
     const cachePath = path.join(getUploadsDir(), path.basename(storageKey));

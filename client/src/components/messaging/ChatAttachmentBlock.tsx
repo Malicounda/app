@@ -1,5 +1,5 @@
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
-import { guessAttachmentMime, isImageMime } from '@/lib/attachmentMime';
+import { guessAttachmentMime, isImageMime, repairAttachmentFileName } from '@/lib/attachmentMime';
 import { FileText, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -81,7 +81,8 @@ export default function ChatAttachmentBlock({
   variant,
   onOpen,
 }: ChatAttachmentBlockProps) {
-  const resolvedMime = guessAttachmentMime(name, mime);
+  const displayName = repairAttachmentFileName(name);
+  const resolvedMime = guessAttachmentMime(displayName, mime);
   const isImage = isImageMime(resolvedMime);
   const sizeLabel = formatFileSize(size);
 
@@ -110,7 +111,7 @@ export default function ChatAttachmentBlock({
       {isImage && url ? (
         <AuthInlineImage
           url={url}
-          alt={name}
+          alt={displayName}
           className="max-h-40 w-full object-cover rounded-t-lg"
         />
       ) : null}
@@ -126,7 +127,7 @@ export default function ChatAttachmentBlock({
               variant === 'sent' ? 'text-white' : 'text-gray-700'
             }`}
           >
-            {name}
+            {displayName}
           </span>
           {sizeLabel ? (
             <span
