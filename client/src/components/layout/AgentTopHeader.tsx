@@ -5,6 +5,7 @@ import { Bell, LogOut, MessageSquare, User as UserIcon, ChevronRight } from "luc
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { getMessagingDomaineQueryParam } from "@/utils/messagingDomain";
 
 export default function AgentTopHeader() {
   const { user, logout } = useAuth();
@@ -26,7 +27,7 @@ export default function AgentTopHeader() {
     queryKey: ["messages-unread-count-alerte"],
     queryFn: async () => {
       try {
-        const res = await authenticatedFetch(`/api/messages/unread-count`);
+        const res = await authenticatedFetch(`/api/messages/unread-count?${getMessagingDomaineQueryParam()}`);
         if (!res.ok) return { total: 0 };
         return await res.json();
       } catch { return { total: 0 }; }

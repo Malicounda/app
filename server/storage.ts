@@ -275,8 +275,8 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
     // Méthodes pour les messages
     getMessage(id: number): Promise<Message | undefined>;
     getMessageWithSender(id: number): Promise<MessageWithSender | undefined>;
-    getMessagesBySender(senderId: number, domaineId?: number): Promise<Message[]>;
-    getMessagesByRecipient(recipientId: number, domaineId?: number): Promise<Message[]>;
+    getMessagesBySender(senderId: number, domaineId?: number | null): Promise<Message[]>;
+    getMessagesByRecipient(recipientId: number, domaineId?: number | null): Promise<Message[]>;
     getMessagesByParent(parentMessageId: number): Promise<Message[]>;
     getMessageThreads(userId: number): Promise<MessageWithSender[]>;
     getMessageThread(parentMessageId: number): Promise<MessageWithSender[]>;
@@ -287,14 +287,14 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
     markMessageDeletedBySender(id: number, userId: number): Promise<Message | undefined>;
     markMessageDeletedForRecipient(id: number, userId: number): Promise<Message | undefined>;
     deleteMessage(id: number): Promise<boolean>;
-    countUnreadMessages(userId: number, domaineId?: number): Promise<{ individual: number; group: number }>;
+    countUnreadMessages(userId: number, domaineId?: number | null): Promise<{ individual: number; group: number }>;
 
     // Méthodes pour les messages groupés
     getGroupMessage(id: number): Promise<GroupMessage | undefined>;
     getGroupMessageWithSender(id: number): Promise<GroupMessageWithSender | undefined>;
     getGroupMessagesByRole(role: string, region?: string): Promise<GroupMessageWithSender[]>;
-    getGroupMessagesByUser(userId: number, domaineId?: number): Promise<GroupMessageWithSender[]>;
-    getGroupMessagesBySender(senderId: number, domaineId?: number): Promise<GroupMessage[]>;
+    getGroupMessagesByUser(userId: number, domaineId?: number | null): Promise<GroupMessageWithSender[]>;
+    getGroupMessagesBySender(senderId: number, domaineId?: number | null): Promise<GroupMessage[]>;
     getGroupReadsWithUsers(messageId: number): Promise<any[]>;
     createGroupMessage(message: InsertGroupMessage): Promise<GroupMessage>;
     markGroupMessageAsRead(messageId: number, userId: number): Promise<GroupMessageRead>;
@@ -2303,12 +2303,14 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
       };
     }
 
-    async getMessagesBySender(senderId: number, domaineId?: number): Promise<Message[]> {
+    async getMessagesBySender(senderId: number, domaineId?: number | null): Promise<Message[]> {
       const conditions = [
         eq(messages.senderId, senderId),
         isNull(messages.deletedAtSender) // Aligné avec le schéma (deletedAtSender)
       ];
-      if (domaineId !== undefined) {
+      if (domaineId === null) {
+        conditions.push(isNull(messages.domaineId));
+      } else if (domaineId !== undefined) {
         conditions.push(eq(messages.domaineId, domaineId));
       }
       // Filtrer les messages dont le destinataire n'existe plus (utilisateur supprimé)
@@ -2320,18 +2322,15 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         .then(rows => rows.map(r => r.message));
     }
 
-    async getMessagesByRecipient(recipientId: number, domaineId?: number): Promise<Message[]> {
+    async getMessagesByRecipient(recipientId: number, domaineId?: number | null): Promise<Message[]> {
       const conditions = [
         eq(messages.recipientId, recipientId),
         isNull(messages.deletedAt) // Aligné avec le schéma (deletedAt)
       ];
-      if (domaineId !== undefined) {
-        conditions.push(
-          or(
-            eq(messages.domaineId, domaineId),
-            sql`${messages.domaineId} IS NULL`
-          ) as any
-        );
+      if (domaineId === null) {
+        conditions.push(isNull(messages.domaineId));
+      } else if (domaineId !== undefined) {
+        conditions.push(eq(messages.domaineId, domaineId));
       }
       // Filtrer les messages dont l'expéditeur n'existe plus (utilisateur supprimé)
       return await db.select({ message: messages })
@@ -2522,7 +2521,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
       return result.length > 0;
     }
 
-    async countUnreadMessages(userId: number, domaineId?: number): Promise<{ individual: number; group: number }> {
+    async countUnreadMessages(userId: number, domaineId?: number | null): Promise<{ individual: number; group: number }> {
       try {
         // 1. Compter les messages individuels non lus
         const individualConditions = [
@@ -2530,13 +2529,10 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           eq(messages.isRead, false),
           isNull(messages.deletedAt)
         ];
-        if (domaineId !== undefined) {
-          individualConditions.push(
-            or(
-              eq(messages.domaineId, domaineId),
-              sql`${messages.domaineId} IS NULL`
-            ) as any
-          );
+        if (domaineId === null) {
+          individualConditions.push(isNull(messages.domaineId));
+        } else if (domaineId !== undefined) {
+          individualConditions.push(eq(messages.domaineId, domaineId));
         }
 
         const [individualResult] = await db.select({ value: count() })
@@ -2551,13 +2547,10 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           eq(groupMessages.targetRole, user.role as any),
           or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any))
         ];
-        if (domaineId !== undefined) {
-          groupConditions.push(
-            or(
-              eq(groupMessages.domaineId, domaineId),
-              sql`${groupMessages.domaineId} IS NULL`
-            ) as any
-          );
+        if (domaineId === null) {
+          groupConditions.push(isNull(groupMessages.domaineId));
+        } else if (domaineId !== undefined) {
+          groupConditions.push(eq(groupMessages.domaineId, domaineId));
         }
 
         const groupMessagesList = await db.select({ id: groupMessages.id })
@@ -2672,7 +2665,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
       }));
     }
 
-    async getGroupMessagesByUser(userId: number, domaineId?: number): Promise<GroupMessageWithSender[]> {
+    async getGroupMessagesByUser(userId: number, domaineId?: number | null): Promise<GroupMessageWithSender[]> {
       // Récupérer l'utilisateur
       const user = await this.getUser(userId);
       if (!user) return [];
@@ -2681,13 +2674,10 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         eq(groupMessages.targetRole, user.role as any),
         or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any))
       ];
-      if (domaineId !== undefined) {
-        conditions.push(
-          or(
-            eq(groupMessages.domaineId, domaineId),
-            sql`${groupMessages.domaineId} IS NULL`
-          ) as any
-        );
+      if (domaineId === null) {
+        conditions.push(isNull(groupMessages.domaineId));
+      } else if (domaineId !== undefined) {
+        conditions.push(eq(groupMessages.domaineId, domaineId));
       }
 
       const rows = await db
@@ -2740,9 +2730,11 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         }));
     }
 
-    async getGroupMessagesBySender(senderId: number, domaineId?: number): Promise<GroupMessage[]> {
+    async getGroupMessagesBySender(senderId: number, domaineId?: number | null): Promise<GroupMessage[]> {
       const conditions = [eq(groupMessages.senderId, senderId)];
-      if (domaineId !== undefined) {
+      if (domaineId === null) {
+        conditions.push(isNull(groupMessages.domaineId));
+      } else if (domaineId !== undefined) {
         conditions.push(eq(groupMessages.domaineId, domaineId));
       }
       // Join groupMessageReads to exclude messages soft-deleted by the sender

@@ -385,7 +385,7 @@ router.get('/inbox', isAuthenticated, async (req, res) => {
     const domaineId = await MessagingService.getAuthorizedContext(userId, req.query.domaineId, res);
     if (domaineId === false) return;
 
-    const userMessages = await storage.getMessagesByRecipient(userId, domaineId ?? undefined);
+    const userMessages = await storage.getMessagesByRecipient(userId, domaineId);
 
     // Enrich messages with sender details (grade from agents, roleMetier from rolesMetier)
     const senderIds = [...new Set(userMessages.map((m: any) => m.senderId).filter(Boolean))];
@@ -449,8 +449,8 @@ router.get('/sent', isAuthenticated, async (req, res) => {
     if (domaineId === false) return;
 
     const [individual, group] = await Promise.all([
-      storage.getMessagesBySender(senderId, domaineId ?? undefined),
-      storage.getGroupMessagesBySender(senderId, domaineId ?? undefined),
+      storage.getMessagesBySender(senderId, domaineId),
+      storage.getGroupMessagesBySender(senderId, domaineId),
     ]);
 
     // Enrichir les individuels avec info destinataire
@@ -823,7 +823,7 @@ router.get('/group/inbox', isAuthenticated, async (req, res) => {
     const domaineId = await MessagingService.getAuthorizedContext(userId, req.query.domaineId, res);
     if (domaineId === false) return;
 
-    const groupMessages = await storage.getGroupMessagesByUser(userId, domaineId ?? undefined);
+    const groupMessages = await storage.getGroupMessagesByUser(userId, domaineId);
     res.json(groupMessages);
   } catch (error) {
     console.error('Erreur récupération messages de groupe:', error);
@@ -840,8 +840,8 @@ router.patch('/:id/read', isAuthenticated, async (req: Request, res: Response) =
     if (!userId) return res.status(401).json({ message: 'Non authentifié' });
 
     const message = await storage.getMessage(messageId);
-    if (!message || message.recipientId !== userId) {
-      return res.status(404).json({ message: "Message non trouvé" });
+    if (!message || message.recipientId !== userId || message.deletedAt) {
+      return res.status(204).send();
     }
 
     const updatedMessage = await storage.markMessageAsRead(messageId);
@@ -967,26 +967,28 @@ router.get('/unread-count', isAuthenticated, async (req, res) => {
     const userId = (req as any)?.user?.id;
     if (!userId) return res.status(401).json({ message: 'Non authentifié' });
 
-    let domaineId: number | undefined;
+    let domaineId: number | null | undefined = undefined;
     const rawDomaineId = req.query.domaineId;
-    const sanitizedDomaineId = (!rawDomaineId || rawDomaineId === 'undefined' || rawDomaineId === 'null')
+    const hasDomaineQuery = rawDomaineId !== undefined && rawDomaineId !== '';
+    const sanitizedDomaineId = (!hasDomaineQuery || rawDomaineId === 'undefined')
       ? undefined
       : rawDomaineId;
 
-    if (sanitizedDomaineId !== undefined) {
+    if (hasDomaineQuery) {
       const result = await DomainResolver.resolve(userId, sanitizedDomaineId);
       if (result.status === "RESOLVED") {
-        domaineId = result.domaineId === null ? undefined : result.domaineId;
+        domaineId = result.domaineId;
       } else {
-        // En cas d'erreur ou de besoin de contexte (ex: multi-domaines sans contexte),
-        // pour l'unread-count (qui est un simple polling global de l'interface),
-        // on ne bloque pas avec une erreur HTTP. On ignore simplement le filtre.
         domaineId = undefined;
+      }
+    } else {
+      const headerDomain = String((req.headers['x-domain'] || '')).toUpperCase().trim();
+      if (headerDomain === 'ALERTE') {
+        domaineId = null;
       }
     }
 
-    // null domaineId = no domain (default/supervisor agents) — don't filter by domain
-    const counts = await storage.countUnreadMessages(userId, domaineId ?? undefined);
+    const counts = await storage.countUnreadMessages(userId, domaineId);
     res.json({ ...counts, total: counts.individual + counts.group });
   } catch (error) {
     console.error('Erreur lors du comptage des messages non lus:', error);

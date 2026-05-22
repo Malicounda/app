@@ -622,8 +622,7 @@ export default function SimpleSMSPage() {
     if (phoneView === 'chat' && selectedConversation) {
       selectedConversation.messages.forEach(m => {
         if (!m.isSent && m.rawMsgObj && !m.rawMsgObj.isRead) {
-          markMessageAsRead(m.id);
-          // Optimistically update
+          void markMessageAsRead(m.id).catch(() => {});
           m.rawMsgObj.isRead = true;
         }
       });

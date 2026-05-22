@@ -8,6 +8,24 @@ import { AlertTriangle, Map, MessageSquare, Info } from "lucide-react";
 import { useLocation } from "wouter";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import LicenseDialog from "@/components/layout/LicenseDialog";
+import { formatAlertLocation } from "@/utils/alertZoneScope";
+
+function renderTickerItem(n: any) {
+  const sender = n.alert?.sender ?? n.alert?.users;
+  const grade = sender?.grade || "";
+  const fullName = [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") || "Agent inconnu";
+  const localisationStr = formatAlertLocation(n.alert);
+  const title = n.alert?.title || n.message || "Alerte";
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
+      <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
+      <span className="font-bold">{grade ? `${grade} ` : ""}{fullName}</span>
+      <span className="text-amber-700">— {localisationStr} —</span>
+      <span>{title}</span>
+      <span className="text-amber-300 mx-3">◆</span>
+    </span>
+  );
+}
 
 export default function SupervisorPage() {
   const { user, logout } = useAuth();
@@ -120,39 +138,12 @@ export default function SupervisorPage() {
                     className="supervisor-ticker-inner flex items-center gap-6 whitespace-nowrap absolute top-0 left-0 h-full px-4"
                     style={{ animationDuration: `${Math.max(25, recentNotifs.length * 14)}s` }}
                   >
-                    {recentNotifs.map((n: any) => {
-                      const sender = n.alert?.sender;
-                      const grade = sender?.grade || "";
-                      const fullName = [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") || "Agent inconnu";
-                      const localisationStr = [sender?.departement, sender?.region].filter(Boolean).join(" / ") || "Lieu inconnu";
-                      const title = n.alert?.title || n.message || "Alerte";
-                      return (
-                        <span key={n.id} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
-                          <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
-                          <span className="font-bold">{grade ? `${grade} ` : ""}{fullName}</span>
-                          <span className="text-amber-700">— {localisationStr} —</span>
-                          <span>{title}</span>
-                          <span className="text-amber-300 mx-3">◆</span>
-                        </span>
-                      );
-                    })}
-                    {/* Doublon pour boucle continue */}
-                    {recentNotifs.map((n: any) => {
-                      const sender = n.alert?.sender;
-                      const grade = sender?.grade || "";
-                      const fullName = [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") || "Agent inconnu";
-                      const localisationStr = [sender?.departement, sender?.region].filter(Boolean).join(" / ") || "Lieu inconnu";
-                      const title = n.alert?.title || n.message || "Alerte";
-                      return (
-                        <span key={`dup-${n.id}`} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
-                          <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
-                          <span className="font-bold">{grade ? `${grade} ` : ""}{fullName}</span>
-                          <span className="text-amber-700">— {localisationStr} —</span>
-                          <span>{title}</span>
-                          <span className="text-amber-300 mx-3">◆</span>
-                        </span>
-                      );
-                    })}
+                    {recentNotifs.map((n: any) => (
+                      <React.Fragment key={n.id}>{renderTickerItem(n)}</React.Fragment>
+                    ))}
+                    {recentNotifs.map((n: any) => (
+                      <React.Fragment key={`dup-${n.id}`}>{renderTickerItem(n)}</React.Fragment>
+                    ))}
                   </div>
                 </div>
               </div>

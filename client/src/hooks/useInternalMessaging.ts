@@ -35,8 +35,17 @@ export interface InternalMessageRecord {
   [key: string]: unknown;
 }
 
+const isMessageVisible = (message: InternalMessageRecord) => {
+  const m = message as Record<string, unknown>;
+  if (m.deletedAt || m.deleted_at) return false;
+  if (m.deletedAtSender || m.deleted_at_sender) return false;
+  if (m.isGroupMessage && m.isDeleted) return false;
+  return true;
+};
+
 const sortMessagesByDate = (messages: InternalMessageRecord[]) =>
   messages
+    .filter(isMessageVisible)
     .slice()
     .sort((a, b) => {
       const dateA = a.createdAt || (typeof a.created_at === "string" ? a.created_at : undefined);
@@ -85,8 +94,12 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
 
   // Initialize state from localStorage cache immediately so data is visible
   // on first render even before the network request completes.
-  const [inbox, setInbox] = useState<InternalMessageRecord[]>(() => loadFromCache("inbox", domaineId));
-  const [sent, setSent] = useState<InternalMessageRecord[]>(() => loadFromCache("sent", domaineId));
+  const [inbox, setInbox] = useState<InternalMessageRecord[]>(() =>
+    loadFromCache("inbox", domaineId).filter(isMessageVisible)
+  );
+  const [sent, setSent] = useState<InternalMessageRecord[]>(() =>
+    loadFromCache("sent", domaineId).filter(isMessageVisible)
+  );
   const [loadingInbox, setLoadingInbox] = useState(false);
   const [loadingSent, setLoadingSent] = useState(false);
   const [sending, setSending] = useState(false);
@@ -326,13 +339,22 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
   );
 
   const markMessageAsRead = useCallback(async (messageId: number) => {
-    await apiRequest({ url: `/api/messages/${messageId}/read`, method: 'PATCH' });
+    try {
+      await apiRequest({ url: `/api/messages/${messageId}/read`, method: 'PATCH' });
+    } catch (err: unknown) {
+      const e = err as { message?: string; status?: number };
+      const msg = String(e?.message || '').toLowerCase();
+      if (e?.status === 404 || msg.includes('non trouvé')) return;
+      throw err;
+    }
     setInbox((prev) => {
       const updated = prev.map((msg) => (msg.id === messageId ? { ...msg, isRead: true } : msg));
       saveToCache("inbox", domaineId, updated);
       return updated;
     });
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
+    queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
+    queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
   }, [queryClient, domaineId]);
 
   const state = useMemo(

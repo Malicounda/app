@@ -327,6 +327,8 @@ export interface AlertResponse {
     region: string | null;
     zone: string | null;
     departement: string | null;
+    commune?: string | null;
+    arrondissement?: string | null;
     is_read: boolean | null; // Pertinent surtout pour les notifications d'alertes reçues
     created_at: Date | null;
     updated_at: Date | null;
@@ -1147,7 +1149,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
             SELECT
                 n.id, n.user_id, n.alert_id, n.message, n.type, n.status, n.is_read, n.created_at,
                 a.id as alert_id_full, a.title, a.message as alert_message, a.nature, a.region, a.zone,
-                a.lat, a.lon, a.departement, a.sender_id, a.created_at as alert_created_at, a.updated_at as alert_updated_at,
+                a.lat, a.lon, a.departement, a.commune, a.arrondissement, a.sender_id, a.created_at as alert_created_at, a.updated_at as alert_updated_at,
                 u.id as sender_id_full, u.username, u.first_name, u.last_name, u.role, u.region as sender_region, u.departement as sender_departement,
                 ag.grade as sender_grade
             FROM notifications n
@@ -1180,6 +1182,8 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                 lat: n.lat,
                 lon: n.lon,
                 departement: n.departement,
+                commune: n.commune ?? null,
+                arrondissement: n.arrondissement ?? null,
                 sender_id: n.sender_id,
                 created_at: n.alert_created_at,
                 updated_at: n.alert_updated_at,
@@ -1204,9 +1208,10 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
         const responseNotifications: NotificationResponse[] = await Promise.all(validNotifications.map(async (notif) => {
             let alertResponse: AlertResponse | undefined = undefined;
             if (notif.alert) {
-                // TOUJOURS recalculer Région/Département strictement depuis les coordonnées (ignorer valeurs stockées)
-                let computedRegion: string | null = null;
-                let computedDept: string | null = null;
+                let computedRegion: string | null = (notif.alert as any).region ?? null;
+                let computedDept: string | null = (notif.alert as any).departement ?? null;
+                let computedCommune: string | null = (notif.alert as any).commune ?? null;
+                let computedArrondissement: string | null = (notif.alert as any).arrondissement ?? null;
                 const latVal = (notif.alert as any).lat as number | null | undefined;
                 const lonVal = (notif.alert as any).lon as number | null | undefined;
                 let latNum: number | null = (typeof latVal === 'number' && isFinite(latVal)) ? latVal : null;
@@ -1223,11 +1228,20 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                     }
                 }
 
-                // Recalcul depuis coordonnées
+                // Enrichir commune / arrondissement / département / région depuis les coordonnées GPS
                 if (latNum != null && lonNum != null) {
-                    const resolved = await resolveRegionDeptFromCoords(latNum, lonNum);
-                    computedRegion = resolved.region;
-                    computedDept = resolved.departement;
+                    try {
+                        const areas = await resolveAdministrativeAreas(latNum, lonNum);
+                        computedRegion = areas.region ?? computedRegion;
+                        computedDept = areas.departement ?? computedDept;
+                        computedCommune = areas.commune ?? computedCommune;
+                        computedArrondissement = areas.arrondissement ?? computedArrondissement;
+                    } catch (e) {
+                        console.warn('[getReceivedAlerts] resolveAdministrativeAreas failed:', e);
+                        const resolved = await resolveRegionDeptFromCoords(latNum, lonNum);
+                        computedRegion = resolved.region ?? computedRegion;
+                        computedDept = resolved.departement ?? computedDept;
+                    }
                 }
 
                 alertResponse = {
@@ -1239,6 +1253,8 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                     region: computedRegion,
                     zone: (notif.alert as any).zone,
                     departement: computedDept,
+                    commune: computedCommune,
+                    arrondissement: computedArrondissement,
                     is_read: !!notif.is_read,
                     created_at: (notif.alert as any).created_at,
                     updated_at: (notif.alert as any).updated_at,

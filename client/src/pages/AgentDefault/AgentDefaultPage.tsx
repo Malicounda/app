@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import LicenseDialog from "@/components/layout/LicenseDialog";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { getMessagingDomaineQueryParam } from "@/utils/messagingDomain";
 
 export default function AgentDefaultPage() {
   const [, setLocation] = useLocation();
@@ -15,7 +16,7 @@ export default function AgentDefaultPage() {
     queryKey: ["messages-unread-count-main"],
     queryFn: async () => {
       try {
-        const res = await authenticatedFetch(`/api/messages/unread-count`);
+        const res = await authenticatedFetch(`/api/messages/unread-count?${getMessagingDomaineQueryParam()}`);
         if (!res.ok) return { total: 0 };
         return await res.json();
       } catch {

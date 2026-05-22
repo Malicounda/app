@@ -59,3 +59,18 @@ export function filterAlertsForSupervisor<T extends ZoneFields>(
 ): T[] {
   return alerts.filter((a) => alertMatchesSupervisorZone(a, supervisor));
 }
+
+/** Libellé lieu d'une alerte pour affichage (ticker, listes). */
+export function formatAlertLocation(alert?: {
+  commune?: string | null;
+  arrondissement?: string | null;
+  departement?: string | null;
+  region?: string | null;
+} | null): string {
+  if (!alert) return 'Lieu inconnu';
+  const parts = [alert.commune, alert.arrondissement, alert.departement, alert.region]
+    .map((s) => String(s || '').trim())
+    .filter(Boolean);
+  const unique = parts.filter((p, i) => parts.indexOf(p) === i);
+  return unique.length > 0 ? unique.join(' / ') : 'Lieu inconnu';
+}
