@@ -225,6 +225,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     if (p.startsWith('/api/regional/')) return true;
     if (p.startsWith('/api/attachments/')) return true;
     if (p.startsWith('/api/infractions/')) return true;
+    if (p.startsWith('/api/roles-metier')) return true;
+    if (p.startsWith('/api/agent-grades')) return true;
+    if (p.startsWith('/api/agents')) return true;
 
     return false;
   };

@@ -2904,17 +2904,17 @@ export default function RegionsZones() {
                           formData.append('zoneType', form.type);
                           formData.append('zoneName', form.name || 'Zone importée');
 
-                          const response = await fetch('/api/zones/import-shapefile', {
-                            method: 'POST',
-                            body: formData,
-                          });
+                          const res = await apiRequest<{ message?: string; coordinatesCount?: number }>(
+                            'POST',
+                            '/api/zones/import-shapefile',
+                            formData
+                          );
 
-                          if (!response.ok) {
-                            const error = await response.json();
-                            throw new Error(error.message || 'Erreur lors de l\'import du shapefile');
+                          if (!res.ok) {
+                            throw new Error(res.error || "Erreur lors de l'import du shapefile");
                           }
 
-                          const result = await response.json();
+                          const result = res.data ?? {};
 
                           console.log('[SHAPEFILE] Résultat reçu:', result);
 

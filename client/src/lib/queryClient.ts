@@ -1,7 +1,5 @@
-import { getEnvironment, getApiBaseUrl } from "@/utils/environment";
+import { getEnvironment, resolveApiUrl } from "@/utils/environment";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-
-const API_BASE_URL = getApiBaseUrl();
 
 function getFriendlyErrorMessage(error: any): string {
   if (error?.message === "Failed to fetch" || (error instanceof TypeError && error.message.includes("Failed to fetch"))) {
@@ -134,13 +132,7 @@ export async function apiRequest<T>({
   method: string;
   data?: unknown;
 }): Promise<T> {
-  // Construire l'URL complète - utiliser toujours API_BASE_URL (/api)
-  // Normaliser l'URL demandée pour éviter un doublon /api
-  let path = url || "";
-  if (path.startsWith("/api/")) path = path.slice(4);
-  else if (path === "/api") path = "/";
-  if (!path.startsWith("/")) path = `/${path}`;
-  const fullUrl = `${API_BASE_URL}${path}`;
+  const fullUrl = resolveApiUrl(url);
 
   console.log(`[API Request] ${method} ${fullUrl}`, data);
 
@@ -246,12 +238,7 @@ export function getQueryFn<T = any>(options: {
   const { on401: unauthorizedBehavior } = options;
   return async ({ queryKey }) => {
     const url = queryKey[0] as string;
-    // Normaliser l'URL pour éviter /api/api
-    let path = url || "";
-    if (path.startsWith("/api/")) path = path.slice(4);
-    else if (path === "/api") path = "/";
-    if (!path.startsWith("/")) path = `/${path}`;
-    const fullUrl = `${API_BASE_URL}${path}`;
+    const fullUrl = resolveApiUrl(url);
 
     console.log(`[Query Request] GET ${fullUrl}`);
 

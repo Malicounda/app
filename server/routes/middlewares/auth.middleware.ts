@@ -31,7 +31,10 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
 
 // Nouveau middleware pour vérifier si l'utilisateur est un administrateur
 export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.user || (req.user.role !== 'admin' && !(req.user as any).isSuperAdmin)) {
+  const role = String((req.user as any)?.role || '').toLowerCase();
+  const isSuper = !!(req.user as any)?.isSuperAdmin;
+  const allowed = role === 'admin' || role === 'superadmin' || role === 'super_admin' || isSuper;
+  if (!req.user || !allowed) {
     return res.status(403).json({ message: 'Accès refusé. Rôle administrateur requis.' });
   }
   next();

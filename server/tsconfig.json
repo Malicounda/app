@@ -27,6 +27,7 @@
     "index.ts",
     "db.ts",
     "config.ts",
+    "sessionConfig.ts",
     "storage.ts",
     "controllers/**/*.ts",
     "routes/**/*.ts",

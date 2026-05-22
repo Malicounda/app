@@ -89,6 +89,16 @@ export const getApiBaseUrl = (): string => {
   return 'http://localhost:3000/api';
 };
 
+/** Construit l'URL API absolue à partir d'un chemin (/api/... ou /...). */
+export function resolveApiUrl(endpoint: string): string {
+  const apiBaseUrl = getApiBaseUrl();
+  let path = endpoint || '';
+  if (path.startsWith('/api/')) path = path.slice(4);
+  else if (path === '/api') path = '/';
+  if (!path.startsWith('/')) path = `/${path}`;
+  return `${apiBaseUrl}${path}`;
+};
+
 // Intelligent logger for application status
 export const logEnvironmentInfo = () => {
   try {

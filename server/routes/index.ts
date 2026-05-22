@@ -38,7 +38,6 @@ import reboisementRoutes from './reboisement.routes.js';
 import regionsRoutes from './regions.routes.js';
 import rolesMetierRoutes from './rolesMetier.routes.js';
 import agentGradesRoutes from './agentGrades.routes.js';
-import agentGradesRoutes from './agentGrades.routes.js';
 import settingRoutes from './settings.routes.js';
 import speciesRoutes from './species.routes.js';
 import statsRoutes from './stats.routes.js';
@@ -95,7 +94,6 @@ export default function registerRoutes(app: Express): void {
 
   // Routes pour les rôles métier (référentiel)
   app.use('/api/roles-metier', rolesMetierRoutes);
-  app.use('/api/agent-grades', agentGradesRoutes);
   app.use('/api/agent-grades', agentGradesRoutes);
 
   // Routes pour les catégories de permis et leurs tarifs

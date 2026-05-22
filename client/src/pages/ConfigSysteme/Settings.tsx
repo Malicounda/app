@@ -4534,16 +4534,17 @@ export default function Settings() {
                             // 2. Convertir en SRID 32628 (UTM 28N)
                             // 3. Calculer les géométries et centroïdes
                             // 4. Insérer dans la table choisie
-                            const response = await fetch('/api/shapefile/upload', {
-                              method: 'POST',
-                              body: formData
-                            });
+                            const res = await apiRequest<{ count?: number; message?: string }>(
+                              'POST',
+                              '/api/shapefile/upload',
+                              formData
+                            );
 
-                            if (!response.ok) {
-                              throw new Error('Erreur lors du téléversement');
+                            if (!res.ok) {
+                              throw new Error(res.error || 'Erreur lors du téléversement');
                             }
 
-                            const result = await response.json();
+                            const result = res.data ?? {};
 
                             toast({
                               title: "Succès",
