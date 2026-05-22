@@ -30,6 +30,12 @@ const setSupervisorSchema = z.object({
   isSupervisor: z.boolean(),
 });
 
+const normalizeLabelFr = (value: string) =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+
 export async function listRolesMetier(req: Request, res: Response) {
   try {
     const activeOnly = String(req.query.activeOnly || 'false').toLowerCase() === 'true';
@@ -74,7 +80,7 @@ export async function createRoleMetier(req: Request, res: Response) {
 
     const [created] = await db.insert(rolesMetier).values({
       code: parsed.code.trim().toUpperCase(),
-      labelFr: parsed.labelFr.trim(),
+      labelFr: normalizeLabelFr(parsed.labelFr),
       description: parsed.description ?? null,
       isActive: parsed.isActive ?? true,
     } as any).returning();
@@ -105,7 +111,7 @@ export async function updateRoleMetier(req: Request, res: Response) {
     const updateData: any = {};
 
     if (parsed.code !== undefined) updateData.code = parsed.code.trim().toUpperCase();
-    if (parsed.labelFr !== undefined) updateData.labelFr = parsed.labelFr.trim();
+    if (parsed.labelFr !== undefined) updateData.labelFr = normalizeLabelFr(parsed.labelFr);
     if (parsed.description !== undefined) updateData.description = parsed.description;
     if (parsed.isActive !== undefined) updateData.isActive = parsed.isActive;
 

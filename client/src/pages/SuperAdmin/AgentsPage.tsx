@@ -76,6 +76,13 @@ type RoleMetier = {
   createdAt: string;
 };
 
+type AgentGradeOption = {
+  id: number;
+  code: string;
+  label: string;
+  isActive: boolean;
+};
+
 function feminizeGrade(raw: string) {
   const v = String(raw || "").trim();
   if (!v) return v;
@@ -124,10 +131,48 @@ function formatPhoneNumber(value: string) {
   return `${truncated.slice(0, 2)} ${truncated.slice(2, 5)} ${truncated.slice(5, 7)} ${truncated.slice(7)}`;
 }
 
-function normalizeGrade(raw: string) {
-  // Remplacer espaces par '_' et chaque segment commence par une majuscule
-  const cleaned = String(raw || "").trim().replace(/\s+/g, "_");
-  return capitalizeWords(cleaned, /_+/, "_");
+function GradeSelectField({
+  value,
+  onChange,
+  disabled,
+  options,
+  triggerClassName,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  options: AgentGradeOption[];
+  triggerClassName?: string;
+}) {
+  const current = value?.trim() || "";
+  const selectValue =
+    current && options.some((g) => g.label === current) ? current : current ? `__custom:${current}` : "none";
+  const hasCustom = current && !options.some((g) => g.label === current);
+
+  return (
+    <Select
+      value={selectValue}
+      onValueChange={(v) => {
+        if (v === "none") onChange("");
+        else if (v.startsWith("__custom:")) onChange(v.slice("__custom:".length));
+        else onChange(v);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger className={triggerClassName}>
+        <SelectValue placeholder="Sélectionner un grade" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">Aucun</SelectItem>
+        {options.map((g) => (
+          <SelectItem key={g.id} value={g.label}>
+            {g.label}
+          </SelectItem>
+        ))}
+        {hasCustom && <SelectItem value={`__custom:${current}`}>{current}</SelectItem>}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export default function SuperAdminAgentsPage() {
@@ -159,6 +204,16 @@ export default function SuperAdminAgentsPage() {
     queryKey: ["/api/roles-metier"],
     queryFn: () => apiRequest<RoleMetier[]>({ url: "/api/roles-metier", method: "GET" }),
   });
+
+  const { data: gradesData } = useQuery({
+    queryKey: ["/api/agent-grades"],
+    queryFn: () => apiRequest<AgentGradeOption[]>({ url: "/api/agent-grades", method: "GET" }),
+  });
+
+  const gradeOptions = useMemo(
+    () => (Array.isArray(gradesData) ? gradesData.filter((g) => g.isActive) : []),
+    [gradesData]
+  );
 
   const { data: departementsFeature } = useQuery({
     queryKey: ["/api/departements"],
@@ -348,18 +403,14 @@ export default function SuperAdminAgentsPage() {
 
       const nNom = normalizeNom(newNom);
       const nPrenom = normalizePrenom(newPrenom);
-      const nGrade = normalizeGrade(newGrade);
+      const nGrade = newGrade.trim() || null;
 
       const nameLetters = /^[\p{L} ]+$/u;
-      const gradeLetters = /^[\p{L}_ ]+$/u;
       if (nNom && !nameLetters.test(nNom)) {
         throw new Error("Nom invalide (lettres uniquement)");
       }
       if (nPrenom && !nameLetters.test(nPrenom)) {
         throw new Error("Prénom invalide (lettres uniquement)");
-      }
-      if (nGrade && !gradeLetters.test(nGrade)) {
-        throw new Error("Grade invalide (lettres et underscore uniquement, ex: Sous_Lieutenant)");
       }
 
       return apiRequest<any>({
@@ -373,7 +424,7 @@ export default function SuperAdminAgentsPage() {
           lastName: nNom || null,
           nom: nNom || null,
           prenom: nPrenom || null,
-          grade: nGrade || null,
+          grade: nGrade,
           genre: newGenre && newGenre !== "none" ? newGenre : null,
           roleMetierId: newRoleMetierId && newRoleMetierId !== "none" ? Number(newRoleMetierId) : null,
           region: newRegion || null,
@@ -557,7 +608,7 @@ export default function SuperAdminAgentsPage() {
       matriculeSol: matriculeSol.trim() || null,
       nom: normalizeNom(nom) || null,
       prenom: normalizePrenom(prenom) || null,
-      grade: normalizeGrade(grade) || null,
+      grade: grade.trim() || null,
       genre: genre && genre !== "none" ? genre : null,
       roleMetierId: roleMetierId && roleMetierId !== "none" ? Number(roleMetierId) : null,
       contact: Object.keys(contact).length ? contact : null,
@@ -837,18 +888,18 @@ export default function SuperAdminAgentsPage() {
               <div className="space-y-2">
                 <Label>Grade</Label>
                 <div className="relative">
-                  <Input
+                  <GradeSelectField
                     value={grade}
-                    onChange={(e) => setGrade(e.target.value.replace(/[\p{N}\p{P}\p{S}_]+/gu, ""))}
-                    onBlur={() => setGrade((v) => normalizeGrade(v))}
+                    onChange={setGrade}
                     disabled={!editUnlocked && !gradeUnlocked}
-                    className={!editUnlocked && !gradeUnlocked ? "bg-muted text-muted-foreground pr-10" : "pr-10"}
+                    options={gradeOptions}
+                    triggerClassName={!editUnlocked && !gradeUnlocked ? "bg-muted text-muted-foreground pr-10" : "pr-10"}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 z-10"
                     onClick={() => setGradeUnlocked(true)}
                     disabled={editUnlocked || gradeUnlocked}
                   >
@@ -1215,11 +1266,7 @@ export default function SuperAdminAgentsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Grade</Label>
-                <Input
-                  value={newGrade}
-                  onChange={(e) => setNewGrade(e.target.value.replace(/[\p{N}\p{P}\p{S}_]+/gu, ""))}
-                  onBlur={() => setNewGrade((v) => normalizeGrade(v))}
-                />
+                <GradeSelectField value={newGrade} onChange={setNewGrade} options={gradeOptions} />
               </div>
               <div className="space-y-2">
                 <Label>Genre</Label>

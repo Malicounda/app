@@ -151,6 +151,23 @@ export const insertRoleMetierSchema = createInsertSchema(rolesMetier).omit({
 export type RoleMetier = typeof rolesMetier.$inferSelect;
 export type NewRoleMetier = typeof rolesMetier.$inferInsert;
 
+/** Référentiel des grades agents (liste déroulante formulaires agent) */
+export const agentGrades = pgTable("agent_grades", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  label: text("label").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAgentGradeSchema = createInsertSchema(agentGrades).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AgentGrade = typeof agentGrades.$inferSelect;
+export type NewAgentGrade = typeof agentGrades.$inferInsert;
+
 export const insertUserDomainSchema = createInsertSchema(userDomains).omit({
   id: true,
   createdAt: true,
