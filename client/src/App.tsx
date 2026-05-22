@@ -1,3 +1,4 @@
+import AlerteApkNotifications from "@/components/AlerteApkNotifications";
 import { AuthWrapper } from "@/components/auth/AuthWrapper";
 import ChasseRoute from "@/components/auth/ChasseRoute";
 import DashboardRedirector from "@/components/auth/DashboardRedirector";
@@ -1163,6 +1164,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthWrapper>
+          <AlerteApkNotifications />
           <AppContent />
         </AuthWrapper>
       </QueryClientProvider>

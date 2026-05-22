@@ -5,10 +5,10 @@ const config: CapacitorConfig = {
   appName: 'Alerte',
   webDir: 'client/dist',
   server: {
-    // L'APK charge directement l'URL de production
-    // url: 'https://eforets.pages.dev/alerte-login?isApk=true',
+    // Comme la sauvegarde Alerte.apk : WebView → login Alerte uniquement (pas le bundle local complet)
+    url: 'https://eforets.pages.dev/alerte-login?isApk=true',
     cleartext: false,
-    allowNavigation: ['eforets.pages.dev'],
+    allowNavigation: ['eforets.pages.dev', 'malicounda-api.onrender.com'],
   },
   android: {
     allowMixedContent: false,

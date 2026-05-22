@@ -1,17 +1,9 @@
 // Wrapper pour choisir le bon contexte d'authentification selon l'environnement
 import React, { useEffect, useState } from 'react';
-import { AuthProvider as AndroidAuthProvider, useAuth as useAndroidAuth } from '../../contexts/AndroidAuthContext';
-import { AuthProvider, useAuth as useWebAuth } from '../../contexts/AuthContext';
-import { useNotifications } from '../../hooks/use-notifications';
+import { AuthProvider as AndroidAuthProvider } from '../../contexts/AndroidAuthContext';
+import { AuthProvider } from '../../contexts/AuthContext';
 import { getEnvironment } from '../../utils/environment';
 import { SplashScreen } from '../ui/SplashScreen';
-
-function NotificationsBridge({ useAuthHook }: { useAuthHook: () => { user: { id?: number } | null } }) {
-  const { user } = useAuthHook();
-  const uid = user?.id != null ? Number(user.id) : null;
-  useNotifications(Boolean(user), Number.isFinite(uid) ? uid : null);
-  return null;
-}
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -27,7 +19,7 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
         const env = await getEnvironment();
         setEnvironment(env);
       } catch (error) {
-        console.error('Erreur lors de la détection de l\'environnement:', error);
+        console.error("Erreur lors de la détection de l'environnement:", error);
         setEnvironment('web');
       } finally {
         setIsLoading(false);
@@ -41,20 +33,10 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
     return <SplashScreen message="Initialisation de l'application..." />;
   }
 
-  // Utiliser le contexte Android pour les applications mobiles
+  // Tauri Android uniquement (pas l'APK Capacitor Alerte)
   if (environment === 'android') {
-    return (
-      <AndroidAuthProvider>
-        <NotificationsBridge useAuthHook={useAndroidAuth} />
-        {children}
-      </AndroidAuthProvider>
-    );
+    return <AndroidAuthProvider>{children}</AndroidAuthProvider>;
   }
 
-  return (
-    <AuthProvider>
-      <NotificationsBridge useAuthHook={useWebAuth} />
-      {children}
-    </AuthProvider>
-  );
+  return <AuthProvider>{children}</AuthProvider>;
 }
