@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { NextFunction, Request, Response } from 'express';
 import { agents, alerts, notifications, rolesMetier, users } from '../../shared/schema.js';
 import { db } from '../db.js';
+import { alertMatchesSupervisorZone, supervisorReceivesAlert } from '../lib/alertZoneScope.js';
 import { resolveAdministrativeAreas } from '../lib/resolveAdminAreas.js';
 const DEBUG_LOGS = process.env.DEBUG_GEO === '1';
 
@@ -126,6 +127,44 @@ export const getMapAlerts = async (req: Request, res: Response, next: NextFuncti
             conditions.push(sql`a.sender_id = ${authenticatedUser.id}`);
         }
 
+        // Profil géographique + rôle superviseur (filtrage carte)
+        let supervisorProfile: {
+            region: string | null;
+            departement: string | null;
+            commune: string | null;
+            arrondissement: string | null;
+        } | null = null;
+        let isSupervisorUser = false;
+        try {
+            const profileRows: any[] = await db
+                .select({
+                    region: users.region as any,
+                    departement: users.departement as any,
+                    commune: users.commune as any,
+                    arrondissement: users.arrondissement as any,
+                    isSupervisor: rolesMetier.isSupervisor as any,
+                })
+                .from(users as any)
+                .leftJoin(agents as any, eq(agents.userId as any, users.id as any))
+                .leftJoin(rolesMetier as any, eq(rolesMetier.id as any, agents.roleMetierId as any))
+                .where(eq(users.id as any, authenticatedUser.id))
+                .limit(1);
+            const prof = profileRows?.[0];
+            if (prof) {
+                isSupervisorUser = !!prof.isSupervisor;
+                if (isSupervisorUser) {
+                    supervisorProfile = {
+                        region: prof.region ?? null,
+                        departement: prof.departement ?? null,
+                        commune: prof.commune ?? null,
+                        arrondissement: prof.arrondissement ?? null,
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn('[getMapAlerts] Impossible de charger le profil superviseur:', e);
+        }
+
         // Filtre nature optionnel
         if (nature && typeof nature === 'string') {
             conditions.push(sql`a.nature = ${nature}`);
@@ -227,10 +266,27 @@ export const getMapAlerts = async (req: Request, res: Response, next: NextFuncti
             })
             .filter(Boolean) as any[];
 
-        console.log(`[getMapAlerts] After mapping/filtering: ${items.length} alerts with valid coords`);
+        let scopedItems = items;
+        if (isSupervisorUser && supervisorProfile) {
+            const before = scopedItems.length;
+            scopedItems = scopedItems.filter((a: any) =>
+                alertMatchesSupervisorZone(
+                    {
+                        region: a.region,
+                        departement: a.departement,
+                        commune: a.commune,
+                        arrondissement: a.arrondissement,
+                    },
+                    supervisorProfile!
+                )
+            );
+            console.log(`[getMapAlerts] Superviseur: ${before} -> ${scopedItems.length} alertes dans la zone`);
+        }
 
-        console.log(`[getMapAlerts] Final response: ${items.length} alerts for user ${authenticatedUser.id} (${normalizedRole})`);
-        res.status(200).json(items);
+        console.log(`[getMapAlerts] After mapping/filtering: ${scopedItems.length} alerts with valid coords`);
+
+        console.log(`[getMapAlerts] Final response: ${scopedItems.length} alerts for user ${authenticatedUser.id} (${normalizedRole})`);
+        res.status(200).json(scopedItems);
     } catch (error) {
         console.error('[Alerts Controller] Erreur dans getMapAlerts:', error);
         next(error);
@@ -773,13 +829,7 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                                      .map(u => ({ id: u.id }));
         }
 
-        // 2bis) Superviseurs (isSupervisor = true) du domaine ALERTE
-        // Règle de routage hiérarchique géographique :
-        //   - Un superviseur dont region = alertRegion reçoit TOUTES les alertes de sa région
-        //     (qu'elles soient dans un département précis ou pas)
-        //   - Un superviseur dont departement = alertDepartement reçoit les alertes de son département
-        // => Si alertDepartement est défini → superviseurs du département + superviseurs de la région reçoivent tous les deux
-        // => Si seule alertRegion est définie → uniquement les superviseurs de la région reçoivent
+        // 2bis) Superviseurs (isSupervisor = true) : région, département, arrondissement ou commune
         let supervisorUsers: { id: number }[] = [];
         {
             const allSupervisors = await db
@@ -787,6 +837,8 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                     id: users.id as any,
                     region: users.region as any,
                     departement: users.departement as any,
+                    commune: users.commune as any,
+                    arrondissement: users.arrondissement as any,
                 })
                 .from(users as any)
                 .innerJoin(agents as any, eq(agents.userId as any, users.id as any))
@@ -797,18 +849,22 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                 ) as any);
 
             supervisorUsers = allSupervisors
-                .filter((u: any) => {
-                    const supRegion = normalize(u.region);
-                    const supDept   = normalize(u.departement);
-
-                    // Superviseur de région : couvre toute la région (y compris tous ses départements)
-                    const coversRegion = normEffectiveRegion && supRegion === normEffectiveRegion;
-
-                    // Superviseur de département : couvre spécifiquement ce département
-                    const coversDept = normAlertDepartement && supDept && supDept === normAlertDepartement;
-
-                    return coversRegion || coversDept;
-                })
+                .filter((u: any) =>
+                    supervisorReceivesAlert(
+                        {
+                            region: u.region,
+                            departement: u.departement,
+                            commune: u.commune,
+                            arrondissement: u.arrondissement,
+                        },
+                        {
+                            region: effectiveRegion,
+                            departement: alertDepartement,
+                            commune: alertCommune,
+                            arrondissement: alertArrondissement,
+                        }
+                    )
+                )
                 .map((u: any) => ({ id: u.id }));
         }
 

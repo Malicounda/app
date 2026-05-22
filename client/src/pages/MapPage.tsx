@@ -9,6 +9,7 @@ import {
 } from '@/lib/geoData';
 import { mapCache } from '@/lib/mapCache';
 import { apiRequest } from '@/lib/queryClient';
+import { filterAlertsForSupervisor } from '@/utils/alertZoneScope';
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -332,6 +333,21 @@ const MapPage: React.FC = () => {
   const isAdmin = user?.role === 'admin';
   const isRegionalAgent = user?.role === 'agent' && (user as any)?.type !== 'secteur' && !!userRegion;
   const isSectorAgent = (user?.role === 'agent' && (user as any)?.type === 'secteur' && !!userDep) || (user?.role === 'sub-agent' && !!userDep);
+  const isSupervisor = !!(user as any)?.isSupervisorRole;
+
+  const filterAlertsForMap = (data: any[]): any[] => {
+    const list = Array.isArray(data) ? data : [];
+    if (isAdmin || isHunterOrGuide) return list;
+    if (isSupervisor) {
+      return filterAlertsForSupervisor(list, {
+        region: (user as any)?.region ?? null,
+        departement: (user as any)?.departement ?? (user as any)?.zone ?? null,
+        commune: (user as any)?.commune ?? null,
+        arrondissement: (user as any)?.arrondissement ?? null,
+      });
+    }
+    return list;
+  };
 
   // Charger les infractions (lazy) pour la carte
   const fetchInfractionsForMap = async () => {
@@ -835,10 +851,10 @@ const MapPage: React.FC = () => {
   // Fonction réutilisable pour charger les alertes (appelée au montage et sur clic bouton)
   const fetchAlerts = async () => {
     try {
-      // Un seul appel maintenant: le backend renvoie toutes les natures par défaut
       const data = await apiRequest<any[]>({ url: '/api/alerts/map', method: 'GET' });
-      setAlertsForMap(Array.isArray(data) ? data : []);
-      mapCache.set({ alerts: Array.isArray(data) ? data : [] });
+      const scoped = filterAlertsForMap(Array.isArray(data) ? data : []);
+      setAlertsForMap(scoped);
+      mapCache.set({ alerts: scoped });
     } catch (e) {
       console.error('[MapPage] Échec chargement des alertes carte:', e);
       setAlertsForMap([]);
@@ -934,14 +950,14 @@ const MapPage: React.FC = () => {
     }
   };
 
-  // Charger les alertes automatiquement pour le badge et la carte
+  // Charger les alertes (filtrées par zone pour les superviseurs)
   useEffect(() => {
+    if (!user?.id) return;
     fetchAlerts();
     const quick = setTimeout(fetchAlerts, 2000);
     const interval = setInterval(fetchAlerts, 60 * 1000);
     return () => { clearTimeout(quick); clearInterval(interval); };
-  }, []);
- // Pas de dépendance sur showAlerts, toujours charger
+  }, [user?.id, isSupervisor, userRegion, userDep]);
 
   useEffect(() => {
     const handler = () => { refreshMapData(); };
@@ -1252,7 +1268,11 @@ const MapPage: React.FC = () => {
                 }
                 setShowAlerts(!showAlerts);
               }}
-              title="Afficher/Masquer les alertes"
+              title={
+                isSupervisor
+                  ? "Alertes de votre zone administrative (région, département, commune ou arrondissement)"
+                  : "Afficher/Masquer les alertes"
+              }
             >
               {/* Icône sirène avec badge circulaire conditionnel */}
               <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>

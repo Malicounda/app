@@ -23,6 +23,8 @@ interface User {
   region?: string;
   zone?: string;
   departement?: string;
+  commune?: string;
+  arrondissement?: string;
   hunterId?: number;
   guideId?: number;
   licenseNumber?: string;
