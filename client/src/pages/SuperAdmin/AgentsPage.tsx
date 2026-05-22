@@ -248,6 +248,9 @@ export default function SuperAdminAgentsPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [userMatricule, setUserMatricule] = useState("");
+  const [addErrorOpen, setAddErrorOpen] = useState(false);
+  const [addErrorTitle, setAddErrorTitle] = useState("Erreur");
+  const [addErrorMessage, setAddErrorMessage] = useState("");
   const [newNom, setNewNom] = useState("");
   const [newPrenom, setNewPrenom] = useState("");
   const [newGrade, setNewGrade] = useState("");
@@ -309,6 +312,24 @@ export default function SuperAdminAgentsPage() {
     }
   };
 
+  const showAddError = (title: string, message: string) => {
+    setAddErrorTitle(title);
+    setAddErrorMessage(message);
+    setAddErrorOpen(true);
+    toast({ title, description: message, variant: "destructive" });
+  };
+
+  const resolveApiErrorMessage = (e: any): string => {
+    if (e?.body?.message) return String(e.body.message);
+    if (e?.body?.errors && Array.isArray(e.body.errors)) {
+      return e.body.errors.map((err: any) => `${err.path?.join(".") || "champ"}: ${err.message}`).join("\n");
+    }
+    if (e?.message) return String(e.message);
+    if (e?.status === 401) return "Session expirée. Reconnectez-vous puis réessayez.";
+    if (e?.status === 409) return "Conflit : matricule ou email déjà utilisé par un compte actif.";
+    return "Ajout impossible. Vérifiez les champs ou réessayez.";
+  };
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const m = userMatricule.trim();
@@ -329,15 +350,16 @@ export default function SuperAdminAgentsPage() {
       const nPrenom = normalizePrenom(newPrenom);
       const nGrade = normalizeGrade(newGrade);
 
-      const lettersOnly = /^[\p{L} ]+$/u;
-      if (nNom && !lettersOnly.test(nNom)) {
+      const nameLetters = /^[\p{L} ]+$/u;
+      const gradeLetters = /^[\p{L}_ ]+$/u;
+      if (nNom && !nameLetters.test(nNom)) {
         throw new Error("Nom invalide (lettres uniquement)");
       }
-      if (nPrenom && !lettersOnly.test(nPrenom)) {
+      if (nPrenom && !nameLetters.test(nPrenom)) {
         throw new Error("Prénom invalide (lettres uniquement)");
       }
-      if (nGrade && !lettersOnly.test(nGrade)) {
-        throw new Error("Grade invalide (lettres uniquement)");
+      if (nGrade && !gradeLetters.test(nGrade)) {
+        throw new Error("Grade invalide (lettres et underscore uniquement, ex: Sous_Lieutenant)");
       }
 
       return apiRequest<any>({
@@ -384,13 +406,37 @@ export default function SuperAdminAgentsPage() {
       setNewArrondissement("");
     },
     onError: (e: any) => {
-      let msg = String(e?.message || "Ajout impossible");
-      if (e?.body?.errors && Array.isArray(e.body.errors)) {
-        msg = e.body.errors.map((err: any) => `${err.path?.join('.')}: ${err.message}`).join(', ');
-      }
-      toast({ title: "Erreur", description: msg, variant: "destructive" });
+      const msg = resolveApiErrorMessage(e);
+      const title =
+        e?.status === 401
+          ? "Session expirée"
+          : e?.status === 409
+            ? "Doublon détecté"
+            : e?.status === 400
+              ? "Données invalides"
+              : "Erreur";
+      showAddError(title, msg);
     },
   });
+
+  const handleCreateAgent = () => {
+    if (document.body.hasAttribute("data-session-locked")) {
+      showAddError(
+        "Session expirée ou verrouillée",
+        "Reconnectez-vous ou déverrouillez l'écran avant d'ajouter un agent."
+      );
+      return;
+    }
+    if (!userMatricule.trim()) {
+      showAddError("Champ requis", "Le matricule utilisateur est obligatoire.");
+      return;
+    }
+    if (!newContactEmail.trim()) {
+      showAddError("Champ requis", "L'email de contact est obligatoire.");
+      return;
+    }
+    createMutation.mutate();
+  };
 
   const openEdit = (row: AgentRow) => {
     setEditing(row);
@@ -1125,6 +1171,20 @@ export default function SuperAdminAgentsPage() {
           </DialogContent>
         </Dialog>
 
+        <AlertDialog open={addErrorOpen} onOpenChange={setAddErrorOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{addErrorTitle}</AlertDialogTitle>
+              <AlertDialogDescription className="whitespace-pre-line">
+                {addErrorMessage}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setAddErrorOpen(false)}>Compris</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <Dialog open={addOpen} onOpenChange={handleAddOpenChange}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -1289,14 +1349,10 @@ export default function SuperAdminAgentsPage() {
                 Annuler
               </Button>
               <Button
-                onClick={() => createMutation.mutate()}
-                disabled={
-                  createMutation.isPending ||
-                  !userMatricule.trim() ||
-                  !newContactEmail.trim()
-                }
+                onClick={handleCreateAgent}
+                disabled={createMutation.isPending}
               >
-                Ajouter
+                {createMutation.isPending ? "Création…" : "Ajouter"}
               </Button>
             </DialogFooter>
           </DialogContent>

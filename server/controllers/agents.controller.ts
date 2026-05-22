@@ -4,6 +4,11 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { agents, domaines, rolesMetier, userDomains, users } from '../../shared/schema.js';
 import { db } from '../db.js';
+import {
+  findAgentByMatriculeSolKey,
+  findUserByEmail,
+  findUserByMatriculeKey,
+} from '../lib/matriculeUtils.js';
 import { storage } from '../storage.js';
 
 const createAgentSchema = z.object({
@@ -356,78 +361,106 @@ export async function createAgent(req: Request, res: Response) {
     }
 
     const normalizedEmail = parsed.email.trim().toLowerCase();
-
     const created = await db.transaction(async (tx) => {
-      // Vérifier les unicités avant insertion (évite créations partielles)
-      const existingUserByMatricule = await tx
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.matricule as any, userMatricule as any))
-        .limit(1);
-      if (existingUserByMatricule?.[0]?.id) {
-        throw Object.assign(new Error('Matricule déjà utilisé.'), { statusCode: 409 });
+      const existingUser = await findUserByMatriculeKey(tx, userMatricule);
+      const existingAgentBySol = await findAgentByMatriculeSolKey(tx, normalizedMatriculeSol);
+      const existingUserByEmail = await findUserByEmail(tx, normalizedEmail);
+
+      if (existingUserByEmail && (!existingUser || existingUserByEmail.id !== existingUser.id)) {
+        throw Object.assign(
+          new Error(`L'email ${normalizedEmail} est déjà utilisé par un autre compte (id ${existingUserByEmail.id}).`),
+          { statusCode: 409, code: 'EMAIL_TAKEN' }
+        );
       }
 
-      const existingUserByUsername = await tx
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.username as any, userMatricule as any))
-        .limit(1);
-      if (existingUserByUsername?.[0]?.id) {
-        throw Object.assign(new Error("Nom d'utilisateur déjà utilisé."), { statusCode: 409 });
+      if (existingAgentBySol) {
+        const agentUser = await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id as any, existingAgentBySol.userId as any))
+          .limit(1);
+        if (agentUser?.[0]?.id) {
+          throw Object.assign(
+            new Error(
+              `Un agent actif existe déjà avec ce matricule (${existingAgentBySol.matriculeSol}, id agent ${existingAgentBySol.idAgent}). Supprimez-le d'abord pour recréer.`
+            ),
+            { statusCode: 409, code: 'MATRICULE_SOL_TAKEN' }
+          );
+        }
+        // Profil agent orphelin (utilisateur supprimé) : libérer le matricule
+        await tx.delete(agents).where(eq(agents.idAgent, existingAgentBySol.idAgent));
       }
 
-      const existingUserByEmail = await tx
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email as any, normalizedEmail as any))
-        .limit(1);
-      if (existingUserByEmail?.[0]?.id) {
-        throw Object.assign(new Error('Email déjà utilisé.'), { statusCode: 409 });
-      }
+      let userId: number;
 
-      const existingByMatriculeSol = await tx
-        .select({ idAgent: agents.idAgent })
-        .from(agents)
-        .where(eq(agents.matriculeSol as any, normalizedMatriculeSol as any))
-        .limit(1);
-      if (existingByMatriculeSol?.[0]?.idAgent) {
-        throw Object.assign(new Error('Matricule Solde déjà utilisé.'), { statusCode: 409 });
-      }
+      if (existingUser) {
+        const linkedAgent = await tx
+          .select({ idAgent: agents.idAgent })
+          .from(agents)
+          .where(eq(agents.userId as any, existingUser.id as any))
+          .limit(1);
+        if (linkedAgent?.[0]?.idAgent) {
+          throw Object.assign(
+            new Error(
+              `Ce matricule est déjà rattaché à un agent actif (id agent ${linkedAgent[0].idAgent}). Supprimez l'agent existant pour en créer un nouveau.`
+            ),
+            { statusCode: 409, code: 'MATRICULE_USER_LINKED' }
+          );
+        }
 
-      // Création du user avec mot de passe aléatoire + compte inactif (bloque la connexion)
-      const randomPassword = `${Date.now()}-${Math.random()}-${userMatricule}`;
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+        // Compte utilisateur orphelin (suppression agent seule) : réutiliser le compte
+        await tx
+          .update(users)
+          .set({
+            email: normalizedEmail,
+            firstName: (parsed.firstName ?? parsed.prenom ?? null) as any,
+            lastName: (parsed.lastName ?? parsed.nom ?? null) as any,
+            phone: (parsed.phone ?? null) as any,
+            matricule: userMatricule as any,
+            role: 'agent' as any,
+            region: (parsed.region ?? null) as any,
+            departement: (parsed.departement ?? null) as any,
+            commune: (parsed.commune ?? null) as any,
+            arrondissement: (parsed.arrondissement ?? null) as any,
+          } as any)
+          .where(eq(users.id as any, existingUser.id as any));
 
-      const [createdUser] = await tx
-        .insert(users)
-        .values({
-          username: userMatricule,
-          password: hashedPassword,
-          email: normalizedEmail,
-          firstName: (parsed.firstName ?? parsed.prenom ?? null) as any,
-          lastName: (parsed.lastName ?? parsed.nom ?? null) as any,
-          phone: (parsed.phone ?? null) as any,
-          matricule: userMatricule as any,
-          role: 'agent' as any,
-          isActive: false as any,
-          active: false as any,
-          region: (parsed.region ?? null) as any,
-          departement: (parsed.departement ?? null) as any,
-          commune: (parsed.commune ?? null) as any,
-          arrondissement: (parsed.arrondissement ?? null) as any,
-        } as any)
-        .returning({ id: users.id });
+        userId = existingUser.id;
+      } else {
+        const randomPassword = `${Date.now()}-${Math.random()}-${userMatricule}`;
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(randomPassword, salt);
 
-      if (!createdUser?.id) {
-        throw Object.assign(new Error("Erreur lors de la création de l'utilisateur"), { statusCode: 500 });
+        const [createdUser] = await tx
+          .insert(users)
+          .values({
+            username: userMatricule,
+            password: hashedPassword,
+            email: normalizedEmail,
+            firstName: (parsed.firstName ?? parsed.prenom ?? null) as any,
+            lastName: (parsed.lastName ?? parsed.nom ?? null) as any,
+            phone: (parsed.phone ?? null) as any,
+            matricule: userMatricule as any,
+            role: 'agent' as any,
+            isActive: false as any,
+            active: false as any,
+            region: (parsed.region ?? null) as any,
+            departement: (parsed.departement ?? null) as any,
+            commune: (parsed.commune ?? null) as any,
+            arrondissement: (parsed.arrondissement ?? null) as any,
+          } as any)
+          .returning({ id: users.id });
+
+        if (!createdUser?.id) {
+          throw Object.assign(new Error("Erreur lors de la création de l'utilisateur"), { statusCode: 500 });
+        }
+        userId = createdUser.id;
       }
 
       const [createdAgent] = await tx
         .insert(agents)
         .values({
-          userId: createdUser.id,
+          userId,
           matriculeSol: normalizedMatriculeSol,
           nom: parsed.nom ?? null,
           prenom: parsed.prenom ?? null,
@@ -466,7 +499,12 @@ export async function createAgent(req: Request, res: Response) {
       return res.status(e.statusCode).json({ message: e?.message || 'Erreur' });
     }
     if (String(e?.message || '').toLowerCase().includes('unique') || e?.code === '23505') {
-      return res.status(409).json({ message: 'Conflit: valeur unique déjà existante.' });
+      const detail = String(e?.detail || e?.message || '');
+      let hint = 'Conflit: une valeur unique existe déjà (matricule, email ou username).';
+      if (detail.includes('matricule')) hint = 'Ce matricule existe déjà dans la base (format différent possible : espaces, casse).';
+      if (detail.includes('email')) hint = 'Cet email est déjà utilisé par un autre compte.';
+      if (detail.includes('matricule_sol')) hint = 'Ce matricule solde est déjà utilisé par un autre agent.';
+      return res.status(409).json({ message: hint, detail });
     }
     return res.status(500).json({ message: e?.message || "Erreur lors de la création de l'agent" });
   }
