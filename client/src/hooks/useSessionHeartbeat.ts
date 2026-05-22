@@ -13,7 +13,7 @@ export type LockState = "active" | "countdown" | "locked" | "expired";
 export interface SessionHeartbeatState {
   lockState: LockState;
   countdownSeconds: number;      // Secondes restantes avant verrouillage (0-30)
-  reauthenticate: (password: string) => Promise<boolean>;
+  reauthenticate: (password: string) => Promise<{ ok: boolean; error?: string }>;
   forceLogout: () => Promise<void>;
 }
 
@@ -49,16 +49,33 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
   }, [isAuthenticated]);
 
   // ── Re-authentification (déverrouillage) ────────────────────────
-  const reauthenticate = useCallback(async (password: string): Promise<boolean> => {
+  const reauthenticate = useCallback(async (password: string): Promise<{ ok: boolean; error?: string }> => {
     try {
-      // Vérifier le mot de passe via l'API existante
       await apiRequest({ url: "/api/auth/verify-password", method: "POST", data: { password } });
-      // Succès : déverrouiller et réinitialiser l'inactivité
       setLockState("active");
       lastActivityRef.current = Date.now();
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (err: any) {
+      const status = err?.status ?? err?.response?.status;
+      const msg = err?.body?.message || err?.message || "";
+      if (status === 401) {
+        if (String(msg).toLowerCase().includes("incorrect")) {
+          return { ok: false, error: "Mot de passe incorrect." };
+        }
+        setLockState("expired");
+        return {
+          ok: false,
+          error:
+            "Session expirée côté serveur. Cliquez sur « Se déconnecter » puis reconnectez-vous.",
+        };
+      }
+      if (status === 403) {
+        return { ok: false, error: "Accès refusé. Reconnectez-vous." };
+      }
+      return {
+        ok: false,
+        error: msg || "Impossible de vérifier le mot de passe. Vérifiez votre connexion.",
+      };
     }
   }, []);
 
@@ -71,7 +88,10 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
         data: { reason: lockState === "expired" ? "session_expired" : "inactivity" },
       });
     } catch {}
-    // Le AuthContext gère la redirection, mais si on force la déconnexion ici :
+    try {
+      localStorage.removeItem("token");
+      sessionStorage.removeItem("token");
+    } catch {}
     const prevDomain = localStorage.getItem('domain');
     if (prevDomain === "ALERTE") {
       window.location.href = "/alerte-login";
@@ -158,7 +178,7 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
 
   // ── Écouteurs d'activité (mouse, keyboard, touch, scroll) ──────
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || lockState === "locked" || lockState === "expired") return;
 
     const events = ["mousedown", "keydown", "touchstart", "scroll", "mousemove"] as const;
     const handler = () => onActivity();
@@ -191,7 +211,7 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
       }
       if (throttleTimer) clearTimeout(throttleTimer);
     };
-  }, [isAuthenticated, onActivity]);
+  }, [isAuthenticated, lockState, onActivity]);
 
   return { lockState, countdownSeconds, reauthenticate, forceLogout };
 }

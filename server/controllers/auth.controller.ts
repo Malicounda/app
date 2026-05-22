@@ -551,7 +551,7 @@ export const verifyPassword = async (req: Request, res: Response) => {
     console.log(`[AUTH] Tentative de vérification du mot de passe pour l'utilisateur: ${req.session?.user?.username || 'Inconnu'}`);
     try {
         const { password } = req.body;
-        const sessionUser = req.session.user as any;
+        const sessionUser = ((req.session as any)?.user || req.user) as any;
 
         if (!sessionUser || !sessionUser.id) {
             return res.status(401).json({ message: "Non authentifié" });
@@ -569,6 +569,16 @@ export const verifyPassword = async (req: Request, res: Response) => {
             if (!value) return false;
             return (/^\$2[aby]\$/.test(value) && value.length >= 59 && value.length <= 64);
         };
+
+        const normalizeKey = (v: string) => String(v || '').trim().toUpperCase().replace(/\s+/g, '');
+
+        // Comptes connectés sans mot de passe (ALERTE / rôle métier) : accepter le matricule
+        if (sessionUser.isDefaultRole || sessionUser.isSupervisorRole) {
+            const matriculeKey = normalizeKey(sessionUser.matricule || sessionUser.username || '');
+            if (matriculeKey && normalizeKey(password) === matriculeKey) {
+                return res.json({ success: true, method: 'matricule' });
+            }
+        }
 
         let passwordOk = false;
         if (isBcryptHash(user.password)) {
