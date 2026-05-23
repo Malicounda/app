@@ -12,7 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Filter, Info, MapPin, MessageSquare, Search, Trash2, User } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Filter, Info, MapPin, MessageSquare, Phone, Search, Trash2, User, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation as useWouterLocation } from "wouter";
 
@@ -20,6 +20,21 @@ import { useNotifications } from "@/hooks/use-notifications";
 
 // Type pour l'état de la permission
 type PermissionState = 'granted' | 'denied' | 'prompt';
+
+function formatAlertLocation(alert: {
+  departement?: string | null;
+  region?: string | null;
+  arrondissement?: string | null;
+  commune?: string | null;
+}): string {
+  const dep = alert.departement ? String(alert.departement).trim().toUpperCase() : '';
+  const reg = alert.region ? String(alert.region).trim() : '';
+  const arr = alert.arrondissement ? String(alert.arrondissement).trim() : '';
+  const com = alert.commune ? String(alert.commune).trim() : '';
+  const base = dep || reg ? [dep || 'NON DÉFINI', reg].filter(Boolean).join('/') : 'NON DÉFINI';
+  const extras = [arr, com].filter(Boolean);
+  return extras.length ? `${base} · ${extras.join(' · ')}` : base;
+}
 
 interface Alert {
   id: number;
@@ -32,6 +47,8 @@ interface Alert {
   // Localisation dérivée des coordonnées (provenant du backend)
   region?: string | null;
   departement?: string | null;
+  arrondissement?: string | null;
+  commune?: string | null;
   // Accusés de lecture (rôles) côté expéditeur
   readByRoles?: string[];
   isDeletionRequest?: boolean;
@@ -43,6 +60,7 @@ interface Alert {
     role: string;
     region?: string;
     departement?: string;
+    phone?: string | null;
   };
   location?: {
     latitude: number;
@@ -366,6 +384,8 @@ function AlertsPage() {
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
   // Lecture seule: admin ou rôle métier superviseur
   const isReadOnlyUser = isAdmin || isSupervisorRole;
+  /** Superviseur / default domaine Alerte : nav basse fixe, pied de page collé */
+  const isAlertMobileChromeless = isDefaultRole || isSupervisorRole;
   const isHunter = user.role === 'hunter';
   const isGuide = normalizedRole === 'hunting-guide' || normalizedRole.includes('guide');
 
@@ -394,12 +414,25 @@ function AlertsPage() {
   } | null>(null);
   // État pour suivre si l'accès à la géolocalisation a été refusé
   const [locationPermissionDenied, setLocationPermissionDenied] = useState<boolean>(false);
-  const [currentPageInbox, setCurrentPageInbox] = useState(1);
-  const [currentPageOutbox, setCurrentPageOutbox] = useState(1);
-  const itemsPerPage = 10;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [alertTypeHintDismissed, setAlertTypeHintDismissed] = useState(() => {
+    try {
+      return localStorage.getItem("scodi:alerts-select-type-hint-dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const dismissAlertTypeHint = () => {
+    setAlertTypeHintDismissed(true);
+    try {
+      localStorage.setItem("scodi:alerts-select-type-hint-dismissed", "1");
+    } catch {
+      /* ignore */
+    }
+  };
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsAlert, setDetailsAlert] = useState<Alert | null>(null);
@@ -582,20 +615,6 @@ function AlertsPage() {
 
   // (moved below queries) Effects that call refetch/refetchSent must be declared after the queries
 
-  // Pagination pour inbox
-  const getPaginatedInbox = (data: Alert[]) => {
-    const startIndex = (currentPageInbox - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return data.slice(startIndex, endIndex);
-  };
-
-  // Pagination pour outbox
-  const getPaginatedOutbox = (data: Alert[]) => {
-    const startIndex = (currentPageOutbox - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return data.slice(startIndex, endIndex);
-  };
-
   const { data: alerts = [], refetch, isLoading: isLoadingAlerts } = useQuery({
     queryKey: ["/api/alerts/received", user?.id],
     queryFn: async () => {
@@ -640,14 +659,15 @@ function AlertsPage() {
               createdAt: a.created_at,
               region: a.region || undefined,
               departement: a.departement || undefined,
+              arrondissement: a.arrondissement || undefined,
+              commune: a.commune || undefined,
               sender: {
                 username: s.username || 'inconnu',
                 firstName: s.first_name || '',
                 lastName: s.last_name || '',
                 role: s.role || 'unknown',
-                // Prefer region from alert (resolved from coords), then sender
+                phone: s.phone || null,
                 region: a.region || s.region || undefined,
-                // Prefer departement from alert (resolved from coords), then sender
                 departement: a.departement || s.departement || undefined,
               },
               location: lat !== null && lon !== null ? { latitude: lat, longitude: lon } : undefined,
@@ -1300,12 +1320,28 @@ function AlertsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role, isSectorAgent, isReadOnlyUser, canSendAlerts]);
 
+  const alertsTotalFooterClass =
+    "shrink-0 border-t border-gray-200 bg-white py-2.5 px-3 text-center text-sm text-muted-foreground " +
+    (isAlertMobileChromeless
+      ? "fixed left-0 right-0 z-[240] bottom-[56px] shadow-[0_-1px_4px_rgba(0,0,0,0.06)] md:static md:z-auto md:bottom-auto md:rounded-b-lg md:shadow-none"
+      : "rounded-b-lg");
+
+  const showInboxTotalFooter = activeTab === "inbox" && filteredInbox.length > 0;
+  const showOutboxTotalFooter = activeTab !== "inbox" && sentAlertsData.length > 0;
+  const listScrollPadding =
+    isAlertMobileChromeless && (showInboxTotalFooter || showOutboxTotalFooter)
+      ? "pb-20 md:pb-0"
+      : "";
+
+  const mobileAlertLayout = isAlertMobileChromeless && canSendAlerts;
+  const mobileSupervisorLayout = isAlertMobileChromeless && !canSendAlerts;
+
   return (
-    <div className="flex flex-col bg-slate-50 min-h-screen">
-      <div className="w-full flex-1 flex items-start justify-center py-2 sm:py-3 lg:py-4 px-2 sm:px-4">
-        <div className="w-full max-w-7xl flex flex-col">
+    <div className={`flex flex-col overflow-hidden bg-slate-50 ${isAlertMobileChromeless ? "h-full min-h-0" : "h-[100dvh]"}`}>
+      <div className={`w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 ${isAlertMobileChromeless ? "py-0 lg:py-4" : "py-2 sm:py-3 lg:py-4"}`}>
+        <div className="w-full max-w-7xl flex flex-col flex-1 min-h-0 mx-auto">
           {/* Bouton Retour + Actions - Barre supérieure */}
-          <div className={`bg-white rounded-t-lg shadow-sm border border-b-0 border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 justify-between`}>
+          <div className="shrink-0 bg-white rounded-t-lg shadow-sm border border-b-0 border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 justify-between">
             {/* Bouton Retour — visible pour tous, redirige vers l'accueil du domaine */}
             <Button
               variant="ghost"
@@ -1350,13 +1386,29 @@ function AlertsPage() {
             </div>
           </div>
 
-          {/* Disposition intelligente : 2 colonnes sur desktop */}
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr] gap-0 lg:gap-4">
+          {/* Mobile Alerte : formulaire compact puis liste ; desktop : 2 colonnes */}
+          <div
+            className={
+              mobileAlertLayout
+                ? "flex flex-1 min-h-0 flex-col gap-2 lg:grid lg:grid-cols-[minmax(340px,420px)_1fr] lg:gap-4"
+                : mobileSupervisorLayout
+                  ? "flex flex-1 min-h-0 flex-col"
+                  : "grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr] gap-0 lg:gap-4"
+            }
+          >
 
             {/* === COLONNE GAUCHE : Formulaire d'envoi === */}
             {canSendAlerts && !((isHunter || isGuide) && activeTab === 'outbox') && !(activeTab === 'inbox' && (isRegionalAgent || isSectorAgent)) && (
-              <div className="bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 p-4 lg:sticky lg:top-4 lg:self-start">
-                <h3 className="text-lg font-semibold mb-3 text-gray-800">{(isHunter || isGuide) ? 'Envoyer une information' : 'Envoyer une alerte rapide'}</h3>
+              <div
+                className={
+                  mobileAlertLayout
+                    ? "shrink-0 max-h-[38vh] overflow-y-auto no-scrollbar rounded-lg border border-gray-200 bg-white p-3 shadow-md lg:max-h-none lg:overflow-visible lg:p-4 lg:sticky lg:top-4 lg:self-start"
+                    : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 p-4 lg:sticky lg:top-4 lg:self-start"
+                }
+              >
+                <h3 className={`font-semibold text-gray-800 ${mobileAlertLayout ? "mb-2 text-base" : "mb-3 text-lg"}`}>
+                  {(isHunter || isGuide) ? 'Envoyer une information' : 'Envoyer une alerte rapide'}
+                </h3>
 
                 {/* Géolocalisation status */}
                 {!location ? (
@@ -1474,28 +1526,61 @@ function AlertsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md text-sm">
-                      <p className="font-medium">Sélectionnez un type d'alerte</p>
-                      <p className="mt-1">Veuillez choisir un type d'alerte ci-dessus pour continuer.</p>
-                    </div>
+                    <>
+                      {!alertTypeHintDismissed && (
+                        <div
+                          className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200/90 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 shadow-sm"
+                          role="status"
+                        >
+                          <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" aria-hidden />
+                          <p className="flex-1 leading-snug">
+                            <span className="font-semibold">Type d&apos;alerte requis.</span>{' '}
+                            Choisissez Braconnage, Trafic ou Feux ci-dessus.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={dismissAlertTypeHint}
+                            className="shrink-0 rounded-md p-0.5 text-amber-700 hover:bg-amber-100/80"
+                            aria-label="Fermer l'info"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                      {alertTypeHintDismissed && (
+                        <button
+                          type="button"
+                          onClick={() => setAlertTypeHintDismissed(false)}
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-800 hover:text-amber-950"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                          Aide : choisir un type d&apos;alerte
+                        </button>
+                      )}
+                    </>
                   )
                 ) : null}
               </div>
             )}
 
             {/* === COLONNE DROITE : Liste des alertes === */}
-            <div className="bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 flex flex-col min-h-0">
-              {/* Barre d'actions inbox (recherche/filtre/tri) */}
+            <div
+              className={
+                mobileAlertLayout
+                  ? "flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow-md"
+                  : mobileSupervisorLayout
+                    ? "flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow-md"
+                    : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 flex flex-col min-h-0 flex-1"
+              }
+            >
+              {/* Barre d'actions inbox (recherche/filtre/tri) — fixe */}
               {activeTab === 'inbox' && (
-                <div className="px-4 py-3 border-b flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div className="shrink-0 px-4 py-3 border-b flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-white">
                   <div className="w-full md:max-w-md relative">
                     <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <Input
                       value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setCurrentPageInbox(1);
-                      }}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-9"
                       placeholder="Rechercher une alerte..."
                     />
@@ -1519,6 +1604,7 @@ function AlertsPage() {
                 </div>
               )}
 
+              <div className={`flex-1 min-h-0 overflow-y-auto no-scrollbar ${listScrollPadding}`}>
               {activeTab === "inbox" ? (
                 isLoadingAlerts ? (
                   <div className="flex justify-center items-center py-8">
@@ -1542,7 +1628,7 @@ function AlertsPage() {
                     </div>
                     {/* Grille responsive pour les cartes d'alerte */}
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:gap-3 xl:p-3">
-                      {getPaginatedInbox(filteredInbox).map((alert: Alert) => {
+                      {filteredInbox.map((alert: Alert) => {
                         const styles = getAlertTypeStyles(alert.type);
                         const senderStrip = getSenderRoleStyle(alert.sender);
                         const createdAtDate = alert.createdAt ? new Date(alert.createdAt) : null;
@@ -1587,10 +1673,7 @@ function AlertsPage() {
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <MapPin className="h-4 w-4 text-gray-500" />
-                                  <span>
-                                    {String(alert.departement || 'NON DÉFINI').toUpperCase()}
-                                    {alert.region ? `/${alert.region}` : ''}
-                                  </span>
+                                  <span>{formatAlertLocation(alert)}</span>
                                 </div>
                               </div>
 
@@ -1639,32 +1722,6 @@ function AlertsPage() {
                         );
                       })}
                     </div>
-
-                    {filteredInbox.length > 0 && (
-                      <div className="p-3 flex justify-between items-center text-sm bg-gray-50 border-t rounded-b-lg">
-                        <div className="text-muted-foreground">
-                          Affichage de {((currentPageInbox - 1) * itemsPerPage) + 1} à {Math.min(currentPageInbox * itemsPerPage, filteredInbox.length)} sur {filteredInbox.length} alertes
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPageInbox(Math.max(1, currentPageInbox - 1))}
-                            disabled={currentPageInbox === 1}
-                          >
-                            Précédent
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPageInbox(currentPageInbox + 1)}
-                            disabled={currentPageInbox >= Math.ceil(filteredInbox.length / itemsPerPage)}
-                          >
-                            Suivant
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </>
                 )
               ) : (
@@ -1681,7 +1738,7 @@ function AlertsPage() {
                   </Card>
                 ) : (
                   <>
-                    {getPaginatedOutbox(sentAlertsData).map((alert: Alert) => (
+                    {sentAlertsData.map((alert: Alert) => (
                       <MessageBubble
                         key={alert.id}
                         alert={alert}
@@ -1697,33 +1754,20 @@ function AlertsPage() {
                         isSent={true}
                       />
                     ))}
-                    {sentAlertsData.length > 0 && (
-                      <div className="p-3 flex justify-between items-center text-sm bg-gray-50 border-t rounded-b-lg">
-                        <div className="text-muted-foreground">
-                          Affichage de {((currentPageOutbox - 1) * itemsPerPage) + 1} à {Math.min(currentPageOutbox * itemsPerPage, sentAlertsData.length)} sur {sentAlertsData.length} alertes
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPageOutbox(Math.max(1, currentPageOutbox - 1))}
-                            disabled={currentPageOutbox === 1}
-                          >
-                            Précédent
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPageOutbox(currentPageOutbox + 1)}
-                            disabled={currentPageOutbox >= Math.ceil(sentAlertsData.length / itemsPerPage)}
-                          >
-                            Suivant
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </>
                 )
+              )}
+              </div>
+
+              {showInboxTotalFooter && (
+                <div className={alertsTotalFooterClass}>
+                  Total d&apos;alertes reçues : {alerts.length}
+                </div>
+              )}
+              {showOutboxTotalFooter && (
+                <div className={alertsTotalFooterClass}>
+                  Total d&apos;alertes envoyées : {sentAlertsData.length}
+                </div>
               )}
             </div>
           </div>
@@ -1738,41 +1782,87 @@ function AlertsPage() {
           if (!open) setDetailsAlert(null);
         }}
       >
-        <DialogContent className="w-[92vw] max-w-md">
-          <DialogHeader>
-            <DialogTitle>Détails de l'alerte</DialogTitle>
-          </DialogHeader>
-
+        <DialogContent className="w-[92vw] max-w-md p-0 gap-0 overflow-hidden rounded-2xl border-slate-200">
           {detailsAlert && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-gray-900">{detailsAlert.title}</span>
-                {getUrgencyTag(detailsAlert.type, detailsAlert.nature)}
+            <>
+              <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-5 py-4 text-white">
+                <DialogHeader className="space-y-1 text-left">
+                  <DialogTitle className="text-lg font-semibold text-white">Détails de l&apos;alerte</DialogTitle>
+                </DialogHeader>
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold">{detailsAlert.title}</span>
+                  {getUrgencyTag(detailsAlert.type, detailsAlert.nature)}
+                </div>
               </div>
 
-              <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{detailsAlert.message}</p>
+              <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto no-scrollbar">
+                <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  {detailsAlert.message}
+                </p>
 
-              <p className="text-sm text-gray-600">
-                Reçu de : <span className="font-medium">
-                  {detailsAlert.sender?.firstName ?? detailsAlert.sender?.username ?? 'Utilisateur'}
-                  {detailsAlert.sender?.lastName ? ` ${detailsAlert.sender.lastName}` : ''}
-                </span> ({getProvenanceLabel(detailsAlert.sender?.role ?? 'unknown')})
-              </p>
+                <div className="rounded-xl border border-slate-100 bg-white p-3 space-y-2">
+                  <div className="flex items-start gap-2 text-sm text-gray-700">
+                    <User className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Agent</p>
+                      <p className="font-medium text-gray-900">
+                        {detailsAlert.sender?.firstName ?? detailsAlert.sender?.username ?? 'Utilisateur'}
+                        {detailsAlert.sender?.lastName ? ` ${detailsAlert.sender.lastName}` : ''}
+                        <span className="text-gray-500 font-normal">
+                          {' '}({getProvenanceLabel(detailsAlert.sender?.role ?? 'unknown')})
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  {detailsAlert.sender?.phone ? (
+                    <div className="flex items-start gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Téléphone</p>
+                        <a
+                          href={`tel:${String(detailsAlert.sender.phone).replace(/\s/g, '')}`}
+                          className="font-medium text-emerald-700 hover:underline"
+                        >
+                          {detailsAlert.sender.phone}
+                        </a>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
 
-              <p className="text-sm text-gray-600">
-                Lieux : <span className="font-medium">
-                  {String(detailsAlert.departement || 'NON DÉFINI').toUpperCase()}{detailsAlert.region ? `/${detailsAlert.region}` : ''}
-                </span>
-              </p>
+                <div className="rounded-xl border border-slate-100 bg-white p-3">
+                  <div className="flex items-start gap-2 text-sm">
+                    <MapPin className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                    <div className="space-y-1.5 min-w-0">
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Lieux</p>
+                      <p className="font-medium text-gray-900">{formatAlertLocation(detailsAlert)}</p>
+                      {detailsAlert.arrondissement ? (
+                        <p className="text-gray-600">
+                          <span className="text-slate-500">Arrondissement :</span> {detailsAlert.arrondissement}
+                        </p>
+                      ) : null}
+                      {detailsAlert.commune ? (
+                        <p className="text-gray-600">
+                          <span className="text-slate-500">Commune :</span> {detailsAlert.commune}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
 
-              <div className="flex justify-end pt-1">
-                <Button variant="outline" size="sm" className="text-red-600 border-red-200"
-                  onClick={() => { deleteAlert(detailsAlert.id); setDetailsOpen(false); }}
-                >
-                  Supprimer
-                </Button>
+                <div className="flex justify-end pt-1 border-t border-slate-100">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => { deleteAlert(detailsAlert.id); setDetailsOpen(false); }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    Supprimer
+                  </Button>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

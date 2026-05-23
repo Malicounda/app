@@ -47,7 +47,7 @@ export default function ReboisementLogin() {
       await login(values.identifier, values.password);
       toast({ title: "Connexion réussie", description: "Bienvenue dans le module Reboisement." });
     } catch (e) {
-      toast({ variant: "destructive", title: "Erreur de connexion", description: "Identifiants invalides." });
+      // Échec affiché par AppErrorDialog (style Accès refusé)
     }
   };
 

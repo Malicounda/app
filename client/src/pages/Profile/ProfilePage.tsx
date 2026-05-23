@@ -162,7 +162,13 @@ export default function ProfilePage() {
     const fullRole = `${roleUpper((user as any)?.roleMetierLabel) || "AGENT"}${levelSuffix}`;
 
     return (
-      <main className={isAlerteDomain ? "h-screen overflow-hidden bg-slate-50 pb-20" : "min-h-screen bg-slate-50 pb-20"}>
+      <main
+        className={
+          isAlerteDomain
+            ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50"
+            : "min-h-screen bg-slate-50 pb-20"
+        }
+      >
         {isAlerteDomain ? (
           <AgentTopHeader />
         ) : (
@@ -179,8 +185,15 @@ export default function ProfilePage() {
             )}
           </div>
         )}
-        
-        <div className="container mx-auto px-4 py-6 max-w-5xl">
+
+        <div
+          className={
+            isAlerteDomain
+              ? "flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain"
+              : ""
+          }
+        >
+        <div className={`container mx-auto max-w-5xl px-4 py-6 ${isAlerteDomain ? "pb-24" : ""}`}>
           {/* Carte Profil principale */}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-6">
             {!editMode ? (
@@ -314,6 +327,7 @@ export default function ProfilePage() {
               <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase">Version 1.0.0</p>
             </div>
           </div>
+        </div>
         </div>
       </main>
     );

@@ -73,11 +73,7 @@ export default function Login() {
       });
     } catch (error) {
       console.error("Erreur d'authentification:", error);
-      toast({
-        variant: "destructive",
-        title: "Erreur de connexion",
-        description: "Identifiant ou mot de passe incorrect.",
-      });
+      // Échec affiché par AppErrorDialog (style Accès refusé)
     }
   };
 

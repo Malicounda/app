@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import ChatAttachmentBlock from "@/components/messaging/ChatAttachmentBlock";
+import { AgentNotFoundAvatar, ContactAvatar } from "@/components/messaging/ContactAvatar";
 import MessageAttachmentViewer from "@/components/messaging/MessageAttachmentViewer";
 import { guessAttachmentMime, repairAttachmentFileName } from "@/lib/attachmentMime";
 import { buildMessageAttachmentUrl } from "@/lib/messageAttachments";
@@ -773,7 +774,7 @@ export default function SimpleSMSPage() {
                     <div className="flex flex-col gap-0 animate-pulse">
                       {[...Array(5)].map((_, i) => (
                         <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-                          <div className="h-12 w-12 rounded-full bg-gray-200 shrink-0" />
+                          <ContactAvatar size="lg" className="bg-gray-200" />
                           <div className="flex-1 space-y-2">
                             <div className="h-3 bg-gray-200 rounded w-2/5" />
                             <div className="h-2.5 bg-gray-100 rounded w-3/4" />
@@ -807,7 +808,7 @@ export default function SimpleSMSPage() {
                              {isSelected && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                           </div>
                         ) : (
-                          <div className={`h-12 w-12 rounded-full ${conv.unreadCount > 0 ? 'bg-green-600' : 'bg-slate-400'} text-white flex items-center justify-center text-lg font-bold shrink-0`}>{conv.contactInitial}</div>
+                          <ContactAvatar size="lg" unread={conv.unreadCount > 0} isGroup={conv.contactInitial === 'G'} />
                         )}
                         <div className="flex-1 min-w-0 pointer-events-none">
                           <div className="flex items-center justify-between gap-2">
@@ -832,7 +833,7 @@ export default function SimpleSMSPage() {
                 <div className="bg-[#114b26] text-white px-3 py-3 shrink-0 flex items-center gap-3 relative justify-between">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <button onClick={() => { setPhoneView('list'); setSelectedContactKey(null); }} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
-                    <div className="h-9 w-9 rounded-full bg-white/25 flex items-center justify-center text-sm font-bold shrink-0">{selectedConversation.contactInitial}</div>
+                    <ContactAvatar size="sm" variant="header" isGroup={selectedConversation.contactInitial === 'G'} />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold truncate">{selectedConversation.contactName}</div>
                     </div>
@@ -1072,7 +1073,7 @@ export default function SimpleSMSPage() {
                 <div className="flex-1 overflow-y-auto">
                   {recipientOptions.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
                     <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); setNewRecipientSearch(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
-                      <div className="h-10 w-10 rounded-full bg-green-600 text-white flex items-center justify-center text-base font-bold shrink-0">{r.label.charAt(0).toUpperCase()}</div>
+                      <ContactAvatar size="md" variant="search" />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-800 truncate">{r.label}</div>
                       </div>
@@ -1248,12 +1249,7 @@ export default function SimpleSMSPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
             <div className="bg-white rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-4 max-w-xs w-full animate-in fade-in zoom-in-95 duration-200">
               {/* Icône agent */}
-              <div className="h-16 w-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-9 w-9 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636" className="text-red-400" />
-                </svg>
-              </div>
+              <AgentNotFoundAvatar />
               <div className="text-center">
                 <p className="text-base font-bold text-gray-800">Agent introuvable</p>
                 <p className="text-xs text-gray-500 mt-1">Aucun agent ne correspond à cet identifiant dans le système.</p>
@@ -1496,7 +1492,7 @@ export default function SimpleSMSPage() {
                       )}
                       {conversations.filter(c => !normalizedQuery || c.contactName.toLowerCase().includes(normalizedQuery)).map(conv => (
                         <button key={conv.contactKey} onClick={() => { setSelectedContactKey(conv.contactKey); setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
-                          <div className={`h-12 w-12 rounded-full ${conv.unreadCount > 0 ? 'bg-green-600' : 'bg-slate-400'} text-white flex items-center justify-center text-lg font-bold shrink-0`}>{conv.contactInitial}</div>
+                          <ContactAvatar size="lg" unread={conv.unreadCount > 0} isGroup={conv.contactInitial === 'G'} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
                               <span className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-400'}`}>{conv.contactName}</span>
@@ -1520,7 +1516,7 @@ export default function SimpleSMSPage() {
                   <>
                     <div className="bg-[#114b26] text-white px-3 py-3 shrink-0 flex items-center gap-3 relative">
                       <button onClick={() => { setPhoneView('list'); setSelectedContactKey(null); }} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
-                      <div className="h-9 w-9 rounded-full bg-white/25 flex items-center justify-center text-sm font-bold shrink-0">{selectedConversation.contactInitial}</div>
+                      <ContactAvatar size="sm" variant="header" isGroup={selectedConversation.contactInitial === 'G'} />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold truncate">{selectedConversation.contactName}</div>
                       </div>
@@ -1618,7 +1614,7 @@ export default function SimpleSMSPage() {
                       {/* Superviseurs / destinataires automatiques */}
                       {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
                         <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
-                          <div className="h-10 w-10 rounded-full bg-green-600 text-white flex items-center justify-center text-base font-bold shrink-0">{r.label.charAt(0).toUpperCase()}</div>
+                          <ContactAvatar size="md" variant="search" />
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-medium text-gray-800 truncate">{r.label}</div>
                             <div className="text-[10px] text-gray-500">{r.roleTag}</div>
@@ -1721,12 +1717,7 @@ export default function SimpleSMSPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-4 max-w-xs w-full animate-in fade-in zoom-in-95 duration-200">
             {/* Icône agent */}
-            <div className="h-16 w-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-9 w-9 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636" className="text-red-400" />
-              </svg>
-            </div>
+            <AgentNotFoundAvatar />
             <div className="text-center">
               <p className="text-base font-bold text-gray-800">Agent introuvable</p>
               <p className="text-xs text-gray-500 mt-1">Aucun agent ne correspond à cet identifiant dans le système.</p>

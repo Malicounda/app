@@ -1150,7 +1150,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                 n.id, n.user_id, n.alert_id, n.message, n.type, n.status, n.is_read, n.created_at,
                 a.id as alert_id_full, a.title, a.message as alert_message, a.nature, a.region, a.zone,
                 a.lat, a.lon, a.departement, a.commune, a.arrondissement, a.sender_id, a.created_at as alert_created_at, a.updated_at as alert_updated_at,
-                u.id as sender_id_full, u.username, u.first_name, u.last_name, u.role, u.region as sender_region, u.departement as sender_departement,
+                u.id as sender_id_full, u.username, u.first_name, u.last_name, u.phone as sender_phone, u.role, u.region as sender_region, u.departement as sender_departement,
                 ag.grade as sender_grade
             FROM notifications n
             LEFT JOIN alerts a ON n.alert_id = a.id
@@ -1192,6 +1192,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                     username: n.username,
                     first_name: n.first_name,
                     last_name: n.last_name,
+                    phone: n.sender_phone ?? null,
                     role: n.role,
                     region: n.sender_region,
                     departement: n.sender_departement,
@@ -1264,6 +1265,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                         username: (notif.alert as any).users.username,
                         first_name: (notif.alert as any).users.first_name,
                         last_name: (notif.alert as any).users.last_name,
+                        phone: (notif.alert as any).users?.phone ?? null,
                         role: (notif.alert as any).users.role,
                         region: (notif.alert as any).users.region,
                         departement: ((notif.alert as any).users as any).departement,

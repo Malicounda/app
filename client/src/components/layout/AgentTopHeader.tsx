@@ -1,7 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, LogOut, MessageSquare, User as UserIcon, ChevronRight } from "lucide-react";
+import AlerteDomainActionCard from "@/components/alerte/AlerteDomainActionCard";
+import { Bell, MessageSquare, User as UserIcon } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
@@ -44,6 +45,7 @@ export default function AgentTopHeader() {
   const isAlerteDomain = _domain === 'ALERTE' ||
     ((_domain !== 'CHASSE' && _domain !== 'REBOISEMENT') &&
       ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
+  const isSupervisorRole = !!(user as any)?.isSupervisorRole;
 
   return (
     <div className="shrink-0 flex flex-col">
@@ -148,40 +150,31 @@ export default function AgentTopHeader() {
       </div>
 
       {/* Cartes statistiques — Mobile uniquement — Masqué sur la page profil et sur default-home */}
-      {isAlerteDomain && location !== '/profile' && location !== '/default-home' && (
-        <div className="px-4 md:hidden max-w-md mx-auto w-full">
-          <div className="grid grid-cols-2 gap-3 relative z-10 pt-3 pb-1">
-            <button
+      {isAlerteDomain && location !== '/profile' && location !== '/default-home' && location !== '/supervisor' && (
+        <div className="mx-auto w-full max-w-md px-4 md:hidden">
+          <div className="relative z-10 grid grid-cols-2 gap-3 pb-1 pt-3">
+            <AlerteDomainActionCard
+              variant="alerts"
+              size="compact"
               onClick={() => setLocation("/alerts")}
-              className={`bg-white shadow-sm hover:shadow-md border ${location === '/alerts' ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-100'} rounded-[18px] p-3.5 text-left active:scale-95 transition-all flex items-center gap-3 w-full`}
-            >
-              <div className="h-[46px] w-[46px] shrink-0 rounded-2xl bg-red-50 flex items-center justify-center relative">
-                <Bell className={`h-[22px] w-[22px] ${location === '/alerts' ? 'text-red-600' : 'text-red-500'}`} strokeWidth={2.5} />
-                {unread > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow-sm border border-white">{unread}</span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide">Alertes</p>
-                <p className="text-[9px] text-slate-500 leading-[1.25] mt-0.5 line-clamp-2">Consulter les alertes et notifications</p>
-              </div>
-            </button>
-
-            <button
+              badge={unread}
+              subtitle={
+                isSupervisorRole
+                  ? "Consulter les alertes et notifications"
+                  : undefined
+              }
+            />
+            <AlerteDomainActionCard
+              variant="messages"
+              size="compact"
               onClick={() => setLocation("/sms")}
-              className={`bg-white shadow-sm hover:shadow-md border ${location === '/sms' ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-slate-100'} rounded-[18px] p-3.5 text-left active:scale-95 transition-all flex items-center gap-3 w-full`}
-            >
-              <div className="h-[46px] w-[46px] shrink-0 rounded-2xl bg-emerald-50 flex items-center justify-center relative">
-                <MessageSquare className={`h-[22px] w-[22px] ${location === '/sms' ? 'text-emerald-600' : 'text-emerald-500'}`} strokeWidth={2.5} />
-                {unreadMsg > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow-sm border border-white animate-pulse">{unreadMsg}</span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide">Messages</p>
-                <p className="text-[9px] text-slate-500 leading-[1.25] mt-0.5 line-clamp-2">Consulter vos messages et discussions</p>
-              </div>
-            </button>
+              badge={unreadMsg}
+              subtitle={
+                isSupervisorRole
+                  ? "Consulter vos messages et discussions"
+                  : undefined
+              }
+            />
           </div>
         </div>
       )}

@@ -109,12 +109,8 @@ export default function AlerteLogin() {
         title: "Connexion réussie",
         description: "Bienvenue dans le module Alerte.",
       });
-    } catch (e) {
-      toast({
-        variant: "destructive",
-        title: "Erreur de connexion",
-        description: "Matricule invalide ou non autorisé.",
-      });
+    } catch {
+      // Message affiché par AppErrorDialog (style Accès refusé)
     }
   };
 

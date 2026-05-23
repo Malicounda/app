@@ -1,28 +1,22 @@
 import React, { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/api";
-import { authenticatedFetch } from "@/lib/authenticatedFetch";
-import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Map, MessageSquare, Info } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { useLocation } from "wouter";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
+import SupervisorMapCard from "@/components/alerte/SupervisorMapCard";
 import LicenseDialog from "@/components/layout/LicenseDialog";
 import { buildSupervisorTickerParts } from "@/utils/alertZoneScope";
 
-/**
- * Format ticker : Grade Nom — Grade — Région — Titre alerte — commune / arrondissement / département / région
- * Ex. GEF Ndèye Astou DIBA — GEF — Dakar — Alerte feux_de_brousse — Rufisque / Ouest / Dakar / Dakar
- * (lieu GPS via resolveAdministrativeAreas + tables shapefile côté API)
- */
 function renderTickerItem(n: any) {
   const { grade, fullName, zoneSummary, title, gpsLocation } = buildSupervisorTickerParts(n);
   const sep = <span className="text-amber-600 mx-0.5">—</span>;
 
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900">
-      <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
-      <span className="font-bold whitespace-nowrap">
+      <AlertTriangle className="h-3 w-3 shrink-0 text-red-500" />
+      <span className="whitespace-nowrap font-bold">
         {grade ? `${grade} ` : ""}
         {fullName}
       </span>
@@ -41,22 +35,18 @@ function renderTickerItem(n: any) {
       {sep}
       <span className="whitespace-nowrap">{title}</span>
       {sep}
-      <span className="whitespace-nowrap text-amber-700 font-medium">{gpsLocation}</span>
-      <span className="text-amber-300 mx-3">◆</span>
+      <span className="whitespace-nowrap font-medium text-amber-700">{gpsLocation}</span>
+      <span className="mx-3 text-amber-300">◆</span>
     </span>
   );
 }
 
 export default function SupervisorPage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [showLicense, setShowLicense] = useState(false);
-  const isSupervisorRole = !!(user as any)?.isSupervisorRole;
-  const { data: unreadData } = useUnreadNotificationsCount();
-  const unread = unreadData?.count ?? 0;
 
-  // Récupérer les notifications non lues avec détails pour le bandeau défilant
   const { data: recentNotifs } = useQuery({
     queryKey: ["supervisor-recent-notifs"],
     queryFn: async () => {
@@ -64,88 +54,75 @@ export default function SupervisorPage() {
         const res = await apiRequest<any[]>("GET", `/alerts/received/${user?.id}`);
         if (!res.ok) return [];
         const notifs = res.data as any[];
-        return notifs
-          .filter((n: any) => !n.is_read && n.alert)
-          .slice(0, 10);
-      } catch { return []; }
+        return notifs.filter((n: any) => !n.is_read && n.alert).slice(0, 10);
+      } catch {
+        return [];
+      }
     },
     enabled: !!user,
     refetchInterval: 10_000,
     staleTime: 5_000,
   });
 
-  const localisation = [(user as any)?.region, (user as any)?.departement].filter(Boolean).join(" — ") || null;
-
-  // Rôle métier en majuscules
-  const roleUpper = (s?: string | null) => (s || "").toUpperCase();
-
-  // Initiales de l'utilisateur pour l'avatar
-  const initials = ((user?.firstName?.[0] || "") + (user?.lastName?.[0] || "")).toUpperCase() || "S";
-
   return (
-    <div className="fixed inset-0 flex flex-col bg-slate-50">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
       <AgentTopHeader />
 
-      {/* Contenu scrollable */}
-      <div 
-        className="flex-1 px-4 pb-20 space-y-4 overflow-hidden overscroll-contain"
-        style={{ paddingTop: '1rem' }}
-      >
-        {/* Cartes statistiques (Carte Map) */}
-        <div className="relative z-10 pt-2 px-4 max-w-[280px] mx-auto w-full">
-          <button
-            onClick={() => setLocation("/map")}
-            className="bg-white shadow-sm hover:shadow-md border border-slate-100 rounded-[20px] p-4 text-left active:scale-95 transition-all flex items-center gap-4 w-full"
-          >
-            <div className="h-[64px] w-[64px] shrink-0 rounded-2xl bg-blue-50 flex items-center justify-center relative">
-              <Map className="h-[32px] w-[32px] text-blue-500" strokeWidth={2.5} />
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <p className="text-[14px] font-black text-slate-800 uppercase tracking-wide">Carte</p>
-              <p className="text-[10px] text-slate-500 leading-[1.3] mt-0.5 line-clamp-2">Voir la carte interactive et la géolocalisation</p>
-            </div>
-          </button>
+      <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 pb-20 pt-4">
+        {/* Carte Map — taille d’origine (max 280px), design maquette uniquement */}
+        <div className="relative z-10 mx-auto w-full max-w-[280px] pt-2">
+          <SupervisorMapCard onClick={() => setLocation("/map")} />
         </div>
-        {/* Logos partenaires */}
-        <div className="flex flex-col items-center gap-4 pt-4 pb-2">
-          <img src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png" alt="ScoDi" className="h-20 object-contain" />
-          <p className="text-[11px] text-gray-700 text-center max-w-xs leading-tight font-bold">Système de Contrôle et de Digitalisation</p>
-          <div className="flex items-center justify-center gap-6 mt-2">
+
+        <div className="flex flex-col items-center gap-4 pb-2 pt-4">
+          <img
+            src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png"
+            alt="ScoDi"
+            className="h-20 object-contain"
+          />
+          <p className="max-w-xs text-center text-[11px] font-bold leading-tight text-gray-700">
+            Système de Contrôle et de Digitalisation
+          </p>
+          <div className="mt-2 flex items-center justify-center gap-6">
             <img src="/icon-blason.svg" alt="Blason" className="h-20 object-contain" />
-            <img src="/logo_forets.png" alt="Eaux et Forêts" className="h-20 object-contain mix-blend-multiply" />
+            <img
+              src="/logo_forets.png"
+              alt="Eaux et Forets"
+              className="h-20 object-contain mix-blend-multiply"
+            />
           </div>
 
-          {/* Bandeau ticker défilant style TV — alerte(s) non lues */}
           {recentNotifs && recentNotifs.length > 0 && (
-            <div className="w-full mt-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg overflow-hidden">
-                {/* Titre + compteur + bouton tout marquer lu */}
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 border-b border-amber-200 justify-between">
+            <div className="mt-4 w-full">
+              <div className="overflow-hidden rounded-lg border border-amber-200 bg-amber-50">
+                <div className="flex items-center justify-between gap-1.5 border-b border-amber-200 bg-amber-100 px-3 py-1.5">
                   <div className="flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">
-                      Nouvelle alerte{recentNotifs.length > 1 ? `s (${recentNotifs.length})` : ''}
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                      Nouvelle alerte{recentNotifs.length > 1 ? `s (${recentNotifs.length})` : ""}
                     </span>
                   </div>
                   <button
+                    type="button"
                     onClick={async () => {
                       try {
                         await apiRequest("PATCH", `/alerts/user/${user?.id}/read-all`);
                         queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
                         queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
-                      } catch { }
+                      } catch {
+                        /* ignore */
+                      }
                     }}
-                    className="text-[9px] font-bold text-amber-700 underline hover:text-amber-900 transition-colors"
+                    className="text-[9px] font-bold text-amber-700 underline transition-colors hover:text-amber-900"
                   >
                     Tout marquer lu
                   </button>
                 </div>
 
-                {/* Ticker défilant une seule ligne */}
                 <div
-                  className="overflow-hidden cursor-pointer relative"
+                  className="relative cursor-pointer overflow-hidden"
                   onClick={() => setLocation("/alerts")}
-                  style={{ height: '32px' }}
+                  style={{ height: "32px" }}
                 >
                   <style>{`
                     @keyframes supervisor-ticker {
@@ -155,7 +132,7 @@ export default function SupervisorPage() {
                     .supervisor-ticker-inner { animation: supervisor-ticker linear infinite; }
                   `}</style>
                   <div
-                    className="supervisor-ticker-inner flex items-center gap-6 whitespace-nowrap absolute top-0 left-0 h-full px-4"
+                    className="supervisor-ticker-inner absolute left-0 top-0 flex h-full items-center gap-6 whitespace-nowrap px-4"
                     style={{ animationDuration: `${Math.max(25, recentNotifs.length * 14)}s` }}
                   >
                     {recentNotifs.map((n: any) => (
@@ -172,12 +149,14 @@ export default function SupervisorPage() {
         </div>
       </div>
 
-      {/* Version et Licence en bas à droite, juste au-dessus du bouton profil */}
-      <div className="absolute bottom-[85px] right-6 flex flex-col items-center z-50">
-        <span className="text-[9px] text-gray-300 font-bold select-none leading-none mb-1">V1.0</span>
-        <button 
+      <div className="absolute bottom-[85px] right-6 z-50 flex flex-col items-center">
+        <span className="mb-1 select-none text-[9px] font-bold leading-none text-gray-300">
+          V1.0
+        </span>
+        <button
+          type="button"
           onClick={() => setShowLicense(true)}
-          className="text-blue-500 hover:text-blue-700 active:scale-90 transition-all"
+          className="text-blue-500 transition-all hover:text-blue-700 active:scale-90"
           title="Licence SCoDi"
         >
           <Info className="h-5 w-5" />

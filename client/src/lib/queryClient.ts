@@ -70,14 +70,15 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
       body = undefined;
     }
 
-    const baseMessage = res.status === 401 ? "" : body?.message || `${res.status}: ${text}`;
+    const serverMessage =
+      typeof body?.message === "string" ? body.message.trim() : "";
+    const baseMessage = serverMessage || `${res.status}: ${text}`;
     const error: any = new Error(baseMessage);
     error.status = res.status;
     error.response = res;
     error.body = body;
 
     try {
-      // Émettre un événement global pour afficher une boîte de dialogue utilisateur
       const detail = {
         status: res.status,
         message: baseMessage,
