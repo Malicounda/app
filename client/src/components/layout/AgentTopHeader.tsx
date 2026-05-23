@@ -47,16 +47,20 @@ export default function AgentTopHeader() {
       ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
 
+  const isChromelessHome =
+    location === "/supervisor" || location === "/default-home";
+
+  /** Accueil plein écran (fixed) : décalage sous barre République. Profil : le parent MainLayout compense déjà — pas de double marge. */
+  const headerPaddingTop = isChromelessHome
+    ? "calc(4rem + env(safe-area-inset-top, 24px))"
+    : "1.25rem";
+
   return (
     <div className="shrink-0 flex flex-col">
       {/* En-tête vert foncé style dashboard */}
       <div
         className="bg-gradient-to-br from-green-800 to-emerald-900 px-5 pb-1 md:pb-4 text-white"
-        style={{ 
-          paddingTop: (location === '/supervisor' || location === '/default-home')
-            ? 'calc(4rem + env(safe-area-inset-top, 24px))'
-            : '1.25rem'
-        }}
+        style={{ paddingTop: headerPaddingTop }}
       >
         {/* Ligne du haut : avatar + nom + (desktop: onglets inline) */}
         <div className="flex items-center justify-between gap-3">

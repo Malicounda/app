@@ -28,6 +28,10 @@ const config: CapacitorConfig = {
       androidSplashResourceName: 'splash',
       showSpinner: false,
     },
+    Badge: {
+      persist: true,
+      autoClear: false,
+    },
   },
 };
 

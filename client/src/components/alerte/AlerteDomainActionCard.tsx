@@ -25,10 +25,12 @@ type Props = {
   variant: Variant;
   onClick: () => void;
   badge?: number;
-  size?: "default" | "compact";
+  size?: "default" | "compact" | "supervisor";
   /** Surcharge optionnelle (ex. page superviseur) sans changer le variant. */
   title?: string;
   subtitle?: string;
+  /** Teinte carte alertes (accueil superviseur / default). */
+  alertsTone?: "default" | "orange";
   className?: string;
 };
 
@@ -39,13 +41,19 @@ export default function AlerteDomainActionCard({
   size = "default",
   title: titleOverride,
   subtitle: subtitleOverride,
+  alertsTone = "default",
   className,
 }: Props) {
-  const { gradient, Icon, title: defaultTitle, subtitle: defaultSubtitle } =
+  const { gradient: defaultGradient, Icon, title: defaultTitle, subtitle: defaultSubtitle } =
     VARIANTS[variant];
+  const gradient =
+    variant === "alerts" && alertsTone === "orange"
+      ? "bg-gradient-to-br from-[#ea580c] via-[#f97316] to-[#fb923c]"
+      : defaultGradient;
   const title = titleOverride ?? defaultTitle;
   const subtitle = subtitleOverride ?? defaultSubtitle;
-  const compact = size === "compact";
+  const isSupervisor = size === "supervisor";
+  const isCompact = size === "compact" || isSupervisor;
 
   return (
     <button
@@ -53,7 +61,11 @@ export default function AlerteDomainActionCard({
       onClick={onClick}
       className={cn(
         "relative w-full text-center shadow-md transition-transform active:scale-[0.97]",
-        compact ? "rounded-[18px] p-3.5" : "rounded-[24px] p-5",
+        isSupervisor
+          ? "min-h-[88px] rounded-[16px] p-2"
+          : isCompact
+            ? "rounded-[18px] p-3.5"
+            : "rounded-[24px] p-5",
         gradient,
         className
       )}
@@ -62,9 +74,11 @@ export default function AlerteDomainActionCard({
         <span
           className={cn(
             "absolute z-10 flex items-center justify-center rounded-full bg-white font-bold text-red-600 shadow-sm",
-            compact
-              ? "top-2 right-2 h-[18px] min-w-[18px] px-1 text-[9px]"
-              : "top-3 right-3 h-5 min-w-[20px] px-1.5 text-[10px]"
+            isSupervisor
+              ? "top-1.5 right-1.5 h-4 min-w-[16px] px-0.5 text-[8px]"
+              : isCompact
+                ? "top-2 right-2 h-[18px] min-w-[18px] px-1 text-[9px]"
+                : "top-3 right-3 h-5 min-w-[20px] px-1.5 text-[10px]"
           )}
         >
           {badge > 99 ? "99+" : badge}
@@ -73,15 +87,25 @@ export default function AlerteDomainActionCard({
       <div
         className={cn(
           "mx-auto flex items-center justify-center rounded-full bg-white/25 backdrop-blur-sm",
-          compact ? "mb-2 h-12 w-12" : "mb-4 h-[72px] w-[72px]"
+          isSupervisor
+            ? "mb-1 h-9 w-9"
+            : isCompact
+              ? "mb-2 h-12 w-12"
+              : "mb-4 h-[72px] w-[72px]"
         )}
       >
-        <Icon className={cn("text-white", compact ? "h-6 w-6" : "h-9 w-9")} strokeWidth={2} />
+        <Icon
+          className={cn(
+            "text-white",
+            isSupervisor ? "h-4 w-4" : isCompact ? "h-6 w-6" : "h-9 w-9"
+          )}
+          strokeWidth={2}
+        />
       </div>
       <p
         className={cn(
           "font-black uppercase tracking-wide text-white",
-          compact ? "text-[11px]" : "text-[13px]"
+          isSupervisor ? "text-[10px] leading-tight" : isCompact ? "text-[11px]" : "text-[13px]"
         )}
       >
         {title}
@@ -89,7 +113,11 @@ export default function AlerteDomainActionCard({
       <p
         className={cn(
           "font-medium leading-snug text-white/90 line-clamp-2",
-          compact ? "mt-1 text-[8px]" : "mt-1.5 text-[9px]"
+          isSupervisor
+            ? "mt-0.5 text-[7px] leading-[1.2]"
+            : isCompact
+              ? "mt-1 text-[8px]"
+              : "mt-1.5 text-[9px]"
         )}
       >
         {subtitle}

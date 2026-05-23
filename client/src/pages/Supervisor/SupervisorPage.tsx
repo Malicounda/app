@@ -5,8 +5,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Info } from "lucide-react";
 import { useLocation } from "wouter";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
+import AlerteDomainActionCard from "@/components/alerte/AlerteDomainActionCard";
 import SupervisorMapCard from "@/components/alerte/SupervisorMapCard";
 import LicenseDialog from "@/components/layout/LicenseDialog";
+import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { getMessagingDomaineQueryParam } from "@/utils/messagingDomain";
 import { buildSupervisorTickerParts } from "@/utils/alertZoneScope";
 
 function renderTickerItem(n: any) {
@@ -47,6 +51,25 @@ export default function SupervisorPage() {
   const queryClient = useQueryClient();
   const [showLicense, setShowLicense] = useState(false);
 
+  const { data: unreadData } = useUnreadNotificationsCount();
+  const unreadAlerts = unreadData?.count ?? 0;
+
+  const { data: unreadMsgCount } = useQuery({
+    queryKey: ["messages-unread-count-supervisor-home"],
+    queryFn: async () => {
+      try {
+        const res = await authenticatedFetch(`/api/messages/unread-count?${getMessagingDomaineQueryParam()}`);
+        if (!res.ok) return { total: 0 };
+        return await res.json();
+      } catch {
+        return { total: 0 };
+      }
+    },
+    enabled: !!user,
+    refetchInterval: 15_000,
+  });
+  const unreadMessages = unreadMsgCount?.total ?? 0;
+
   const { data: recentNotifs } = useQuery({
     queryKey: ["supervisor-recent-notifs"],
     queryFn: async () => {
@@ -69,8 +92,25 @@ export default function SupervisorPage() {
       <AgentTopHeader />
 
       <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 pb-20 pt-4">
-        {/* Carte Map — taille d’origine (max 280px), design maquette uniquement */}
-        <div className="relative z-10 mx-auto w-full max-w-[280px] pt-2">
+        {/* Mobile / APK : Alertes + Messages côte à côte, puis Carte (masqués du header sur /supervisor) */}
+        <div className="relative z-10 mx-auto w-full max-w-[280px] space-y-2.5 pt-2">
+          <div className="grid grid-cols-2 gap-2 md:hidden">
+            <AlerteDomainActionCard
+              variant="alerts"
+              alertsTone="orange"
+              size="supervisor"
+              onClick={() => setLocation("/alerts")}
+              badge={unreadAlerts}
+              subtitle="Consulter les alertes et notifications"
+            />
+            <AlerteDomainActionCard
+              variant="messages"
+              size="supervisor"
+              onClick={() => setLocation("/sms")}
+              badge={unreadMessages}
+              subtitle="Consulter vos messages et discussions"
+            />
+          </div>
           <SupervisorMapCard onClick={() => setLocation("/map")} />
         </div>
 

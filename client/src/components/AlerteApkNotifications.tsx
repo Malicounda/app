@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useLauncherBadge } from '@/hooks/useLauncherBadge';
 import { useNotifications } from '@/hooks/use-notifications';
 
 /** APK Capacitor « Alerte » (user-agent AlerteAPK ou ?isApk=true). */
@@ -26,5 +27,6 @@ export default function AlerteApkNotifications() {
   const uid = user?.id != null ? Number(user.id) : null;
   const enabled = isAlerteApk() && Boolean(user);
   useNotifications(enabled, Number.isFinite(uid) ? uid : null);
+  useLauncherBadge(enabled);
   return null;
 }

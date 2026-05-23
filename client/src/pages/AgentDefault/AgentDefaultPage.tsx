@@ -32,13 +32,16 @@ export default function AgentDefaultPage() {
       <AgentTopHeader />
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 pb-20 pt-4 space-y-4">
-        <div className="relative z-10 mx-auto grid w-full max-w-[340px] grid-cols-2 gap-3 sm:max-w-[420px]">
+        <div className="relative z-10 mx-auto grid w-full max-w-[280px] grid-cols-2 gap-2">
           <AlerteDomainActionCard
             variant="alerts"
+            alertsTone="orange"
+            size="compact"
             onClick={() => setLocation("/alerts")}
           />
           <AlerteDomainActionCard
             variant="messages"
+            size="compact"
             onClick={() => setLocation("/sms")}
             badge={msgUnread}
           />

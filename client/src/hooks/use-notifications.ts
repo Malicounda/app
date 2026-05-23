@@ -9,7 +9,7 @@ import { useToast } from './use-toast';
 const VAPID_PUBLIC_KEY =
   'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
 
-const ANDROID_CHANNEL_ID = 'alerte_messages_v2';
+const ANDROID_CHANNEL_ID = 'alerte_messages_v3';
 
 function isNativeCapacitor(): boolean {
   const cap = typeof window !== 'undefined' ? (window as Window & { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } }).Capacitor : undefined;
@@ -29,20 +29,23 @@ function getSocketServerUrl(): string {
 async function ensureAndroidNotificationChannel(): Promise<void> {
   if (getCapacitorPlatform() !== 'android') return;
   try {
-    try {
-      await LocalNotifications.deleteChannel({ id: 'alerte_messages' });
-    } catch {
-      /* ancien canal sans son */
+    for (const oldId of ['alerte_messages', 'alerte_messages_v2']) {
+      try {
+        await LocalNotifications.deleteChannel({ id: oldId });
+      } catch {
+        /* ignore */
+      }
     }
     await LocalNotifications.createChannel({
       id: ANDROID_CHANNEL_ID,
       name: 'Messages et alertes',
-      description: 'Son, vibration et écran verrouillé',
+      description: 'Son, vibration et notification en tête d’écran',
       importance: 5,
       visibility: 1,
       vibration: true,
       lights: true,
       lightColor: '#114B26',
+      sound: 'default',
     });
   } catch (e) {
     console.warn('[LocalNotifications] createChannel:', e);
@@ -69,6 +72,7 @@ async function showSystemNotification(
           smallIcon: isAndroid ? 'ic_stat_notify' : undefined,
           largeIcon: isAndroid ? 'ic_launcher_foreground' : undefined,
           iconColor: '#114B26',
+          schedule: { at: new Date(Date.now() + 80) },
           extra: extra || {},
         },
       ],
@@ -151,6 +155,7 @@ export function useNotifications(enabled = true, userId?: number | null) {
         window.dispatchEvent(new CustomEvent('messaging-refresh-all'));
       }
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
     });
 
     socketRef.current = socket;

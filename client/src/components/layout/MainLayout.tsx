@@ -473,7 +473,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
             ) : chromeless ? (
               <div 
                 ref={(el) => { if (el) el.scrollTop = 0; }} 
-                className={`w-full ${location && (location.includes('sms') || location === '/alerts') ? 'h-full overflow-hidden' : 'min-h-full'} ${location !== '/sms' && location !== '/alerts' ? 'pb-20' : ''}`}
+                className={`w-full ${location && (location.includes('sms') || location === '/alerts' || location === '/profile') ? 'h-full overflow-hidden' : 'min-h-full'} ${location !== '/sms' && location !== '/alerts' ? 'pb-20' : ''}`}
                 style={chromeless && location !== '/sms' && location !== '/alerts' && location !== '/profile' ? { paddingTop: '1.5rem' } : undefined}
               >
                 {showRestrictedAccess ? restrictedContent : children}
