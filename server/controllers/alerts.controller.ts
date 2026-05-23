@@ -313,6 +313,7 @@ interface UserBasicInfo {
     first_name: string | null;
     last_name: string | null;
     role: user_role;
+    phone?: string | null;
     region: string | null;
     departement: string | null;
     grade?: string | null;
