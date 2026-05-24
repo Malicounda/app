@@ -10,8 +10,26 @@ import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { User, TrendingUp, MapPin, UserCheck, AlertTriangle, MoreVertical, Filter, Download, PlusCircle, Edit } from "lucide-react";
-import { useMemo, useState } from "react";
+import { User, TrendingUp, MapPin, UserCheck, AlertTriangle, MoreVertical, Filter, Download, PlusCircle, Edit, Shield, CheckCircle, XCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
+type AgentInfo = {
+  idAgent: number;
+  userId: number;
+  matriculeSol: string;
+  nom: string | null;
+  prenom: string | null;
+  grade: string | null;
+  genre: string | null;
+  roleMetierId: number | null;
+  roleMetierLabel: string | null;
+  region: string | null;
+  departement: string | null;
+  commune: string | null;
+  arrondissement: string | null;
+  userRole: string | null;
+  geoRestrictionEnabled?: boolean;
+};
 
 type Affectation = {
   id: number;
@@ -40,19 +58,41 @@ export default function AffectationsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data, isLoading } = useQuery({
+  // ===== DATA QUERIES =====
+  const { data: affectations = [], isLoading: isLoadingAffectations } = useQuery({
     queryKey: ["/api/affectations"],
     queryFn: () => apiRequest<Affectation[]>({ url: "/api/affectations", method: "GET" }),
   });
 
-  const { data: domainesData, isLoading: isLoadingDomaines } = useQuery({
-    queryKey: ["/api/domaines"],
-    queryFn: () => apiRequest<Domaine[]>({ url: "/api/domaines", method: "GET" }),
+  const { data: agentsList = [], isLoading: isLoadingAgents } = useQuery({
+    queryKey: ["/api/agents"],
+    queryFn: () => apiRequest<AgentInfo[]>({ url: "/api/agents", method: "GET" }),
   });
 
-  const affectations = useMemo(() => (Array.isArray(data) ? data : []), [data]);
-  const domaines = useMemo(() => (Array.isArray(domainesData) ? domainesData : []), [domainesData]);
+  const isLoading = isLoadingAffectations || isLoadingAgents;
 
+  // ===== FORM STATE =====
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [geoRestrictionEnabled, setGeoRestrictionEnabled] = useState(false);
+  const [restrictionType, setRestrictionType] = useState<string>("");
+
+  // Auto-filled fields from selected agent
+  const selectedAgent = useMemo(() => {
+    if (!selectedAgentId) return null;
+    return agentsList.find((a: AgentInfo) => String(a.idAgent) === selectedAgentId) || null;
+  }, [selectedAgentId, agentsList]);
+
+  // Auto-fill when agent changes
+  useEffect(() => {
+    if (selectedAgent) {
+      // Set the geo restriction status from the user
+      // We'll need to fetch this - for now use the data we have
+      setGeoRestrictionEnabled(false);
+      setRestrictionType("");
+    }
+  }, [selectedAgent]);
+
+  // ===== TABLE SEARCH/FILTER =====
   const [searchMatricule, setSearchMatricule] = useState("");
 
   const filtered = useMemo(() => {
@@ -63,33 +103,24 @@ export default function AffectationsPage() {
 
   const pagination = usePagination(filtered, { pageSize: 10 });
 
-  const [agentId, setAgentId] = useState("");
-  const [domaineId, setDomaineId] = useState("");
-  const [codeZone, setCodeZone] = useState("");
-  const [niveauHierarchique, setNiveauHierarchique] = useState<Affectation["niveauHierarchique"]>("REGIONAL");
-
-  const createMutation = useMutation({
+  const applyGeoRestrictionMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest<Affectation>({
-        url: "/api/affectations",
-        method: "POST",
+      if (!selectedAgent) throw new Error("Aucun agent sélectionné");
+      return apiRequest({
+        url: `/api/users/${selectedAgent.userId}/geo-restriction`,
+        method: "PATCH",
         data: {
-          agentId: Number(agentId),
-          domaineId: Number(domaineId),
-          niveauHierarchique,
-          codeZone,
+          geoRestrictionEnabled,
+          restrictionType: restrictionType || null,
         },
       });
     },
     onSuccess: async () => {
-      setAgentId("");
-      setDomaineId("");
-      setCodeZone("");
-      await qc.invalidateQueries({ queryKey: ["/api/affectations"] });
-      toast({ title: "Affectation créée" });
+      await qc.invalidateQueries({ queryKey: ["/api/agents"] });
+      toast({ title: "Restriction géographique appliquée" });
     },
     onError: (e: any) => {
-      toast({ title: "Erreur", description: e?.message || "Création impossible", variant: "destructive" });
+      toast({ title: "Erreur", description: e?.message || "Mise à jour impossible", variant: "destructive" });
     },
   });
 
@@ -105,6 +136,19 @@ export default function AffectationsPage() {
     },
   });
 
+  // Helper: get restriction zone label for an agent in the table
+  function getAgentRestrictionLabel(agentId: number): string {
+    const agent = agentsList.find((a: AgentInfo) => a.idAgent === agentId);
+    if (!agent) return "-";
+    // Check from user data
+    if (agent.departement) return `Département: ${agent.departement}`;
+    if (agent.commune) return `Commune: ${agent.commune}`;
+    if (agent.arrondissement) return `Arr.: ${agent.arrondissement}`;
+    if (agent.region) return `Région: ${agent.region}`;
+    return "Non défini";
+  }
+
+  // ===== STATS =====
   const activeCount = affectations.filter(a => a.active).length;
   const zonesCount = new Set(affectations.map(a => a.codeZone)).size;
   const agentsCount = new Set(affectations.map(a => a.agentId)).size;
@@ -153,66 +197,122 @@ export default function AffectationsPage() {
         <section className="bg-card border border-border rounded-xl overflow-hidden shadow-md">
           <div className="p-6 border-b border-border flex justify-between items-center bg-muted/20">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">Contrôle des Affectations</h2>
-              <p className="text-muted-foreground text-sm mt-1">Administration centrale - Configuration des affectations territoriales</p>
+              <h2 className="text-lg font-semibold text-foreground">
+                Contrôle des Affectations
+              </h2>
+              <p className="text-muted-foreground text-sm mt-1">Administration centrale - Configuration des affectations territoriales et restrictions GPS</p>
             </div>
             <button className="text-muted-foreground hover:text-foreground transition-colors">
               <MoreVertical className="w-5 h-5" />
             </button>
           </div>
           <div className="p-6 sm:p-8">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 sm:gap-8">
+            {/* Row 1: Agent, Rôle Métier */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+              {/* Agent (Liste déroulante) */}
               <div className="flex flex-col gap-2">
                 <Label className="font-bold text-foreground">Agent</Label>
-                <Input value={agentId} onChange={(e) => setAgentId(e.target.value)} placeholder="ID de l'agent" className="py-5" />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground">Domaine</Label>
-                <Select value={domaineId} onValueChange={(v) => setDomaineId(v)} disabled={isLoadingDomaines}>
+                <Select value={selectedAgentId} onValueChange={(v) => setSelectedAgentId(v)} disabled={isLoadingAgents}>
                   <SelectTrigger className="py-5">
-                    <SelectValue placeholder={isLoadingDomaines ? "Chargement..." : "Sélectionner"} />
+                    <SelectValue placeholder={isLoadingAgents ? "Chargement..." : "Sélectionner un agent"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {domaines.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.nomDomaine}
+                    {agentsList.map((agent: AgentInfo) => (
+                      <SelectItem key={agent.idAgent} value={String(agent.idAgent)}>
+                        {agent.matriculeSol} — {agent.nom || ''} {agent.prenom || ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Rôle Métier (Auto-rempli) */}
               <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground">Niveau</Label>
-                <Select value={niveauHierarchique} onValueChange={(v) => setNiveauHierarchique(v as any)}>
-                  <SelectTrigger className="py-5">
-                    <SelectValue placeholder="Niveau" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NATIONAL">NATIONAL</SelectItem>
-                    <SelectItem value="REGIONAL">REGIONAL</SelectItem>
-                    <SelectItem value="SECTEUR">SECTEUR</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="font-bold text-foreground">Rôle Métier</Label>
+                <Input
+                  value={selectedAgent?.roleMetierLabel || "Non renseigné"}
+                  readOnly
+                  className="py-5 bg-muted/30 cursor-not-allowed"
+                />
               </div>
+            </div>
+
+            {/* Row 2: Infos Agent auto-remplies (Région, Département, Commune, Arrondissement) */}
+            {selectedAgent && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 sm:gap-8 mt-6 p-4 bg-muted/10 rounded-lg border border-border/50">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Région</Label>
+                  <span className="text-sm font-medium text-foreground">{selectedAgent.region || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Département</Label>
+                  <span className="text-sm font-medium text-foreground">{selectedAgent.departement || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Commune</Label>
+                  <span className="text-sm font-medium text-foreground">{selectedAgent.commune || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Arrondissement</Label>
+                  <span className="text-sm font-medium text-foreground">{selectedAgent.arrondissement || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Row 3: Restriction GPS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mt-6">
+              {/* Restriction GPS Toggle */}
               <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground">Code zone</Label>
-                <Input value={codeZone} onChange={(e) => setCodeZone(e.target.value)} placeholder="ex: SN-DKR-01" className="py-5" />
+                <Label className="font-bold text-foreground flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-orange-500" />
+                  Restriction GPS
+                </Label>
+                <div className="flex items-center gap-3 h-[42px]">
+                  <Switch
+                    checked={geoRestrictionEnabled}
+                    onCheckedChange={setGeoRestrictionEnabled}
+                    className="data-[state=checked]:bg-orange-500"
+                  />
+                  <span className={`text-sm font-medium ${geoRestrictionEnabled ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                    {geoRestrictionEnabled ? "Activée" : "Désactivée"}
+                  </span>
+                </div>
               </div>
-              <div className="md:col-span-4 flex justify-end mt-2">
-                <Button 
-                  onClick={() => createMutation.mutate()}
-                  disabled={createMutation.isPending || !agentId || !domaineId || !codeZone}
-                  className="bg-teal-500 text-teal-950 hover:bg-teal-400 px-8 py-6 rounded-lg font-bold flex items-center gap-3 transition-all shadow-[0_0_15px_rgba(107,216,203,0.15)] hover:shadow-[0_0_20px_rgba(107,216,203,0.3)]"
-                >
-                  <PlusCircle className="w-5 h-5" />
-                  Créer l'Affectation
-                </Button>
-              </div>
+
+              {/* Type de restriction */}
+              {geoRestrictionEnabled && (
+                <div className="flex flex-col gap-2">
+                  <Label className="font-bold text-foreground">Zone de restriction</Label>
+                  <Select value={restrictionType} onValueChange={setRestrictionType}>
+                    <SelectTrigger className="py-5 border-orange-300 focus:ring-orange-500">
+                      <SelectValue placeholder="Choisir le type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="region">Région {selectedAgent?.region ? `(${selectedAgent.region})` : ''}</SelectItem>
+                      <SelectItem value="departement">Département {selectedAgent?.departement ? `(${selectedAgent.departement})` : ''}</SelectItem>
+                      <SelectItem value="commune">Commune {selectedAgent?.commune ? `(${selectedAgent.commune})` : ''}</SelectItem>
+                      <SelectItem value="arrondissement">Arrondissement {selectedAgent?.arrondissement ? `(${selectedAgent.arrondissement})` : ''}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {/* Buttons Row */}
+            <div className="flex justify-end mt-6">
+              <Button
+                onClick={() => applyGeoRestrictionMutation.mutate()}
+                disabled={applyGeoRestrictionMutation.isPending || !selectedAgent || (geoRestrictionEnabled && !restrictionType)}
+                className="bg-orange-500 text-white hover:bg-orange-600 px-8 py-6 rounded-lg font-bold flex items-center gap-3 transition-all shadow-[0_0_15px_rgba(249,115,22,0.15)] hover:shadow-[0_0_20px_rgba(249,115,22,0.3)]"
+              >
+                <Shield className="w-5 h-5" />
+                Appliquer Restriction GPS
+              </Button>
             </div>
           </div>
         </section>
 
-        {/* Section 2: Data Table */}
+        {/* Section 2: Journal des Affectations */}
         <section className="bg-card border border-border rounded-xl overflow-hidden shadow-md">
           <div className="p-6 border-b border-border flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-muted/20">
             <h3 className="text-lg font-semibold text-foreground">Journal des Affectations Récentes</h3>
@@ -245,17 +345,14 @@ export default function AffectationsPage() {
                 <TableHeader className="bg-muted/30">
                   <TableRow className="hover:bg-transparent border-border">
                     <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Agent</TableHead>
-                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Domaine</TableHead>
-                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Niveau</TableHead>
-                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Zone</TableHead>
+                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Restriction (Zone)</TableHead>
                     <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground text-center">Statut</TableHead>
-                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border/50">
                   {pagination.currentItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Aucune affectation trouvée.</TableCell>
+                      <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">Aucune affectation trouvée.</TableCell>
                     </TableRow>
                   ) : pagination.currentItems.map((a) => (
                     <TableRow key={a.id} className="hover:bg-muted/40 transition-colors border-border/50">
@@ -270,9 +367,22 @@ export default function AffectationsPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4 px-6 text-sm text-foreground">{a.domaineNom || "-"}</TableCell>
-                      <TableCell className="py-4 px-6 text-sm text-muted-foreground">{a.niveauHierarchique}</TableCell>
-                      <TableCell className="py-4 px-6 text-sm font-mono font-medium text-teal-400">{a.codeZone}</TableCell>
+                      <TableCell className="py-4 px-6">
+                        <div className="text-xs">
+                          {(() => {
+                            const label = getAgentRestrictionLabel(a.agentId);
+                            if (label === "-" || label === "Non défini") {
+                              return <span className="text-muted-foreground italic">{label}</span>;
+                            }
+                            return (
+                              <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-0 shadow-none text-xs">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                {label}
+                              </Badge>
+                            );
+                          })()}
+                        </div>
+                      </TableCell>
                       <TableCell className="py-4 px-6 text-center">
                         <div className="flex justify-center">
                           <Switch
@@ -281,11 +391,6 @@ export default function AffectationsPage() {
                             className="data-[state=checked]:bg-teal-500"
                           />
                         </div>
-                      </TableCell>
-                      <TableCell className="py-4 px-6 text-right">
-                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-teal-400 hover:bg-teal-500/10">
-                          <Edit className="w-4 h-4" />
-                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

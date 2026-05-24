@@ -171,11 +171,16 @@ export async function apiRequest<T>({
     let headers: HeadersInit = {
       Accept: "application/json",
     };
-    // Ajout du token JWT si présent
+    
+    // Ajout du token JWT si présent dans localStorage
     const token = localStorage.getItem('token');
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+      console.log('[API Auth] Token found in localStorage, adding to request');
+    } else {
+      console.warn('[API Auth] ⚠️ No token in localStorage for', method, fullUrl);
     }
+    
     // Propager le domaine courant si défini
     try {
       const domain = localStorage.getItem('domain');
@@ -183,6 +188,7 @@ export async function apiRequest<T>({
         headers['X-Domain'] = domain;
       }
     } catch {}
+    
     let body: BodyInit | undefined;
 
     if (data instanceof FormData) {

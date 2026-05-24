@@ -114,7 +114,7 @@ export default function AppErrorDialog() {
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100">
               <Info className="h-5 w-5 text-gray-500" strokeWidth={2.5} />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+            <DialogTitle className="text-lg font-semibold text-gray-900 text-center w-full block">{title}</DialogTitle>
             <p className="mt-3 text-sm leading-relaxed text-gray-800">{bodyText}</p>
           </div>
           <div className="mt-8 flex justify-end">

@@ -1,5 +1,3 @@
-import { Badge } from "@capawesome/capacitor-badge";
-
 function isNativeCapacitor(): boolean {
   const cap =
     typeof window !== "undefined"
@@ -12,6 +10,7 @@ function isNativeCapacitor(): boolean {
 export async function syncLauncherBadge(count: number): Promise<void> {
   if (!isNativeCapacitor()) return;
   try {
+    const { Badge } = await import("@capawesome/capacitor-badge");
     const { isSupported } = await Badge.isSupported();
     if (!isSupported) return;
 

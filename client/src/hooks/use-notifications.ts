@@ -69,8 +69,7 @@ async function showSystemNotification(
           title,
           body,
           channelId: ANDROID_CHANNEL_ID,
-          smallIcon: isAndroid ? 'ic_stat_notify' : undefined,
-          largeIcon: isAndroid ? 'ic_launcher_foreground' : undefined,
+          smallIcon: isAndroid ? 'ic_launcher_foreground' : undefined,
           iconColor: '#114B26',
           schedule: { at: new Date(Date.now() + 80) },
           extra: extra || {},
@@ -112,8 +111,16 @@ export function useNotifications(enabled = true, userId?: number | null) {
   useEffect(() => {
     if (!enabled) return;
 
+    // Laisser la navigation post-login se stabiliser avant Socket.io + notifs natives
+    const connectDelayMs = isNativeCapacitor() ? 3000 : 0;
+    let cancelled = false;
+    let socket: Socket | null = null;
+
+    const connectTimer = window.setTimeout(() => {
+      if (cancelled) return;
+
     const socketUrl = getSocketServerUrl();
-    const socket = io(socketUrl, {
+    socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 20,
       reconnectionDelay: 2000,
@@ -125,7 +132,7 @@ export function useNotifications(enabled = true, userId?: number | null) {
     socket.on('connect', () => {
       console.log('[Socket.io] Connecté à', socketUrl);
       const uid = Number(userId);
-      if (Number.isFinite(uid) && uid > 0) {
+      if (socket && Number.isFinite(uid) && uid > 0) {
         socket.emit('authenticate', uid);
       }
     });
@@ -159,8 +166,12 @@ export function useNotifications(enabled = true, userId?: number | null) {
     });
 
     socketRef.current = socket;
+    }, connectDelayMs);
+
     return () => {
-      socket.disconnect();
+      cancelled = true;
+      window.clearTimeout(connectTimer);
+      socket?.disconnect();
       socketRef.current = null;
     };
   }, [enabled, userId, toast, queryClient]);

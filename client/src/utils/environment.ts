@@ -1,6 +1,18 @@
 // Environment detection and dynamic configurations
 // Decoupled from static Tauri imports to prevent browser hanging issues
 
+/** Capacitor APK / app native (WebView embarquée). */
+export const isCapacitorNative = (): boolean => {
+  try {
+    const cap = typeof window !== 'undefined'
+      ? (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+      : undefined;
+    return Boolean(cap?.isNativePlatform?.());
+  } catch {
+    return false;
+  }
+};
+
 // Helper to check if running in Tauri WebView
 export const isTauriEnv = (): boolean => {
   return typeof window !== 'undefined' && (
@@ -49,6 +61,11 @@ export const getEnvironment = async (): Promise<'android' | 'desktop' | 'web'> =
 
 // Centralized robust dynamic API Base URL resolver
 export const getApiBaseUrl = (): string => {
+  // APK Capacitor : toujours l'API production (hostname localhost sinon → /api invalide)
+  if (isCapacitorNative()) {
+    return 'https://malicounda-api.onrender.com/api';
+  }
+
   // 1. Prioritize explicit environment variables
   const rawEnv = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL) as string | undefined;
 

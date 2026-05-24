@@ -15,33 +15,28 @@ import { buildSupervisorTickerParts } from "@/utils/alertZoneScope";
 
 function renderTickerItem(n: any) {
   const { grade, fullName, zoneSummary, title, gpsLocation } = buildSupervisorTickerParts(n);
-  const sep = <span className="text-amber-600 mx-0.5">—</span>;
+  const sep = <span className="text-amber-600/50 mx-1.5">•</span>;
 
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900">
-      <AlertTriangle className="h-3 w-3 shrink-0 text-red-500" />
-      <span className="whitespace-nowrap font-bold">
-        {grade ? `${grade} ` : ""}
-        {fullName}
-      </span>
-      {grade ? (
-        <>
-          {sep}
-          <span className="whitespace-nowrap">{grade}</span>
-        </>
-      ) : null}
-      {zoneSummary ? (
-        <>
-          {sep}
-          <span className="whitespace-nowrap text-amber-800">{zoneSummary}</span>
-        </>
-      ) : null}
-      {sep}
-      <span className="whitespace-nowrap">{title}</span>
-      {sep}
-      <span className="whitespace-nowrap font-medium text-amber-700">{gpsLocation}</span>
-      <span className="mx-3 text-amber-300">◆</span>
-    </span>
+    <div className="flex items-start gap-2 text-[11px] font-semibold text-amber-900 group-hover:text-amber-950 transition-colors">
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500 mt-0.5" />
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 leading-snug">
+        <span className="font-bold">
+          {grade ? `${grade} ` : ""}
+          {fullName}
+        </span>
+        {zoneSummary ? (
+          <>
+            {sep}
+            <span className="text-amber-800">{zoneSummary}</span>
+          </>
+        ) : null}
+        {sep}
+        <span>{title}</span>
+        {sep}
+        <span className="font-medium text-amber-700">{gpsLocation}</span>
+      </div>
+    </div>
   );
 }
 
@@ -92,6 +87,17 @@ export default function SupervisorPage() {
       <AgentTopHeader />
 
       <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 pb-20 pt-4">
+        <div className="flex flex-col items-center gap-3 pb-2 pt-2">
+          <img
+            src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png"
+            alt="ScoDi"
+            className="h-16 object-contain"
+          />
+          <p className="max-w-xs text-center text-[11px] font-bold leading-tight text-gray-700">
+            Système de Contrôle et de Digitalisation
+          </p>
+        </div>
+
         {/* Mobile / APK : Alertes + Messages côte à côte, puis Carte (masqués du header sur /supervisor) */}
         <div className="relative z-10 mx-auto w-full max-w-[280px] space-y-2.5 pt-2">
           <div className="grid grid-cols-2 gap-2 md:hidden">
@@ -115,14 +121,6 @@ export default function SupervisorPage() {
         </div>
 
         <div className="flex flex-col items-center gap-4 pb-2 pt-4">
-          <img
-            src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png"
-            alt="ScoDi"
-            className="h-20 object-contain"
-          />
-          <p className="max-w-xs text-center text-[11px] font-bold leading-tight text-gray-700">
-            Système de Contrôle et de Digitalisation
-          </p>
           <div className="mt-2 flex items-center justify-center gap-6">
             <img src="/icon-blason.svg" alt="Blason" className="h-20 object-contain" />
             <img
@@ -159,27 +157,20 @@ export default function SupervisorPage() {
                   </button>
                 </div>
 
+                {/* Section liste des alertes scrollable */}
                 <div
-                  className="relative cursor-pointer overflow-hidden"
-                  onClick={() => setLocation("/alerts")}
-                  style={{ height: "32px" }}
+                  className="relative overflow-y-auto no-scrollbar scroll-smooth"
+                  style={{ maxHeight: "160px" }}
                 >
-                  <style>{`
-                    @keyframes supervisor-ticker {
-                      0%   { transform: translateX(0); }
-                      100% { transform: translateX(-50%); }
-                    }
-                    .supervisor-ticker-inner { animation: supervisor-ticker linear infinite; }
-                  `}</style>
-                  <div
-                    className="supervisor-ticker-inner absolute left-0 top-0 flex h-full items-center gap-6 whitespace-nowrap px-4"
-                    style={{ animationDuration: `${Math.max(25, recentNotifs.length * 14)}s` }}
-                  >
+                  <div className="flex flex-col p-1.5">
                     {recentNotifs.map((n: any) => (
-                      <React.Fragment key={n.id}>{renderTickerItem(n)}</React.Fragment>
-                    ))}
-                    {recentNotifs.map((n: any) => (
-                      <React.Fragment key={`dup-${n.id}`}>{renderTickerItem(n)}</React.Fragment>
+                      <div
+                        key={n.id}
+                        className="group flex flex-col p-2.5 rounded-md cursor-pointer border-b border-amber-200/50 last:border-0 hover:bg-amber-100 transition-colors"
+                        onClick={() => setLocation("/alerts")}
+                      >
+                        {renderTickerItem(n)}
+                      </div>
                     ))}
                   </div>
                 </div>

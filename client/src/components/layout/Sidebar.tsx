@@ -33,7 +33,7 @@ import { useUnreadNotificationsCount } from '@/lib/hooks/useUnreadNotifications'
 import { cn } from '@/lib/utils';
 import { isUserSuperAdmin } from '@/utils/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { FileText } from 'lucide-react';
+import { FileText, Activity } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
@@ -552,6 +552,14 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
                   >
                     <FileText className="h-5 w-5 text-slate-400" />
                     <div className="mt-1 text-[10px] leading-tight text-slate-400">Audit System Log (Détaillé)</div>
+                  </Link>
+                  <Link
+                    href="/superadmin/apk-history"
+                    onClick={handleLinkClick}
+                    className="rounded-md border border-[#3d4947] bg-[#222a3d] hover:bg-[#2d3449] p-2 flex flex-col items-center justify-center text-center"
+                  >
+                    <Activity className="h-5 w-5 text-orange-400" />
+                    <div className="mt-1 text-[10px] leading-tight text-slate-400">Audit APK_Alerte</div>
                   </Link>
                 </div>
               </div>

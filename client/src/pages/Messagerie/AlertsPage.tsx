@@ -6,6 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -416,6 +422,7 @@ function AlertsPage() {
   const [locationPermissionDenied, setLocationPermissionDenied] = useState<boolean>(false);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const [alertTypeHintDismissed, setAlertTypeHintDismissed] = useState(() => {
     try {
@@ -775,9 +782,20 @@ function AlertsPage() {
     const q = searchQuery.trim().toLowerCase();
     // Inbox affiche toutes les alertes (lues et non lues)
     const base = (Array.isArray(alerts) ? alerts : []);
+
+    let filteredByType = base;
+    if (typeFilter !== "all") {
+      filteredByType = base.filter((a) => {
+        if (typeFilter === "autre") {
+          return !["braconnage", "trafic-bois", "feux_de_brousse"].includes(a.nature || "");
+        }
+        return a.nature === typeFilter;
+      });
+    }
+
     const filtered = !q
-      ? base
-      : base.filter((a) => {
+      ? filteredByType
+      : filteredByType.filter((a) => {
         const t = String(a?.title || "").toLowerCase();
         const m = String(a?.message || "").toLowerCase();
         const sender = `${a?.sender?.firstName || ""} ${a?.sender?.lastName || ""} ${a?.sender?.username || ""}`.toLowerCase();
@@ -789,7 +807,7 @@ function AlertsPage() {
       const bt = new Date(b.createdAt || 0).getTime();
       return sortNewestFirst ? bt - at : at - bt;
     });
-  }, [alerts, searchQuery, sortNewestFirst]);
+  }, [alerts, searchQuery, typeFilter, sortNewestFirst]);
 
   useEffect(() => {
     document.title = "Alertes | SCoDiPP - Systeme de Control";
@@ -1337,7 +1355,7 @@ function AlertsPage() {
   const mobileSupervisorLayout = isAlertMobileChromeless && !canSendAlerts;
 
   return (
-    <div className={`flex flex-col overflow-hidden bg-slate-50 ${isAlertMobileChromeless ? "h-full min-h-0" : "h-[100dvh]"}`}>
+    <div className={`flex flex-col overflow-hidden bg-[#2d6a4f] ${isAlertMobileChromeless ? "h-full min-h-0" : "h-[100dvh]"}`}>
       <div className={`w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 ${isAlertMobileChromeless ? "py-0 lg:py-4" : "py-2 sm:py-3 lg:py-4"}`}>
         <div className="w-full max-w-7xl flex flex-col flex-1 min-h-0 mx-auto">
           {/* Bouton Retour + Actions - Barre supérieure */}
@@ -1587,11 +1605,33 @@ function AlertsPage() {
                   </div>
 
                   <div className="flex items-center gap-2 justify-end">
-                    <Button variant="outline" className="gap-2" disabled>
-                      <Filter className="h-4 w-4" />
-                      Filtrer
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="gap-2">
+                          <Filter className="h-4 w-4" />
+                          {typeFilter === "all" ? "Filtrer" : 
+                           typeFilter === "braconnage" ? "Braconnage" :
+                           typeFilter === "trafic-bois" ? "Trafic de bois" :
+                           typeFilter === "feux_de_brousse" ? "Feux de brousse" : "Autre"}
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => setTypeFilter("all")}>
+                          Toutes les alertes
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTypeFilter("braconnage")}>
+                          Braconnage
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTypeFilter("trafic-bois")}>
+                          Trafic de bois
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTypeFilter("feux_de_brousse")}>
+                          Feux de brousse
+                        </DropdownMenuItem>
+
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       variant="outline"
                       size="icon"
