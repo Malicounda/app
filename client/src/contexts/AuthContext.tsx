@@ -12,6 +12,7 @@ import {
   removePreference,
   clearAllPreferences,
 } from "@/utils/preferences";
+import { getLoginRoute } from "@/utils/getLoginRoute";
 
 /* =========================
    USER TYPE (FIX BUILD ERROR)
@@ -40,7 +41,6 @@ interface User {
 
   region?: string;
 
-  // ✅ IMPORTANT FIX TS2339
   zone?: string;
   departement?: string;
   commune?: string;
@@ -168,6 +168,8 @@ export function AuthProvider({
     React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
+  const isLoggingOutRef = React.useRef(false);
+
   const [, setLocation] = useLocation();
 
   /* ========================= */
@@ -202,7 +204,7 @@ export function AuthProvider({
           identifier,
           password,
           lat,
-          lon, // ✅ GPS FIX CONSERVÉ
+          lon,
           domain: localStorage.getItem("domain") || undefined,
         },
       });
@@ -244,19 +246,30 @@ export function AuthProvider({
 
   /* ========================= */
   const logout = async () => {
+    if (isLoggingOutRef.current) return;
+    isLoggingOutRef.current = true;
+
     try {
-      await apiRequest({
-        url: "/api/auth/logout",
-        method: "POST",
-      });
-    } catch { }
+      try {
+        await apiRequest({
+          url: "/api/auth/logout",
+          method: "POST",
+        });
+      } catch (e) {
+        console.warn("Logout API failed (ignored)", e);
+        // TODO: analytics / monitoring (ex: Sentry, Datadog)
+        // trackEvent("logout_api_failed", { error: e });
+      }
 
-    setUser(null);
-    setIsAuthenticated(false);
+      await clearSession();
 
-    await clearSession();
+      setUser(null);
+      setIsAuthenticated(false);
 
-    setLocation("/");
+      setLocation(getLoginRoute(), { replace: true });
+    } finally {
+      isLoggingOutRef.current = false;
+    }
   };
 
   /* ========================= */

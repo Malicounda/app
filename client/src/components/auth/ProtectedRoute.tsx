@@ -1,7 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { getHomePage, isSectorSubRole, isUserSuperAdmin } from "@/utils/navigation";
 import { ReactNode, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Redirect } from "wouter";
+import { getLoginRoute } from "@/utils/getLoginRoute";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -42,22 +43,6 @@ export function ProtectedRoute({
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    // Vérification de la session
-    if (!isLoading && !isAuthenticated) {
-      const domain = (localStorage.getItem('domain') || '').toUpperCase();
-      let loginTarget = '/login';
-      if (domain === 'ALERTE') {
-        loginTarget = '/alerte-login';
-      } else if (domain === 'REBOISEMENT') {
-        loginTarget = '/reboisement-login';
-      }
-      
-      if (location !== loginTarget) {
-        setLocation(loginTarget);
-      }
-      return;
-    }
-
     // Security Check: Vérifier public_id dans l'URL pour les routes protégées
     if (user && (user as any).publicId) {
       const parts = window.location.pathname.split('/');
@@ -66,7 +51,7 @@ export function ProtectedRoute({
         // Si la première partie de l'URL ressemble à un UUID (36 chars)
         if (urlPublicId.length === 36 && urlPublicId !== (user as any).publicId) {
           console.warn('Accès refusé: public_id ne correspond pas', { urlPublicId, userPublicId: (user as any).publicId });
-          window.location.href = '/login';
+          window.location.href = getLoginRoute();
           return;
         }
       }
@@ -136,9 +121,9 @@ export function ProtectedRoute({
     );
   }
 
-  // Si l'utilisateur n'est pas authentifié, ne pas afficher le contenu (la redirection sera gérée par useEffect)
+  // Redirection déclarative si l'utilisateur n'est pas authentifié
   if (!isAuthenticated) {
-    return null;
+    return <Redirect to={getLoginRoute()} replace />;
   }
 
   // Si adminOnly est défini et que l'utilisateur n'est pas admin, ne pas afficher le contenu
