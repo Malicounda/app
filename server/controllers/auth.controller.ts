@@ -637,3 +637,13 @@ export const verifyPassword = async (req: Request, res: Response) => {
         return res.status(500).json({ message: "Erreur lors de la vérification du mot de passe" });
     }
 };
+
+export const getActiveSessions = async (req: Request, res: Response) => {
+    try {
+        // Return tableMissing: true since the apk_sessions table is not implemented yet
+        return res.status(200).json({ tableMissing: true, sessions: [] });
+    } catch (error) {
+        console.error('[AUTH] Erreur dans getActiveSessions:', error);
+        return res.status(500).json({ message: "Erreur lors de la récupération des sessions" });
+    }
+};
