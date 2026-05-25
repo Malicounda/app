@@ -13,60 +13,23 @@ export default function AgentDefaultPage() {
   const [showLicense, setShowLicense] = useState(false);
   const [outOfZone, setOutOfZone] = useState(false);
 
-  // Heartbeat GPS
+  // Heartbeat SANS GPS (test stabilité APK)
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-
     const sendHeartbeat = async () => {
-      let lat: number | undefined;
-      let lon: number | undefined;
-      try {
-        if (typeof (window as any).Capacitor !== "undefined" && (window as any).Capacitor.isNativePlatform?.()) {
-          const { Geolocation } = await import('@capacitor/geolocation');
-          const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
-          lat = pos.coords.latitude;
-          lon = pos.coords.longitude;
-        } else if (navigator.geolocation) {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
-          });
-          lat = pos.coords.latitude;
-          lon = pos.coords.longitude;
-        }
-      } catch (e) {
-        console.warn("Impossible de récupérer la position GPS pour le heartbeat:", e);
-      }
-
       try {
         const res = await authenticatedFetch('/api/auth/heartbeat-gps', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat, lon })
+          body: JSON.stringify({})
         });
+
         if (res.ok) {
           const data = await res.json();
           setOutOfZone(!!data.outOfZone);
         }
       } catch (err) {
-        console.error("Erreur d'envoi du heartbeat GPS:", err);
+        console.error("Erreur heartbeat:", err);
       }
-    };
-
-    const isApk =
-      typeof (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor !== 'undefined' &&
-      (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
-
-    // Éviter un 2e appel GPS natif juste après le login (stabilité APK)
-    const initialDelayMs = isApk ? 8000 : 0;
-    const initialTimer = window.setTimeout(() => {
-      void sendHeartbeat();
-    }, initialDelayMs);
-
-    intervalId = setInterval(sendHeartbeat, 60000);
-
-    return () => {
-      window.clearTimeout(initialTimer);
-      clearInterval(intervalId);
     };
   }, []);
 
@@ -83,6 +46,7 @@ export default function AgentDefaultPage() {
     },
     refetchInterval: 30000,
   });
+
   const msgUnread = unreadMsgCount?.total || 0;
 
   return (
@@ -90,10 +54,10 @@ export default function AgentDefaultPage() {
       <AgentTopHeader />
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col items-center justify-center px-4 py-8 relative">
-        
+
         {/* Main Centered Modal / Pop-up */}
         <div className="w-full max-w-sm bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl shadow-black/20 border border-white/50 p-7 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300 relative z-10">
-          
+
           {/* Header - Logo & Title */}
           <div className="flex flex-col items-center gap-3 mb-8">
             <div className="h-[72px] w-[72px] bg-slate-50/50 rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 mb-1">
@@ -103,7 +67,11 @@ export default function AgentDefaultPage() {
                 className="h-12 object-contain"
               />
             </div>
-            <h2 className="text-[17px] font-extrabold text-slate-800 tracking-tight">SCoDi Mobile</h2>
+
+            <h2 className="text-[17px] font-extrabold text-slate-800 tracking-tight">
+              SCoDi Mobile
+            </h2>
+
             <p className="text-center text-[10px] font-bold leading-relaxed text-slate-500 uppercase tracking-widest max-w-[200px]">
               Système de Contrôle et de Digitalisation
             </p>
@@ -111,6 +79,7 @@ export default function AgentDefaultPage() {
 
           {/* Action Cards Grid */}
           <div className="w-full grid grid-cols-2 gap-3">
+
             <AlerteDomainActionCard
               variant="alerts"
               alertsTone="orange"
@@ -122,8 +91,12 @@ export default function AgentDefaultPage() {
                 }
                 setLocation("/alerts");
               }}
-              className={`shadow-sm transition-shadow duration-200 border border-orange-100/30 ${outOfZone ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-md'}`}
+              className={`shadow-sm transition-shadow duration-200 border border-orange-100/30 ${outOfZone
+                ? 'opacity-50 grayscale cursor-not-allowed'
+                : 'hover:shadow-md'
+                }`}
             />
+
             <AlerteDomainActionCard
               variant="messages"
               size="compact"
@@ -135,7 +108,12 @@ export default function AgentDefaultPage() {
 
           {/* Footer - Blasons */}
           <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-8 w-full">
-            <img src="/icon-blason.svg" alt="Blason" className="h-[46px] object-contain opacity-70" />
+            <img
+              src="/icon-blason.svg"
+              alt="Blason"
+              className="h-[46px] object-contain opacity-70"
+            />
+
             <img
               src="/logo_forets.png"
               alt="Eaux et Forêts"
@@ -149,6 +127,7 @@ export default function AgentDefaultPage() {
         <span className="mb-1 select-none text-[9px] font-bold leading-none text-gray-300">
           V1.0
         </span>
+
         <button
           type="button"
           onClick={() => setShowLicense(true)}
@@ -159,7 +138,10 @@ export default function AgentDefaultPage() {
         </button>
       </div>
 
-      <LicenseDialog isOpen={showLicense} onClose={() => setShowLicense(false)} />
+      <LicenseDialog
+        isOpen={showLicense}
+        onClose={() => setShowLicense(false)}
+      />
     </div>
   );
 }
