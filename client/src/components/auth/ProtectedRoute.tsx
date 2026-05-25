@@ -102,7 +102,13 @@ export function ProtectedRoute({
         console.log('[ProtectedRoute] Redirection car pas de permission');
         // Rediriger vers la page d'accueil appropriée pour le rôle de l'utilisateur
         const isSA = isUserSuperAdmin(user);
-        let homePath = getHomePage(user.role, user.type, isSA);
+        let homePath = getHomePage(
+          user.role, 
+          user.type, 
+          isSA, 
+          !!(user as any)?.isDefaultRole, 
+          !!(user as any)?.isSupervisorRole
+        );
         // Préfixer avec public_id si disponible
         if ((user as any).publicId) {
           homePath = `/${(user as any).publicId}${homePath}`;

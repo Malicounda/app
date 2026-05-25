@@ -697,7 +697,7 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                         radiusMeters = 5; break;
                 }
                 const existingRows = await db.execute(sql`
-                    SELECT a.id, a.sender_id, a.created_at, a.region AS alert_region, a.departement AS alert_departement
+                    SELECT a.id, a.sender_id, a.created_at, a.region AS alert_region, a.departement AS alert_departement, a.arrondissement AS alert_arrondissement, a.commune AS alert_commune
                     FROM alerts a
                     WHERE a.nature = ${natureToPersist}
                       AND a.title = ${titleToPersist}
@@ -734,6 +734,8 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                         sender: senderDetail,
                         alertRegion: (existing as any)?.alert_region ?? null,
                         alertDepartement: (existing as any)?.alert_departement ?? null,
+                        alertArrondissement: (existing as any)?.alert_arrondissement ?? null,
+                        alertCommune: (existing as any)?.alert_commune ?? null,
                         radiusMeters
                     });
                 }

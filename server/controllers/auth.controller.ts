@@ -19,7 +19,11 @@ const registerSchema = z.object({
 
 export const login = async (req: Request, res: Response) => {
     try {
-        const { identifier, password } = req.body;
+        const { identifier, password: rawPassword } = req.body;
+        // Nettoyer le mot de passe : supprimer les espaces et les guillemets entourants
+        const password = typeof rawPassword === 'string'
+            ? rawPassword.trim().replace(/^["']+|["']+$/g, '')
+            : rawPassword;
         console.log('[LOGIN] Tentative de connexion pour:', identifier);
 
         const idValue = String(identifier || '').trim();
@@ -27,8 +31,24 @@ export const login = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "Identifiant requis" });
         }
 
-        console.log('[LOGIN] Recherche par identifiant (email/username/matricule):', idValue);
-        let user = await storage.findUserByIdentifier(idValue);
+        let currentDomain = '';
+        const domainHeaderRaw = (req.headers as any)['x-domain'];
+        if (Array.isArray(domainHeaderRaw)) currentDomain = String(domainHeaderRaw[0] || '');
+        else if (typeof domainHeaderRaw === 'string') currentDomain = domainHeaderRaw;
+        if (!currentDomain && (req.body as any)?.domain) {
+            currentDomain = String((req.body as any).domain || '');
+        }
+        
+        const isAlerteLogin = currentDomain.toUpperCase().trim() === 'ALERTE';
+
+        console.log(`[LOGIN] Recherche par identifiant: ${idValue}, Domaine: ${currentDomain}`);
+        let user;
+        if (isAlerteLogin) {
+            // Pour ALERTE, le matricule est stocké strictement dans username
+            user = await storage.getUserByUsername(idValue);
+        } else {
+            user = await storage.findUserByIdentifier(idValue);
+        }
 
         if (!user) {
             console.log('[LOGIN] Utilisateur non trouvé:', idValue);
@@ -45,16 +65,12 @@ export const login = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Identifiants invalides" });
         } else {
             console.log('[LOGIN] Utilisateur trouvé:', user.username);
-        }
-
-        // Vérifier si l'utilisateur a un rôle métier par défaut ou superviseur
-        // → connexion par matricule seul (sans mot de passe)
+         // Vérifier si l'utilisateur a un rôle métier par défaut ou superviseur
         let skipPassword = false;
         let userRoleMetierCode: string | null = null;
         let userRoleMetierLabel: string | null = null;
         let isSupervisorRole = false;
         let isDefaultRole = false;
-        let currentDomain = '';
 
         try {
             const agentRows = await db
@@ -70,29 +86,19 @@ export const login = async (req: Request, res: Response) => {
                 .where(eq(agents.userId as any, (user as any).id as any))
                 .limit(1);
 
-            const domainHeaderRaw = (req.headers as any)['x-domain'];
-            if (Array.isArray(domainHeaderRaw)) currentDomain = String(domainHeaderRaw[0] || '');
-            else if (typeof domainHeaderRaw === 'string') currentDomain = domainHeaderRaw;
-            if (!currentDomain && (req.body as any)?.domain) {
-                currentDomain = String((req.body as any).domain || '');
-            }
-
             if (agentRows.length > 0) {
                 userRoleMetierCode = agentRows[0].roleMetierCode ?? null;
                 userRoleMetierLabel = agentRows[0].roleMetierLabel ?? null;
                 isDefaultRole = agentRows[0].roleMetierIsDefault ?? false;
                 isSupervisorRole = agentRows[0].roleMetierIsSupervisor ?? false;
 
-                // Accès direct par matricule pour tous les agents sur le domaine ALERTE
+                // skipPassword uniquement pour les superviseurs SANS domaine ALERTE
+                // Pour ALERTE, le mot de passe est TOUJOURS requis
                 const passwordEmpty = !password || String(password).trim() === '';
-                const isAlerteLogin = currentDomain.toUpperCase().trim() === 'ALERTE';
 
-                if (passwordEmpty && (isAlerteLogin || isSupervisorRole)) {
+                if (passwordEmpty && !isAlerteLogin && isSupervisorRole) {
                     skipPassword = true;
-                    if (isAlerteLogin && !isSupervisorRole) {
-                        isDefaultRole = true; // Forcer le flag pour l'interface UI
-                    }
-                    console.log('[LOGIN] Connexion sans mot de passe autorisée pour:', user.username);
+                    console.log('[LOGIN] Connexion sans mot de passe autorisée (superviseur hors ALERTE) pour:', user.username);
                 }
             }
         } catch (err) {
@@ -105,43 +111,72 @@ export const login = async (req: Request, res: Response) => {
             return (/^\$2[aby]\$/.test(value) && value.length >= 59 && value.length <= 64);
         };
 
+        // --- Diagnostic détaillé pour le mot de passe ---
+        const storedPwd = user.password;
+        const storedPwdType = !storedPwd ? 'NULL/EMPTY' : isBcryptHash(storedPwd) ? 'BCRYPT' : 'PLAIN';
+        console.log(`[LOGIN] Diagnostic mdp pour ${user.username}: type_stocké=${storedPwdType}, longueur_stockée=${storedPwd?.length ?? 0}, mdp_fourni=${password ? 'OUI (' + password.length + ' chars)' : 'NON'}, skipPassword=${skipPassword}, isAlerteLogin=${isAlerteLogin}`);
+
         if (!skipPassword) {
-            let passwordOk = false;
-            if (isBcryptHash(user.password)) {
-                // Comparaison sécurisée via bcrypt
-                passwordOk = await bcrypt.compare(password, user.password as string);
-                if (!passwordOk) {
-                    console.log('[LOGIN] Mot de passe (bcrypt) incorrect pour:', user.username);
-                    try {
-                        await storage.createHistory({ userId: user.id, operation: 'login_failed', entityType: 'auth', entityId: user.id, details: `Mot de passe incorrect pour ${user.username}` });
-                    } catch { }
+            // --- ALERTE : initialisation du mot de passe si jamais défini ---
+            // Les utilisateurs ALERTE n'avaient pas de mot de passe avant.
+            // Si le mot de passe stocké est null, vide, ou n'est pas un hash bcrypt valide,
+            // on traite la première connexion comme une initialisation du mot de passe.
+            if (isAlerteLogin && (!storedPwd || storedPwd.trim() === '' || storedPwd === 'null' || !isBcryptHash(storedPwd))) {
+                if (password !== "0000") {
+                    console.log(`[LOGIN] Tentative d'initialisation de mot de passe ALERTE avec un mot de passe incorrect: ${password}`);
                     return res.status(401).json({ message: "Identifiants invalides" });
                 }
-            } else {
-                // Ancien mot de passe en clair: comparer en clair puis migrer vers hash si OK
-                if (password !== user.password) {
-                    console.log('[LOGIN] Mot de passe (plain) incorrect pour:', user.username);
-                    try {
-                        await storage.createHistory({ userId: user.id, operation: 'login_failed', entityType: 'auth', entityId: user.id, details: `Mot de passe incorrect pour ${user.username}` });
-                    } catch { }
-                    return res.status(401).json({ message: "Identifiants invalides" });
-                }
-                // Migration vers bcrypt
+                console.log(`[LOGIN] ALERTE première connexion: initialisation du mot de passe pour ${user.username}`);
                 try {
                     const salt = await bcrypt.genSalt(10);
                     const newHash = await bcrypt.hash(password, salt);
                     await storage.updateUser(user.id, { password: newHash } as any);
-                    console.log('[LOGIN] Mot de passe migré vers bcrypt pour:', user.username);
-                } catch (mErr) {
-                    console.error('[LOGIN] Erreur de migration du mot de passe pour', user.username, mErr);
-                    // Ne pas bloquer la connexion si la migration échoue; l’utilisateur s’est authentifié
+                    console.log(`[LOGIN] Mot de passe ALERTE initialisé avec '0000' avec succès pour ${user.username}`);
+                    // Le mot de passe vient d'être défini, on continue la connexion
+                } catch (initErr) {
+                    console.error('[LOGIN] Erreur initialisation mot de passe ALERTE:', initErr);
+                    return res.status(500).json({ message: "Erreur lors de l'initialisation du mot de passe" });
                 }
+            } else {
+                // --- Vérification normale du mot de passe ---
+                let passwordOk = false;
+                if (isBcryptHash(storedPwd)) {
+                    // Comparaison sécurisée via bcrypt
+                    passwordOk = await bcrypt.compare(password, storedPwd as string);
+                    console.log(`[LOGIN] Comparaison bcrypt pour ${user.username}: résultat=${passwordOk}`);
+                    if (!passwordOk) {
+                        console.log('[LOGIN] Mot de passe (bcrypt) incorrect pour:', user.username);
+                        try {
+                            await storage.createHistory({ userId: user.id, operation: 'login_failed', entityType: 'auth', entityId: user.id, details: `Mot de passe incorrect pour ${user.username}` });
+                        } catch { }
+                        return res.status(401).json({ message: "Identifiants invalides" });
+                    }
+                } else {
+                    // Ancien mot de passe en clair: comparer en clair puis migrer vers hash si OK
+                    console.log(`[LOGIN] Comparaison plain text pour ${user.username}`);
+                    if (password !== storedPwd) {
+                        console.log(`[LOGIN] Mot de passe (plain) incorrect pour: ${user.username}`);
+                        try {
+                            await storage.createHistory({ userId: user.id, operation: 'login_failed', entityType: 'auth', entityId: user.id, details: `Mot de passe incorrect pour ${user.username}` });
+                        } catch { }
+                        return res.status(401).json({ message: "Identifiants invalides" });
+                    }
+                    // Migration vers bcrypt
+                    try {
+                        const salt = await bcrypt.genSalt(10);
+                        const newHash = await bcrypt.hash(password, salt);
+                        await storage.updateUser(user.id, { password: newHash } as any);
+                        console.log('[LOGIN] Mot de passe migré vers bcrypt pour:', user.username);
+                    } catch (mErr) {
+                        console.error('[LOGIN] Erreur de migration du mot de passe pour', user.username, mErr);
+                    }
             }
         }
+    }
 
         if ((user as any).active === false || (user as any).isActive === false) {
             // Les agents avec rôle par défaut ou superviseur peuvent se connecter même si le compte est inactif
-            if (!skipPassword) {
+            if (!isDefaultRole && !isSupervisorRole) {
                 return res.status(401).json({ message: "Identifiants invalides" });
             }
         }
@@ -150,7 +185,7 @@ export const login = async (req: Request, res: Response) => {
 
         // currentDomain is already defined above
 
-        if (currentDomain && !isSuperAdmin && !skipPassword) {
+        if (currentDomain && !isSuperAdmin && !skipPassword && !isDefaultRole && !isSupervisorRole) {
             const normalized = currentDomain.toUpperCase().trim();
             try {
                 const domains = await storage.getUserDomainsByUserId(user.id);
@@ -294,7 +329,8 @@ export const login = async (req: Request, res: Response) => {
             }
             console.log('[LOGIN] Réponse envoyée pour:', user.username);
         });
-    } catch (error) {
+    }
+} catch (error) {
         console.error("Erreur lors de la connexion:", error);
         res.status(500).end();
     }

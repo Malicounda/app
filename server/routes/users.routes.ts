@@ -1303,7 +1303,7 @@ router.post('/login', async (req, res) => {
 
 // Schéma pour la mise à jour d'un utilisateur (plus flexible)
 const updateUserSchema = baseInsertUserSchema.partial().extend({
-  password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères.").optional(),
+  password: z.string().min(4, "Le mot de passe doit contenir au moins 4 caractères.").optional(),
 });
 
 // Mettre à jour un utilisateur (admin uniquement ou l'utilisateur lui-même pour certains champs)

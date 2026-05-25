@@ -1,6 +1,6 @@
 import { useDomainVisual } from "@/lib/domainIcons";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, User, Bell, Info } from "lucide-react";
+import { ArrowLeft, User, Bell, Info, Lock, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation } from "wouter";
@@ -22,6 +22,7 @@ import "../styles/login.css";
 
 const schema = z.object({
   identifier: z.string().min(1, "Matricule requis"),
+  password: z.string().min(1, "Code secret requis"),
 });
 
 // Détection APK
@@ -42,6 +43,7 @@ export default function AlerteLogin() {
   const [, setLocation] = useLocation();
   const { icon: DomainIcon, logoUrl } = useDomainVisual("ALERTE");
   const [showLicense, setShowLicense] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const isApk = isApkMode();
 
   // redirection si déjà connecté
@@ -77,7 +79,7 @@ export default function AlerteLogin() {
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: { identifier: "" },
+    defaultValues: { identifier: "", password: "" },
   });
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
@@ -85,7 +87,7 @@ export default function AlerteLogin() {
       localStorage.setItem("domain", "ALERTE");
 
       // ❌ GPS SUPPRIMÉ POUR STABILITÉ APK + BUILD WEB
-      await login(values.identifier, "");
+      await login(values.identifier, values.password);
 
       toast({
         title: "Connexion réussie",
@@ -123,7 +125,7 @@ export default function AlerteLogin() {
 
         <h1 className="text-2xl font-bold text-center">Connexion Alerte</h1>
         <p className="text-center text-sm text-gray-600">
-          Accès par matricule uniquement
+          Accès par matricule et code secret
         </p>
 
         <Form {...form}>
@@ -143,6 +145,35 @@ export default function AlerteLogin() {
                         disabled={isLoading}
                         className="h-12 pl-10"
                       />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 text-amber-600" />
+                      <Input
+                        {...field}
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Code secret"
+                        disabled={isLoading}
+                        className="h-12 pl-10 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-3 text-gray-500 hover:text-amber-600 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
                     </div>
                   </FormControl>
                   <FormMessage />

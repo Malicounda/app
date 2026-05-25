@@ -22,7 +22,13 @@ export default function RoleBasedRouter() {
 
     // Nouveau flux: rediriger toujours vers la page d'accueil du rôle.
     // Le dashboard chasseur affichera l'étape 2 en modal bloquante si nécessaire.
-    const homePage = getHomePage(user?.role, user?.type);
+    const homePage = getHomePage(
+      user?.role, 
+      user?.type, 
+      (user as any)?.isSuperAdmin,
+      !!(user as any)?.isDefaultRole,
+      !!(user as any)?.isSupervisorRole
+    );
     setLocation(homePage);
   }, [isAuthenticated, user, setLocation]);
   

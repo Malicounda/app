@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { departmentsByRegion, regionEnum } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, EyeOff, LogOut, User as UserIcon, Mail, Phone, Shield, MapPin, Briefcase, Award, Users } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, LogOut, User as UserIcon, Mail, Phone, Shield, MapPin, Briefcase, Award, Users, Lock } from "lucide-react";
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -206,12 +206,15 @@ export default function ProfilePage() {
                   <InfoItem icon={<Award />} label="Grade" value={profile.grade || "Non défini"} />
                   <InfoItem icon={<UserIcon />} label="Genre" value={profile.genre || "Non défini"} />
                   <InfoItem icon={<MapPin />} label="Lieu de service" value={profile.serviceLocation || profile.region || "Non défini"} />
+                  {isAlerteDomain && (
+                    <InfoItem icon={<Lock />} label="Code secret" value="••••••••" />
+                  )}
                 </div>
 
                 {!isAlerteDomain && (
                   <div className="pt-4">
                     <Button
-                      className="w-full rounded-2xl py-6 text-base font-bold shadow-md shadow-emerald-100"
+                      className="w-full rounded-2xl py-6 text-base font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
                       onClick={() => setEditMode(true)}
                     >
                       Modifier mon profil
@@ -240,10 +243,10 @@ export default function ProfilePage() {
                     />
                   </div>
 
-                  {(user?.role === 'admin' || user?.role === 'superadmin') && (
-                    <>
                       <div className="space-y-2">
-                        <Label className="text-slate-500 ml-1">Nouveau mot de passe</Label>
+                        <Label className="text-slate-500 ml-1">
+                          {isAlerteDomain ? "Nouveau code secret" : "Nouveau mot de passe"}
+                        </Label>
                         <div className="relative">
                           <Input
                             type={showPassword ? "text" : "password"}
@@ -264,7 +267,9 @@ export default function ProfilePage() {
 
                       {password && (
                         <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
-                          <Label className="text-slate-500 ml-1">Confirmer le mot de passe</Label>
+                          <Label className="text-slate-500 ml-1">
+                            {isAlerteDomain ? "Confirmer le code secret" : "Confirmer le mot de passe"}
+                          </Label>
                           <div className="relative">
                             <Input
                               type={showConfirmPassword ? "text" : "password"}
@@ -282,8 +287,6 @@ export default function ProfilePage() {
                           </div>
                         </div>
                       )}
-                    </>
-                  )}
                 </div>
 
                 <div className="flex gap-3 pt-4">
@@ -299,7 +302,7 @@ export default function ProfilePage() {
                     Annuler
                   </Button>
                   <Button
-                    className="flex-[2] rounded-2xl py-6 font-bold shadow-md shadow-emerald-100"
+                    className={`flex-[2] rounded-2xl py-6 font-bold shadow-md ${isAlerteDomain ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-100' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100'}`}
                     disabled={updateMyProfileMutation.isPending}
                     onClick={() => {
                       if (password && password !== confirmPassword) {

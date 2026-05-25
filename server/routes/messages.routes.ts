@@ -10,7 +10,7 @@ import {
   persistMessageAttachment,
   readMessageAttachment,
 } from '../lib/messageAttachmentStorage.js';
-import { MessagingService } from '../services/messaging.service.js';
+import { MessagingService, DomainResolver } from '../services/messaging.service.js';
 import { storage } from '../storage.js';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 
@@ -971,7 +971,8 @@ router.get('/unread-count', isAuthenticated, async (req, res) => {
     res.json({ ...counts, total: counts.individual + counts.group });
   } catch (error) {
     console.error('Erreur lors du comptage des messages non lus:', error);
-    res.status(500).json({ message: 'Erreur serveur' });
+    // Fallback robuste : on retourne 0 au lieu d'une erreur 500 pour ne pas casser l'UI
+    res.status(200).json({ individual: 0, group: 0, total: 0 });
   }
 });
 

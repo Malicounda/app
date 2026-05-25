@@ -427,9 +427,9 @@ export async function createAgent(req: Request, res: Response) {
 
         userId = existingUser.id;
       } else {
-        const randomPassword = `${Date.now()}-${Math.random()}-${userMatricule}`;
+        const defaultPassword = "0000";
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(randomPassword, salt);
+        const hashedPassword = await bcrypt.hash(defaultPassword, salt);
 
         const [createdUser] = await tx
           .insert(users)

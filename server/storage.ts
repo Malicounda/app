@@ -508,7 +508,11 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
 
 
       if (password) {
-        updateData.password = await hashPassword(password);
+        if (isBcryptHash(password)) {
+          updateData.password = password;
+        } else {
+          updateData.password = await hashPassword(password);
+        }
       }
 
       const allowedUpdates: Partial<InsertUser> = {};

@@ -109,7 +109,7 @@ export default function AppErrorDialog() {
   if (accessDenied || sessionExpired) {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[340px] rounded-2xl border-0 p-6 shadow-lg gap-0">
+        <DialogContent className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
           <div className="flex flex-col items-center text-center pt-1">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100">
               <Info className="h-5 w-5 text-gray-500" strokeWidth={2.5} />
@@ -117,11 +117,11 @@ export default function AppErrorDialog() {
             <DialogTitle className="text-lg font-semibold text-gray-900 text-center w-full block">{title}</DialogTitle>
             <p className="mt-3 text-sm leading-relaxed text-gray-800">{bodyText}</p>
           </div>
-          <div className="mt-8 flex justify-end">
+          <div className="mt-8 flex justify-center w-full">
             <Button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-full bg-black px-6 text-white hover:bg-gray-900"
+              className="w-full rounded-xl bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-800 active:scale-95 transition-all"
             >
               Fermer
             </Button>
@@ -133,22 +133,27 @@ export default function AppErrorDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 text-sm text-gray-700">
-          <p className="whitespace-pre-line">{bodyText}</p>
-          {detail?.url && (
-            <p className="text-xs text-muted-foreground break-all">
-              {detail.method || "GET"} {detail.url}
-              {detail.status ? ` — ${detail.status}` : ""}
-            </p>
-          )}
+      <DialogContent className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
+        <div className="flex flex-col items-center text-center pt-1">
+          <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-red-100">
+            <Info className="h-5 w-5 text-red-500" strokeWidth={2.5} />
+          </div>
+          <DialogTitle className="text-lg font-semibold text-gray-900 text-center w-full block">
+            {title}
+          </DialogTitle>
+          <p className="mt-3 text-sm leading-relaxed text-gray-800">
+            {bodyText}
+          </p>
         </div>
-        <DialogFooter>
-          <Button onClick={() => setOpen(false)}>Fermer</Button>
-        </DialogFooter>
+        <div className="mt-8 flex justify-center w-full">
+          <Button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="w-full rounded-xl bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-800 active:scale-95 transition-all"
+          >
+            Fermer
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

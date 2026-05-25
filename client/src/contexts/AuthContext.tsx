@@ -83,9 +83,7 @@ interface AuthContextType {
 
   login: (
     identifier: string,
-    password?: string,
-    lat?: number,
-    lon?: number
+    password?: string
   ) => Promise<void>;
 
   logout: () => Promise<void>;
@@ -189,25 +187,27 @@ export function AuthProvider({
   /* ========================= */
   const login = async (
     identifier: string,
-    password?: string,
-    lat?: number,
-    lon?: number
+    password?: string
   ) => {
     setError(null);
     setIsLoading(true);
 
     try {
+      console.log(`[AuthContext] Envoi POST /api/auth/login, identifier=${identifier}, domain=${localStorage.getItem("domain")}`);
       const response = await apiRequest<{ user: User; token: string }>({
         url: "/api/auth/login",
         method: "POST",
         data: {
           identifier,
           password,
-          lat,
-          lon,
           domain: localStorage.getItem("domain") || undefined,
         },
       });
+
+      console.log("[AuthContext] Backend Response:", { status: 200, data: response });
+      if (response?.token) {
+        console.log("[AuthContext] Token reçu:", response.token);
+      }
 
       if (!response?.user) throw new Error("Utilisateur invalide");
 
@@ -232,11 +232,21 @@ export function AuthProvider({
         await removePreference("domain");
         homePage = "/superadmin/agents";
       } else {
-        homePage = getHomePage(response.user.role, response.user.type);
+        homePage = getHomePage(
+          response.user.role,
+          response.user.type,
+          (response.user as any)?.isSuperAdmin,
+          (response.user as any)?.isDefaultRole,
+          (response.user as any)?.isSupervisorRole
+        );
       }
 
       setLocation(homePage);
     } catch (err: any) {
+      console.error("[AuthContext] Erreur détaillée backend:", err);
+      if (err.response) {
+        console.error("[AuthContext] Status HTTP:", err.response.status, err.response.data);
+      }
       setError(err.message || "Erreur connexion");
       throw err;
     } finally {

@@ -96,6 +96,7 @@ import SuperAdminAgentsPage from "@/pages/SuperAdmin/AgentsPage";
 import DomainesPage from "@/pages/SuperAdmin/DomainesPage";
 import RolesMetierPage from "@/pages/SuperAdmin/RolesMetierPage";
 import ThemePage from "@/pages/SuperAdmin/ThemePage";
+import ApkHistoryPage from "@/pages/SuperAdmin/ApkHistoryPage";
 import SupervisorPage from "@/pages/Supervisor/SupervisorPage";
 import Taxes from "@/pages/Taxes";
 import TriageDashboard from "@/pages/triage/TriageDashboard";
@@ -815,6 +816,13 @@ function Router() {
           <ChasseRoute>
             <ProtectedRoute adminOnly superAdminOnly>
               <AdminHistory />
+            </ProtectedRoute>
+          </ChasseRoute>
+        </Route>
+        <Route path="/superadmin/apk-history">
+          <ChasseRoute>
+            <ProtectedRoute adminOnly superAdminOnly>
+              <ApkHistoryPage />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>

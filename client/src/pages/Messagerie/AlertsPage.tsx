@@ -416,6 +416,8 @@ function AlertsPage() {
     sender?: { username?: string; first_name?: string; last_name?: string; role?: string; region?: string; departement?: string } | null;
     alertRegion?: string | null;
     alertDepartement?: string | null;
+    alertArrondissement?: string | null;
+    alertCommune?: string | null;
     radiusMeters?: number | null;
   } | null>(null);
   // État pour suivre si l'accès à la géolocalisation a été refusé
@@ -1302,6 +1304,8 @@ function AlertsPage() {
           sender: body?.sender || null,
           alertRegion: body?.alertRegion || null,
           alertDepartement: body?.alertDepartement || null,
+          alertArrondissement: body?.alertArrondissement || null,
+          alertCommune: body?.alertCommune || null,
           radiusMeters: typeof body?.radiusMeters === 'number' ? body.radiusMeters : null,
         });
         setDuplicateModalOpen(true);
@@ -1964,74 +1968,94 @@ function AlertsPage() {
 
       {/* Modal d'information en cas de doublon d'alerte */}
       <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
-        <DialogContent className="w-[92vw] max-w-[92vw] sm:max-w-[560px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-blue-700">
-              <Info className="h-5 w-5" />
+        <DialogContent className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
+          <div className="flex flex-col items-center text-center pt-1">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-blue-100">
+              <Info className="h-5 w-5 text-blue-500" strokeWidth={2.5} />
+            </div>
+            <DialogTitle className="text-lg font-semibold text-gray-900 text-center w-full block">
               Zone d'alerte déjà identifiée
             </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 text-sm text-gray-800">
-            <p>
-              <span className="font-semibold">Information:</span><br />
-              Une alerte similaire a déjà été enregistrée à proximité.
-            </p>
-            {duplicateModalInfo?.nature ? (
+            <div className="mt-3 text-sm leading-relaxed text-gray-800 space-y-3 w-full">
               <p>
-                <span className="font-semibold">Nature:</span><br />
-                {duplicateModalInfo.nature}
+                <span className="font-semibold block mb-0.5">Information</span>
+                Une alerte similaire a déjà été enregistrée à proximité.
+              </p>
+              {duplicateModalInfo?.nature ? (
+                <p>
+                  <span className="font-semibold block mb-0.5">Nature</span>
+                  {duplicateModalInfo.nature}
+                  {(() => {
+                    const c = duplicateModalInfo?.createdAt ? new Date(duplicateModalInfo.createdAt) : null;
+                    if (!c || isNaN(c.getTime())) return null;
+                    const two = (n: number) => n.toString().padStart(2, '0');
+                    const hhmm = `${two(c.getHours())}:${two(c.getMinutes())}`;
+                    const ddmmyyyy = `${two(c.getDate())}/${two(c.getMonth() + 1)}/${c.getFullYear()}`;
+                    return <span className="block text-xs text-gray-500 mt-0.5">{hhmm} le {ddmmyyyy}</span>;
+                  })()}
+                </p>
+              ) : null}
+              {duplicateModalInfo?.lat != null && duplicateModalInfo?.lon != null && (
+                <div className="space-y-1">
+                  <p>
+                    <span className="font-semibold block mb-0.5">Coordonnées (WGS84)</span>
+                    {duplicateModalInfo.lat?.toFixed(4)}, {duplicateModalInfo.lon?.toFixed(4)}
+                  </p>
+                  <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded-md border border-gray-100 mx-auto w-fit">
+                    <span className="font-medium text-gray-700">Lieux :</span><br />
+                    {[
+                      duplicateModalInfo.alertRegion,
+                      duplicateModalInfo.alertDepartement,
+                      duplicateModalInfo.alertArrondissement,
+                      duplicateModalInfo.alertCommune
+                    ].filter(Boolean).join(' / ') || 'Non spécifié'}
+                  </p>
+                </div>
+              )}
+              <p>
+                <span className="font-semibold block mb-0.5">Signataire</span>
                 {(() => {
-                  const c = duplicateModalInfo?.createdAt ? new Date(duplicateModalInfo.createdAt) : null;
-                  if (!c || isNaN(c.getTime())) return null;
-                  const two = (n: number) => n.toString().padStart(2, '0');
-                  const hhmm = `${two(c.getHours())}:${two(c.getMinutes())}`;
-                  const ddmmyyyy = `${two(c.getDate())}/${two(c.getMonth() + 1)}/${c.getFullYear()}`;
-                  return <span> — {hhmm} le {ddmmyyyy}</span>;
+                  if (duplicateModalInfo?.self) {
+                    return <span className="font-medium">par vous</span>;
+                  }
+                  const s = duplicateModalInfo?.sender || {} as any;
+                  const first = (s.first_name || '').toString().trim();
+                  const last = (s.last_name || '').toString().trim();
+                  const username = (s.username || '').toString().trim();
+                  const hasName = !!(first || last || username);
+                  const displayName = hasName ? `${first} ${last}`.trim() || username || 'Agent' : 'Agent';
+                  const sRole = (s.role || '').toString().toLowerCase().replace(/[_\s-]+/g, '-');
+                  const isSect = sRole === 'sub-agent' || sRole.includes('agent-secteur') || sRole.includes('sector');
+                  const org = isSect ? 'Secteur' : 'IREF';
+                  const dep = (((s?.departement || duplicateModalInfo?.alertDepartement) || '') as string).toUpperCase().trim();
+                  const region = (((s?.region || duplicateModalInfo?.alertRegion) || '') as string).toUpperCase().trim();
+                  let loc = '';
+                  if (isSect && (dep || region)) {
+                    loc = dep && region ? `${dep} / ${region}` : (dep || region);
+                  } else if (!isSect && region) {
+                    loc = region;
+                  }
+                  return (
+                    <span className="font-medium">
+                      {displayName}
+                      <span className="block text-xs text-gray-500 mt-0.5">Agent/{org}{loc ? ` (${loc})` : ''}</span>
+                    </span>
+                  );
                 })()}
               </p>
-            ) : null}
-            {duplicateModalInfo?.lat != null && duplicateModalInfo?.lon != null && (
-              <p>
-                <span className="font-semibold">Coordonnées (WGS84):</span><br />
-                {duplicateModalInfo.lat?.toFixed(4)}, {duplicateModalInfo.lon?.toFixed(4)}
-              </p>
-            )}
-            <p>
-              <span className="font-semibold">Signataire:</span><br />
-              {(() => {
-                if (duplicateModalInfo?.self) {
-                  return <span className="font-medium">par vous</span>;
-                }
-                const s = duplicateModalInfo?.sender || {} as any;
-                const first = (s.first_name || '').toString().trim();
-                const last = (s.last_name || '').toString().trim();
-                const username = (s.username || '').toString().trim();
-                const hasName = !!(first || last || username);
-                const displayName = hasName ? `${first} ${last}`.trim() || username || 'Agent' : 'Agent';
-                const sRole = (s.role || '').toString().toLowerCase().replace(/[_\s-]+/g, '-');
-                const isSect = sRole === 'sub-agent' || sRole.includes('agent-secteur') || sRole.includes('sector');
-                const org = isSect ? 'Secteur' : 'IREF';
-                const dep = (((s?.departement || duplicateModalInfo?.alertDepartement) || '') as string).toUpperCase().trim();
-                const region = (((s?.region || duplicateModalInfo?.alertRegion) || '') as string).toUpperCase().trim();
-                let loc = '';
-                if (isSect && (dep || region)) {
-                  loc = dep && region ? `${dep} / ${region}` : (dep || region);
-                } else if (!isSect && region) {
-                  loc = region;
-                }
-                return (
-                  <span className="font-medium">
-                    {displayName} — Agent/{org}{loc ? ` (${loc})` : ''}
-                  </span>
-                );
-              })()}
-            </p>
-            <p className="text-xs text-green-800 bg-green-50 border border-green-200 rounded px-2 py-1">
-              <span className="font-semibold">Rayon de détection:</span> <span className="font-bold">{duplicateModalInfo?.radiusMeters ?? 20} mètres</span>
-            </p>
+              <div className="inline-flex items-center justify-center text-xs text-green-800 bg-green-50 border border-green-200 rounded-full px-3 py-1">
+                <span className="font-semibold mr-1">Rayon :</span> <span className="font-bold">{duplicateModalInfo?.radiusMeters ?? 20} mètres</span>
+              </div>
+            </div>
           </div>
-          <div className="flex justify-end">
-            <Button onClick={() => setDuplicateModalOpen(false)} className="bg-blue-600 hover:bg-blue-700">Compris</Button>
+          <div className="mt-8 flex justify-center w-full">
+            <Button
+              type="button"
+              onClick={() => setDuplicateModalOpen(false)}
+              className="w-full rounded-xl bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-800 active:scale-95 transition-all"
+            >
+              Compris
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

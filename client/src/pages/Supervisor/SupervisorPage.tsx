@@ -18,9 +18,9 @@ function renderTickerItem(n: any) {
   const sep = <span className="text-amber-600/50 mx-1.5">•</span>;
 
   return (
-    <div className="flex items-start gap-2 text-[11px] font-semibold text-amber-900 group-hover:text-amber-950 transition-colors">
-      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500 mt-0.5" />
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 leading-snug">
+    <div className="flex items-center gap-2 text-[11px] font-semibold text-amber-900 group-hover:text-amber-950 transition-colors">
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" />
+      <div className="flex items-center gap-x-1 whitespace-nowrap">
         <span className="font-bold">
           {grade ? `${grade} ` : ""}
           {fullName}
@@ -157,21 +157,19 @@ export default function SupervisorPage() {
                   </button>
                 </div>
 
-                {/* Section liste des alertes scrollable */}
-                <div
-                  className="relative overflow-y-auto no-scrollbar scroll-smooth"
-                  style={{ maxHeight: "160px" }}
-                >
-                  <div className="flex flex-col p-1.5">
+                {/* Section bande d'annonce scrollable (Ticker) */}
+                <div className="relative flex h-10 items-center overflow-hidden whitespace-nowrap bg-amber-50">
+                  <div className="animate-marquee flex items-center gap-8 pl-4">
                     {recentNotifs.map((n: any) => (
                       <div
                         key={n.id}
-                        className="group flex flex-col p-2.5 rounded-md cursor-pointer border-b border-amber-200/50 last:border-0 hover:bg-amber-100 transition-colors"
+                        className="group flex cursor-pointer items-center rounded-full bg-amber-100/50 px-3 py-1 transition-colors hover:bg-amber-200/50"
                         onClick={() => setLocation("/alerts")}
                       >
                         {renderTickerItem(n)}
                       </div>
                     ))}
+                    {/* Dupliquer les éléments pour un défilement continu plus fluide si nécessaire, mais le CSS gère le retour */}
                   </div>
                 </div>
               </div>
