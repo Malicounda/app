@@ -9,10 +9,20 @@ import { useToast } from './use-toast';
 const VAPID_PUBLIC_KEY =
   'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
 
-const ANDROID_CHANNEL_ID = 'alerte_messages_v3';
+const ANDROID_CHANNEL_ID = 'alerte_messages_v4';
 
-function isNativeCapacitor(): boolean {
-  const cap = typeof window !== 'undefined' ? (window as Window & { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } }).Capacitor : undefined;
+/**
+ * Détecte si on est dans l'APK Alerte de manière fiable.
+ * Vérifie le user-agent en premier (toujours injecté par le natif),
+ * puis le bridge Capacitor en fallback.
+ */
+function isInAlerteApk(): boolean {
+  if (typeof navigator !== 'undefined' && navigator.userAgent.includes('AlerteAPK')) {
+    return true;
+  }
+  const cap = typeof window !== 'undefined'
+    ? (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+    : undefined;
   return Boolean(cap?.isNativePlatform?.());
 }
 
@@ -27,9 +37,14 @@ function getSocketServerUrl(): string {
 }
 
 async function ensureAndroidNotificationChannel(): Promise<void> {
-  if (getCapacitorPlatform() !== 'android') return;
+  // Sur Android (via user-agent ou platform check)
+  const platform = getCapacitorPlatform();
+  const isAndroid = platform === 'android' || navigator.userAgent.includes('AlerteAPK');
+  if (!isAndroid) return;
+
   try {
-    for (const oldId of ['alerte_messages', 'alerte_messages_v2']) {
+    // Supprimer les anciens channels pour forcer la recréation avec les bons paramètres
+    for (const oldId of ['alerte_messages', 'alerte_messages_v2', 'alerte_messages_v3']) {
       try {
         await LocalNotifications.deleteChannel({ id: oldId });
       } catch {
@@ -39,13 +54,16 @@ async function ensureAndroidNotificationChannel(): Promise<void> {
     await LocalNotifications.createChannel({
       id: ANDROID_CHANNEL_ID,
       name: 'Messages et alertes',
-      description: 'Son, vibration et notification en tête d’écran',
-      importance: 5,
-      visibility: 1,
+      description: 'Notifications avec son et vibration pour les alertes et messages',
+      importance: 5,          // MAX — heads-up, son, vibration
+      visibility: 1,          // PUBLIC
       vibration: true,
       lights: true,
       lightColor: '#114B26',
+      // Ne PAS spécifier sound: 'default' — cela cherche un fichier inexistant
+      // Android utilisera automatiquement la sonnerie système par défaut
     });
+    console.log('[LocalNotifications] Channel créé:', ANDROID_CHANNEL_ID);
   } catch (e) {
     console.warn('[LocalNotifications] createChannel:', e);
   }
@@ -56,11 +74,12 @@ async function showSystemNotification(
   body: string,
   extra?: Record<string, unknown>
 ): Promise<void> {
-  if (!isNativeCapacitor()) return;
+  // Utiliser isInAlerteApk() au lieu de Capacitor.isNativePlatform() qui peut échouer
+  if (!isInAlerteApk()) return;
+
   try {
     await ensureAndroidNotificationChannel();
     const id = Math.floor(Date.now() % 2147483640) + 1;
-    const isAndroid = getCapacitorPlatform() === 'android';
     await LocalNotifications.schedule({
       notifications: [
         {
@@ -68,13 +87,15 @@ async function showSystemNotification(
           title,
           body,
           channelId: ANDROID_CHANNEL_ID,
-          smallIcon: isAndroid ? 'ic_launcher_foreground' : undefined,
+          smallIcon: 'ic_launcher_foreground',
           iconColor: '#114B26',
-          schedule: { at: new Date(Date.now() + 80) },
+          // Planifier immédiatement (100ms dans le futur pour éviter le filtre Android)
+          schedule: { at: new Date(Date.now() + 100) },
           extra: extra || {},
         },
       ],
     });
+    console.log('[LocalNotifications] Notification planifiée:', { id, title });
   } catch (e) {
     console.warn('[LocalNotifications] schedule:', e);
   }
@@ -91,81 +112,100 @@ export function useNotifications(enabled = true, userId?: number | null) {
   const [isPushSupported, setIsPushSupported] = useState(false);
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
 
+  // Setup des permissions + channel Android au montage
   useEffect(() => {
     if (!enabled) return;
     const setup = async () => {
       try {
         const check = await LocalNotifications.checkPermissions();
+        console.log('[LocalNotifications] Permission status:', check.display);
         if (check.display !== 'granted') {
-          await LocalNotifications.requestPermissions();
+          const result = await LocalNotifications.requestPermissions();
+          console.log('[LocalNotifications] Permission request result:', result.display);
         }
         await ensureAndroidNotificationChannel();
       } catch (e) {
-        console.log('[LocalNotifications] setup:', e);
+        console.log('[LocalNotifications] setup error:', e);
       }
     };
     void setup();
   }, [enabled]);
 
+  // Socket.io pour les notifications en temps réel
   useEffect(() => {
     if (!enabled) return;
 
-    // Laisser la navigation post-login se stabiliser avant Socket.io + notifs natives
-    const connectDelayMs = isNativeCapacitor() ? 3000 : 0;
+    // Laisser la navigation post-login se stabiliser avant de connecter Socket.io
+    const connectDelayMs = isInAlerteApk() ? 3000 : 0;
     let cancelled = false;
     let socket: Socket | null = null;
 
     const connectTimer = window.setTimeout(() => {
       if (cancelled) return;
 
-    const socketUrl = getSocketServerUrl();
-    socket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 20,
-      reconnectionDelay: 2000,
-      auth: {
-        token: localStorage.getItem('token') || undefined,
-      },
-    });
+      const socketUrl = getSocketServerUrl();
+      console.log('[Socket.io] Connexion à', socketUrl, 'userId:', userId);
 
-    socket.on('connect', () => {
-      console.log('[Socket.io] Connecté à', socketUrl);
-      const uid = Number(userId);
-      if (socket && Number.isFinite(uid) && uid > 0) {
-        socket.emit('authenticate', uid);
-      }
-    });
+      socket = io(socketUrl, {
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 20,
+        reconnectionDelay: 2000,
+        auth: {
+          token: localStorage.getItem('token') || undefined,
+        },
+      });
 
-    socket.on('notification', (payload: { title?: string; body?: string; data?: { type?: string } }) => {
-      const title = payload?.title || 'Notification';
-      const body = payload?.body || '';
+      socket.on('connect', () => {
+        console.log('[Socket.io] Connecté à', socketUrl);
+        const uid = Number(userId);
+        if (socket && Number.isFinite(uid) && uid > 0) {
+          socket.emit('authenticate', uid);
+          console.log('[Socket.io] Authentifié avec userId:', uid);
+        }
+      });
 
-      if (document.visibilityState === 'visible') {
-        toast({
-          title,
-          description: body,
-          variant: payload?.data?.type === 'ALERT' ? 'destructive' : 'default',
-        });
-      }
+      socket.on('notification', (payload: { title?: string; body?: string; data?: { type?: string } }) => {
+        const title = payload?.title || 'Notification';
+        const body = payload?.body || '';
 
-      void showSystemNotification(title, body, payload?.data as Record<string, unknown>);
+        console.log('[Socket.io] Notification reçue:', { title, body, type: payload?.data?.type });
 
-      if (payload?.data?.type === 'ALERT') {
-        queryClient.invalidateQueries({ queryKey: ['/api/alerts'] });
-        queryClient.invalidateQueries({ queryKey: ['alerts-unread-count'] });
-      }
-      if (payload?.data?.type === 'MESSAGE') {
-        queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
-        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
-        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
-        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
-        window.dispatchEvent(new CustomEvent('messaging-refresh-all'));
-      }
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-      window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
-    });
+        // Toast in-app si visible
+        if (document.visibilityState === 'visible') {
+          toast({
+            title,
+            description: body,
+            variant: payload?.data?.type === 'ALERT' ? 'destructive' : 'default',
+          });
+        }
 
-    socketRef.current = socket;
+        // Notification système Android (son + vibration + heads-up)
+        void showSystemNotification(title, body, payload?.data as Record<string, unknown>);
+
+        // Invalidation des caches pour mise à jour immédiate des badges
+        if (payload?.data?.type === 'ALERT') {
+          queryClient.invalidateQueries({ queryKey: ['/api/alerts'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/alerts/received'] });
+          queryClient.invalidateQueries({ queryKey: ['alerts-unread-count'] });
+          queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+          queryClient.invalidateQueries({ queryKey: ['supervisor-recent-notifs'] });
+        }
+        if (payload?.data?.type === 'MESSAGE') {
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
+          window.dispatchEvent(new CustomEvent('messaging-refresh-all'));
+        }
+        queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+        window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
+      });
+
+      socket.on('connect_error', (err) => {
+        console.warn('[Socket.io] Erreur de connexion:', err.message);
+      });
+
+      socketRef.current = socket;
     }, connectDelayMs);
 
     return () => {
@@ -176,6 +216,7 @@ export function useNotifications(enabled = true, userId?: number | null) {
     };
   }, [enabled, userId, toast, queryClient]);
 
+  // Web Push (pour les notifications quand l'app est fermée — navigateurs web uniquement)
   useEffect(() => {
     if (!enabled) return;
     const supported = 'serviceWorker' in navigator && 'PushManager' in window;
