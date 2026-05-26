@@ -840,6 +840,7 @@ function AlertsPage() {
       queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
       queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
       queryClient.invalidateQueries({ queryKey: ["alerts-unread-count"] });
+      window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
 
       // Rafraîchir les données depuis le serveur
       refetch();
@@ -861,6 +862,7 @@ function AlertsPage() {
       queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
       queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
       queryClient.invalidateQueries({ queryKey: ["alerts-unread-count"] });
+      window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
       refetch();
 
       toast({ title: "Toutes les alertes marquées comme lues" });
@@ -887,6 +889,7 @@ function AlertsPage() {
       queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
       queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
       queryClient.invalidateQueries({ queryKey: ["alerts-unread-count"] });
+      window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
 
       toast({
         title: "Alerte supprimée",

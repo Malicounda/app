@@ -17,7 +17,6 @@ export function useUnreadNotificationsCount() {
     retry: false,
     refetchInterval: isOnline && isAuthenticated ? 15000 : false,
     refetchOnWindowFocus: isOnline && isAuthenticated,
-    staleTime: 60_000,
-    gcTime: 5 * 60_000,
+    staleTime: 0,
   });
 }

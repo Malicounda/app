@@ -249,6 +249,8 @@ export default function InternalMessageList({
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-launcher-badge'] });
+        window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
       } catch {
         onStaleMessage?.(m);
       }
