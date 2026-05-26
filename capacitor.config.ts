@@ -32,6 +32,10 @@ const config: CapacitorConfig = {
       persist: true,
       autoClear: false,
     },
+    LocalNotifications: {
+      smallIcon: "ic_launcher_foreground",
+      iconColor: "#114B26",
+    },
   },
 };
 

@@ -45,7 +45,6 @@ async function ensureAndroidNotificationChannel(): Promise<void> {
       vibration: true,
       lights: true,
       lightColor: '#114B26',
-      sound: 'default',
     });
   } catch (e) {
     console.warn('[LocalNotifications] createChannel:', e);
