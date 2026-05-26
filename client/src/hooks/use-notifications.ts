@@ -5,6 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { getApiBaseUrl } from '../utils/environment';
 import { useToast } from './use-toast';
+import { syncLauncherBadge } from '../lib/launcherBadge';
 
 const VAPID_PUBLIC_KEY =
   'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
@@ -72,7 +73,8 @@ async function ensureAndroidNotificationChannel(): Promise<void> {
 async function showSystemNotification(
   title: string,
   body: string,
-  extra?: Record<string, unknown>
+  extra?: Record<string, unknown>,
+  badgeCount?: number
 ): Promise<void> {
   // Utiliser isInAlerteApk() au lieu de Capacitor.isNativePlatform() qui peut échouer
   if (!isInAlerteApk()) return;
@@ -96,6 +98,15 @@ async function showSystemNotification(
       ],
     });
     console.log('[LocalNotifications] Notification planifiée:', { id, title });
+
+    if (badgeCount !== undefined && badgeCount > 0) {
+      // Android 8.0+ (Notification Dots) écrase automatiquement le badge de l'icône de l'app
+      // pour correspondre au nombre de notifications dans le tray. 
+      // On force la VRAIE valeur totale (messages + alertes) 500ms après la notification.
+      setTimeout(() => {
+        void syncLauncherBadge(badgeCount);
+      }, 500);
+    }
   } catch (e) {
     console.warn('[LocalNotifications] schedule:', e);
   }
@@ -179,8 +190,14 @@ export function useNotifications(enabled = true, userId?: number | null) {
           });
         }
 
-        // Notification système Android (son + vibration + heads-up)
-        void showSystemNotification(title, body, payload?.data as Record<string, unknown>);
+        // Calculer le total actuel des non-lus en cache, +1 pour cette nouvelle notif
+        const alertsData = queryClient.getQueryData<{ count: number }>(["unread-alerts-count", true]);
+        const msgData = queryClient.getQueryData<{ total: number }>(["messages-unread-count-launcher-badge"]);
+        const currentTotal = (alertsData?.count || 0) + (msgData?.total || 0);
+        const newBadgeTotal = currentTotal + 1;
+
+        // Notification système Android (son + vibration + heads-up) + correction du badge
+        void showSystemNotification(title, body, payload?.data as Record<string, unknown>, newBadgeTotal);
 
         // Invalidation des caches pour mise à jour immédiate des badges
         if (payload?.data?.type === 'ALERT') {
