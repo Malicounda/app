@@ -39,8 +39,12 @@ const updateAgentSchema = z.object({
   roleMetierId: z.number().int().optional().nullable(),
   contact: z.any().optional().nullable(),
   password: z.string().min(6).optional().nullable(),
+  region: z.string().optional().nullable(),
+  departement: z.string().optional().nullable(),
   commune: z.string().optional().nullable(),
   arrondissement: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  email: z.string().email().optional().nullable(),
 });
 
 async function getAgentJoinedRow(idAgent: number) {
@@ -274,6 +278,10 @@ export async function upsertAgentByUser(req: Request, res: Response) {
       if (parsed.contact.telephone !== undefined) userUpdateData.phone = parsed.contact.telephone;
       if (parsed.contact.email !== undefined) userUpdateData.email = parsed.contact.email;
     }
+    if (parsed.phone !== undefined) userUpdateData.phone = parsed.phone;
+    if (parsed.email !== undefined) userUpdateData.email = parsed.email;
+    if (parsed.region !== undefined) userUpdateData.region = parsed.region;
+    if (parsed.departement !== undefined) userUpdateData.departement = parsed.departement;
     if (parsed.commune !== undefined) userUpdateData.commune = parsed.commune;
     if (parsed.arrondissement !== undefined) userUpdateData.arrondissement = parsed.arrondissement;
 
@@ -533,6 +541,10 @@ export async function updateAgent(req: Request, res: Response) {
       if (parsed.contact.telephone !== undefined) userUpdateData.phone = parsed.contact.telephone;
       if (parsed.contact.email !== undefined) userUpdateData.email = parsed.contact.email;
     }
+    if (parsed.phone !== undefined) userUpdateData.phone = parsed.phone;
+    if (parsed.email !== undefined) userUpdateData.email = parsed.email;
+    if (parsed.region !== undefined) userUpdateData.region = parsed.region;
+    if (parsed.departement !== undefined) userUpdateData.departement = parsed.departement;
     if (parsed.commune !== undefined) userUpdateData.commune = parsed.commune;
     if (parsed.arrondissement !== undefined) userUpdateData.arrondissement = parsed.arrondissement;
 

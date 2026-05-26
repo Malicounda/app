@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -41,8 +42,9 @@ import { usePagination } from "@/hooks/usePagination";
 import { departmentsByRegion, regionEnum } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Flag, Info, Pencil, Trash2, User } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Eye, EyeOff, Flag, Info, Pencil, Trash2, User, Download, Upload } from "lucide-react";
+import { useMemo, useState, useRef } from "react";
+import Papa from "papaparse";
 
 type AgentRow = {
   idAgent: number | null;
@@ -251,12 +253,31 @@ export default function SuperAdminAgentsPage() {
   );
 
   const [searchMatricule, setSearchMatricule] = useState("");
+  const [filterRegion, setFilterRegion] = useState("all");
+  const [filterDepartement, setFilterDepartement] = useState("all");
+  const [filterArrondissement, setFilterArrondissement] = useState("all");
+  const [filterCommune, setFilterCommune] = useState("all");
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+
+  const uniqueRegions = useMemo(() => Array.from(new Set(rows.map(r => r.region).filter(Boolean))).sort(), [rows]);
+  const uniqueDepartements = useMemo(() => Array.from(new Set(rows.map(r => r.departement).filter(Boolean))).sort(), [rows]);
+  const uniqueArrondissements = useMemo(() => Array.from(new Set(rows.map(r => r.arrondissement).filter(Boolean))).sort(), [rows]);
+  const uniqueCommunes = useMemo(() => Array.from(new Set(rows.map(r => r.commune).filter(Boolean))).sort(), [rows]);
 
   const filteredRows = useMemo(() => {
+    let result = rows;
     const q = searchMatricule.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => String(r.matriculeSol || "").toLowerCase().includes(q));
-  }, [rows, searchMatricule]);
+    
+    if (q) {
+      result = result.filter((r) => String(r.matriculeSol || "").toLowerCase().includes(q));
+    }
+    if (filterRegion !== "all") result = result.filter(r => r.region === filterRegion);
+    if (filterDepartement !== "all") result = result.filter(r => r.departement === filterDepartement);
+    if (filterArrondissement !== "all") result = result.filter(r => r.arrondissement === filterArrondissement);
+    if (filterCommune !== "all") result = result.filter(r => r.commune === filterCommune);
+    
+    return result;
+  }, [rows, searchMatricule, filterRegion, filterDepartement, filterArrondissement, filterCommune]);
 
   const adminRows = useMemo(
     () => filteredRows.filter((r: any) => String(r?.userRole || "").toLowerCase() === "admin"),
@@ -266,9 +287,6 @@ export default function SuperAdminAgentsPage() {
     () => filteredRows.filter((r: any) => String(r?.userRole || "").toLowerCase() !== "admin"),
     [filteredRows]
   );
-
-  const adminPagination = usePagination(adminRows, { pageSize: 10 });
-  const otherPagination = usePagination(otherRows, { pageSize: 10 });
 
   const enableListScroll = filteredRows.length > 12;
 
@@ -318,6 +336,14 @@ export default function SuperAdminAgentsPage() {
   const [newDepartement, setNewDepartement] = useState("");
   const [newCommune, setNewCommune] = useState("");
   const [newArrondissement, setNewArrondissement] = useState("");
+
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importSuccessCount, setImportSuccessCount] = useState(0);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importUpdateExisting, setImportUpdateExisting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Normalize a string for comparison (remove accents, lowercase)
   const normalizeStr = (s: string) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[-_\s]+/g, "");
@@ -512,8 +538,8 @@ export default function SuperAdminAgentsPage() {
     setShowPassword(false);
 
     const c = row.contact || {};
-    setContactTelephone(String(c?.telephone || c?.phone || ""));
-    setContactEmail(String(c?.email || ""));
+    setContactTelephone(String(c?.telephone || c?.phone || row.phone || ""));
+    setContactEmail(String(c?.email || row.email || ""));
     setEditRegion(row.region || "");
     setEditDepartement(row.departement || "");
     setEditCommune(row.commune || "");
@@ -625,8 +651,205 @@ export default function SuperAdminAgentsPage() {
     updateMutation.mutate({ idAgent: editing.idAgent || 0, data });
   };
 
+  const handleDownloadTemplate = () => {
+    const template = [
+      ["Matricule", "Prenom", "Nom", "Numero Telephone", "Email", "Region", "Departement", "Arrondissement", "Commune", "Genre", "Grade"],
+      ["A001", "Moussa", "Diop", "771234567", "m.diop@scodi.com", "THIES", "Dakar", "Dakar Plateau", "Plateau", "M", "Capitaine"]
+    ];
+    const csv = Papa.unparse(template, { delimiter: ";" });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "modele_import_agents.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportCSV = () => {
+    if (!filteredRows || filteredRows.length === 0) {
+      toast({ title: "Aucune donnée à exporter", variant: "destructive" });
+      return;
+    }
+    const data = filteredRows.map(r => ({
+      Matricule: r.matriculeSol || "",
+      Prenom: r.prenom || "",
+      Nom: r.nom || "",
+      Grade: r.grade || "",
+      Genre: r.genre || "",
+      "Rôle Métier": r.roleMetierLabel || "",
+      Telephone: (r.contact && (r.contact.telephone || r.contact.phone)) || "",
+      Email: r.email || (r.contact && r.contact.email) || "",
+      Region: r.region || "",
+      Departement: r.departement || "",
+      Commune: r.commune || "",
+      Arrondissement: r.arrondissement || ""
+    }));
+    const csv = Papa.unparse(data, { delimiter: ";" });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "export_agents_scodi.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      encoding: "windows-1252",
+      complete: async (results) => {
+        const rows = results.data as any[];
+        if (rows.length === 0) {
+          toast({ title: "Le fichier est vide", variant: "destructive" });
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
+        setIsImporting(true);
+        setImportDialogOpen(true);
+        setImportProgress({ current: 0, total: rows.length });
+        setImportErrors([]);
+        setImportSuccessCount(0);
+
+        let successCount = 0;
+        const errors: string[] = [];
+        const matriculesInFile = new Set<string>();
+        
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const normalizedRow: any = {};
+          Object.keys(row).forEach(key => {
+            const normalizedKey = key.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\s_\-]/g, "");
+            normalizedRow[normalizedKey] = row[key];
+          });
+
+          const matricule = (normalizedRow.matricule || "").trim();
+          let prenom = (normalizedRow.prenom || "").trim();
+          let nom = (normalizedRow.nom || "").trim();
+          const telephone = (normalizedRow.numerotelephone || normalizedRow.telephone || "").trim();
+          let email = (normalizedRow.email || "").trim();
+          const grade = (normalizedRow.grade || "").trim();
+          const genre = (normalizedRow.genre || "").trim();
+          const region = (normalizedRow.region || normalizedRow.niveau || "").trim();
+          const departement = (normalizedRow.departement || "").trim();
+          const arrondissement = (normalizedRow.arrondissement || "").trim();
+          const commune = (normalizedRow.commune || "").trim();
+
+          if (!matricule || !prenom || !nom) {
+            errors.push(`Ligne ${i + 2}: Matricule, Prénom ou Nom manquant.`);
+            setImportProgress({ current: i + 1, total: rows.length });
+            continue;
+          }
+
+          if (matriculesInFile.has(matricule)) {
+            errors.push(`Ligne ${i + 2}: Matricule en double dans le fichier (${matricule}).`);
+            setImportProgress({ current: i + 1, total: rows.length });
+            continue;
+          }
+          matriculesInFile.add(matricule);
+
+          if (!email) {
+            const safeMatricule = matricule.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+            const safePrenom = prenom.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+            const safeNom = nom.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+            email = `${safeMatricule}.${safePrenom}.${safeNom}@scodi.com`;
+          }
+
+          const existingAgent = rows.find((r: any) => r.matriculeSol?.toLowerCase() === matricule.toLowerCase());
+
+          if (existingAgent && !importUpdateExisting) {
+            errors.push(`Ligne ${i + 2}: Matricule existant en base (${matricule}). Activez "Mettre à jour" pour l'écraser.`);
+            setImportProgress({ current: i + 1, total: rows.length });
+            continue;
+          }
+
+          try {
+            const agentData = {
+              userMatricule: matricule,
+              email,
+              phone: telephone || null,
+              firstName: prenom,
+              lastName: nom,
+              nom,
+              prenom,
+              grade: grade || null,
+              genre: genre || null,
+              region: region || null,
+              departement: departement || null,
+              commune: commune || null,
+              arrondissement: arrondissement || null,
+              contact: {
+                telephone: telephone || null,
+                email
+              },
+            };
+
+            if (existingAgent && importUpdateExisting) {
+              if (existingAgent.idAgent) {
+                await apiRequest<any>({
+                  url: `/api/agents/${existingAgent.idAgent}`,
+                  method: "PUT",
+                  data: agentData,
+                });
+              } else {
+                await apiRequest<any>({
+                  url: `/api/agents/by-user/${existingAgent.userId}`,
+                  method: "PUT",
+                  data: agentData,
+                });
+              }
+            } else {
+              await apiRequest<any>({
+                url: "/api/agents",
+                method: "POST",
+                data: agentData,
+              });
+            }
+            successCount++;
+          } catch (err: any) {
+            const msg = err?.body?.message || err?.message || "Erreur inconnue";
+            errors.push(`Ligne ${i + 2} (${matricule}): ${msg}`);
+          }
+          setImportProgress({ current: i + 1, total: rows.length });
+          setImportSuccessCount(successCount);
+        }
+
+        setIsImporting(false);
+        setImportErrors(errors);
+        qc.invalidateQueries({ queryKey: ["/api/agents"] });
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      },
+      error: (error) => {
+        toast({ title: "Erreur de lecture du fichier CSV", description: error.message, variant: "destructive" });
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRows.size === 0) return;
+    for (const id of Array.from(selectedRows)) {
+      try {
+        await apiRequest({ url: `/api/agents/${id}`, method: "DELETE" });
+      } catch (e) {
+        console.error("Failed to delete agent", id, e);
+      }
+    }
+    setSelectedRows(new Set());
+    qc.invalidateQueries({ queryKey: ["/api/agents"] });
+    toast({ title: "Agents supprimés" });
+  };
+
   return (
-    <div className="space-y-4 max-w-6xl mx-auto py-4">
+    <div className="space-y-4 w-full px-4 py-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Contrôle des Agents</h2>
           <div className="text-sm text-muted-foreground">Administration centrale - Gestion des comptes (agents)</div>
@@ -637,200 +860,178 @@ export default function SuperAdminAgentsPage() {
             <CardTitle>Liste des agents ({filteredRows.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
-              <div className="w-full md:max-w-sm">
+            <div className="flex flex-col xl:flex-row gap-3 xl:items-start justify-between mb-4">
+              <div className="w-full flex flex-wrap gap-2 items-center">
                 <Input
                   placeholder="Rechercher par matricule"
                   value={searchMatricule}
                   onChange={(e) => setSearchMatricule(e.target.value)}
+                  className="w-full md:max-w-[180px]"
                 />
+                <Select value={filterRegion} onValueChange={setFilterRegion}>
+                  <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Région" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les régions</SelectItem>
+                    {uniqueRegions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filterDepartement} onValueChange={setFilterDepartement}>
+                  <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Département" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les dépt.</SelectItem>
+                    {uniqueDepartements.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filterCommune} onValueChange={setFilterCommune}>
+                  <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Commune" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les comm.</SelectItem>
+                    {uniqueCommunes.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filterArrondissement} onValueChange={setFilterArrondissement}>
+                  <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Arrondissement" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les arrond.</SelectItem>
+                    {uniqueArrondissements.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-              <Button onClick={() => setAddOpen(true)}>
-                Ajouter un Agent
-              </Button>
+              <div className="flex flex-wrap items-center gap-2 justify-end w-full xl:w-auto mt-2 xl:mt-0">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant={selectedRows.size > 0 ? "destructive" : "outline"} disabled={selectedRows.size === 0}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Supprimer{selectedRows.size > 0 ? ` (${selectedRows.size})` : ""}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Voulez-vous vraiment supprimer les {selectedRows.size} agents sélectionnés ?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleBulkDelete}>
+                        Supprimer
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <Button variant="outline" onClick={handleDownloadTemplate}>
+                  Modèle CSV
+                </Button>
+                <Button variant="outline" onClick={handleExportCSV}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Exporter
+                </Button>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={handleImportCSV}
+                    ref={fileInputRef}
+                  />
+                  <Button variant="outline" type="button">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Importer
+                  </Button>
+                </div>
+                <Button onClick={() => setAddOpen(true)}>
+                  Ajouter un Agent
+                </Button>
+              </div>
             </div>
 
             {isLoading ? (
               <div className="py-6">Chargement...</div>
             ) : (
-              <>
-                {(adminPagination.pageCount > 1 || otherPagination.pageCount > 1) && (
-                  <div className="mb-4 flex flex-col gap-3">
-                    {adminPagination.pageCount > 1 && (
-                      <div className="flex items-center justify-center gap-4">
-                        <Button variant="outline" onClick={() => adminPagination.prevPage()} disabled={adminPagination.page <= 1}>
-                          Précédent
-                        </Button>
-                        <div className="text-sm text-muted-foreground">
-                          Admins: Page {adminPagination.page} / {adminPagination.pageCount}
-                        </div>
-                        <Button variant="outline" onClick={() => adminPagination.nextPage()} disabled={adminPagination.page >= adminPagination.pageCount}>
-                          Suivant
-                        </Button>
-                      </div>
-                    )}
-                    {otherPagination.pageCount > 1 && (
-                      <div className="flex items-center justify-center gap-4">
-                        <Button variant="outline" onClick={() => otherPagination.prevPage()} disabled={otherPagination.page <= 1}>
-                          Précédent
-                        </Button>
-                        <div className="text-sm text-muted-foreground">
-                          Autres: Page {otherPagination.page} / {otherPagination.pageCount}
-                        </div>
-                        <Button variant="outline" onClick={() => otherPagination.nextPage()} disabled={otherPagination.page >= otherPagination.pageCount}>
-                          Suivant
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+              <div className="border rounded-md">
+                <Table wrapperClassName="max-h-[600px] overflow-y-auto w-full">
+                  <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                    <TableRow>
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={filteredRows.length > 0 && selectedRows.size === filteredRows.filter(r => r.idAgent).length}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              const allIds = new Set(filteredRows.filter(r => r.idAgent).map(r => r.idAgent as number));
+                              setSelectedRows(allIds);
+                            } else {
+                              setSelectedRows(new Set());
+                            }
+                          }}
+                        />
+                      </TableHead>
+                      <TableHead></TableHead>
+                      <TableHead>Matricule</TableHead>
+                      <TableHead>Prénom</TableHead>
+                      <TableHead>Nom</TableHead>
+                      <TableHead className="text-center">Grade</TableHead>
+                      <TableHead>Rôle métier</TableHead>
+                      <TableHead className="text-center">Genre</TableHead>
+                      <TableHead>Téléphone</TableHead>
+                      <TableHead>Région</TableHead>
+                      <TableHead>Département</TableHead>
+                      <TableHead>Commune</TableHead>
+                      <TableHead>Arrondissement</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
 
-                <div className="w-full overflow-x-auto border rounded-md">
-                  <div className={enableListScroll ? "max-h-[520px] overflow-y-auto" : ""}>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead></TableHead>
-                          <TableHead>Matricule</TableHead>
-                          <TableHead>Prénom</TableHead>
-                          <TableHead>Nom</TableHead>
-                          <TableHead className="text-center">Grade</TableHead>
-                          <TableHead>Rôle métier</TableHead>
-                          <TableHead className="text-center">Genre</TableHead>
-                          <TableHead>National/Région</TableHead>
-                          <TableHead>Département</TableHead>
-                          <TableHead></TableHead>
-                        </TableRow>
-                      </TableHeader>
-
-                      <TableBody>
-                        {adminPagination.currentItems.map((r: any) => (
-                          <TableRow key={r.idAgent ?? `u-${r.userId}`}>
-                            <TableCell>
-                              <User className="h-4 w-4 text-green-600" />
-                            </TableCell>
-                            <TableCell>{r.matriculeSol}</TableCell>
-                            <TableCell>{r.prenom || "-"}</TableCell>
-                            <TableCell>{r.nom || "-"}</TableCell>
-                            <TableCell className="text-center">{r.grade || "-"}</TableCell>
-                            <TableCell>{r.roleMetierLabel || (r.roleMetierId ? String(r.roleMetierId) : "-")}</TableCell>
-                            <TableCell className="text-center">{r.genre || "-"}</TableCell>
-                            <TableCell>{r.region || "-"}</TableCell>
-                            <TableCell>{r.departement || "-"}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
-                                  Modifier
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-sky-500 hover:text-sky-600"
-                                  onClick={() => setInfoRow(r)}
-                                >
-                                  <Info className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-
-                    {adminPagination.currentItems.length > 0 && otherPagination.currentItems.length > 0 && (
-                      <TableRow>
-                        <TableCell colSpan={10} className="bg-muted/50 p-0">
-                          <div className="h-2" />
+                  <TableBody>
+                    {filteredRows.map((r: any) => (
+                      <TableRow key={r.idAgent ?? `u-${r.userId}`}>
+                        <TableCell>
+                          {r.idAgent ? (
+                            <Checkbox
+                              checked={selectedRows.has(r.idAgent)}
+                              onCheckedChange={(checked) => {
+                                const next = new Set(selectedRows);
+                                if (checked) next.add(r.idAgent);
+                                else next.delete(r.idAgent);
+                                setSelectedRows(next);
+                              }}
+                            />
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          <User className={`h-4 w-4 ${r.userRole?.toLowerCase() === 'admin' ? 'text-blue-600' : 'text-green-600'}`} />
+                        </TableCell>
+                        <TableCell>{r.matriculeSol}</TableCell>
+                        <TableCell>{r.prenom || "-"}</TableCell>
+                        <TableCell>{r.nom || "-"}</TableCell>
+                        <TableCell className="text-center">{r.grade || "-"}</TableCell>
+                        <TableCell>{r.roleMetierLabel || (r.roleMetierId ? String(r.roleMetierId) : "-")}</TableCell>
+                        <TableCell className="text-center">{r.genre || "-"}</TableCell>
+                        <TableCell>{r.phone || (r.contact && (r.contact.telephone || r.contact.phone)) || "-"}</TableCell>
+                        <TableCell>{r.region || "-"}</TableCell>
+                        <TableCell>{r.departement || "-"}</TableCell>
+                        <TableCell>{r.commune || "-"}</TableCell>
+                        <TableCell>{r.arrondissement || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
+                              Modifier
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="text-sky-500 hover:text-sky-600"
+                              onClick={() => setInfoRow(r)}
+                            >
+                              <Info className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    )}
-
-                        {otherPagination.currentItems.map((r: any) => (
-                          <TableRow key={r.idAgent ?? `u-${r.userId}`}>
-                            <TableCell>
-                              <User className="h-4 w-4 text-green-600" />
-                            </TableCell>
-                            <TableCell>{r.matriculeSol}</TableCell>
-                            <TableCell>{r.prenom || "-"}</TableCell>
-                            <TableCell>{r.nom || "-"}</TableCell>
-                            <TableCell className="text-center">{r.grade || "-"}</TableCell>
-                            <TableCell>{r.roleMetierLabel || (r.roleMetierId ? String(r.roleMetierId) : "-")}</TableCell>
-                            <TableCell className="text-center">{r.genre || "-"}</TableCell>
-                            <TableCell>{r.region || "-"}</TableCell>
-                            <TableCell>{r.departement || "-"}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
-                                  Modifier
-                                </Button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="outline" disabled={deleteMutation.isPending || !r.idAgent}>
-                                      <Trash2 className="h-4 w-4 text-red-600" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Voulez-vous vraiment supprimer l'agent "{r.matriculeSol}" ?
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => r.idAgent && deleteMutation.mutate(r.idAgent)}>
-                                        Supprimer
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {!isLoading && (
-              <div className="mt-4 flex flex-col gap-4">
-                {adminPagination.pageCount > 1 && (
-                  <div className="flex items-center justify-center gap-4">
-                    <Button variant="outline" onClick={() => adminPagination.prevPage()} disabled={adminPagination.page <= 1}>
-                      Précédent
-                    </Button>
-                    <div className="text-sm text-muted-foreground">
-                      Admins: Page {adminPagination.page} / {adminPagination.pageCount}
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => adminPagination.nextPage()}
-                      disabled={adminPagination.page >= adminPagination.pageCount}
-                    >
-                      Suivant
-                    </Button>
-                  </div>
-                )}
-
-                {otherPagination.pageCount > 1 && (
-                  <div className="flex items-center justify-center gap-4">
-                    <Button variant="outline" onClick={() => otherPagination.prevPage()} disabled={otherPagination.page <= 1}>
-                      Précédent
-                    </Button>
-                    <div className="text-sm text-muted-foreground">
-                      Autres: Page {otherPagination.page} / {otherPagination.pageCount}
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => otherPagination.nextPage()}
-                      disabled={otherPagination.page >= otherPagination.pageCount}
-                    >
-                      Suivant
-                    </Button>
-                  </div>
-                )}
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
@@ -1400,6 +1601,63 @@ export default function SuperAdminAgentsPage() {
                 disabled={createMutation.isPending}
               >
                 {createMutation.isPending ? "Création…" : "Ajouter"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={importDialogOpen} onOpenChange={(open) => !isImporting && setImportDialogOpen(open)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Importation des agents</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2 border p-3 rounded-md mb-2">
+                <Switch 
+                  id="import-update" 
+                  checked={importUpdateExisting} 
+                  onCheckedChange={setImportUpdateExisting} 
+                  disabled={isImporting}
+                />
+                <Label htmlFor="import-update">
+                  Mettre à jour les agents existants (remplace les doublons)
+                </Label>
+              </div>
+
+              <div className="text-sm">
+                Progression : {importProgress.current} / {importProgress.total}
+              </div>
+              <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                <div 
+                  className="bg-primary h-full transition-all duration-300" 
+                  style={{ width: `${importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0}%` }} 
+                />
+              </div>
+              
+              {!isImporting && (
+                <div className="mt-4">
+                  <div className="font-semibold text-green-600 mb-2">
+                    Succès : {importSuccessCount} agent(s) importé(s).
+                  </div>
+                  <div className="text-sm text-muted-foreground mb-4">
+                    Les nouveaux agents ont été créés avec le mot de passe par défaut (0000).
+                  </div>
+                  {importErrors.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="font-semibold text-red-600">Erreurs ({importErrors.length}) :</div>
+                      <div className="max-h-40 overflow-y-auto text-sm bg-muted p-2 rounded-md">
+                        {importErrors.map((err, idx) => (
+                          <div key={idx} className="text-red-500 mb-1">{err}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setImportDialogOpen(false)} disabled={isImporting}>
+                Fermer
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -92,5 +92,22 @@ export default defineConfig({
       }
     }
   },
+  preview: {
+    host: true,
+    port: 5173,
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: BACKEND_URL,
+        changeOrigin: true,
+        secure: false
+      },
+      '/ws': {
+        target: WS_BACKEND_URL,
+        ws: true,
+        changeOrigin: true
+      }
+    }
+  },
   clearScreen: false
 })
