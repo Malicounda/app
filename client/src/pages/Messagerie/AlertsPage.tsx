@@ -836,6 +836,11 @@ function AlertsPage() {
         return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
       });
 
+      // Invalider les compteurs de notifications pour mise à jour immédiate des badges
+      queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
+      queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
+      queryClient.invalidateQueries({ queryKey: ["alerts-unread-count"] });
+
       // Rafraîchir les données depuis le serveur
       refetch();
     } catch (error) {
@@ -877,6 +882,11 @@ function AlertsPage() {
         const arr = Array.isArray(old) ? old : [];
         return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
       });
+
+      // Invalider les compteurs de notifications pour mise à jour immédiate des badges
+      queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
+      queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
+      queryClient.invalidateQueries({ queryKey: ["alerts-unread-count"] });
 
       toast({
         title: "Alerte supprimée",

@@ -48,6 +48,7 @@ export function useLauncherBadge(enabled: boolean) {
       void queryClient.invalidateQueries({ queryKey: ["messages-unread-count-launcher-badge"] });
       void queryClient.invalidateQueries({ queryKey: ["messages-unread-count-main"] });
       void queryClient.invalidateQueries({ queryKey: ["messages-unread-count-alerte"] });
+      void queryClient.invalidateQueries({ queryKey: ["messages-unread-count-supervisor-home"] });
     };
     window.addEventListener("launcher-badge-refresh", onRefresh);
 

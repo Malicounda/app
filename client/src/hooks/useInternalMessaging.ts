@@ -237,6 +237,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         // Refresh depuis le serveur pour garantir la cohérence
         setTimeout(() => fetchSent(), 500);
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
         
         return created;
       } finally {
@@ -253,8 +254,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       }
       setSending(true);
       try {
-        const responses: InternalMessageRecord[][] = [];
-        for (const target of targets) {
+        const promises = targets.map(async (target) => {
           const formData = new FormData();
           formData.append("subject", subject);
           formData.append("content", content);
@@ -277,12 +277,12 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
             throw new Error(await extractErrorMessage(response));
           }
           const data = await response.json();
-          const created = (Array.isArray(data) ? data : [data]).map((message) => ({
+          return (Array.isArray(data) ? data : [data]).map((message) => ({
             ...message,
             isGroupMessage: true,
           })) as InternalMessageRecord[];
-          responses.push(created);
-        }
+        });
+        const responses = await Promise.all(promises);
         const flattened = sortMessagesByDate(responses.flat());
         if (flattened.length) {
           setSent((prev) => {
@@ -295,6 +295,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         // Refresh depuis le serveur pour garantir la cohérence
         setTimeout(() => fetchSent(), 500);
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
         
         return flattened;
       } finally {
@@ -344,6 +345,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           purgeStaleMessage(id, isGroup);
           await refreshAll();
           queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
           return;
         }
         throw err;
@@ -352,6 +354,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       removeMessageFromState(id, isGroup);
       await refreshAll();
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
+      queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
     },
     [removeMessageFromState, purgeStaleMessage, refreshAll, queryClient]
   );
@@ -381,6 +384,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
+    queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
   }, [queryClient, domaineId, purgeStaleMessage]);
 
   const state = useMemo(

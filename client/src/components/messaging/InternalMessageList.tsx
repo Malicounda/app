@@ -248,6 +248,7 @@ export default function InternalMessageList({
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
       } catch {
         onStaleMessage?.(m);
       }

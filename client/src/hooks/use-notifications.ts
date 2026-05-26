@@ -159,6 +159,7 @@ export function useNotifications(enabled = true, userId?: number | null) {
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
+        queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
         window.dispatchEvent(new CustomEvent('messaging-refresh-all'));
       }
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
