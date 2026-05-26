@@ -4,9 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { getApiBaseUrl } from '../utils/environment';
-import { getMessagingDomaineQueryParam } from '../utils/messagingDomain';
 import { useToast } from './use-toast';
-import { syncLauncherBadge } from '../lib/launcherBadge';
 
 const VAPID_PUBLIC_KEY =
   'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
@@ -75,35 +73,6 @@ async function ensureAndroidNotificationChannel(): Promise<void> {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Récupérer le VRAI total non-lu depuis le serveur (pas le cache)
-// ──────────────────────────────────────────────────────────────────────
-
-async function fetchTrueUnreadTotal(): Promise<number> {
-  try {
-    const [alertsRes, msgsRes] = await Promise.allSettled([
-      authenticatedFetch('/api/alerts/unread-count'),
-      authenticatedFetch(`/api/messages/unread-count?${getMessagingDomaineQueryParam()}`),
-    ]);
-
-    let alertCount = 0;
-    let msgCount = 0;
-
-    if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) {
-      const data = await alertsRes.value.json();
-      alertCount = data?.count || 0;
-    }
-    if (msgsRes.status === 'fulfilled' && msgsRes.value.ok) {
-      const data = await msgsRes.value.json();
-      msgCount = data?.total || 0;
-    }
-
-    return alertCount + msgCount;
-  } catch {
-    return 0;
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────
 // Afficher une notification système Android
 // ──────────────────────────────────────────────────────────────────────
 
@@ -128,19 +97,14 @@ async function showSystemNotification(
           smallIcon: 'ic_launcher_foreground',
           iconColor: '#114B26',
           extra: extra || {},
-          // Pas de schedule → notification IMMÉDIATE (pas de délai 100ms)
         },
       ],
     });
     console.log('[Notif] 📬 Notification affichée:', { id, title });
 
-    // Après la notification, forcer le badge avec le VRAI total du serveur
-    // (pas le cache React Query qui peut être vide en arrière-plan)
-    const total = await fetchTrueUnreadTotal();
-    if (total > 0) {
-      await syncLauncherBadge(total);
-      console.log('[Notif] 🔢 Badge mis à jour:', total);
-    }
+    // Déclencher la mise à jour du badge via useLauncherBadge
+    // qui interroge directement le serveur pour le vrai total
+    window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
   } catch (e) {
     console.warn('[Notif] ⚠️ schedule error:', e);
   }
