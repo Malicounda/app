@@ -4,18 +4,25 @@ import { useQueryClient } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { getApiBaseUrl } from '../utils/environment';
+import { getMessagingDomaineQueryParam } from '../utils/messagingDomain';
 import { useToast } from './use-toast';
 import { syncLauncherBadge } from '../lib/launcherBadge';
 
 const VAPID_PUBLIC_KEY =
   'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
 
-const ANDROID_CHANNEL_ID = 'alerte_messages_v4';
+// ──────────────────────────────────────────────────────────────────────
+// IMPORTANT: Sur Android, un channel de notification est IMMUABLE une
+// fois créé. Pour changer ses paramètres (son, vibration, importance),
+// il faut SUPPRIMER l'ancien et en créer un NOUVEAU avec un ID différent.
+// Incrémentez ce numéro à chaque fois que vous modifiez les paramètres.
+// ──────────────────────────────────────────────────────────────────────
+const ANDROID_CHANNEL_ID = 'alerte_messages_v5';
+const OLD_CHANNEL_IDS = ['alerte_messages', 'alerte_messages_v2', 'alerte_messages_v3', 'alerte_messages_v4'];
 
 /**
  * Détecte si on est dans l'APK Alerte de manière fiable.
- * Vérifie le user-agent en premier (toujours injecté par le natif),
- * puis le bridge Capacitor en fallback.
+ * User-agent « AlerteAPK » est TOUJOURS injecté par Android natif.
  */
 function isInAlerteApk(): boolean {
   if (typeof navigator !== 'undefined' && navigator.userAgent.includes('AlerteAPK')) {
@@ -27,60 +34,89 @@ function isInAlerteApk(): boolean {
   return Boolean(cap?.isNativePlatform?.());
 }
 
-function getCapacitorPlatform(): string {
-  const cap = typeof window !== 'undefined' ? (window as Window & { Capacitor?: { getPlatform?: () => string } }).Capacitor : undefined;
-  return cap?.getPlatform?.() || 'web';
-}
-
 function getSocketServerUrl(): string {
   const api = getApiBaseUrl();
   return api.replace(/\/api\/?$/, '');
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Canal de notification Android
+// ──────────────────────────────────────────────────────────────────────
+
+let channelReady = false;
+
 async function ensureAndroidNotificationChannel(): Promise<void> {
-  // Sur Android (via user-agent ou platform check)
-  const platform = getCapacitorPlatform();
-  const isAndroid = platform === 'android' || navigator.userAgent.includes('AlerteAPK');
-  if (!isAndroid) return;
+  if (!isInAlerteApk()) return;
+  if (channelReady) return; // Ne pas recréer à chaque notification
 
   try {
-    // Supprimer les anciens channels pour forcer la recréation avec les bons paramètres
-    for (const oldId of ['alerte_messages', 'alerte_messages_v2', 'alerte_messages_v3']) {
-      try {
-        await LocalNotifications.deleteChannel({ id: oldId });
-      } catch {
-        /* ignore */
-      }
+    // Supprimer TOUS les anciens channels (y compris v4 qui était sans son)
+    for (const oldId of OLD_CHANNEL_IDS) {
+      try { await LocalNotifications.deleteChannel({ id: oldId }); } catch { /* ignore */ }
     }
+
     await LocalNotifications.createChannel({
       id: ANDROID_CHANNEL_ID,
-      name: 'Messages et alertes',
-      description: 'Notifications avec son et vibration pour les alertes et messages',
-      importance: 5,          // MAX — heads-up, son, vibration
-      visibility: 1,          // PUBLIC
+      name: 'Alertes et messages',
+      description: 'Son, vibration et notification en tête pour les alertes et messages',
+      importance: 5,     // MAX — heads-up notification
+      visibility: 1,     // PUBLIC — visible sur l'écran verrouillé
       vibration: true,
       lights: true,
       lightColor: '#114B26',
-      // Ne PAS spécifier sound: 'default' — cela cherche un fichier inexistant
-      // Android utilisera automatiquement la sonnerie système par défaut
+      // sound: omis volontairement — Android utilise la sonnerie système par défaut
+      // quand importance >= 3 et qu'aucun fichier son custom n'est spécifié
     });
-    console.log('[LocalNotifications] Channel créé:', ANDROID_CHANNEL_ID);
+    channelReady = true;
+    console.log('[Notif] ✅ Channel Android créé:', ANDROID_CHANNEL_ID);
   } catch (e) {
-    console.warn('[LocalNotifications] createChannel:', e);
+    console.warn('[Notif] ⚠️ createChannel error:', e);
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Récupérer le VRAI total non-lu depuis le serveur (pas le cache)
+// ──────────────────────────────────────────────────────────────────────
+
+async function fetchTrueUnreadTotal(): Promise<number> {
+  try {
+    const [alertsRes, msgsRes] = await Promise.allSettled([
+      authenticatedFetch('/api/alerts/unread-count'),
+      authenticatedFetch(`/api/messages/unread-count?${getMessagingDomaineQueryParam()}`),
+    ]);
+
+    let alertCount = 0;
+    let msgCount = 0;
+
+    if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) {
+      const data = await alertsRes.value.json();
+      alertCount = data?.count || 0;
+    }
+    if (msgsRes.status === 'fulfilled' && msgsRes.value.ok) {
+      const data = await msgsRes.value.json();
+      msgCount = data?.total || 0;
+    }
+
+    return alertCount + msgCount;
+  } catch {
+    return 0;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Afficher une notification système Android
+// ──────────────────────────────────────────────────────────────────────
 
 async function showSystemNotification(
   title: string,
   body: string,
-  extra?: Record<string, unknown>,
-  badgeCount?: number
+  extra?: Record<string, unknown>
 ): Promise<void> {
-  // Utiliser isInAlerteApk() au lieu de Capacitor.isNativePlatform() qui peut échouer
   if (!isInAlerteApk()) return;
 
   try {
     await ensureAndroidNotificationChannel();
+
     const id = Math.floor(Date.now() % 2147483640) + 1;
     await LocalNotifications.schedule({
       notifications: [
@@ -91,26 +127,28 @@ async function showSystemNotification(
           channelId: ANDROID_CHANNEL_ID,
           smallIcon: 'ic_launcher_foreground',
           iconColor: '#114B26',
-          // Planifier immédiatement (100ms dans le futur pour éviter le filtre Android)
-          schedule: { at: new Date(Date.now() + 100) },
           extra: extra || {},
+          // Pas de schedule → notification IMMÉDIATE (pas de délai 100ms)
         },
       ],
     });
-    console.log('[LocalNotifications] Notification planifiée:', { id, title });
+    console.log('[Notif] 📬 Notification affichée:', { id, title });
 
-    if (badgeCount !== undefined && badgeCount > 0) {
-      // Android 8.0+ (Notification Dots) écrase automatiquement le badge de l'icône de l'app
-      // pour correspondre au nombre de notifications dans le tray. 
-      // On force la VRAIE valeur totale (messages + alertes) 500ms après la notification.
-      setTimeout(() => {
-        void syncLauncherBadge(badgeCount);
-      }, 500);
+    // Après la notification, forcer le badge avec le VRAI total du serveur
+    // (pas le cache React Query qui peut être vide en arrière-plan)
+    const total = await fetchTrueUnreadTotal();
+    if (total > 0) {
+      await syncLauncherBadge(total);
+      console.log('[Notif] 🔢 Badge mis à jour:', total);
     }
   } catch (e) {
-    console.warn('[LocalNotifications] schedule:', e);
+    console.warn('[Notif] ⚠️ schedule error:', e);
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Hook principal
+// ──────────────────────────────────────────────────────────────────────
 
 /**
  * Socket.io + notifications système (APK Android et web).
@@ -129,14 +167,12 @@ export function useNotifications(enabled = true, userId?: number | null) {
     const setup = async () => {
       try {
         const check = await LocalNotifications.checkPermissions();
-        console.log('[LocalNotifications] Permission status:', check.display);
         if (check.display !== 'granted') {
-          const result = await LocalNotifications.requestPermissions();
-          console.log('[LocalNotifications] Permission request result:', result.display);
+          await LocalNotifications.requestPermissions();
         }
         await ensureAndroidNotificationChannel();
       } catch (e) {
-        console.log('[LocalNotifications] setup error:', e);
+        console.log('[Notif] setup error:', e);
       }
     };
     void setup();
@@ -155,7 +191,6 @@ export function useNotifications(enabled = true, userId?: number | null) {
       if (cancelled) return;
 
       const socketUrl = getSocketServerUrl();
-      console.log('[Socket.io] Connexion à', socketUrl, 'userId:', userId);
 
       socket = io(socketUrl, {
         transports: ['websocket', 'polling'],
@@ -171,7 +206,6 @@ export function useNotifications(enabled = true, userId?: number | null) {
         const uid = Number(userId);
         if (socket && Number.isFinite(uid) && uid > 0) {
           socket.emit('authenticate', uid);
-          console.log('[Socket.io] Authentifié avec userId:', uid);
         }
       });
 
@@ -179,9 +213,7 @@ export function useNotifications(enabled = true, userId?: number | null) {
         const title = payload?.title || 'Notification';
         const body = payload?.body || '';
 
-        console.log('[Socket.io] Notification reçue:', { title, body, type: payload?.data?.type });
-
-        // Toast in-app si visible
+        // Toast in-app si l'application est visible
         if (document.visibilityState === 'visible') {
           toast({
             title,
@@ -190,16 +222,10 @@ export function useNotifications(enabled = true, userId?: number | null) {
           });
         }
 
-        // Calculer le total actuel des non-lus en cache, +1 pour cette nouvelle notif
-        const alertsData = queryClient.getQueryData<{ count: number }>(["unread-alerts-count", true]);
-        const msgData = queryClient.getQueryData<{ total: number }>(["messages-unread-count-launcher-badge"]);
-        const currentTotal = (alertsData?.count || 0) + (msgData?.total || 0);
-        const newBadgeTotal = currentTotal + 1;
+        // Notification système Android (son + vibration + heads-up + badge)
+        void showSystemNotification(title, body, payload?.data as Record<string, unknown>);
 
-        // Notification système Android (son + vibration + heads-up) + correction du badge
-        void showSystemNotification(title, body, payload?.data as Record<string, unknown>, newBadgeTotal);
-
-        // Invalidation des caches pour mise à jour immédiate des badges
+        // Invalidation des caches pour mise à jour immédiate des compteurs in-app
         if (payload?.data?.type === 'ALERT') {
           queryClient.invalidateQueries({ queryKey: ['/api/alerts'] });
           queryClient.invalidateQueries({ queryKey: ['/api/alerts/received'] });
@@ -212,6 +238,7 @@ export function useNotifications(enabled = true, userId?: number | null) {
           queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
           queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
           queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count-launcher-badge'] });
           window.dispatchEvent(new CustomEvent('messaging-refresh-all'));
         }
         queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
@@ -219,7 +246,7 @@ export function useNotifications(enabled = true, userId?: number | null) {
       });
 
       socket.on('connect_error', (err) => {
-        console.warn('[Socket.io] Erreur de connexion:', err.message);
+        console.warn('[Socket.io] Erreur connexion:', err.message);
       });
 
       socketRef.current = socket;
@@ -233,7 +260,7 @@ export function useNotifications(enabled = true, userId?: number | null) {
     };
   }, [enabled, userId, toast, queryClient]);
 
-  // Web Push (pour les notifications quand l'app est fermée — navigateurs web uniquement)
+  // Web Push (navigateurs web uniquement)
   useEffect(() => {
     if (!enabled) return;
     const supported = 'serviceWorker' in navigator && 'PushManager' in window;
