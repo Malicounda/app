@@ -45,6 +45,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth();
   }, []);
 
+  // SYNC AUTOMATIQUE: Toutes les 30 secondes + IMMÉDIATE au reconnect
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const autoSync = async () => {
+      try {
+        const result = await syncService.syncWithServer();
+        if (result.success) {
+          setLastSuccessfulAuthSync(new Date().toISOString());
+          console.log('✅ Auto-sync réussie');
+        } else {
+          console.warn('⚠️ Auto-sync échouée:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Erreur auto-sync:', error);
+      }
+    };
+
+    // Première synchro après 5 secondes
+    const initialTimeout = setTimeout(() => {
+      autoSync();
+    }, 5000);
+
+    // Puis toutes les 30 secondes
+    const syncInterval = setInterval(() => {
+      autoSync();
+    }, 30000);
+
+    // IMMÉDIATE: Déclencher sync quand on revient online
+    const handleOnline = () => {
+      console.log('📱 Connexion rétablie - Sync immédiate!');
+      autoSync();
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(syncInterval);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [isAuthenticated]);
+
   const initializeAuth = async () => {
     try {
       // Initialiser la base de données

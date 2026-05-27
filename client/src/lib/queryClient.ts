@@ -35,6 +35,29 @@ async function enqueueOutbox(args: { entity: string; action: string; payload: an
   if (env !== 'android') return null;
 
   const { invoke } = await import('@tauri-apps/api/core');
+  const payloadText = JSON.stringify(args.payload);
+
+  // Vérifier s'il existe déjà une entrée pending identique (éviter les doublons)
+  try {
+    const existing = await invoke('plugin:sql|select', {
+      db: 'scodipp.db',
+      query: `
+        SELECT id, created_at FROM outbox
+        WHERE entity = ? AND action = ? AND payload = ? AND status = 'pending'
+        LIMIT 1
+      `,
+      args: [args.entity, args.action, payloadText],
+    });
+
+    if (Array.isArray(existing) && existing.length > 0) {
+      const row: any = existing[0];
+      return { id: row.id, createdAt: Number(row.created_at) };
+    }
+  } catch (e) {
+    // Si la vérification échoue, on continue et on tente l'insertion
+    console.warn('[enqueueOutbox] duplicate check failed, continuing insert', e);
+  }
+
   const id = createOutboxId();
   const createdAt = Date.now();
 
@@ -44,7 +67,7 @@ async function enqueueOutbox(args: { entity: string; action: string; payload: an
       INSERT INTO outbox (id, created_at, entity, action, payload, status)
       VALUES (?, ?, ?, ?, ?, 'pending')
     `,
-    args: [id, createdAt, args.entity, args.action, JSON.stringify(args.payload)],
+    args: [id, createdAt, args.entity, args.action, payloadText],
   });
 
   return { id, createdAt };
@@ -52,11 +75,17 @@ async function enqueueOutbox(args: { entity: string; action: string; payload: an
 
 function mapOfflineEntity(method: string, url: string) {
   if (method.toUpperCase() !== 'POST') return null;
+  // PRODUCTION: Seules les ALERTES et MESSAGES doivent être synchronisées
   // url can be '/api/alerts' or '/alerts' depending on caller; normalize by includes
   if (url.includes('/alerts')) return { entity: 'alert', action: 'create' };
   if (url.includes('/messages')) return { entity: 'message', action: 'create' };
-  if (url.includes('/hunting-reports')) return { entity: 'hunting_report', action: 'create' };
-  // declaration-especes has no create route today; hunting-reports handles it.
+  
+  // ❌ NE PAS synchroniser:
+  // - hunting-reports (trop volumineux, créé en ligne)
+  // - declaration-especes (non supporté pour offline sync)
+  // if (url.includes('/hunting-reports')) return null; // DISABLED
+  // if (url.includes('/declaration')) return null; // DISABLED
+  
   return null;
 }
 

@@ -5,6 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { getApiBaseUrl } from '../utils/environment';
 import { useToast } from './use-toast';
+import { syncLauncherBadge } from '../lib/launcherBadge';
 
 const VAPID_PUBLIC_KEY =
   'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
@@ -79,7 +80,8 @@ async function ensureAndroidNotificationChannel(): Promise<void> {
 async function showSystemNotification(
   title: string,
   body: string,
-  extra?: Record<string, unknown>
+  extra?: Record<string, unknown>,
+  badgeCount?: number
 ): Promise<void> {
   if (!isInAlerteApk()) return;
 
@@ -97,13 +99,22 @@ async function showSystemNotification(
           smallIcon: 'ic_launcher_foreground',
           iconColor: '#114B26',
           extra: extra || {},
+          schedule: { at: new Date(Date.now() + 100) },
         },
       ],
     });
     console.log('[Notif] 📬 Notification affichée:', { id, title });
 
-    // Déclencher la mise à jour du badge via useLauncherBadge
-    // qui interroge directement le serveur pour le vrai total
+    // Si on a un total fourni, forcer le badge après l'affichage natif
+    // pour écraser le comportement "Notification Dots" d'Android 8.0+
+    // qui met le badge à 1 par défaut.
+    if (badgeCount !== undefined && badgeCount > 0) {
+      setTimeout(() => {
+        void syncLauncherBadge(badgeCount);
+      }, 500);
+    }
+
+    // Déclencher la mise à jour des cartes et de l'interface
     window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
   } catch (e) {
     console.warn('[Notif] ⚠️ schedule error:', e);
@@ -186,8 +197,14 @@ export function useNotifications(enabled = true, userId?: number | null) {
           });
         }
 
+        // Calculer le total actuel depuis le cache et ajouter 1
+        const alertsData = queryClient.getQueryData<{ count: number }>(["unread-alerts-count", true]);
+        const msgData = queryClient.getQueryData<{ total: number }>(["messages-unread-count-launcher-badge"]);
+        const currentTotal = (alertsData?.count || 0) + (msgData?.total || 0);
+        const newBadgeTotal = currentTotal + 1;
+
         // Notification système Android (son + vibration + heads-up + badge)
-        void showSystemNotification(title, body, payload?.data as Record<string, unknown>);
+        void showSystemNotification(title, body, payload?.data as Record<string, unknown>, newBadgeTotal);
 
         // Invalidation des caches pour mise à jour immédiate des compteurs in-app
         if (payload?.data?.type === 'ALERT') {
