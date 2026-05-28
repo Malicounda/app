@@ -106,8 +106,6 @@ export default function AgentDefaultPage() {
                 let smsPath = "/sms";
                 if (user?.type === "secteur" || user?.role === "sub-agent") {
                   smsPath = "/sector-sms";
-                } else if (user?.role === "agent" || user?.type === "regional") {
-                  smsPath = "/regional-sms";
                 }
                 setLocation(smsPath);
               }}
