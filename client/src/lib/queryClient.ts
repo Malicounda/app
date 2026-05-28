@@ -211,7 +211,6 @@ export async function apiRequest<T>({
     
     // Ajout du token JWT si présent dans localStorage
     const token = localStorage.getItem('token');
-    // Ensure token is not magically saved as "null" or "undefined"
     if (token && token !== "null" && token !== "undefined") {
       headers.append('Authorization', `Bearer ${token}`);
       // Only log in dev to avoid noise, but keep it available
@@ -219,7 +218,11 @@ export async function apiRequest<T>({
         console.log('[API Auth] Token found in localStorage, adding to request');
       }
     } else {
-      console.warn('[API Auth] ⚠️ No token in localStorage for', method, fullUrl);
+      // Ne pas afficher d'avertissement pour les routes d'authentification publiques
+      const isPublicAuthRoute = fullUrl.includes('/api/auth/login') || fullUrl.includes('/api/auth/register');
+      if (!isPublicAuthRoute && process.env.NODE_ENV === 'development') {
+        console.warn('[API Auth] ⚠️ No token in localStorage for', method, fullUrl);
+      }
     }
     
     // Propager le domaine courant si défini
