@@ -88,12 +88,13 @@ export default function HomePage() {
     return () => window.removeEventListener('theme:superadmin:updated', onThemeUpdated);
   }, []);
 
-  const { data: activeDomaines } = useQuery({
+  const { data: activeDomaines, isLoading: isLoadingDomaines } = useQuery({
     queryKey: ["/api/domaines/public/active"],
     queryFn: () => apiRequest<Domaine[]>({ url: "/api/domaines/public/active", method: "GET" }),
     retry: false,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
+    staleTime: 30_000, // Garder les données en cache 30s pour éviter le flash
   });
 
   const setDomainForModule = (title: string) => {
@@ -158,9 +159,11 @@ export default function HomePage() {
     };
   };
 
-  const modulesToDisplay = Array.isArray(activeDomaines) && activeDomaines.length > 0
-    ? activeDomaines.map(resolveModuleMeta)
-    : modules;
+  const modulesToDisplay = isLoadingDomaines
+    ? []
+    : Array.isArray(activeDomaines) && activeDomaines.length > 0
+      ? activeDomaines.map(resolveModuleMeta)
+      : modules;
 
   const nextSlide = () => {
     setIndex((prev) => (prev + 1) % slides.length);
@@ -216,7 +219,13 @@ export default function HomePage() {
         ) : (
           <div className="relative z-10 mt-2 sm:mt-4 w-full">
             <div className="pr-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-6 gap-y-4 sm:gap-y-6 items-stretch max-w-5xl w-full mx-auto px-2 sm:px-4 md:px-6 pb-6">
+              {isLoadingDomaines ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-6 gap-y-4 sm:gap-y-6 items-stretch max-w-5xl w-full mx-auto px-2 sm:px-4 md:px-6 pb-6">
+
                 {modulesToDisplay.map((module: any, idx: number) => {
                   const Icon = module.icon;
                   return (
@@ -254,6 +263,7 @@ export default function HomePage() {
                   );
                 })}
               </div>
+              )}
             </div>
             <Button
               variant="ghost"

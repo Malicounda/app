@@ -33,12 +33,13 @@ type Domaine = {
 const ProfileSelectionModal: React.FC<{ isOpen: boolean; onOpenChange: (open: boolean) => void }> = ({ isOpen, onOpenChange }) => {
   const [, navigate] = useLocation();
 
-  const { data: activeDomaines } = useQuery({
+  const { data: activeDomaines, isLoading } = useQuery({
     queryKey: ['/api/domaines/public/active'],
     queryFn: () => apiRequest<Domaine[]>({ url: '/api/domaines/public/active', method: 'GET' }),
     retry: false,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
+    staleTime: 30_000,
   });
 
   const chooseProfile = (type: string) => {
@@ -119,9 +120,11 @@ const ProfileSelectionModal: React.FC<{ isOpen: boolean; onOpenChange: (open: bo
     };
   };
 
-  const profiles = Array.isArray(activeDomaines) && activeDomaines.length > 0
-    ? activeDomaines.map(resolveProfileMeta).filter(Boolean) as any[]
-    : profilesFallback;
+  const profiles = isLoading
+    ? []
+    : Array.isArray(activeDomaines) && activeDomaines.length > 0
+      ? activeDomaines.map(resolveProfileMeta).filter(Boolean) as any[]
+      : profilesFallback;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -133,18 +136,24 @@ const ProfileSelectionModal: React.FC<{ isOpen: boolean; onOpenChange: (open: bo
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 sm:pt-8">
-          {profiles.map((profile) => (
-            <div
-              key={profile.type}
-              onClick={() => chooseProfile(profile.type)}
-              style={{ ...cardStyle, background: profile.background }}
-              className="transform hover:scale-105"
-            >
-              {profile.icon}
-              <div className="text-2xl font-semibold mt-4">{profile.label}</div>
-              <p className="opacity-90 mt-2">{profile.description}</p>
+          {isLoading ? (
+            <div className="col-span-1 md:col-span-2 flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
             </div>
-          ))}
+          ) : (
+            profiles.map((profile) => (
+              <div
+                key={profile.type}
+                onClick={() => chooseProfile(profile.type)}
+                style={{ ...cardStyle, background: profile.background }}
+                className="transform hover:scale-105"
+              >
+                {profile.icon}
+                <div className="text-2xl font-semibold mt-4">{profile.label}</div>
+                <p className="opacity-90 mt-2">{profile.description}</p>
+              </div>
+            ))
+          )}
         </div>
       </DialogContent>
     </Dialog>
