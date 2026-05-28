@@ -484,8 +484,8 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Cartes principales (haut) */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-3">
+      {/* Cartes principales */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <Card className="text-center">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Agents du domaine</CardTitle>
@@ -515,10 +515,6 @@ const AdminDashboard = () => {
             <div className="text-4xl font-bold">{loadingOverview ? '...' : adminOverview?.counts?.hunters ?? 0}</div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Cartes Admin secondaires (bas) */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
         <Card className="text-center">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Contrevenants</CardTitle>
