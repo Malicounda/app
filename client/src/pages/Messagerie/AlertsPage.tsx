@@ -1371,6 +1371,8 @@ function AlertsPage() {
   const mobileAlertLayout = isAlertMobileChromeless && canSendAlerts;
   const mobileSupervisorLayout = isAlertMobileChromeless && !canSendAlerts;
 
+  const showLeftColumn = canSendAlerts && !((isHunter || isGuide) && activeTab === 'outbox') && !(activeTab === 'inbox' && (isRegionalAgent || isSectorAgent));
+
   return (
     <div className={`flex flex-col overflow-hidden bg-[#2d6a4f] ${isAlertMobileChromeless ? "h-full min-h-0" : "h-[100dvh]"}`}>
       <div className={`w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 ${isAlertMobileChromeless ? "py-0 lg:py-4" : "py-2 sm:py-3 lg:py-4"}`}>
@@ -1425,15 +1427,19 @@ function AlertsPage() {
           <div
             className={
               mobileAlertLayout
-                ? "flex flex-1 min-h-0 flex-col gap-2 lg:grid lg:grid-cols-[minmax(340px,420px)_1fr] lg:gap-4"
+                ? (showLeftColumn
+                  ? "flex flex-1 min-h-0 flex-col gap-2 lg:grid lg:grid-cols-[minmax(340px,420px)_1fr] lg:gap-4"
+                  : "flex flex-1 min-h-0 flex-col")
                 : mobileSupervisorLayout
                   ? "flex flex-1 min-h-0 flex-col"
-                  : "grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr] gap-0 lg:gap-4"
+                  : (showLeftColumn
+                    ? "grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr] gap-0 lg:gap-4"
+                    : "flex flex-1 min-h-0 flex-col")
             }
           >
 
             {/* === COLONNE GAUCHE : Formulaire d'envoi === */}
-            {canSendAlerts && !((isHunter || isGuide) && activeTab === 'outbox') && !(activeTab === 'inbox' && (isRegionalAgent || isSectorAgent)) && (
+            {showLeftColumn && (
               <div
                 className={
                   mobileAlertLayout
