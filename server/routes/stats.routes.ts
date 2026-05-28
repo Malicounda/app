@@ -8,6 +8,7 @@ import {
     permitRequests,
     permits,
     taxes,
+    userDomains,
     users
 } from '../../shared/schema.js';
 import { db } from '../db.js';
@@ -257,6 +258,28 @@ router.get('/regional/hunters-by-category', isAuthenticated, async (req, res) =>
 // GET /api/stats/admin/overview - agrégats globaux pour l'Admin
 router.get('/admin/overview', isAuthenticated, async (req, res) => {
   try {
+    // Récupérer le domaine actif depuis le header X-Domain
+    const domainHeader = String((req.headers as any)['x-domain'] || '').toUpperCase().trim();
+
+    // Compter les agents associés au domaine actif (via user_domains)
+    // Si un domaine est spécifié, on filtre ; sinon on compte tout
+    let agentsCountQuery;
+    if (domainHeader) {
+      agentsCountQuery = db
+        .select({ count: sql<number>`count(DISTINCT ${users.id})` })
+        .from(users)
+        .innerJoin(userDomains, eq(userDomains.userId, users.id))
+        .where(
+          and(
+            or(eq(users.role, 'agent'), eq(users.role, 'sub-agent'), eq(users.role, 'admin')),
+            eq(sql`UPPER(${userDomains.domain})`, domainHeader),
+            eq(userDomains.active, true)
+          )
+        );
+    } else {
+      agentsCountQuery = db.select({ count: count() }).from(users).where(or(eq(users.role, 'agent'), eq(users.role, 'sub-agent')));
+    }
+
     // Comptes globaux
     const [
       agentsCountRes,
@@ -267,7 +290,7 @@ router.get('/admin/overview', isAuthenticated, async (req, res) => {
       huntersByCategory,
       recentActivities,
     ] = await Promise.all([
-      db.select({ count: count() }).from(users).where(or(eq(users.role, 'agent'), eq(users.role, 'sub-agent'))),
+      agentsCountQuery,
       db.select({ count: count() }).from(users).where(eq(users.role, 'hunting-guide')),
       db.select({ count: count() }).from(hunters),
       db.select({ count: count() }).from(alerts),
@@ -309,6 +332,7 @@ router.get('/admin/overview', isAuthenticated, async (req, res) => {
     ]);
 
     const response = {
+      domain: domainHeader || null,
       counts: {
         agents: agentsCountRes[0]?.count || 0,
         guides: guidesCountRes[0]?.count || 0,

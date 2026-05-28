@@ -488,22 +488,12 @@ const AdminDashboard = () => {
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-3">
         <Card className="text-center">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Agents forestiers</CardTitle>
+            <CardTitle className="text-sm font-medium">Agents du domaine</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="text-center">
             <div className="text-4xl font-bold">
-              {loadingOverview
-                ? '...'
-                : (() => {
-                    const counts = adminOverview?.counts || {};
-                    const regional = Number((counts as any).regionalAgents ?? 0);
-                    const sector = Number((counts as any).sectorAgents ?? 0);
-                    const totalFromSplit = regional + sector;
-                    if (totalFromSplit > 0) return totalFromSplit;
-                    return Number((counts as any).agents ?? 0);
-                  })()
-              }
+              {loadingOverview ? '...' : adminOverview?.counts?.agents ?? 0}
             </div>
           </CardContent>
         </Card>
@@ -528,16 +518,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Cartes Admin secondaires (bas) */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="text-center">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Utilisateurs totaux</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="text-center">
-            <div className="text-4xl font-bold">{loadingStats ? '...' : stats?.totalUsers ?? 0}</div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
         <Card className="text-center">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Contrevenants</CardTitle>
@@ -550,7 +531,6 @@ const AdminDashboard = () => {
                 const directCount = contrevenants.length;
                 const statsCount = infractionsStats?.total_contrevenants || 0;
                 const finalCount = directCount > 0 ? directCount : statsCount;
-                console.log('Comptage contrevenants:', { directCount, statsCount, finalCount });
                 return finalCount;
               })()}
               {contrevenantsError && <div className="text-xs text-red-500 mt-1">Erreur de chargement</div>}

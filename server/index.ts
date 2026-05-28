@@ -172,6 +172,12 @@ const sessionConfig: session.SessionOptions = {
 // Initialiser le middleware de session AVANT les routes
 app.use(session(sessionConfig));
 
+// ── Route publique de health-check (pour cron-job.org / UptimeRobot) ──
+// Placée AVANT tout middleware d'authentification pour éviter le 401
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
 // Middleware pour vérifier et gérer la session
 app.use((req: Request, res: Response, next: NextFunction) => {
   // Debug optionnel des sessions (activable via DEBUG_SESSIONS=true)
