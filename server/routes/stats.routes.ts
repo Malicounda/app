@@ -341,9 +341,13 @@ router.get('/admin/overview', isAuthenticated, async (req, res) => {
     };
 
     return res.json(response);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur /api/stats/admin/overview:', error);
-    return res.status(500).json({ message: "Erreur lors de la récupération des statistiques d'administration" });
+    return res.status(500).json({ 
+      message: "Erreur lors de la récupération des statistiques d'administration",
+      error: error?.message || String(error),
+      stack: error?.stack
+    });
   }
 });
 

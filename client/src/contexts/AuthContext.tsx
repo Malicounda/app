@@ -272,6 +272,7 @@ export function AuthProvider({
       }
 
       await clearSession();
+      await afterLogoutClearAll();
 
       setUser(null);
       setIsAuthenticated(false);

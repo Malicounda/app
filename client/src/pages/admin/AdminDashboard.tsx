@@ -62,9 +62,7 @@ function CategoryDrawer({ section }: CategoryDrawerProps) {
             </span>
           )}
         </div>
-        <div className="flex gap-5 text-base font-semibold text-gray-700">
-          <span>{section.totals.hunters.toLocaleString('fr-FR')}</span>
-          <span>{section.totals.permits.toLocaleString('fr-FR')}</span>
+        <div className="text-base font-semibold text-gray-700">
           <span>{section.totals.amount.toLocaleString('fr-FR')} XOF</span>
         </div>
       </button>
@@ -201,7 +199,7 @@ const AdminDashboard = () => {
         console.log('Tentative de récupération des stats infractions...');
         const response = await apiRequest({ url: '/api/infractions/stats', method: 'GET' }) as any;
         console.log('Réponse stats infractions:', response);
-        return response.data || response;
+        return response?.data || response || null;
       } catch (error) {
         console.error('Erreur stats infractions:', error);
         return null;
