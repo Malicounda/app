@@ -69,10 +69,20 @@ export default function AffectationsPage() {
     queryFn: () => apiRequest<AgentInfo[]>({ url: "/api/agents", method: "GET" }),
   });
 
-  const isLoading = isLoadingAffectations || isLoadingAgents;
+  const { data: domainesList = [], isLoading: isLoadingDomaines } = useQuery({
+    queryKey: ["/api/domaines"],
+    queryFn: () => apiRequest<Domaine[]>({ url: "/api/domaines", method: "GET" }),
+  });
+
+  const isLoading = isLoadingAffectations || isLoadingAgents || isLoadingDomaines;
 
   // ===== FORM STATE =====
   const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [selectedDomaineId, setSelectedDomaineId] = useState("");
+  const [selectedNiveau, setSelectedNiveau] = useState("");
+  const [selectedZone, setSelectedZone] = useState("");
+  
+  // GPS Restriction State (Legacy/Optional)
   const [geoRestrictionEnabled, setGeoRestrictionEnabled] = useState(false);
   const [restrictionType, setRestrictionType] = useState<string>("");
 
@@ -121,6 +131,35 @@ export default function AffectationsPage() {
     },
     onError: (e: any) => {
       toast({ title: "Erreur", description: e?.message || "Mise à jour impossible", variant: "destructive" });
+    },
+  });
+
+  const saveAffectationMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedAgent || !selectedDomaineId || !selectedNiveau || !selectedZone) {
+        throw new Error("Veuillez remplir tous les champs obligatoires (Agent, Domaine, Niveau, Zone)");
+      }
+      return apiRequest({
+        url: "/api/affectations",
+        method: "POST",
+        data: {
+          agentId: selectedAgent.idAgent,
+          domaineId: Number(selectedDomaineId),
+          niveauHierarchique: selectedNiveau,
+          codeZone: selectedZone,
+          active: true,
+        },
+      });
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["/api/affectations"] });
+      toast({ title: "Affectation enregistrée avec succès" });
+      setSelectedDomaineId("");
+      setSelectedNiveau("");
+      setSelectedZone("");
+    },
+    onError: (e: any) => {
+      toast({ title: "Erreur", description: e?.message || "Enregistrement impossible", variant: "destructive" });
     },
   });
 
@@ -207,11 +246,10 @@ export default function AffectationsPage() {
             </button>
           </div>
           <div className="p-6 sm:p-8">
-            {/* Row 1: Agent, Rôle Métier */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
               {/* Agent (Liste déroulante) */}
               <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground">Agent</Label>
+                <Label className="font-bold text-foreground">Agent <span className="text-red-500">*</span></Label>
                 <Select value={selectedAgentId} onValueChange={(v) => setSelectedAgentId(v)} disabled={isLoadingAgents}>
                   <SelectTrigger className="py-5">
                     <SelectValue placeholder={isLoadingAgents ? "Chargement..." : "Sélectionner un agent"} />
@@ -226,18 +264,54 @@ export default function AffectationsPage() {
                 </Select>
               </div>
 
-              {/* Rôle Métier (Auto-rempli) */}
+              {/* Domaine */}
               <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground">Rôle Métier</Label>
+                <Label className="font-bold text-foreground">Domaine <span className="text-red-500">*</span></Label>
+                <Select value={selectedDomaineId} onValueChange={setSelectedDomaineId} disabled={isLoadingDomaines}>
+                  <SelectTrigger className="py-5">
+                    <SelectValue placeholder={isLoadingDomaines ? "Chargement..." : "Sélectionner un domaine"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {domainesList.map((dom: Domaine) => (
+                      <SelectItem key={dom.id} value={String(dom.id)}>
+                        {dom.nomDomaine}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Row 2: Niveau et Zone */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mt-6">
+              {/* Niveau Hiérarchique */}
+              <div className="flex flex-col gap-2">
+                <Label className="font-bold text-foreground">Niveau Hiérarchique <span className="text-red-500">*</span></Label>
+                <Select value={selectedNiveau} onValueChange={setSelectedNiveau}>
+                  <SelectTrigger className="py-5">
+                    <SelectValue placeholder="Choisir le niveau" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NATIONAL">National</SelectItem>
+                    <SelectItem value="REGIONAL">Régional</SelectItem>
+                    <SelectItem value="SECTEUR">Secteur</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Code Zone */}
+              <div className="flex flex-col gap-2">
+                <Label className="font-bold text-foreground">Code Zone <span className="text-red-500">*</span></Label>
                 <Input
-                  value={selectedAgent?.roleMetierLabel || "Non renseigné"}
-                  readOnly
-                  className="py-5 bg-muted/30 cursor-not-allowed"
+                  placeholder="Ex: SEN, DKR, THI, etc."
+                  value={selectedZone}
+                  onChange={(e) => setSelectedZone(e.target.value)}
+                  className="py-5 uppercase"
                 />
               </div>
             </div>
 
-            {/* Row 2: Infos Agent auto-remplies (Région, Département, Commune, Arrondissement) */}
+            {/* Row 3: Infos Agent auto-remplies (Région, Département, Commune, Arrondissement) */}
             {selectedAgent && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 sm:gap-8 mt-6 p-4 bg-muted/10 rounded-lg border border-border/50">
                 <div className="flex flex-col gap-1">
@@ -259,7 +333,7 @@ export default function AffectationsPage() {
               </div>
             )}
 
-            {/* Row 3: Restriction GPS */}
+            {/* Row 4: Restriction GPS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mt-6">
               {/* Restriction GPS Toggle */}
               <div className="flex flex-col gap-2">
@@ -299,14 +373,24 @@ export default function AffectationsPage() {
             </div>
 
             {/* Buttons Row */}
-            <div className="flex justify-end mt-6">
+            <div className="flex flex-col sm:flex-row justify-end mt-6 gap-4 border-t border-border pt-6">
               <Button
                 onClick={() => applyGeoRestrictionMutation.mutate()}
                 disabled={applyGeoRestrictionMutation.isPending || !selectedAgent || (geoRestrictionEnabled && !restrictionType)}
-                className="bg-orange-500 text-white hover:bg-orange-600 px-8 py-6 rounded-lg font-bold flex items-center gap-3 transition-all shadow-[0_0_15px_rgba(249,115,22,0.15)] hover:shadow-[0_0_20px_rgba(249,115,22,0.3)]"
+                variant="outline"
+                className="px-6 py-6 rounded-lg font-bold flex items-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
               >
                 <Shield className="w-5 h-5" />
-                Appliquer Restriction GPS
+                Mettre à jour Restriction GPS
+              </Button>
+
+              <Button
+                onClick={() => saveAffectationMutation.mutate()}
+                disabled={saveAffectationMutation.isPending || !selectedAgent || !selectedDomaineId || !selectedNiveau || !selectedZone}
+                className="bg-teal-600 text-white hover:bg-teal-700 px-8 py-6 rounded-lg font-bold flex items-center gap-3 transition-all shadow-[0_0_15px_rgba(13,148,136,0.2)] hover:shadow-[0_0_20px_rgba(13,148,136,0.4)]"
+              >
+                <CheckCircle className="w-5 h-5" />
+                {saveAffectationMutation.isPending ? "Enregistrement..." : "Enregistrer l'Affectation"}
               </Button>
             </div>
           </div>
@@ -345,7 +429,10 @@ export default function AffectationsPage() {
                 <TableHeader className="bg-muted/30">
                   <TableRow className="hover:bg-transparent border-border">
                     <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Agent</TableHead>
-                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Restriction (Zone)</TableHead>
+                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Domaine</TableHead>
+                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Niveau</TableHead>
+                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Zone</TableHead>
+                    <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground">Date</TableHead>
                     <TableHead className="py-5 px-6 text-xs font-bold tracking-wider uppercase text-muted-foreground text-center">Statut</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -367,21 +454,22 @@ export default function AffectationsPage() {
                           </div>
                         </div>
                       </TableCell>
+                      <TableCell className="py-4 px-6 font-medium text-sm">
+                        {a.domaineNom || <span className="text-muted-foreground italic">Non défini</span>}
+                      </TableCell>
                       <TableCell className="py-4 px-6">
-                        <div className="text-xs">
-                          {(() => {
-                            const label = getAgentRestrictionLabel(a.agentId);
-                            if (label === "-" || label === "Non défini") {
-                              return <span className="text-muted-foreground italic">{label}</span>;
-                            }
-                            return (
-                              <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-0 shadow-none text-xs">
-                                <MapPin className="w-3 h-3 mr-1" />
-                                {label}
-                              </Badge>
-                            );
-                          })()}
+                        <Badge variant="outline" className="text-xs">
+                          {a.niveauHierarchique}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-4 px-6">
+                        <div className="flex items-center text-sm font-medium">
+                          <MapPin className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                          {a.codeZone}
                         </div>
+                      </TableCell>
+                      <TableCell className="py-4 px-6 text-sm text-muted-foreground">
+                        {a.dateAffectation ? new Date(a.dateAffectation).toLocaleDateString() : "-"}
                       </TableCell>
                       <TableCell className="py-4 px-6 text-center">
                         <div className="flex justify-center">
