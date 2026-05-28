@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-// Try to get secret from env first; fallback to config if available
-const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_TOKEN || 'changeme_secret';
+// Evaluate secret dynamically to ensure dotenv has loaded
+const getJwtSecret = () => process.env.JWT_SECRET || process.env.JWT_TOKEN || 'changeme_secret';
 
 export const isAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
   const sessionUser = (req.session as any)?.user;
@@ -13,15 +13,16 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.slice(7);
       try {
-        const decoded: any = jwt.verify(token, JWT_SECRET);
+        const decoded: any = jwt.verify(token, getJwtSecret());
         // decoded devrait contenir au moins id et role (selon le login controller)
         req.user = decoded as any;
         return next();
       } catch (err) {
+        console.warn(`[AUTH] JWT verify failed for ${req.path}:`, err);
         return res.status(401).json({ message: "Token invalide ou expiré" });
       }
     }
-    console.log("Aucun utilisateur connecté dans le middleware isAuthenticated");
+    console.warn(`[AUTH] Rejet 401: Aucun utilisateur connecté pour ${req.path}. authHeader présent: ${!!authHeader}`);
     return res.status(401).json({ message: "Vous devez être connecté pour accéder à cette ressource" });
   }
 

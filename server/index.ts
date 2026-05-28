@@ -245,6 +245,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         (req as any).user = decoded;
       } catch (e) {
         // Token invalide: ignorer, on laissera la règle suivante gérer le 401
+        console.warn(`[GLOBAL AUTH] JWT verify failed for ${req.path}:`, e);
       }
     }
   }

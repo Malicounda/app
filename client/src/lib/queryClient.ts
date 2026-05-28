@@ -197,15 +197,18 @@ export async function apiRequest<T>({
   }
 
   try {
-    let headers: HeadersInit = {
-      Accept: "application/json",
-    };
+    const headers = new Headers();
+    headers.append("Accept", "application/json");
     
     // Ajout du token JWT si présent dans localStorage
     const token = localStorage.getItem('token');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-      console.log('[API Auth] Token found in localStorage, adding to request');
+    // Ensure token is not magically saved as "null" or "undefined"
+    if (token && token !== "null" && token !== "undefined") {
+      headers.append('Authorization', `Bearer ${token}`);
+      // Only log in dev to avoid noise, but keep it available
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[API Auth] Token found in localStorage, adding to request');
+      }
     } else {
       console.warn('[API Auth] ⚠️ No token in localStorage for', method, fullUrl);
     }
@@ -214,7 +217,7 @@ export async function apiRequest<T>({
     try {
       const domain = localStorage.getItem('domain');
       if (domain) {
-        headers['X-Domain'] = domain;
+        headers.append('X-Domain', domain);
       }
     } catch {}
     
@@ -224,7 +227,7 @@ export async function apiRequest<T>({
       // Pour FormData, ne pas définir Content-Type, le navigateur s'en charge avec la bonne boundary
       body = data;
     } else if (data) {
-      headers['Content-Type'] = 'application/json';
+      headers.append('Content-Type', 'application/json');
       body = JSON.stringify(data);
     }
 
