@@ -47,6 +47,8 @@ const updateAgentSchema = z.object({
   arrondissement: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   email: z.string().email().optional().nullable(),
+  userRole: z.string().optional(),
+  adminDomainId: z.number().int().optional(),
 });
 
 async function getAgentJoinedRow(idAgent: number) {
@@ -444,20 +446,20 @@ export async function createAgent(req: Request, res: Response) {
           .where(eq(users.id as any, existingUser.id as any));
 
         if (parsed.userRole && (req.session as any)?.user?.isSuperAdmin) {
-          await tx.update(users).set({ role: parsed.userRole as any }).where(eq(users.id as any, existingUser.id as any));
+          await tx.update(users).set({ role: parsed.userRole as any } as any).where(eq(users.id as any, existingUser.id as any));
           if (parsed.userRole === 'admin' && parsed.adminDomainId) {
              const existingDomain = await tx.select().from(userDomains).where(and(eq(userDomains.userId as any, existingUser.id as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
              if (existingDomain.length === 0) {
                  const domainNameRow = await tx.select().from(domaines).where(eq(domaines.id as any, parsed.adminDomainId as any)).limit(1);
                  await tx.insert(userDomains).values({
-                    userId: existingUser.id as any,
+                    userId: existingUser.id,
                     domain: (domainNameRow?.[0] as any)?.nomDomaine || 'UNKNOWN',
-                    domaineId: parsed.adminDomainId as any,
+                    domaineId: parsed.adminDomainId,
                     role: 'admin',
                     active: true,
-                 });
+                 } as any);
              } else {
-                 await tx.update(userDomains).set({ role: 'admin', active: true }).where(and(eq(userDomains.userId as any, existingUser.id as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
+                 await tx.update(userDomains).set({ role: 'admin' as any, active: true } as any).where(and(eq(userDomains.userId as any, existingUser.id as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
              }
           }
         }
@@ -627,17 +629,17 @@ export async function updateAgent(req: Request, res: Response) {
              if (existingDomain.length === 0) {
                  const domainNameRow = await tx.select().from(domaines).where(eq(domaines.id as any, parsed.adminDomainId as any)).limit(1);
                  await tx.insert(userDomains).values({
-                    userId: agentRow.userId as any,
+                    userId: agentRow.userId,
                     domain: (domainNameRow?.[0] as any)?.nomDomaine || 'UNKNOWN',
-                    domaineId: parsed.adminDomainId as any,
+                    domaineId: parsed.adminDomainId,
                     role: 'admin',
                     active: true,
-                 });
+                 } as any);
              } else {
-                 await tx.update(userDomains).set({ role: 'admin', active: true }).where(and(eq(userDomains.userId as any, agentRow.userId as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
+                 await tx.update(userDomains).set({ role: 'admin' as any, active: true } as any).where(and(eq(userDomains.userId as any, agentRow.userId as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
              }
          } else if (parsed.userRole !== 'admin') {
-             await tx.update(userDomains).set({ role: 'agent' }).where(and(eq(userDomains.userId as any, agentRow.userId as any), eq(userDomains.role as any, 'admin' as any)));
+             await tx.update(userDomains).set({ role: 'agent' as any } as any).where(and(eq(userDomains.userId as any, agentRow.userId as any), eq(userDomains.role as any, 'admin' as any)));
          }
       }
 
