@@ -50,13 +50,23 @@ export default function Navbar() {
     { path: "/history", label: "Historique", icon: <History className="h-6 w-6 mr-1" /> },
   ];
 
-  const agentNavItems = [
+  const regionalAgentNavItems = [
     { path: "/regional", label: "Tableau de Bord", icon: <Home className="h-6 w-6 mr-1" /> },
     { path: "/hunters", label: "Chasseurs", icon: <Users className="h-6 w-6 mr-1" /> },
     { path: "/permits", label: "Permis", icon: <FileText className="h-6 w-6 mr-1" /> },
     { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
     { path: "/taxes", label: "Taxes d'Abattage", icon: <Receipt className="h-6 w-6 mr-1" /> },
-    { path: "/sms", label: "SMS", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
+    { path: "/regional-sms", label: "SMS", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
+    { path: "/history", label: "Historique", icon: <History className="h-6 w-6 mr-1" /> },
+  ];
+
+  const sectorAgentNavItems = [
+    { path: "/sector", label: "Tableau de Bord", icon: <Home className="h-6 w-6 mr-1" /> },
+    { path: "/sector-hunters", label: "Chasseurs", icon: <Users className="h-6 w-6 mr-1" /> },
+    { path: "/sector-permits", label: "Permis", icon: <FileText className="h-6 w-6 mr-1" /> },
+    { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
+    { path: "/taxes", label: "Taxes d'Abattage", icon: <Receipt className="h-6 w-6 mr-1" /> },
+    { path: "/sector-sms", label: "SMS", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
     { path: "/history", label: "Historique", icon: <History className="h-6 w-6 mr-1" /> },
   ];
 
@@ -81,13 +91,18 @@ export default function Navbar() {
   } else if (normalizedRole.includes("guide")) {
     navItems = guideNavItems;
   } else if (
-    normalizedRole === "agent" ||
     normalizedRole === "sub-agent" ||
     normalizedRole.includes("agent-secteur") ||
     normalizedRole.includes("secteur") ||
-    normalizedRole.includes("regional")
+    user?.type === "secteur"
   ) {
-    navItems = agentNavItems;
+    navItems = sectorAgentNavItems;
+  } else if (
+    normalizedRole === "agent" ||
+    normalizedRole.includes("regional") ||
+    user?.type === "regional"
+  ) {
+    navItems = regionalAgentNavItems;
   } else {
     // Par défaut: administrateur ou autres rôles assimilés
     navItems = isSuperAdmin ? [] : adminNavItems;
@@ -117,7 +132,7 @@ export default function Navbar() {
                             {unreadAlerts}
                           </span>
                         )}
-                        {item.path === "/sms" && unreadMessages > 0 && (
+                        {(item.path === "/sms" || item.path === "/regional-sms" || item.path === "/sector-sms") && unreadMessages > 0 && (
                           <span className="inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-500 text-white text-xs font-semibold">
                             {unreadMessages}
                           </span>

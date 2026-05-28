@@ -3,6 +3,7 @@ import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import AlerteDomainActionCard from "@/components/alerte/AlerteDomainActionCard";
 import { Info } from "lucide-react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import LicenseDialog from "@/components/layout/LicenseDialog";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
@@ -10,6 +11,7 @@ import { getMessagingDomaineQueryParam } from "@/utils/messagingDomain";
 
 export default function AgentDefaultPage() {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
   const [showLicense, setShowLicense] = useState(false);
   const [outOfZone, setOutOfZone] = useState(false);
 
@@ -100,7 +102,15 @@ export default function AgentDefaultPage() {
             <AlerteDomainActionCard
               variant="messages"
               size="compact"
-              onClick={() => setLocation("/sms")}
+              onClick={() => {
+                let smsPath = "/sms";
+                if (user?.type === "secteur" || user?.role === "sub-agent") {
+                  smsPath = "/sector-sms";
+                } else if (user?.role === "agent" || user?.type === "regional") {
+                  smsPath = "/regional-sms";
+                }
+                setLocation(smsPath);
+              }}
               badge={msgUnread}
               className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-green-100/30"
             />
