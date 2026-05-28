@@ -111,9 +111,9 @@ router.get('/national/permit-categories-breakdown', isAuthenticated, async (req,
     }));
 
     return res.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur /api/stats/national/permit-categories-breakdown:', error);
-    return res.status(500).json({ message: 'Erreur lors de la récupération de la répartition par catégories' });
+    return res.status(500).json({ message: 'Erreur lors de la récupération de la répartition par catégories', debug: error?.message || String(error) });
   }
 });
 

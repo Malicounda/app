@@ -1101,9 +1101,9 @@ export const getContrevenants = async (req: Request, res: Response) => {
     }));
 
     res.json(rows);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur lors de la récupération des contrevenants:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    res.status(500).json({ error: 'Erreur serveur', debug: error?.message || String(error) });
   }
 };
 
