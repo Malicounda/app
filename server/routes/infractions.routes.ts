@@ -11,6 +11,10 @@ router.get('/test-resolve', (req, res) => {
   res.json({ message: 'Endpoint resolve-areas accessible', timestamp: new Date().toISOString() });
 });
 
+// Route publique pour servir les fichiers documents (PDFs, images)
+// Les navigateurs ne peuvent pas envoyer de JWT dans les iframes/embeds
+router.get('/codes/documents/:docId/file', infractionsController.serveCodeDocument);
+
 // Middleware d'authentification pour toutes les autres routes
 router.use(isAuthenticated);
 
@@ -59,8 +63,7 @@ router.delete('/saisie-groups/:key', isAdmin, infractionsController.deleteSaisie
 // =====================================================
 // 📎 ROUTES DOCUMENTS DES CODES
 // =====================================================
-// Route pour servir un fichier (doit être avant les routes avec paramètres génériques)
-router.get('/codes/documents/:docId/file', infractionsController.serveCodeDocument);
+// Note: la route GET /codes/documents/:docId/file est déclarée plus haut (publique)
 router.get('/codes/:codeId/documents', infractionsController.getCodeDocuments);
 router.post(
   '/codes/:codeId/documents',
