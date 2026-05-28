@@ -1,4 +1,5 @@
-import { boolean, customType, date, doublePrecision, integer, json, numeric, pgEnum, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { bigint, boolean, customType, date, doublePrecision, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, point, primaryKey, serial, text, timestamp, uniqueIndex, varchar, unique, bigserial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -10,6 +11,8 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 });
 
 // Type personnalisé pour les géométries PostGIS
+const unknown = customType({ dataType() { return 'text'; } });
+
 const geometry = customType<{ data: string; driverData: string }>({
   dataType() {
     return 'geometry';
@@ -1105,3 +1108,1199 @@ export type InsertReforestationNurseryType = z.infer<typeof insertReforestationN
 
 export type ReforestationLocalite = typeof reforestationLocalites.$inferSelect;
 export type InsertReforestationLocalite = z.infer<typeof insertReforestationLocaliteSchema>;
+
+
+// --- AUTO-GENERATED MISSING TABLES ---
+
+export const alertNature = pgEnum("AlertNature", ['braconnage', 'trafic_bois', 'feux_brousse', 'autre', 'feux_de_brousse'])
+export const notificationStatus = pgEnum("NotificationStatus", ['READ', 'NON_LU'])
+export const agentLevel = pgEnum("agent_level", ['regional', 'departmental'])
+export const messageType = pgEnum("message_type", ['standard', 'urgent', 'information', 'notification'])
+export const niveauHierarchique = pgEnum("niveau_hierarchique", ['NATIONAL', 'REGIONAL', 'SECTEUR'])
+export const permitRequestStatus = pgEnum("permit_request_status", ['pending', 'approved', 'rejected'])
+export const profilCompteStatus = pgEnum("profil_compte_status", ['Actif', 'User', 'Inactif'])
+export const region = pgEnum("region", ['dakar', 'thies', 'saint-louis', 'louga', 'fatick', 'kaolack', 'kaffrine', 'matam', 'tambacounda', 'kedougou', 'kolda', 'sedhiou', 'ziguinchor', 'diourbel'])
+export const regionStatus = pgEnum("region_status", ['open', 'closed', 'partially_open'])
+export const userRole = pgEnum("user_role", ['admin', 'hunter', 'agent', 'sub-agent', 'hunting-guide', 'brigade', 'triage', 'poste-control', 'sous-secteur'])
+export const weaponType = pgEnum("weapon_type", ['fusil', 'carabine', 'arbalete', 'arc', 'lance-pierre', 'autre'])
+export const zoneType = pgEnum("zone_type", ['ZIC', 'Amodié', 'Amodi‚'])
+
+
+
+export const adminDomains = pgTable("admin_domains", {
+	id: serial("id").primaryKey().notNull(),
+	adminId: integer("admin_id").notNull(),
+	domainId: integer("domain_id").notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		idxAdminDomainsDomain: index("idx_admin_domains_domain").using("btree", table.domainId.asc().nullsLast()),
+		adminDomainsAdminIdFkey: foreignKey({
+			columns: [table.adminId],
+			foreignColumns: [users.id],
+			name: "admin_domains_admin_id_fkey"
+		}),
+		adminDomainsDomainIdFkey: foreignKey({
+			columns: [table.domainId],
+			foreignColumns: [domaines.id],
+			name: "admin_domains_domain_id_fkey"
+		}),
+		adminDomainsAdminIdKey: unique("admin_domains_admin_id_key").on(table.adminId),
+	}
+});
+
+export const spatialRefSys = pgTable("spatial_ref_sys", {
+	srid: integer("srid").primaryKey().notNull(),
+	authName: varchar("auth_name", { length: 256 }),
+	authSrid: integer("auth_srid"),
+	srtext: varchar("srtext", { length: 2048 }),
+	proj4Text: varchar("proj4text", { length: 2048 }),
+});
+
+export const codeInfractions = pgTable("code_infractions", {
+	id: serial("id").primaryKey().notNull(),
+	code: varchar("code", { length: 50 }).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+},
+(table) => {
+	return {
+		idxCodeInfractionsCode: index("idx_code_infractions_code").using("btree", table.code.asc().nullsLast()),
+		codeInfractionsCodeKey: unique("code_infractions_code_key").on(table.code),
+	}
+});
+
+export const contrevenants = pgTable("contrevenants", {
+	id: serial("id").primaryKey().notNull(),
+	nom: varchar("nom", { length: 100 }).notNull(),
+	prenom: varchar("prenom", { length: 100 }),
+	filiation: varchar("filiation", { length: 255 }),
+	// TODO: failed to parse database type 'bytea'
+	photo: unknown("photo"),
+	// TODO: failed to parse database type 'bytea'
+	pieceIdentite: unknown("piece_identite"),
+	numeroPiece: varchar("numero_piece", { length: 100 }),
+	typePiece: varchar("type_piece", { length: 100 }),
+	// TODO: failed to parse database type 'bytea'
+	donneesBiometriques: unknown("donnees_biometriques"),
+	dateCreation: timestamp("date_creation", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	createdBy: integer("created_by"),
+	domainId: integer("domain_id"),
+},
+(table) => {
+	return {
+		idxContrevenantsCreatedBy: index("idx_contrevenants_created_by").using("btree", table.createdBy.asc().nullsLast()),
+		idxContrevenantsNom: index("idx_contrevenants_nom").using("btree", table.nom.asc().nullsLast()),
+		uqContrevenantsNumeroPiece: uniqueIndex("uq_contrevenants_numero_piece").using("btree", sql`lower((numero_piece)::text)`).where(sql`(numero_piece IS NOT NULL)`),
+		contrevenantsCreatedByFkey: foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [users.id],
+			name: "contrevenants_created_by_fkey"
+		}).onDelete("set null"),
+	}
+});
+
+export const agentDomains = pgTable("agent_domains", {
+	id: serial("id").primaryKey().notNull(),
+	agentId: integer("agent_id").notNull(),
+	domainId: integer("domain_id").notNull(),
+	level: agentLevel("level").notNull(),
+	region: text("region").notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		idxAgentDomainsAgent: index("idx_agent_domains_agent").using("btree", table.agentId.asc().nullsLast()),
+		idxAgentDomainsDomain: index("idx_agent_domains_domain").using("btree", table.domainId.asc().nullsLast()),
+		idxAgentDomainsLevelRegion: index("idx_agent_domains_level_region").using("btree", table.level.asc().nullsLast(), table.region.asc().nullsLast()),
+		agentDomainsAgentIdFkey: foreignKey({
+			columns: [table.agentId],
+			foreignColumns: [users.id],
+			name: "agent_domains_agent_id_fkey"
+		}),
+		agentDomainsDomainIdFkey: foreignKey({
+			columns: [table.domainId],
+			foreignColumns: [domaines.id],
+			name: "agent_domains_domain_id_fkey"
+		}),
+	}
+});
+
+export const infractions = pgTable("infractions", {
+	id: serial("id").primaryKey().notNull(),
+	codeInfractionId: integer("code_infraction_id").notNull(),
+	lieuId: integer("lieu_id"),
+	dateInfraction: timestamp("date_infraction", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	agentId: integer("agent_id"),
+	montantChiffre: numeric("montant_chiffre", { precision: 12, scale:  2 }),
+	montantLettre: varchar("montant_lettre", { length: 255 }),
+	numeroQuittance: varchar("numero_quittance", { length: 100 }),
+	// TODO: failed to parse database type 'bytea'
+	photoQuittance: unknown("photo_quittance"),
+	// TODO: failed to parse database type 'bytea'
+	photoInfraction: unknown("photo_infraction"),
+	// TODO: failed to parse database type 'bytea[]'
+	autresPieces: unknown("autres_pieces").array(),
+	observations: text("observations"),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	codeItemId: bigint("code_item_id", { mode: "number" }),
+	nature: text("nature"),
+	articleCode: text("article_code"),
+	createdBy: integer("created_by"),
+	domainId: integer("domain_id"),
+},
+(table) => {
+	return {
+		idxInfractionsAgent: index("idx_infractions_agent").using("btree", table.agentId.asc().nullsLast()),
+		idxInfractionsCodeItemId: index("idx_infractions_code_item_id").using("btree", table.codeItemId.asc().nullsLast()),
+		idxInfractionsCreatedBy: index("idx_infractions_created_by").using("btree", table.createdBy.asc().nullsLast()),
+		idxInfractionsDate: index("idx_infractions_date").using("btree", table.dateInfraction.asc().nullsLast()),
+		idxInfractionsNumeroQuittanceUnique: uniqueIndex("idx_infractions_numero_quittance_unique").using("btree", table.numeroQuittance.asc().nullsLast()).where(sql`(numero_quittance IS NOT NULL)`),
+		infractionsAgentIdFkey: foreignKey({
+			columns: [table.agentId],
+			foreignColumns: [agentsVerbalisateurs.id],
+			name: "infractions_agent_id_fkey"
+		}).onDelete("set null"),
+		infractionsCodeInfractionIdFkey: foreignKey({
+			columns: [table.codeInfractionId],
+			foreignColumns: [codeInfractions.id],
+			name: "infractions_code_infraction_id_fkey"
+		}).onDelete("cascade"),
+		infractionsLieuIdFkey: foreignKey({
+			columns: [table.lieuId],
+			foreignColumns: [lieux.id],
+			name: "infractions_lieu_id_fkey"
+		}).onDelete("set null"),
+		infractionsCodeItemIdFkey: foreignKey({
+			columns: [table.codeItemId],
+			foreignColumns: [codeInfractionItems.id],
+			name: "infractions_code_item_id_fkey"
+		}).onDelete("set null"),
+		infractionsCreatedByFkey: foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [users.id],
+			name: "infractions_created_by_fkey"
+		}).onDelete("set null"),
+	}
+});
+
+export const declarationEspeces = pgTable("declaration_especes", {
+	id: serial("id").primaryKey().notNull(),
+	userId: integer("user_id").notNull(),
+	hunterId: integer("hunter_id"),
+	permitId: integer("permit_id"),
+	permitNumber: text("permit_number").notNull(),
+	category: text("category"),
+	especeId: text("espece_id").notNull(),
+	nomEspece: text("nom_espece"),
+	nomScientifique: text("nom_scientifique"),
+	sexe: text("sexe").notNull(),
+	quantity: integer("quantity").notNull(),
+	lat: numeric("lat"),
+	lon: numeric("lon"),
+	location: text("location"),
+	// TODO: failed to parse database type 'bytea'
+	photoData: unknown("photo_data"),
+	photoMime: text("photo_mime"),
+	photoName: text("photo_name"),
+	photoChecksum: text("photo_checksum"),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	arrondissement: text("arrondissement"),
+	commune: text("commune"),
+	departement: text("departement"),
+	region: text("region"),
+	guideId: integer("guide_id"),
+	status: varchar("status", { length: 20 }).default('pending'),
+	reviewedAt: timestamp("reviewed_at", { mode: 'string' }),
+	reviewNotes: text("review_notes"),
+	domainId: integer("domain_id"),
+},
+(table) => {
+	return {
+		idxDeclarationEspecesArrondissement: index("idx_declaration_especes_arrondissement").using("btree", table.arrondissement.asc().nullsLast()),
+		idxDeclarationEspecesCommune: index("idx_declaration_especes_commune").using("btree", table.commune.asc().nullsLast()),
+		idxDeclarationEspecesCreatedAt: index("idx_declaration_especes_created_at").using("btree", table.createdAt.desc().nullsFirst()),
+		idxDeclarationEspecesDepartement: index("idx_declaration_especes_departement").using("btree", table.departement.asc().nullsLast()),
+		idxDeclarationEspecesGuideId: index("idx_declaration_especes_guide_id").using("btree", table.guideId.asc().nullsLast()),
+		idxDeclarationEspecesHunterGuide: index("idx_declaration_especes_hunter_guide").using("btree", table.hunterId.asc().nullsLast(), table.guideId.asc().nullsLast()),
+		idxDeclarationEspecesRegion: index("idx_declaration_especes_region").using("btree", table.region.asc().nullsLast()),
+		idxDeclarationEspecesStatus: index("idx_declaration_especes_status").using("btree", table.status.asc().nullsLast()),
+		idxDeclarationEspecesUserId: index("idx_declaration_especes_user_id").using("btree", table.userId.asc().nullsLast()),
+	}
+});
+
+export const agentsRegionauxLegacy = pgTable("agents_regionaux_legacy", {
+	id: serial("id").primaryKey().notNull(),
+	username: text("username").notNull(),
+	password: text("password").notNull(),
+	email: text("email").notNull(),
+	prenom: text("prenom").notNull(),
+	nom: text("nom").notNull(),
+	telephone: text("telephone"),
+	matricule: text("matricule"),
+	region: text("region").notNull(),
+},
+(table) => {
+	return {
+		uniqueUsername: unique("unique_username").on(table.username),
+		uniqueEmail: unique("unique_email").on(table.email),
+		uniqueTelephone: unique("unique_telephone").on(table.telephone),
+		uniqueMatricule: unique("unique_matricule").on(table.matricule),
+	}
+});
+
+export const departements = pgTable("departements", {
+	id: serial("id").primaryKey().notNull(),
+	code: varchar("code", { length: 20 }),
+	nom: varchar("nom", { length: 255 }).notNull(),
+	codeRegion: varchar("code_region", { length: 20 }),
+	pays: varchar("pays", { length: 10 }),
+	surfaceHa: numeric("surface_ha", { precision: 15, scale:  6 }),
+	perimetreM: numeric("perimetre_m", { precision: 15, scale:  3 }),
+	dateCreation: timestamp("date_creation", { mode: 'string' }).defaultNow(),
+	dateMaj: timestamp("date_maj", { mode: 'string' }).defaultNow(),
+	statutChasse: varchar("statut_chasse", { length: 255 }),
+	color: varchar("color", { length: 50 }),
+	regionId: integer("region_id"),
+	geom: geometry("geom", { type: "multipolygon", srid: 32628 }),
+	centreGeometrique: geometry("centre_geometrique", { type: "point", srid: 32628 }),
+},
+(table) => {
+	return {
+		centreGeometriqueIdx: index("departements_centre_geometrique_idx").using("gist", table.centreGeometrique.asc().nullsLast()),
+		geomIdx: index("departements_geom_idx").using("gist", table.geom.asc().nullsLast()),
+		idxDepartementsGeom: index("idx_departements_geom").using("gist", table.geom.asc().nullsLast()),
+		fkDepartementsRegion: foreignKey({
+			columns: [table.regionId],
+			foreignColumns: [regions.id],
+			name: "fk_departements_region"
+		}),
+	}
+});
+
+export const regionalAgentsView = pgTable("regional_agents_view", {
+	id: integer("id"),
+	username: text("username"),
+	email: text("email"),
+	firstName: text("first_name"),
+	lastName: text("last_name"),
+	phone: text("phone"),
+	matricule: text("matricule"),
+	serviceLocation: text("service_location"),
+	region: text("region"),
+	zone: text("zone"),
+	role: userRole("role"),
+	isActive: boolean("is_active"),
+	isSuspended: boolean("is_suspended"),
+	createdAt: timestamp("created_at", { mode: 'string' }),
+});
+
+export const saisieGroups = pgTable("saisie_groups", {
+	id: serial("id").primaryKey().notNull(),
+	key: text("key").notNull(),
+	label: text("label").notNull(),
+	color: text("color").default('red-light'),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+},
+(table) => {
+	return {
+		saisieGroupsKeyKey: unique("saisie_groups_key_key").on(table.key),
+	}
+});
+
+export const agentsVerbalisateurs = pgTable("agents_verbalisateurs", {
+	id: serial("id").primaryKey().notNull(),
+	nom: varchar("nom", { length: 100 }).notNull(),
+	prenom: varchar("prenom", { length: 100 }).notNull(),
+	matricule: varchar("matricule", { length: 50 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	createdBy: integer("created_by"),
+},
+(table) => {
+	return {
+		idxAgentsVerbalisateursCreatedBy: index("idx_agents_verbalisateurs_created_by").using("btree", table.createdBy.asc().nullsLast()),
+		agentsVerbalisateursCreatedByFkey: foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [users.id],
+			name: "agents_verbalisateurs_created_by_fkey"
+		}).onDelete("set null"),
+		agentsVerbalisateursMatriculeKey: unique("agents_verbalisateurs_matricule_key").on(table.matricule),
+	}
+});
+
+export const agentsSecteursLegacy = pgTable("agents_secteurs_legacy", {
+	id: serial("id").primaryKey().notNull(),
+	username: text("username").notNull(),
+	password: text("password").notNull(),
+	email: text("email").notNull(),
+	prenom: text("prenom").notNull(),
+	nom: text("nom").notNull(),
+	telephone: text("telephone"),
+	matricule: text("matricule"),
+	secteur: text("secteur").notNull(),
+	idAgentRegional: integer("id_agent_regional").notNull(),
+},
+(table) => {
+	return {
+		agentsSecteursUsernameKey: uniqueIndex("agents_secteurs_username_key").using("btree", table.username.asc().nullsLast()),
+		agentsSecteursIdAgentRegionalFkey: foreignKey({
+			columns: [table.idAgentRegional],
+			foreignColumns: [agentsRegionauxLegacy.id],
+			name: "agents_secteurs_id_agent_regional_fkey"
+		}).onDelete("cascade"),
+	}
+});
+
+export const huntingCampaignCategoryPeriods = pgTable("hunting_campaign_category_periods", {
+	id: bigserial("id", { mode: "bigint" }).primaryKey().notNull(),
+	campaignId: integer("campaign_id").notNull(),
+	categoryKey: text("category_key").notNull(),
+	startDate: date("start_date").notNull(),
+	endDate: date("end_date").notNull(),
+	enabled: boolean("enabled").default(true).notNull(),
+	derogationEnabled: boolean("derogation_enabled").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		idxHccpCampaignId: index("idx_hccp_campaign_id").using("btree", table.campaignId.asc().nullsLast()),
+		idxHccpCategoryKey: index("idx_hccp_category_key").using("btree", table.categoryKey.asc().nullsLast()),
+		huntingCampaignCategoryPeriodsCampaignIdFkey: foreignKey({
+			columns: [table.campaignId],
+			foreignColumns: [huntingCampaigns.id],
+			name: "hunting_campaign_category_periods_campaign_id_fkey"
+		}).onDelete("cascade"),
+		huntingCampaignCategoryPeriodsCampaignIdCategoryKeyKey: unique("hunting_campaign_category_periods_campaign_id_category_key_key").on(table.campaignId, table.categoryKey),
+	}
+});
+
+export const regions = pgTable("regions", {
+	id: serial("id").primaryKey().notNull(),
+	code: varchar("code", { length: 20 }),
+	nom: varchar("nom", { length: 255 }).notNull(),
+	pays: varchar("pays", { length: 10 }),
+	surfaceHa: numeric("surface_ha", { precision: 15, scale:  6 }),
+	perimetreM: numeric("perimetre_m", { precision: 15, scale:  3 }),
+	dateCreation: timestamp("date_creation", { mode: 'string' }).defaultNow(),
+	dateMaj: timestamp("date_maj", { mode: 'string' }).defaultNow(),
+	statutChasse: varchar("statut_chasse", { length: 255 }),
+	color: varchar("color", { length: 50 }),
+	geom: geometry("geom", { type: "multipolygon", srid: 32628 }),
+	centreGeometrique: geometry("centre_geometrique", { type: "point", srid: 32628 }),
+},
+(table) => {
+	return {
+		idxRegionsGeom: index("idx_regions_geom").using("gist", table.geom.asc().nullsLast()),
+		centreGeometriqueIdx: index("regions_centre_geometrique_idx").using("gist", table.centreGeometrique.asc().nullsLast()),
+		geomIdx: index("regions_geom_idx").using("gist", table.geom.asc().nullsLast()),
+	}
+});
+
+export const units = pgTable("units", {
+	id: serial("id").primaryKey().notNull(),
+	key: text("key").notNull(),
+	label: text("label").notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+},
+(table) => {
+	return {
+		unitsKeyKey: unique("units_key_key").on(table.key),
+	}
+});
+
+export const usersAgentsLabels = pgTable("users_agents_labels", {
+	id: integer("id"),
+	username: text("username"),
+	email: text("email"),
+	firstName: text("first_name"),
+	lastName: text("last_name"),
+	phone: text("phone"),
+	matricule: text("matricule"),
+	serviceLocation: text("service_location"),
+	region: text("region"),
+	departement: text("departement"),
+	role: userRole("role"),
+	roleMetierCode: text("role_metier_code"),
+	roleMetierLabel: text("role_metier_label"),
+	isActive: boolean("is_active"),
+	active: boolean("active"),
+	isSuspended: boolean("is_suspended"),
+	createdAt: timestamp("created_at", { mode: 'string' }),
+	lastLogin: timestamp("last_login", { withTimezone: true, mode: 'string' }),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	hunterId: integer("hunter_id"),
+	agentLat: doublePrecision("agent_lat"),
+	agentLon: doublePrecision("agent_lon"),
+});
+
+export const authorizedSpecies = pgTable("authorized_species", {
+	id: serial("id").primaryKey().notNull(),
+	speciesId: integer("species_id").notNull(),
+	zoneId: integer("zone_id").notNull(),
+	allowed: boolean("allowed").default(true).notNull(),
+	seasonStartDate: date("season_start_date"),
+	seasonEndDate: date("season_end_date"),
+	notes: text("notes"),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+});
+
+export const campagnes = pgTable("campagnes", {
+	id: integer("id").primaryKey().generatedAlwaysAsIdentity({ name: "campagnes_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 2147483647, cache: 1 }),
+	nom: text("nom"),
+	annee: text("annee"),
+	dateOuverture: date("date_ouverture").notNull(),
+	dateFermeture: date("date_fermeture").notNull(),
+	grandeChasseDateOuverture: date("grande_chasse_date_ouverture"),
+	grandeChasseDateFermeture: date("grande_chasse_date_fermeture"),
+	gibierEauDateOuverture: date("gibier_eau_date_ouverture"),
+	gibierEauDateFermeture: date("gibier_eau_date_fermeture"),
+	statutActif: boolean("statut_actif").default(false).notNull(),
+	creeLe: timestamp("cree_le", { mode: 'string' }).defaultNow().notNull(),
+	majLe: timestamp("maj_le", { mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		uqCampagnesActive: uniqueIndex("uq_campagnes_active").using("btree", table.statutActif.asc().nullsLast()).where(sql`(statut_actif IS TRUE)`),
+	}
+});
+
+export const ecoGeographieZones = pgTable("eco_geographie_zones", {
+	ogcFid: serial("ogc_fid").primaryKey().notNull(),
+	area: doublePrecision("area"),
+	perimeter: doublePrecision("perimeter"),
+	zone: integer("zone"),
+	nom: varchar("nom"),
+	geometry: geometry("geometry", { type: "multipolygon", srid: 32628 }),
+},
+(table) => {
+	return {
+		geometryIdx: index("eco_geographie_zones_geometry_idx").using("gist", table.geometry.asc().nullsLast()),
+	}
+});
+
+export const huntingActivities = pgTable("hunting_activities", {
+	id: serial("id").primaryKey().notNull(),
+	hunterId: integer("hunter_id").notNull(),
+	permitId: integer("permit_id"),
+	permitNumber: varchar("permit_number", { length: 50 }),
+	speciesId: varchar("species_id", { length: 50 }),
+	speciesName: varchar("species_name", { length: 100 }),
+	scientificName: varchar("scientific_name", { length: 100 }),
+	sex: varchar("sex", { length: 20 }),
+	quantity: integer("quantity").default(1),
+	location: text("location"),
+	lat: numeric("lat", { precision: 10, scale:  8 }),
+	lon: numeric("lon", { precision: 11, scale:  8 }),
+	huntingDate: timestamp("hunting_date", { mode: 'string' }),
+	// TODO: failed to parse database type 'bytea'
+	photoData: unknown("photo_data"),
+	photoMime: varchar("photo_mime", { length: 100 }),
+	photoName: varchar("photo_name", { length: 255 }),
+	sourceType: varchar("source_type", { length: 50 }).default('direct'),
+	sourceId: integer("source_id"),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+	activityNumber: varchar("activity_number", { length: 50 }),
+	domainId: integer("domain_id"),
+},
+(table) => {
+	return {
+		idxHuntingActivitiesActivityNumber: index("idx_hunting_activities_activity_number").using("btree", table.activityNumber.asc().nullsLast()),
+		idxHuntingActivitiesHunterId: index("idx_hunting_activities_hunter_id").using("btree", table.hunterId.asc().nullsLast()),
+		idxHuntingActivitiesHuntingDate: index("idx_hunting_activities_hunting_date").using("btree", table.huntingDate.asc().nullsLast()),
+		idxHuntingActivitiesPermitId: index("idx_hunting_activities_permit_id").using("btree", table.permitId.asc().nullsLast()),
+		idxHuntingActivitiesSource: index("idx_hunting_activities_source").using("btree", table.sourceType.asc().nullsLast(), table.sourceId.asc().nullsLast()),
+		huntingActivitiesDomainIdFkey: foreignKey({
+			columns: [table.domainId],
+			foreignColumns: [domaines.id],
+			name: "hunting_activities_domain_id_fkey"
+		}),
+		huntingActivitiesActivityNumberKey: unique("hunting_activities_activity_number_key").on(table.activityNumber),
+	}
+});
+
+export const hunterAttachments = pgTable("hunter_attachments", {
+	hunterId: integer("hunter_id").primaryKey().notNull(),
+	// TODO: failed to parse database type 'bytea'
+	idCardData: unknown("id_card_data"),
+	idCardMime: varchar("id_card_mime", { length: 100 }),
+	idCardName: varchar("id_card_name", { length: 255 }),
+	idCardChecksum: varchar("id_card_checksum", { length: 64 }),
+	// TODO: failed to parse database type 'bytea'
+	weaponPermitData: unknown("weapon_permit_data"),
+	weaponPermitMime: varchar("weapon_permit_mime", { length: 100 }),
+	weaponPermitName: varchar("weapon_permit_name", { length: 255 }),
+	weaponPermitChecksum: varchar("weapon_permit_checksum", { length: 64 }),
+	// TODO: failed to parse database type 'bytea'
+	hunterPhotoData: unknown("hunter_photo_data"),
+	hunterPhotoMime: varchar("hunter_photo_mime", { length: 100 }),
+	hunterPhotoName: varchar("hunter_photo_name", { length: 255 }),
+	hunterPhotoChecksum: varchar("hunter_photo_checksum", { length: 64 }),
+	// TODO: failed to parse database type 'bytea'
+	treasuryStampData: unknown("treasury_stamp_data"),
+	treasuryStampMime: varchar("treasury_stamp_mime", { length: 100 }),
+	treasuryStampName: varchar("treasury_stamp_name", { length: 255 }),
+	treasuryStampChecksum: varchar("treasury_stamp_checksum", { length: 64 }),
+	// TODO: failed to parse database type 'bytea'
+	weaponReceiptData: unknown("weapon_receipt_data"),
+	weaponReceiptMime: varchar("weapon_receipt_mime", { length: 100 }),
+	weaponReceiptName: varchar("weapon_receipt_name", { length: 255 }),
+	weaponReceiptChecksum: varchar("weapon_receipt_checksum", { length: 64 }),
+	// TODO: failed to parse database type 'bytea'
+	insuranceData: unknown("insurance_data"),
+	insuranceMime: varchar("insurance_mime", { length: 100 }),
+	insuranceName: varchar("insurance_name", { length: 255 }),
+	insuranceChecksum: varchar("insurance_checksum", { length: 64 }),
+	// TODO: failed to parse database type 'bytea'
+	moralCertificateData: unknown("moral_certificate_data"),
+	moralCertificateMime: varchar("moral_certificate_mime", { length: 100 }),
+	moralCertificateName: varchar("moral_certificate_name", { length: 255 }),
+	moralCertificateChecksum: varchar("moral_certificate_checksum", { length: 64 }),
+	updatedAt: timestamp("updated_at", { precision: 6, withTimezone: true, mode: 'string' }).defaultNow(),
+	treasuryStampIssueDate: date("treasury_stamp_issue_date"),
+	treasuryStampExpiryDate: date("treasury_stamp_expiry_date"),
+	idCardIssueDate: date("id_card_issue_date"),
+	idCardExpiryDate: date("id_card_expiry_date"),
+	weaponPermitIssueDate: date("weapon_permit_issue_date"),
+	weaponPermitExpiryDate: date("weapon_permit_expiry_date"),
+	insuranceIssueDate: date("insurance_issue_date"),
+	insuranceExpiryDate: date("insurance_expiry_date"),
+	weaponReceiptIssueDate: date("weapon_receipt_issue_date"),
+	weaponReceiptExpiryDate: date("weapon_receipt_expiry_date"),
+},
+(table) => {
+	return {
+		idxHunterAttachmentsUpdatedAt: index("idx_hunter_attachments_updated_at").using("btree", table.updatedAt.asc().nullsLast()),
+		hunterAttachmentsHunterIdFkey: foreignKey({
+			columns: [table.hunterId],
+			foreignColumns: [hunters.id],
+			name: "hunter_attachments_hunter_id_fkey"
+		}).onDelete("cascade"),
+	}
+});
+
+export const especes = pgTable("especes", {
+	id: serial("id").primaryKey().notNull(),
+	nom: text("nom").notNull(),
+	nomScientifique: text("nom_scientifique"),
+	statutProtection: text("statut_protection").default('Aucun').notNull(),
+	citesAnnexe: text("cites_annexe"),
+	groupe: text("groupe").notNull(),
+	quota: integer("quota"),
+	chassable: boolean("chassable").default(true).notNull(),
+	taxable: boolean("taxable").default(true).notNull(),
+	photoUrl: text("photo_url"),
+	photoData: text("photo_data"),
+	photoMime: text("photo_mime"),
+	photoName: text("photo_name"),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+},
+(table) => {
+	return {
+		idxEspecesChassable: index("idx_especes_chassable").using("btree", table.chassable.asc().nullsLast()),
+		idxEspecesGroupe: index("idx_especes_groupe").using("btree", table.groupe.asc().nullsLast()),
+		idxEspecesNom: index("idx_especes_nom").using("btree", table.nom.asc().nullsLast()),
+		idxEspecesTaxable: index("idx_especes_taxable").using("btree", table.taxable.asc().nullsLast()),
+	}
+});
+
+export const procesVerbaux = pgTable("proces_verbaux", {
+	id: serial("id").primaryKey().notNull(),
+	infractionId: integer("infraction_id").notNull(),
+	// TODO: failed to parse database type 'bytea'
+	fichierPv: unknown("fichier_pv"),
+	numeroPv: varchar("numero_pv", { length: 50 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	domainId: integer("domain_id"),
+},
+(table) => {
+	return {
+		idxProcesVerbauxInfraction: index("idx_proces_verbaux_infraction").using("btree", table.infractionId.asc().nullsLast()),
+		procesVerbauxInfractionIdFkey: foreignKey({
+			columns: [table.infractionId],
+			foreignColumns: [infractions.id],
+			name: "proces_verbaux_infraction_id_fkey"
+		}).onDelete("cascade"),
+		procesVerbauxNumeroPvKey: unique("proces_verbaux_numero_pv_key").on(table.numeroPv),
+	}
+});
+
+export const receiptRegistry = pgTable("receipt_registry", {
+	receiptNumber: text("receipt_number").primaryKey().notNull(),
+	source: text("source").notNull(),
+	sourceId: integer("source_id").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
+
+export const hunterDocuments = pgTable("hunter_documents", {
+	id: serial("id").primaryKey().notNull(),
+	hunterId: integer("hunter_id"),
+	documentType: varchar("document_type", { length: 100 }),
+	filePath: text("file_path"),
+	fileName: varchar("file_name", { length: 255 }),
+	uploadedAt: timestamp("uploaded_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+},
+(table) => {
+	return {
+		hunterDocumentsHunterIdFkey: foreignKey({
+			columns: [table.hunterId],
+			foreignColumns: [hunters.id],
+			name: "hunter_documents_hunter_id_fkey"
+		}),
+	}
+});
+
+export const huntingCampaignPeriods = pgTable("hunting_campaign_periods", {
+	id: serial("id").primaryKey().notNull(),
+	campaignId: integer("campaign_id").notNull(),
+	code: text("code").notNull(),
+	name: text("name").notNull(),
+	startDate: date("start_date").notNull(),
+	endDate: date("end_date").notNull(),
+	enabled: boolean("enabled").default(true).notNull(),
+	derogationEnabled: boolean("derogation_enabled").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	categoryKey: text("category_key"),
+},
+(table) => {
+	return {
+		idxHcpCampaign: index("idx_hcp_campaign").using("btree", table.campaignId.asc().nullsLast()),
+		idxHcpUniqueCampaignCode: uniqueIndex("idx_hcp_unique_campaign_code").using("btree", table.campaignId.asc().nullsLast(), table.code.asc().nullsLast()),
+		huntingCampaignPeriodsCampaignIdFkey: foreignKey({
+			columns: [table.campaignId],
+			foreignColumns: [huntingCampaigns.id],
+			name: "hunting_campaign_periods_campaign_id_fkey"
+		}).onDelete("cascade"),
+	}
+});
+
+export const lieux = pgTable("lieux", {
+	id: serial("id").primaryKey().notNull(),
+	region: varchar("region", { length: 100 }),
+	departement: varchar("departement", { length: 100 }),
+	commune: varchar("commune", { length: 100 }),
+	arrondissement: varchar("arrondissement", { length: 100 }),
+	latitude: numeric("latitude", { precision: 9, scale:  6 }),
+	longitude: numeric("longitude", { precision: 9, scale:  6 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const mappingArrDept = pgTable("mapping_arr_dept", {
+	arrondissementNom: text("arrondissement_nom").primaryKey().notNull(),
+	departementNom: text("departement_nom").notNull(),
+});
+
+export const permitCategoryPrices = pgTable("permit_category_prices", {
+	id: serial("id").primaryKey().notNull(),
+	categoryId: integer("category_id").notNull(),
+	seasonYear: text("season_year").notNull(),
+	tarifXof: numeric("tarif_xof", { precision: 12, scale:  2 }).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		idxPermitCategoryPricesActive: index("idx_permit_category_prices_active").using("btree", table.isActive.asc().nullsLast()),
+		idxPermitCategoryPricesSeason: index("idx_permit_category_prices_season").using("btree", table.seasonYear.asc().nullsLast()),
+		permitCategoryPricesCategoryIdFkey: foreignKey({
+			columns: [table.categoryId],
+			foreignColumns: [permitCategories.id],
+			name: "permit_category_prices_category_id_fkey"
+		}).onDelete("cascade"),
+		uqCategorySeason: unique("uq_category_season").on(table.categoryId, table.seasonYear),
+	}
+});
+
+export const weaponCalibers = pgTable("weapon_calibers", {
+	id: serial("id").primaryKey().notNull(),
+	weaponTypeId: integer("weapon_type_id").notNull(),
+	code: varchar("code", { length: 50 }).notNull(),
+	label: varchar("label", { length: 100 }).notNull(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+},
+(table) => {
+	return {
+		weaponCalibersWeaponTypeIdFkey: foreignKey({
+			columns: [table.weaponTypeId],
+			foreignColumns: [weaponTypes.id],
+			name: "weapon_calibers_weapon_type_id_fkey"
+		}).onDelete("cascade"),
+	}
+});
+
+export const zoneGuides = pgTable("zone_guides", {
+	id: serial("id").primaryKey().notNull(),
+	zoneId: integer("zone_id").notNull(),
+	guideId: integer("guide_id").notNull(),
+	startDate: date("start_date").notNull(),
+	endDate: date("end_date"),
+	isPrincipal: boolean("is_principal").default(false).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		zoneGuidesGuideIdHuntingGuidesIdFk: foreignKey({
+			columns: [table.guideId],
+			foreignColumns: [huntingGuides.id],
+			name: "zone_guides_guide_id_hunting_guides_id_fk"
+		}),
+	}
+});
+
+export const weaponTypes = pgTable("weapon_types", {
+	id: serial("id").primaryKey().notNull(),
+	code: varchar("code", { length: 50 }).notNull(),
+	label: varchar("label", { length: 100 }).notNull(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+},
+(table) => {
+	return {
+		weaponTypesNewCodeKey: unique("weapon_types_new_code_key").on(table.code),
+	}
+});
+
+export const zoneTypes = pgTable("zone_types", {
+	id: serial("id").primaryKey().notNull(),
+	key: text("key").notNull(),
+	label: text("label").notNull(),
+	color: text("color").default('#0ea5e9').notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		idxZoneTypesActive: index("idx_zone_types_active").using("btree", table.isActive.asc().nullsLast()),
+		idxZoneTypesKey: index("idx_zone_types_key").using("btree", table.key.asc().nullsLast()),
+		zoneTypesKeyKey: unique("zone_types_key_key").on(table.key),
+	}
+});
+
+export const permitCategories = pgTable("permit_categories", {
+	id: serial("id").primaryKey().notNull(),
+	key: text("key").notNull(),
+	labelFr: text("label_fr").notNull(),
+	groupe: text("groupe").notNull(),
+	genre: text("genre").notNull(),
+	defaultValidityDays: integer("default_validity_days"),
+	maxRenewals: integer("max_renewals").default(0).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	rulesJson: jsonb("rules_json"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	sousCategorie: text("sous_categorie"),
+	displayOrder: integer("display_order"),
+},
+(table) => {
+	return {
+		idxPermitCategoriesActive: index("idx_permit_categories_active").using("btree", table.isActive.asc().nullsLast()),
+		idxPermitCategoriesGroupGenreSous: index("idx_permit_categories_group_genre_sous").using("btree", table.groupe.asc().nullsLast(), table.genre.asc().nullsLast(), table.sousCategorie.asc().nullsLast()),
+		permitCategoriesKeyKey: unique("permit_categories_key_key").on(table.key),
+	}
+});
+
+export const zoneStatuses = pgTable("zone_statuses", {
+	id: serial("id").primaryKey().notNull(),
+	key: text("key").notNull(),
+	label: text("label").notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		idxZoneStatusesActive: index("idx_zone_statuses_active").using("btree", table.isActive.asc().nullsLast()),
+		idxZoneStatusesKey: index("idx_zone_statuses_key").using("btree", table.key.asc().nullsLast()),
+		zoneStatusesKeyKey: unique("zone_statuses_key_key").on(table.key),
+	}
+});
+
+export const contrevenantsInfractions = pgTable("contrevenants_infractions", {
+	id: serial("id").primaryKey().notNull(),
+	contrevenantId: integer("contrevenant_id").notNull(),
+	infractionId: integer("infraction_id").notNull(),
+	role: varchar("role", { length: 100 }),
+	dateImplication: timestamp("date_implication", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+},
+(table) => {
+	return {
+		contrevenantsInfractionsContrevenantIdFkey: foreignKey({
+			columns: [table.contrevenantId],
+			foreignColumns: [contrevenants.id],
+			name: "contrevenants_infractions_contrevenant_id_fkey"
+		}).onDelete("cascade"),
+		contrevenantsInfractionsInfractionIdFkey: foreignKey({
+			columns: [table.infractionId],
+			foreignColumns: [infractions.id],
+			name: "contrevenants_infractions_infraction_id_fkey"
+		}).onDelete("cascade"),
+		contrevenantsInfractionsContrevenantIdInfractionIdKey: unique("contrevenants_infractions_contrevenant_id_infraction_id_key").on(table.contrevenantId, table.infractionId),
+	}
+});
+
+export const weaponBrands = pgTable("weapon_brands", {
+	id: serial("id").primaryKey().notNull(),
+	weaponTypeId: integer("weapon_type_id").notNull(),
+	code: varchar("code", { length: 50 }).notNull(),
+	label: varchar("label", { length: 100 }).notNull(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+},
+(table) => {
+	return {
+		weaponBrandsWeaponTypeIdFkey: foreignKey({
+			columns: [table.weaponTypeId],
+			foreignColumns: [weaponTypes.id],
+			name: "weapon_brands_weapon_type_id_fkey"
+		}).onDelete("cascade"),
+	}
+});
+
+export const zones = pgTable("zones", {
+	id: serial("id").primaryKey().notNull(),
+	name: text("name").notNull(),
+	type: text("type").notNull(),
+	status: text("status").default('active'),
+	color: text("color"),
+	responsibleName: text("responsible_name"),
+	responsiblePhone: text("responsible_phone"),
+	responsibleEmail: text("responsible_email"),
+	responsiblePhoto: text("responsible_photo"),
+	attachments: jsonb("attachments"),
+	notes: text("notes"),
+	guidesCount: integer("guides_count"),
+	trackersCount: integer("trackers_count"),
+	geometry: geometry("geometry", { type: "polygon", srid: 4326 }).notNull(),
+	region: text("region"),
+	departement: text("departement"),
+	commune: text("commune"),
+	arrondissement: text("arrondissement"),
+	centroidLat: doublePrecision("centroid_lat"),
+	centroidLon: doublePrecision("centroid_lon"),
+	areaSqKm: doublePrecision("area_sq_km"),
+	createdBy: text("created_by"),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		idxZonesDepartement: index("idx_zones_departement").using("btree", table.departement.asc().nullsLast()),
+		idxZonesGeomGist: index("idx_zones_geom_gist").using("gist", table.geometry.asc().nullsLast()),
+		idxZonesGeometry: index("idx_zones_geometry").using("gist", table.geometry.asc().nullsLast()),
+		idxZonesName: index("idx_zones_name").using("btree", table.name.asc().nullsLast()),
+		idxZonesRegion: index("idx_zones_region").using("btree", table.region.asc().nullsLast()),
+		idxZonesStatus: index("idx_zones_status").using("btree", table.status.asc().nullsLast()),
+		idxZonesType: index("idx_zones_type").using("btree", table.type.asc().nullsLast()),
+	}
+});
+
+export const systemSettings = pgTable("system_settings", {
+	id: serial("id").primaryKey().notNull(),
+	settingKey: text("setting_key").notNull(),
+	settingValue: text("setting_value"),
+	description: text("description"),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+},
+(table) => {
+	return {
+		idxSystemSettingsKey: index("idx_system_settings_key").using("btree", table.settingKey.asc().nullsLast()),
+		systemSettingsSettingKeyKey: unique("system_settings_setting_key_key").on(table.settingKey),
+	}
+});
+
+export const protectedZoneTypes = pgTable("protected_zone_types", {
+	id: serial("id").primaryKey().notNull(),
+	key: text("key").notNull(),
+	label: text("label").notNull(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+},
+(table) => {
+	return {
+		protectedZoneTypesKeyKey: unique("protected_zone_types_key_key").on(table.key),
+	}
+});
+
+export const geographyColumns = pgTable("geography_columns", {
+	// TODO: failed to parse database type 'name'
+	fTableCatalog: unknown("f_table_catalog"),
+	// TODO: failed to parse database type 'name'
+	fTableSchema: unknown("f_table_schema"),
+	// TODO: failed to parse database type 'name'
+	fTableName: unknown("f_table_name"),
+	// TODO: failed to parse database type 'name'
+	fGeographyColumn: unknown("f_geography_column"),
+	coordDimension: integer("coord_dimension"),
+	srid: integer("srid"),
+	type: text("type"),
+});
+
+export const geometryColumns = pgTable("geometry_columns", {
+	fTableCatalog: varchar("f_table_catalog", { length: 256 }),
+	// TODO: failed to parse database type 'name'
+	fTableSchema: unknown("f_table_schema"),
+	// TODO: failed to parse database type 'name'
+	fTableName: unknown("f_table_name"),
+	// TODO: failed to parse database type 'name'
+	fGeometryColumn: unknown("f_geometry_column"),
+	coordDimension: integer("coord_dimension"),
+	srid: integer("srid"),
+	type: varchar("type", { length: 30 }),
+});
+
+export const sectorAgentsView = pgTable("sector_agents_view", {
+	id: integer("id"),
+	username: text("username"),
+	email: text("email"),
+	firstName: text("first_name"),
+	lastName: text("last_name"),
+	phone: text("phone"),
+	matricule: text("matricule"),
+	serviceLocation: text("service_location"),
+	region: text("region"),
+	zone: text("zone"),
+	role: userRole("role"),
+	isActive: boolean("is_active"),
+	isSuspended: boolean("is_suspended"),
+	createdAt: timestamp("created_at", { mode: 'string' }),
+});
+
+export const allAgentsView = pgTable("all_agents_view", {
+	id: integer("id"),
+	username: text("username"),
+	email: text("email"),
+	firstName: text("first_name"),
+	lastName: text("last_name"),
+	phone: text("phone"),
+	matricule: text("matricule"),
+	serviceLocation: text("service_location"),
+	region: text("region"),
+	zone: text("zone"),
+	role: userRole("role"),
+	isActive: boolean("is_active"),
+	isSuspended: boolean("is_suspended"),
+	createdAt: timestamp("created_at", { mode: 'string' }),
+	agentType: text("agent_type"),
+});
+
+export const protectedZones = pgTable("protected_zones", {
+	id: serial("id").primaryKey().notNull(),
+	name: text("name").notNull(),
+	type: text("type").notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+	surfaceHa: numeric("surface_ha", { precision: 15, scale:  6 }),
+	perimetreM: numeric("perimetre_m", { precision: 15, scale:  3 }),
+	centreGeometrique: geometry("centre_geometrique", { type: "point", srid: 32628 }),
+	geom: geometry("geom", { type: "multipolygonz", srid: 32628 }),
+	region: text("region"),
+	geom4326: geometry("geom_4326", { type: "multipolygon", srid: 4326 }),
+	bbox4326: geometry("bbox_4326", { type: "polygon", srid: 4326 }),
+},
+(table) => {
+	return {
+		idxProtectedZonesBbox4326: index("idx_protected_zones_bbox_4326").using("gist", table.bbox4326.asc().nullsLast()),
+		idxProtectedZonesGeom: index("idx_protected_zones_geom").using("gist", table.geom.asc().nullsLast()),
+		idxProtectedZonesGeom4326: index("idx_protected_zones_geom_4326").using("gist", table.geom4326.asc().nullsLast()),
+		idxProtectedZonesName: index("idx_protected_zones_name").using("btree", table.name.asc().nullsLast()),
+		idxProtectedZonesType: index("idx_protected_zones_type").using("btree", table.type.asc().nullsLast()),
+		idxPzType: index("idx_pz_type").using("btree", table.type.asc().nullsLast()),
+		centreGeometriqueIdx: index("protected_zones_centre_geometrique_idx").using("gist", table.centreGeometrique.asc().nullsLast()),
+		geomIdx: index("protected_zones_geom_idx").using("gist", table.geom.asc().nullsLast()),
+	}
+});
+
+export const regionCoordinates = pgTable("region_coordinates", {
+	id: serial("id").primaryKey().notNull(),
+	regionName: text("region_name").notNull(),
+	regionCode: text("region_code"),
+	coordinates: jsonb("coordinates").notNull(),
+	status: text("status").default('unknown'),
+	color: text("color").default('#6b7280'),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		idxRegionCoordinatesRegionName: index("idx_region_coordinates_region_name").using("btree", table.regionName.asc().nullsLast()),
+		regionCoordinatesRegionNameKey: unique("region_coordinates_region_name_key").on(table.regionName),
+	}
+});
+
+export const codeInfractionDocuments = pgTable("code_infraction_documents", {
+	id: bigserial("id", { mode: "bigint" }).primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	codeInfractionId: bigint("code_infraction_id", { mode: "number" }).notNull(),
+	filename: text("filename").notNull(),
+	mime: text("mime"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	size: bigint("size", { mode: "number" }),
+	storagePath: text("storage_path").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+},
+(table) => {
+	return {
+		idxCodeDocsCodeId: index("idx_code_docs_code_id").using("btree", table.codeInfractionId.asc().nullsLast()),
+		codeInfractionDocumentsCodeInfractionIdFkey: foreignKey({
+			columns: [table.codeInfractionId],
+			foreignColumns: [codeInfractions.id],
+			name: "code_infraction_documents_code_infraction_id_fkey"
+		}).onDelete("cascade"),
+	}
+});
+
+export const codeInfractionItems = pgTable("code_infraction_items", {
+	id: bigserial("id", { mode: "bigint" }).primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	codeInfractionId: bigint("code_infraction_id", { mode: "number" }).notNull(),
+	nature: text("nature").notNull(),
+	articleCode: text("article_code").notNull(),
+	isDefault: boolean("is_default").default(false).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+},
+(table) => {
+	return {
+		idxCodeItemsArticle: index("idx_code_items_article").using("gin", sql`to_tsvector('simple'::regconfig`),
+		idxCodeItemsNature: index("idx_code_items_nature").using("gin", sql`to_tsvector('simple'::regconfig`),
+		uxCodeItemsOneDefaultPerCode: uniqueIndex("ux_code_items_one_default_per_code").using("btree", table.codeInfractionId.asc().nullsLast()).where(sql`(is_default = true)`),
+		uxCodeItemsUniqueTuple: uniqueIndex("ux_code_items_unique_tuple").using("btree", table.codeInfractionId.asc().nullsLast(), table.nature.asc().nullsLast(), table.articleCode.asc().nullsLast()),
+		codeInfractionItemsCodeInfractionIdFkey: foreignKey({
+			columns: [table.codeInfractionId],
+			foreignColumns: [codeInfractions.id],
+			name: "code_infraction_items_code_infraction_id_fkey"
+		}).onDelete("cascade"),
+	}
+});
+
+export const messageAttachmentBlobs = pgTable("message_attachment_blobs", {
+	storageKey: text("storage_key").primaryKey().notNull(),
+	// TODO: failed to parse database type 'bytea'
+	data: unknown("data").notNull(),
+	mimeType: text("mime_type"),
+	sizeBytes: integer("size_bytes").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
+
+export const codeItemUnitsConfig = pgTable("code_item_units_config", {
+	itemId: integer("item_id").primaryKey().notNull(),
+	mode: text("mode").notNull(),
+	allowed: text("allowed").array(),
+	fixed: text("fixed"),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+},
+(table) => {
+	return {
+		codeItemUnitsConfigItemIdFkey: foreignKey({
+			columns: [table.itemId],
+			foreignColumns: [codeInfractionItems.id],
+			name: "code_item_units_config_item_id_fkey"
+		}).onDelete("cascade"),
+	}
+});
+
+export const saisieItems = pgTable("saisie_items", {
+	id: serial("id").primaryKey().notNull(),
+	key: text("key").notNull(),
+	label: text("label").notNull(),
+	isActive: boolean("is_active").default(true),
+	quantityEnabled: boolean("quantity_enabled").default(false),
+	unitMode: text("unit_mode").default('none').notNull(),
+	unitFixedKey: text("unit_fixed_key"),
+	unitAllowed: text("unit_allowed").array(),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+	groupKey: text("group_key"),
+},
+(table) => {
+	return {
+		saisieItemsGroupKeyFkey: foreignKey({
+			columns: [table.groupKey],
+			foreignColumns: [saisieGroups.key],
+			name: "saisie_items_group_key_fkey"
+		}).onUpdate("cascade").onDelete("set null"),
+		saisieItemsKeyKey: unique("saisie_items_key_key").on(table.key),
+	}
+});
+
+export const agentsRegionaux = pgTable("agents_regionaux", {
+	userId: integer("user_id"),
+	region: text("region"),
+	isActive: boolean("is_active"),
+	createdAt: timestamp("created_at", { mode: 'string' }),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+});
+
+export const agentsSecteurs = pgTable("agents_secteurs", {
+	userId: integer("user_id"),
+	region: text("region"),
+	secteur: text("secteur"),
+	isActive: boolean("is_active"),
+	createdAt: timestamp("created_at", { mode: 'string' }),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+});
+
+export const clientMutations = pgTable("client_mutations", {
+	id: serial("id").primaryKey().notNull(),
+	deviceId: text("device_id").notNull(),
+	mutationId: text("mutation_id").notNull(),
+	entity: text("entity").notNull(),
+	action: text("action").notNull(),
+	userId: integer("user_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	appliedAt: timestamp("applied_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	result: jsonb("result"),
+},
+(table) => {
+	return {
+		deviceMutationUidx: uniqueIndex("client_mutations_device_mutation_uidx").using("btree", table.deviceId.asc().nullsLast(), table.mutationId.asc().nullsLast()),
+	}
+});
+
+export const activeSessions = pgTable("active_sessions", {
+	id: serial("id").primaryKey().notNull(),
+	userId: integer("user_id").notNull(),
+	sessionToken: varchar("session_token", { length: 255 }).notNull(),
+	ipAddress: varchar("ip_address", { length: 45 }),
+	userAgent: text("user_agent"),
+	deviceInfo: text("device_info"),
+	lat: numeric("lat", { precision: 10, scale:  6 }),
+	lon: numeric("lon", { precision: 10, scale:  6 }),
+	domain: varchar("domain", { length: 50 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	lastActivity: timestamp("last_activity", { mode: 'string' }).defaultNow(),
+	isActive: boolean("is_active").default(true),
+	blockedReason: text("blocked_reason"),
+},
+(table) => {
+	return {
+		activeSessionsUserIdFkey: foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "active_sessions_user_id_fkey"
+		}).onDelete("cascade"),
+		activeSessionsSessionTokenKey: unique("active_sessions_session_token_key").on(table.sessionToken),
+	}
+});

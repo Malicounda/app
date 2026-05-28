@@ -142,7 +142,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
   // Style pour le conteneur
   const sidebarStyle = cn(
     // Container base + smoother GPU transform
-    'h-full overflow-y-auto overflow-x-hidden transform-gpu will-change-transform transition-transform duration-300 ease-in-out',
+    'h-full transform-gpu will-change-transform transition-transform duration-300 ease-in-out',
     // Mobile (default): off-canvas with slide using translateX
     isOpen ? 'translate-x-0' : '-translate-x-full',
     'fixed inset-y-0 left-0 z-40 w-64 p-3',
@@ -237,9 +237,9 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
 
   return (
     <nav className={cn(sidebarStyle, 'sidebar')}>
-      <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-col h-full">
         {/* Zone de navigation scrollable */}
-        <div className="flex flex-col space-y-1 pb-4 flex-1 min-h-0">
+        <div className="flex flex-col space-y-1 pb-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         {/* Section Profil - commune à tous les utilisateurs (sauf guides de chasse) */}
         {user?.role !== 'hunting-guide' && !isUserSuperAdmin(user) && (
           <Link
