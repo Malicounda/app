@@ -2541,6 +2541,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
 
         const [individualResult] = await db.select({ value: count() })
           .from(messages)
+          .innerJoin(users, eq(users.id, messages.senderId)) // Filter out messages from deleted senders
           .where(and(...individualConditions));
 
         // 2. Compter les messages de groupe non lus
@@ -2555,10 +2556,24 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           groupConditions.push(isNull(groupMessages.domaineId));
         } else if (domaineId !== undefined) {
           groupConditions.push(eq(groupMessages.domaineId, domaineId));
+        } else {
+          // If undefined, fetch across all domains BUT only those the user actively belongs to
+          groupConditions.push(
+            or(
+              isNull(groupMessages.domaineId),
+              inArray(
+                groupMessages.domaineId,
+                db.select({ domaineId: userDomains.domaineId })
+                  .from(userDomains)
+                  .where(and(eq(userDomains.userId, userId), eq(userDomains.active, true as any)))
+              )
+            )
+          );
         }
 
         const groupMessagesList = await db.select({ id: groupMessages.id })
           .from(groupMessages)
+          .innerJoin(users, eq(users.id, groupMessages.senderId)) // Filter out messages from deleted senders
           .where(and(...groupConditions));
 
         const groupIds = groupMessagesList.map(m => m.id);
@@ -2682,6 +2697,18 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         conditions.push(isNull(groupMessages.domaineId));
       } else if (domaineId !== undefined) {
         conditions.push(eq(groupMessages.domaineId, domaineId));
+      } else {
+        conditions.push(
+          or(
+            isNull(groupMessages.domaineId),
+            inArray(
+              groupMessages.domaineId,
+              db.select({ domaineId: userDomains.domaineId })
+                .from(userDomains)
+                .where(and(eq(userDomains.userId, userId), eq(userDomains.active, true as any)))
+            )
+          )
+        );
       }
 
       const rows = await db
