@@ -13,9 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { useQuery } from "@tanstack/react-query";
-import { Pencil } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type Domaine = {
@@ -164,9 +165,19 @@ function normalizeCfg(cfg: ThemeConfig): ThemeConfig {
 }
 
 export default function ThemePage() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
   const { data: domaines } = useQuery({
     queryKey: ["/api/domaines"],
     queryFn: () => apiRequest<Domaine[]>({ url: "/api/domaines", method: "GET" }),
+    retry: false,
+  });
+
+  // Charger le thème actif depuis l'API
+  const { data: activeThemeFromApi } = useQuery({
+    queryKey: ["/api/themes/active"],
+    queryFn: () => apiRequest<{ id: number; nom: string; config: ThemeConfig; isActive: boolean } | null>({ url: "/api/themes/active", method: "GET" }),
     retry: false,
   });
 
@@ -174,6 +185,20 @@ export default function ThemePage() {
 
   const [appliedCfg, setAppliedCfg] = useState<ThemeConfig>(() => normalizeCfg(safeParse(localStorage.getItem("theme:superadmin")) || DEFAULT_CFG));
   const [draftCfg, setDraftCfg] = useState<ThemeConfig>(() => normalizeCfg(safeParse(localStorage.getItem("theme:superadmin")) || DEFAULT_CFG));
+  const [initialized, setInitialized] = useState(false);
+
+  // Quand le thème API arrive, l'utiliser comme source de vérité
+  useEffect(() => {
+    if (activeThemeFromApi?.config && !initialized) {
+      const cfg = normalizeCfg(activeThemeFromApi.config as ThemeConfig);
+      setAppliedCfg(cfg);
+      setDraftCfg(cfg);
+      applyPreviewToDom(cfg.superAdmin);
+      // Sync localStorage aussi
+      try { localStorage.setItem("theme:superadmin", JSON.stringify(cfg)); } catch {}
+      setInitialized(true);
+    }
+  }, [activeThemeFromApi]);
 
   const applyPreviewToDom = (cfg: SuperAdminTheme) => {
     const html = document.documentElement;
@@ -216,8 +241,30 @@ export default function ThemePage() {
     };
   }, [appliedCfg.superAdmin.bg, appliedCfg.superAdmin.text, appliedCfg.superAdmin.sidebarBg, appliedCfg.superAdmin.headerBg, appliedCfg.superAdmin.surface, appliedCfg.superAdmin.border, appliedCfg.superAdmin.accent]);
 
+  const saveMutation = useMutation({
+    mutationFn: async (cfg: ThemeConfig) => {
+      return apiRequest({
+        url: "/api/themes",
+        method: "POST",
+        data: {
+          nom: "default",
+          config: cfg,
+          isActive: true,
+        },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/themes/active"] });
+      toast({ title: "Thème sauvegardé", description: "Le thème a été enregistré et sera appliqué à tous les utilisateurs." });
+    },
+    onError: (e: any) => {
+      toast({ title: "Erreur", description: e?.message || "Impossible de sauvegarder le thème.", variant: "destructive" });
+    },
+  });
+
   const applyChanges = () => {
     const next = normalizeCfg(draftCfg);
+    // Sauvegarder en localStorage (fallback immédiat)
     try {
       localStorage.setItem("theme:superadmin", JSON.stringify(next));
     } catch {}
@@ -226,6 +273,8 @@ export default function ThemePage() {
     try {
       window.dispatchEvent(new Event('theme:superadmin:updated'));
     } catch {}
+    // Persister en base de données
+    saveMutation.mutate(next);
   };
 
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -390,7 +439,8 @@ export default function ThemePage() {
             </AlertDialogContent>
           </AlertDialog>
 
-          <Button onClick={applyChanges} disabled={!hasChanges} className="bg-teal-600 hover:bg-teal-700">
+          <Button onClick={applyChanges} disabled={!hasChanges || saveMutation.isPending} className="bg-teal-600 hover:bg-teal-700">
+            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Appliquer
           </Button>
         </div>

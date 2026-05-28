@@ -117,6 +117,23 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     };
   }, [isSuperAdmin, themeVersion]);
 
+  // Charger le thème depuis l'API et synchroniser avec localStorage
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    (async () => {
+      try {
+        const res = await authenticatedFetch('/api/themes/active');
+        if (res.ok) {
+          const theme = await res.json();
+          if (theme?.config) {
+            localStorage.setItem('theme:superadmin', JSON.stringify(theme.config));
+            setThemeVersion((v) => v + 1);
+          }
+        }
+      } catch {}
+    })();
+  }, [isSuperAdmin]);
+
   // Utilisation de la fonction getHomePage centralisée depuis utils/navigation
 
   // Gestion de la redirection unifiée

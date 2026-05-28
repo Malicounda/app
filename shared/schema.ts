@@ -93,6 +93,22 @@ export const superAdmins = pgTable("super_admins", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const themeSysteme = pgTable("theme_systeme", {
+  id: serial("id").primaryKey(),
+  nom: text("nom").notNull().unique(),
+  isActive: boolean("is_active").notNull().default(false),
+  config: json("config").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertThemeSystemeSchema = createInsertSchema(themeSysteme).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type ThemeSysteme = typeof themeSysteme.$inferSelect;
+export type NewThemeSysteme = typeof themeSysteme.$inferInsert;
+
 export const agents = pgTable("agents", {
   idAgent: serial("id_agent").primaryKey(),
   userId: integer("user_id").notNull().unique().references(() => users.id),

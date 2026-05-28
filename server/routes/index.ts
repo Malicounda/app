@@ -47,6 +47,7 @@ import userDomainsRoutes from './userDomains.routes.js';
 import userRoutes from './users.routes.js';
 import weaponsRoutes from './weapons.routes.js';
 import zonesRoutes from './zones.routes.js';
+import themesRoutes from './themes.routes.js';
 
 export default function registerRoutes(app: Express): void {
   // Routes d'authentification
@@ -178,6 +179,9 @@ export default function registerRoutes(app: Express): void {
 
   // Routes pour le module Reboisement (Division REBOISEMENT)
   app.use('/api/reboisement', reboisementRoutes);
+
+  // Routes pour le système de thèmes (personnalisation UI)
+  app.use('/api/themes', themesRoutes);
 
   // Gestion des erreurs 404 pour les routes non trouvées
   app.use((req, res) => {
