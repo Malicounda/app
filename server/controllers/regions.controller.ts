@@ -87,7 +87,7 @@ export const getRegions = async (req: Request, res: Response) => {
     res.json({ type: 'FeatureCollection', features });
   } catch (error) {
     console.error('Error fetching regions:', error);
-    res.status(500).json({ error: 'Failed to fetch regions' });
+    res.status(200).json({ type: 'FeatureCollection', features: [] });
   }
 };
 
@@ -162,7 +162,7 @@ export const getDepartements = async (req: Request, res: Response) => {
     res.json({ type: 'FeatureCollection', features });
   } catch (error) {
     console.error('Error fetching departements:', error);
-    res.status(500).json({ error: 'Failed to fetch departements' });
+    res.status(200).json({ type: 'FeatureCollection', features: [] });
   }
 };
 
@@ -276,7 +276,7 @@ export const getCommunes = async (req: Request, res: Response) => {
     res.json({ type: 'FeatureCollection', features });
   } catch (error) {
     console.error('Error fetching communes:', error);
-    res.status(500).json({ error: 'Failed to fetch communes' });
+    res.status(200).json({ type: 'FeatureCollection', features: [] });
   }
 };
 
@@ -375,6 +375,6 @@ export const getArrondissements = async (req: Request, res: Response) => {
     res.json({ type: 'FeatureCollection', features });
   } catch (error) {
     console.error('Error fetching arrondissements:', error);
-    res.status(500).json({ error: 'Failed to fetch arrondissements' });
+    res.status(200).json({ type: 'FeatureCollection', features: [] });
   }
 };

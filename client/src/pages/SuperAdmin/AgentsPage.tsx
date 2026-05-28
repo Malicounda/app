@@ -45,6 +45,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Flag, Info, Pencil, Trash2, User, Download, Upload } from "lucide-react";
 import { useMemo, useState, useRef } from "react";
 import Papa from "papaparse";
+import { useAuth } from "@/contexts/AuthContext";
 
 type AgentRow = {
   idAgent: number | null;
@@ -67,6 +68,7 @@ type AgentRow = {
   arrondissement: string | null;
   userRole: string | null;
   adminDomainName?: string | null;
+  adminDomainId?: number | null;
 };
 
 type RoleMetier = {
@@ -180,6 +182,14 @@ function GradeSelectField({
 export default function SuperAdminAgentsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const { data: domainesData } = useQuery({
+    queryKey: ["/api/domaines"],
+    queryFn: () => apiRequest<any[]>({ url: "/api/domaines", method: "GET" }),
+    enabled: !!user?.isSuperAdmin,
+  });
+  const domainesList = Array.isArray(domainesData) ? domainesData : [];
 
   const { data, isLoading } = useQuery({
     queryKey: ["/api/agents"],
@@ -299,6 +309,8 @@ export default function SuperAdminAgentsPage() {
   const [grade, setGrade] = useState("");
   const [genre, setGenre] = useState<string>("");
   const [roleMetierId, setRoleMetierId] = useState<string>("");
+  const [editSystemRole, setEditSystemRole] = useState("agent");
+  const [editAdminDomainId, setEditAdminDomainId] = useState("");
   const [contactTelephone, setContactTelephone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [enablePasswordChange, setEnablePasswordChange] = useState(false);
@@ -329,6 +341,8 @@ export default function SuperAdminAgentsPage() {
   const [newGrade, setNewGrade] = useState("");
   const [newGenre, setNewGenre] = useState("");
   const [newRoleMetierId, setNewRoleMetierId] = useState("");
+  const [newSystemRole, setNewSystemRole] = useState("agent");
+  const [newAdminDomainId, setNewAdminDomainId] = useState("");
   const [newRoleMetierUnlocked, setNewRoleMetierUnlocked] = useState(false);
   const [newContactTelephone, setNewContactTelephone] = useState("");
   const [newContactEmail, setNewContactEmail] = useState("");
@@ -390,6 +404,8 @@ export default function SuperAdminAgentsPage() {
     setAddOpen(open);
     if (!open) {
       setNewRoleMetierUnlocked(false);
+      setNewSystemRole("agent");
+      setNewAdminDomainId("");
     }
   };
 
@@ -457,6 +473,8 @@ export default function SuperAdminAgentsPage() {
           departement: newDepartement || null,
           commune: newCommune || null,
           arrondissement: newArrondissement || null,
+          userRole: user?.isSuperAdmin ? newSystemRole : undefined,
+          adminDomainId: user?.isSuperAdmin && newSystemRole === 'admin' ? Number(newAdminDomainId) : undefined,
           contact: {
             telephone: newContactTelephone.trim() || null,
             email: email || null,
@@ -532,6 +550,13 @@ export default function SuperAdminAgentsPage() {
     setGrade(row.grade || "");
     setGenre(row.genre ? String(row.genre) : "");
     setRoleMetierId(row.roleMetierId ? String(row.roleMetierId) : "");
+    
+    let defaultSysRole = "agent";
+    if (row.userRole?.toLowerCase() === 'admin') {
+      defaultSysRole = row.adminDomainName ? "admin" : "super-admin";
+    }
+    setEditSystemRole(defaultSysRole);
+    setEditAdminDomainId(row.adminDomainId ? String(row.adminDomainId) : "");
 
     setEnablePasswordChange(false);
     setNewPassword("");
@@ -569,6 +594,8 @@ export default function SuperAdminAgentsPage() {
     setEditCommune("");
     setEditArrondissement("");
     setRegionUnlocked(false);
+    setEditSystemRole("agent");
+    setEditAdminDomainId("");
     // Ne pas impacter la section mot de passe (gérée indépendamment)
   };
 
@@ -643,6 +670,15 @@ export default function SuperAdminAgentsPage() {
       commune: editCommune || null,
       arrondissement: editArrondissement || null,
     };
+
+    if (user?.isSuperAdmin) {
+      data.userRole = editSystemRole;
+      if (editSystemRole === 'admin' && editAdminDomainId) {
+        data.adminDomainId = Number(editAdminDomainId);
+      } else {
+        data.adminDomainId = null;
+      }
+    }
 
     if (enablePasswordChange && newPassword.trim()) {
       data.password = newPassword.trim();
@@ -1215,6 +1251,41 @@ export default function SuperAdminAgentsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {user?.isSuperAdmin && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Rôle système</Label>
+                    <Select value={editSystemRole} onValueChange={(v) => { setEditSystemRole(v); if(v !== 'admin') setEditAdminDomainId(""); }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner le rôle système" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="agent">Agent (Standard)</SelectItem>
+                        <SelectItem value="hunter">Hunter</SelectItem>
+                        <SelectItem value="sub-agent">Sous-agent</SelectItem>
+                        <SelectItem value="admin">Administrateur de Domaine</SelectItem>
+                        <SelectItem value="super-admin">Super Administrateur</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {editSystemRole === 'admin' && (
+                    <div className="space-y-2">
+                      <Label>Domaine administré</Label>
+                      <Select value={editAdminDomainId || "none"} onValueChange={(v) => setEditAdminDomainId(v === "none" ? "" : v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner le domaine" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Aucun</SelectItem>
+                          {domainesList.map((d: any) => (
+                            <SelectItem key={d.id} value={String(d.id)}>{d.nomDomaine || d.domain}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="space-y-2">
                 <Label>Téléphone (contact)</Label>
                 <div className="relative">
@@ -1514,6 +1585,41 @@ export default function SuperAdminAgentsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {user?.isSuperAdmin && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Rôle système</Label>
+                    <Select value={newSystemRole} onValueChange={(v) => { setNewSystemRole(v); if(v !== 'admin') setNewAdminDomainId(""); }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner le rôle système" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="agent">Agent (Standard)</SelectItem>
+                        <SelectItem value="hunter">Hunter</SelectItem>
+                        <SelectItem value="sub-agent">Sous-agent</SelectItem>
+                        <SelectItem value="admin">Administrateur de Domaine</SelectItem>
+                        <SelectItem value="super-admin">Super Administrateur</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {newSystemRole === 'admin' && (
+                    <div className="space-y-2">
+                      <Label>Domaine administré</Label>
+                      <Select value={newAdminDomainId || "none"} onValueChange={(v) => setNewAdminDomainId(v === "none" ? "" : v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner le domaine" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Aucun</SelectItem>
+                          {domainesList.map((d: any) => (
+                            <SelectItem key={d.id} value={String(d.id)}>{d.nomDomaine || d.domain}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="space-y-2">
                 <Label>Téléphone (contact)</Label>
                 <Input

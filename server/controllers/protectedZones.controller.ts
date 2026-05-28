@@ -59,7 +59,8 @@ export const getAllProtectedZonesAsGeoJSON = async (req: Request, res: Response)
     else if (has('geojson')) { geomSource = 'geojson'; geomSourceType = findCol('geojson')!.data_type; }
 
     if (!geomSource) {
-      return res.status(404).json({ message: "Aucune colonne géométrique trouvée dans 'protected_zones' (recherché: geom, zone_geo, geometry, geojson)." });
+      console.warn("[protectedZones] Table 'protected_zones' existe mais aucune colonne géométrique trouvée (recherché: geom, zone_geo, geometry, geojson). Retour FeatureCollection vide.");
+      return res.status(200).json({ type: 'FeatureCollection', features: [] });
     }
 
     // Construire la clause de sélection en fonction de la source

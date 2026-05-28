@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { agents, rolesMetier, users } from '../../shared/schema.js';
@@ -253,6 +253,9 @@ export const login = async (req: Request, res: Response) => {
         // Historique : connexion réussie
         try {
             const loginIp = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket?.remoteAddress || '-';
+            const userAgent = req.headers['user-agent'] || 'Unknown';
+            const sessionToken = req.sessionID || crypto.randomUUID();
+            
             await storage.createHistory({
                 userId: user.id,
                 operation: 'login',
@@ -260,7 +263,29 @@ export const login = async (req: Request, res: Response) => {
                 entityId: user.id,
                 details: `Connexion réussie - Utilisateur: ${user.username} - IP: ${loginIp}`,
             });
-        } catch { }
+
+            // Insérer dans active_sessions
+            const lat = (req.body as any)?.lat ? parseFloat((req.body as any).lat) : null;
+            const lon = (req.body as any)?.lon ? parseFloat((req.body as any).lon) : null;
+            const domain = currentDomain || 'SYSTEM';
+
+            try {
+                await db.execute(sql`
+                    INSERT INTO active_sessions (
+                        user_id, session_token, ip_address, user_agent,
+                        device_info, lat, lon, domain, is_active, created_at, last_activity
+                    ) VALUES (
+                        ${user.id}, ${sessionToken}, ${loginIp}, ${userAgent},
+                        ${userAgent}, ${lat !== null && !isNaN(lat) ? lat : null}, ${lon !== null && !isNaN(lon) ? lon : null},
+                        ${domain}, true, NOW(), NOW()
+                    )
+                `);
+            } catch (insertErr) {
+                console.error("[LOGIN] Erreur lors de l'insertion dans active_sessions:", insertErr);
+            }
+        } catch (e) {
+            console.error("[LOGIN] Erreur lors de l'enregistrement dans active_sessions:", e);
+        }
 
         req.session.save(async (err) => {
             if (err) {
@@ -434,7 +459,18 @@ export const logout = async (req: Request, res: Response) => {
                 entityId: userId || 0,
                 details: `Déconnexion (${reason === 'inactivity' ? 'inactivité' : reason === 'session_expired' ? 'expiration session' : 'manuelle'}) - Utilisateur: ${username} - IP: ${ip}`,
             });
-        } catch { }
+
+            const sessionToken = req.sessionID;
+            if (sessionToken) {
+                await db.execute(sql`
+                    UPDATE active_sessions
+                    SET is_active = false, last_activity = NOW()
+                    WHERE session_token = ${sessionToken}
+                `);
+            }
+        } catch (e) {
+            console.error('[LOGOUT] Erreur lors de la maj active_sessions:', e);
+        }
 
         req.session.destroy((err) => {
             if (err) {
@@ -460,6 +496,31 @@ export const heartbeat = async (req: Request, res: Response) => {
         // Le simple fait de toucher req.session rafraîchit la session (grâce à rolling:true)
         // On renvoie l'heure d'expiration pour que le client puisse afficher un countdown
         const expiresAt = Date.now() + getSessionMaxAgeMs();
+
+        const sessionToken = req.sessionID;
+        if (sessionToken) {
+            const lat = (req.body as any)?.lat ? parseFloat((req.body as any).lat) : null;
+            const lon = (req.body as any)?.lon ? parseFloat((req.body as any).lon) : null;
+
+            try {
+                if (lat !== null && !isNaN(lat) && lon !== null && !isNaN(lon)) {
+                    await db.execute(sql`
+                        UPDATE active_sessions
+                        SET last_activity = NOW(), lat = ${lat}, lon = ${lon}
+                        WHERE session_token = ${sessionToken}
+                    `);
+                } else {
+                    await db.execute(sql`
+                        UPDATE active_sessions
+                        SET last_activity = NOW()
+                        WHERE session_token = ${sessionToken}
+                    `);
+                }
+            } catch (e) {
+                console.error('[HEARTBEAT] Erreur lors de la maj active_sessions:', e);
+            }
+        }
+
         res.json({ active: true, expiresAt, username: sessionUser.username });
     } catch (error) {
         console.error("Erreur heartbeat:", error);
@@ -640,8 +701,33 @@ export const verifyPassword = async (req: Request, res: Response) => {
 
 export const getActiveSessions = async (req: Request, res: Response) => {
     try {
-        // Return tableMissing: true since the apk_sessions table is not implemented yet
-        return res.status(200).json({ tableMissing: true, sessions: [] });
+        const query = sql.raw(`
+            SELECT
+                s.id,
+                s.user_id as "userId",
+                s.session_token as "sessionToken",
+                s.ip_address as "ipAddress",
+                s.user_agent as "userAgent",
+                s.device_info as "deviceId",
+                s.lat,
+                s.lon,
+                s.domain,
+                s.created_at as "createdAt",
+                s.last_activity as "lastActivity",
+                s.is_active as "isActive",
+                s.blocked_reason as "blockedReason",
+                u.matricule as "agentMatricule",
+                a.prenom as "agentPrenom",
+                a.nom as "agentNom",
+                u.role
+            FROM active_sessions s
+            LEFT JOIN users u ON s.user_id = u.id
+            LEFT JOIN agents a ON u.id = a.user_id
+            ORDER BY s.last_activity DESC NULLS LAST
+            LIMIT 500
+        `);
+        const sessions = await db.execute(query);
+        return res.status(200).json(sessions);
     } catch (error) {
         console.error('[AUTH] Erreur dans getActiveSessions:', error);
         return res.status(500).json({ message: "Erreur lors de la récupération des sessions" });

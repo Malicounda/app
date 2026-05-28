@@ -28,6 +28,8 @@ const createAgentSchema = z.object({
   departement: z.string().optional().nullable(),
   commune: z.string().optional().nullable(),
   arrondissement: z.string().optional().nullable(),
+  userRole: z.enum(['admin', 'agent', 'hunter', 'sub-agent', 'super-admin']).optional().nullable(),
+  adminDomainId: z.number().int().optional().nullable(),
 });
 
 const updateAgentSchema = z.object({
@@ -152,12 +154,14 @@ export async function listAgents(req: Request, res: Response) {
       .filter((v: any) => Number.isFinite(v));
 
     let adminDomainByUserId = new Map<number, string>();
+    let adminDomainIdByUserId = new Map<number, number>();
     if (adminUserIds.length > 0) {
       const adminDomainRows = await db
         .select({
           userId: userDomains.userId,
           domain: userDomains.domain,
           domaineNom: domaines.nomDomaine,
+          domaineId: userDomains.domaineId,
         })
         .from(userDomains)
         .leftJoin(domaines, eq(userDomains.domaineId as any, domaines.id as any))
@@ -174,7 +178,10 @@ export async function listAgents(req: Request, res: Response) {
         if (!adminUserIds.includes(uid)) continue;
         if (adminDomainByUserId.has(uid)) continue;
         const d = String(r?.domaineNom || r?.domain || '').trim();
-        if (d) adminDomainByUserId.set(uid, d);
+        if (d) {
+          adminDomainByUserId.set(uid, d);
+          if (r?.domaineId) adminDomainIdByUserId.set(uid, Number(r.domaineId));
+        }
       }
     }
 
@@ -184,6 +191,7 @@ export async function listAgents(req: Request, res: Response) {
       return {
         ...r,
         adminDomainName: adminDomainByUserId.get(Number(r.userId)) || null,
+        adminDomainId: adminDomainIdByUserId.get(Number(r.userId)) || null,
       };
     });
 
@@ -206,6 +214,7 @@ export async function listAgents(req: Request, res: Response) {
         firstName: users.firstName,
         lastName: users.lastName,
         userRole: users.role,
+        domaineId: userDomains.domaineId,
       })
       .from(userDomains)
       .leftJoin(users, eq(userDomains.userId as any, users.id as any))
@@ -245,6 +254,7 @@ export async function listAgents(req: Request, res: Response) {
         userRole: r?.userRole ?? 'admin',
         roleMetierLabel: null,
         adminDomainName: domainName,
+        adminDomainId: r?.domaineId ?? null,
       });
     }
 
@@ -433,6 +443,25 @@ export async function createAgent(req: Request, res: Response) {
           } as any)
           .where(eq(users.id as any, existingUser.id as any));
 
+        if (parsed.userRole && (req.session as any)?.user?.isSuperAdmin) {
+          await tx.update(users).set({ role: parsed.userRole as any }).where(eq(users.id as any, existingUser.id as any));
+          if (parsed.userRole === 'admin' && parsed.adminDomainId) {
+             const existingDomain = await tx.select().from(userDomains).where(and(eq(userDomains.userId as any, existingUser.id as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
+             if (existingDomain.length === 0) {
+                 const domainNameRow = await tx.select().from(domaines).where(eq(domaines.id as any, parsed.adminDomainId as any)).limit(1);
+                 await tx.insert(userDomains).values({
+                    userId: existingUser.id as any,
+                    domain: (domainNameRow?.[0] as any)?.nomDomaine || 'UNKNOWN',
+                    domaineId: parsed.adminDomainId as any,
+                    role: 'admin',
+                    active: true,
+                 });
+             } else {
+                 await tx.update(userDomains).set({ role: 'admin', active: true }).where(and(eq(userDomains.userId as any, existingUser.id as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
+             }
+          }
+        }
+
         userId = existingUser.id;
       } else {
         const defaultPassword = "0000";
@@ -548,6 +577,16 @@ export async function updateAgent(req: Request, res: Response) {
     if (parsed.commune !== undefined) userUpdateData.commune = parsed.commune;
     if (parsed.arrondissement !== undefined) userUpdateData.arrondissement = parsed.arrondissement;
 
+    if (parsed.userRole !== undefined && (req.session as any)?.user?.isSuperAdmin) {
+       userUpdateData.role = parsed.userRole;
+       if (parsed.userRole === 'super-admin') {
+           userUpdateData.isSuperAdmin = true;
+           userUpdateData.role = 'admin';
+       } else {
+           userUpdateData.isSuperAdmin = false;
+       }
+    }
+
     if (parsed.password) {
       const salt = await bcrypt.genSalt(10);
       userUpdateData.password = await bcrypt.hash(parsed.password, salt);
@@ -580,6 +619,26 @@ export async function updateAgent(req: Request, res: Response) {
 
       if (Object.keys(userUpdateData).length > 0) {
         await tx.update(users).set(userUpdateData).where(eq(users.id as any, agentRow.userId as any));
+      }
+
+      if (parsed.userRole !== undefined && (req.session as any)?.user?.isSuperAdmin) {
+         if (parsed.userRole === 'admin' && parsed.adminDomainId) {
+             const existingDomain = await tx.select().from(userDomains).where(and(eq(userDomains.userId as any, agentRow.userId as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
+             if (existingDomain.length === 0) {
+                 const domainNameRow = await tx.select().from(domaines).where(eq(domaines.id as any, parsed.adminDomainId as any)).limit(1);
+                 await tx.insert(userDomains).values({
+                    userId: agentRow.userId as any,
+                    domain: (domainNameRow?.[0] as any)?.nomDomaine || 'UNKNOWN',
+                    domaineId: parsed.adminDomainId as any,
+                    role: 'admin',
+                    active: true,
+                 });
+             } else {
+                 await tx.update(userDomains).set({ role: 'admin', active: true }).where(and(eq(userDomains.userId as any, agentRow.userId as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
+             }
+         } else if (parsed.userRole !== 'admin') {
+             await tx.update(userDomains).set({ role: 'agent' }).where(and(eq(userDomains.userId as any, agentRow.userId as any), eq(userDomains.role as any, 'admin' as any)));
+         }
       }
 
       return agentRow;
