@@ -5,12 +5,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { useInternalMessaging, type InternalMessageRecord } from "@/hooks/useInternalMessaging";
+import { getMessagingDomaineIdForHook } from "@/utils/messagingDomain";
 import { useEffect, useMemo, useState } from "react";
 
 export default function RegionalSMSPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const domaineId = 1;
+  const domaineId = getMessagingDomaineIdForHook();
   const [activeTab, setActiveTab] = useState<"recu" | "nouveau" | "envoye">("recu");
   const [query, setQuery] = useState("");
   const {

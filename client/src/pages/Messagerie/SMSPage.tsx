@@ -14,6 +14,7 @@ import {
   resolveConversationDeleteIdentifier,
 } from "@/lib/messagingUtils";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
+import { getMessagingDomaineIdForHook } from "@/utils/messagingDomain";
 import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
@@ -52,7 +53,7 @@ export default function SimpleSMSPage() {
         userDeptLabel ? `Agent secteur — ${userDeptLabel}` : 'Agent secteur',
       ].join(' ; ');
   const inboxOnly = role === 'hunter' || role === 'hunting-guide';
-  const domaineId = isAlerteDomain ? "null" : 1;
+  const domaineId = getMessagingDomaineIdForHook();
   const [recipientOptions, setRecipientOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [activeTab, setActiveTab] = useState<"reçus" | "envoyés">("reçus");
   const [query, setQuery] = useState("");

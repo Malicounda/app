@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { useInternalMessaging, type InternalMessageRecord } from "@/hooks/useInternalMessaging";
+import { getMessagingDomaineIdForHook } from "@/utils/messagingDomain";
 import { useEffect, useMemo, useState } from "react";
 
 const SECTOR_GROUPS = [
@@ -17,7 +18,7 @@ const SECTOR_GROUPS = [
 export default function SectorSMSPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const domaineId = 1;
+  const domaineId = getMessagingDomaineIdForHook();
   const [activeTab, setActiveTab] = useState<"reçus" | "nouveau" | "envoyés">("reçus");
   const [query, setQuery] = useState("\u0020");
   const [recipientOptions, setRecipientOptions] = useState<Array<{ value: string; label: string }>>([]);
