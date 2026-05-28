@@ -86,13 +86,16 @@ export const getUnreadAlertsCount = async (req: Request, res: Response, next: Ne
         }
 
         // Utiliser Drizzle (db) pour compter, afin d'éviter des erreurs Prisma en dev si DATABASE_URL n'est pas alignée
-        const rows: any[] = await db.execute(sql`
-            SELECT COUNT(*)::int AS count
-            FROM notifications
-            WHERE user_id = ${authenticatedUser.id}
-              AND (is_read IS NOT TRUE)
-        `);
-        const count = Array.isArray(rows) && rows[0] && typeof rows[0].count !== 'undefined' ? Number(rows[0].count) : 0;
+        const [result] = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(notifications)
+            .where(
+                and(
+                    eq(notifications.userId, authenticatedUser.id),
+                    eq(notifications.isRead, false)
+                )
+            );
+        const count = result?.count || 0;
         res.status(200).json({ count });
     } catch (error) {
         console.error("[Alerts Controller] Erreur dans getUnreadAlertsCount:", error);

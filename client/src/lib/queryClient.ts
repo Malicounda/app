@@ -100,8 +100,17 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
     }
 
     const serverMessage =
-      typeof body?.message === "string" ? body.message.trim() : "";
-    const baseMessage = serverMessage || `${res.status}: ${text}`;
+      typeof body?.message === "string" ? body.message.trim() : (typeof body?.error === "string" ? body.error.trim() : "");
+    let baseMessage = serverMessage;
+    
+    if (!baseMessage) {
+      if (res.status >= 500) {
+        baseMessage = "Erreur serveur";
+      } else {
+        baseMessage = `${res.status}: ${text}`;
+      }
+    }
+    
     const error: any = new Error(baseMessage);
     error.status = res.status;
     error.response = res;
