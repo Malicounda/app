@@ -611,10 +611,10 @@ function AlertsPage() {
   }, [showAlertForm, location, isLoadingLocation, locationPermissionDenied]);
 
   useEffect(() => {
-    if (isReadOnlyUser && activeTab !== "inbox") {
+    if (isAdmin && activeTab !== "inbox") {
       setActiveTab("inbox");
     }
-  }, [isReadOnlyUser, activeTab, setActiveTab]);
+  }, [isAdmin, activeTab, setActiveTab]);
 
   useEffect(() => {
     if (!isReadOnlyUser && !isHunter && !isGuide && activeTab !== 'outbox') {
@@ -1197,7 +1197,7 @@ function AlertsPage() {
   };
 
   // Déterminer si l'utilisateur peut envoyer des alertes
-  const canSendAlerts = (isSectorAgent || isRegionalAgent || isHunter || isGuide || isDefaultRole) && !isReadOnlyUser;
+  const canSendAlerts = (isSectorAgent || isRegionalAgent || isHunter || isGuide || isDefaultRole || isSupervisorRole) && !isAdmin;
 
   // Effet pour gérer la configuration initiale en fonction du type d'utilisateur
   useEffect(() => {
@@ -1605,6 +1605,35 @@ function AlertsPage() {
                     : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 flex flex-col min-h-0 flex-1"
               }
             >
+              {isSupervisorRole && (
+                <div className="shrink-0 px-4 py-3 border-b flex items-center justify-between bg-slate-50">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setActiveTab('inbox')}
+                      className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${
+                        activeTab === 'inbox'
+                          ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      Alertes reçues
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('outbox')}
+                      className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${
+                        activeTab === 'outbox'
+                          ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      Alertes envoyées
+                    </button>
+                  </div>
+                  <div className="text-xs text-gray-500 font-medium">
+                    {activeTab === 'inbox' ? `${alerts.length} reçue(s)` : `${sentAlertsData.length} envoyée(s)`}
+                  </div>
+                </div>
+              )}
               {/* Barre d'actions inbox (recherche/filtre/tri) — fixe */}
               {activeTab === 'inbox' && (
                 <div className="shrink-0 px-4 py-3 border-b flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-white">

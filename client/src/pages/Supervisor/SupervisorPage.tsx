@@ -118,16 +118,6 @@ export default function SupervisorPage() {
             />
           </div>
           <SupervisorMapCard onClick={() => setLocation("/map")} />
-
-          {/* Bouton Envoyer une alerte — Raccourci rapide pour superviseurs */}
-          <button
-            type="button"
-            onClick={() => setLocation("/alerts")}
-            className="w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-300 active:scale-[0.97]"
-          >
-            <AlertTriangle className="h-5 w-5" />
-            <span>Envoyer une alerte</span>
-          </button>
         </div>
 
         <div className="flex flex-col items-center gap-4 pb-2 pt-4">
