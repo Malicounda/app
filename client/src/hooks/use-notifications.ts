@@ -78,6 +78,22 @@ async function ensureAndroidNotificationChannel(): Promise<void> {
 // Afficher une notification système Android
 // ──────────────────────────────────────────────────────────────────────
 
+/**
+ * Génère un ID de notification déterministe à partir du type et de l'ID
+ * de l'entité (message, alerte). Cela permet de supprimer la notification
+ * correspondante quand le message/alerte est lu.
+ * Si pas de type/entityId, on génère un ID aléatoire (fallback).
+ */
+function makeNotificationId(type?: string, entityId?: number | string): number {
+  if (type && entityId) {
+    // Hash simple: on combine type + entityId pour un entier stable dans les limites Android (1..2147483647)
+    const base = type === 'ALERT' ? 100_000_000 : 200_000_000;
+    const numId = typeof entityId === 'number' ? entityId : parseInt(entityId, 10) || 0;
+    return base + (numId % 100_000_000);
+  }
+  return Math.floor(Date.now() % 2147483640) + 1;
+}
+
 async function showSystemNotification(
   title: string,
   body: string,
@@ -89,7 +105,10 @@ async function showSystemNotification(
   try {
     await ensureAndroidNotificationChannel();
 
-    const id = Math.floor(Date.now() % 2147483640) + 1;
+    const notifType = extra?.type as string | undefined;
+    const notifEntityId = extra?.entityId as number | string | undefined;
+    const id = makeNotificationId(notifType, notifEntityId);
+
     await LocalNotifications.schedule({
       notifications: [
         {
@@ -99,12 +118,12 @@ async function showSystemNotification(
           channelId: ANDROID_CHANNEL_ID,
           smallIcon: 'ic_launcher_foreground',
           iconColor: '#114B26',
-          extra: extra || {},
+          extra: { ...extra, notifId: id },
           schedule: { at: new Date(Date.now() + 100) },
         },
       ],
     });
-    console.log('[Notif] 📬 Notification affichée:', { id, title });
+    console.log('[Notif] 📬 Notification affichée:', { id, title, notifType, notifEntityId });
 
     // Si on a un total fourni, forcer le badge après l'affichage natif
     // pour écraser le comportement "Notification Dots" d'Android 8.0+
@@ -119,6 +138,44 @@ async function showSystemNotification(
     window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
   } catch (e) {
     console.warn('[Notif] ⚠️ schedule error:', e);
+  }
+}
+
+/**
+ * Supprime la notification système Android correspondant à un type + entityId.
+ * Appelé quand un message ou une alerte est marqué comme lu.
+ */
+export async function dismissSystemNotification(type: 'ALERT' | 'MESSAGE', entityId: number): Promise<void> {
+  if (!isInAlerteApk()) return;
+  try {
+    const id = makeNotificationId(type, entityId);
+    await LocalNotifications.cancel({ notifications: [{ id }] });
+    console.log(`[Notif] 🗑️ Notification supprimée: type=${type}, entityId=${entityId}, id=${id}`);
+  } catch (e) {
+    console.warn('[Notif] ⚠️ dismiss error:', e);
+  }
+}
+
+/**
+ * Supprime toutes les notifications système en attente (ex: markAllAsRead).
+ */
+export async function clearAllSystemNotifications(): Promise<void> {
+  if (!isInAlerteApk()) return;
+  try {
+    const pending = await LocalNotifications.getPending();
+    if (pending.notifications.length > 0) {
+      await LocalNotifications.cancel(pending);
+    }
+    // Aussi supprimer les notifications déjà affichées (delivered)
+    try {
+      const delivered = await LocalNotifications.getDeliveredNotifications();
+      if (delivered.notifications.length > 0) {
+        await LocalNotifications.removeDeliveredNotifications(delivered);
+      }
+    } catch { /* removeDelivered pas toujours dispo */ }
+    console.log('[Notif] 🗑️ Toutes les notifications supprimées');
+  } catch (e) {
+    console.warn('[Notif] ⚠️ clearAll error:', e);
   }
 }
 
@@ -205,7 +262,9 @@ export function useNotifications(enabled = true, userId?: number | null) {
         const newBadgeTotal = currentTotal + 1;
 
         // Notification système Android (son + vibration + heads-up + badge)
-        void showSystemNotification(title, body, payload?.data as Record<string, unknown>, newBadgeTotal);
+        // Passer le type et entityId dans les extras pour un ID déterministe
+        const notifExtra = { ...(payload?.data || {}), type: payload?.data?.type, entityId: (payload?.data as any)?.entityId };
+        void showSystemNotification(title, body, notifExtra as Record<string, unknown>, newBadgeTotal);
 
         // Invalidation des caches pour mise à jour immédiate des compteurs in-app
         if (payload?.data?.type === 'ALERT') {

@@ -2,6 +2,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { dismissSystemNotification } from "./use-notifications";
 
 export interface InternalMessagingTarget {
   role: string;
@@ -400,6 +401,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       }
       throw err;
     }
+    // Supprimer la notification système Android correspondante
+    void dismissSystemNotification('MESSAGE', messageId);
     setInbox((prev) => {
       const updated = prev.map((msg) =>
         msg.id === messageId ? { ...msg, isRead: true, is_read: true } : msg

@@ -679,11 +679,12 @@ router.post('/', isAuthenticated, upload.single('attachment'), async (req: Reque
 
     const notificationService = (req.app as any).notificationService;
     if (notificationService) {
-      recipientIds.forEach(recipientId => {
+      recipientIds.forEach((recipientId, idx) => {
+        const createdMsg = createdMessages[idx];
         notificationService.sendToUser(recipientId, {
           title: "Nouveau message",
           body: subject ? subject : "Vous avez reçu un nouveau message",
-          data: { type: 'MESSAGE' }
+          data: { type: 'MESSAGE', entityId: createdMsg?.id }
         });
       });
     }

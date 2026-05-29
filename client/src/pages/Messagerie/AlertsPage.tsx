@@ -22,7 +22,7 @@ import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Filte
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation as useWouterLocation } from "wouter";
 
-import { useNotifications } from "@/hooks/use-notifications";
+import { useNotifications, dismissSystemNotification, clearAllSystemNotifications } from "@/hooks/use-notifications";
 
 // Type pour l'état de la permission
 type PermissionState = 'granted' | 'denied' | 'prompt';
@@ -863,6 +863,9 @@ function AlertsPage() {
       queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
       window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
 
+      // Supprimer la notification système Android correspondante
+      void dismissSystemNotification('ALERT', alertId);
+
       // Rafraîchir les données depuis le serveur
       refetch();
     } catch (error) {
@@ -884,6 +887,9 @@ function AlertsPage() {
       queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
       queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
       window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
+
+      // Supprimer toutes les notifications système Android
+      void clearAllSystemNotifications();
       refetch();
 
       toast({ title: "Toutes les alertes marquées comme lues" });

@@ -961,6 +961,7 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                         body: notificationMessage,
                         data: { 
                             alertId: newAlert.id, 
+                            entityId: newAlert.id,
                             type: 'ALERT',
                             nature: newAlert.nature,
                             region: newAlert.region
