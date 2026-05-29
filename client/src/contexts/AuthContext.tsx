@@ -13,6 +13,7 @@ import {
   clearAllPreferences,
 } from "@/utils/preferences";
 import { getLoginRoute } from "@/utils/getLoginRoute";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 /* =========================
    USER TYPE (FIX BUILD ERROR)
@@ -169,6 +170,7 @@ export function AuthProvider({
   const isLoggingOutRef = React.useRef(false);
 
   const [, setLocation] = useLocation();
+  const { subscribe: subscribePush } = usePushNotifications();
 
   /* ========================= */
   const refreshUser = async () => {
@@ -225,6 +227,9 @@ export function AuthProvider({
       setAuthInitialized(true);
 
       await saveSession(response.user);
+
+      // S'abonner aux notifications push silencieusement
+      subscribePush().catch(err => console.warn('Erreur push auth:', err));
 
       const isSuperAdmin = isUserSuperAdmin(response.user);
 
