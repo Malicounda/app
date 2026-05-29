@@ -168,7 +168,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
     }
 
     return (
-      <div className={`fixed bottom-[72px] md:bottom-4 left-8 z-[900] ${className}`}>
+      <div className={`fixed top-20 md:top-24 right-4 md:right-8 z-[900] ${className}`}>
         <button
           onClick={() => setCollapsed(false)}
           className={`flex items-center gap-2 rounded-full px-3 py-2 shadow-md border text-sm ${bgColor} hover:opacity-90 transition-all`}
@@ -189,7 +189,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
 
   // Vue étendue
   return (
-    <div className={`fixed bottom-[72px] md:bottom-4 left-8 z-[900] transition-opacity ${showAlert || !isOnline || serverUnavailable || pendingSyncs > 0 ? 'opacity-100' : 'opacity-0'} ${className}`}>
+    <div className={`fixed top-20 md:top-24 right-4 md:right-8 z-[900] transition-opacity ${showAlert || !isOnline || serverUnavailable || pendingSyncs > 0 ? 'opacity-100' : 'opacity-0'} ${className}`}>
       {!isOnline ? (
         <Alert variant="destructive" className="w-80 shadow-lg bg-red-50 border-red-200 text-red-900 [&>svg]:text-red-600">
           <div className="flex items-start gap-2">

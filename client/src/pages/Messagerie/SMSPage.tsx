@@ -15,7 +15,7 @@ import {
 } from "@/lib/messagingUtils";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
 import { getMessagingDomaineIdForHook } from "@/utils/messagingDomain";
-import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Check, CheckCheck } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Check, CheckCheck, Clock } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 
@@ -935,10 +935,12 @@ export default function SimpleSMSPage() {
                           <span className="text-[9px] text-gray-400">
                             {m.time.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          {Array.isArray(m.rawMsgObj?.readers) && m.rawMsgObj.readers.length > 0 ? (
-                            <CheckCheck className="h-3 w-3 text-blue-500" />
+                          {m.rawMsgObj?.isPending ? (
+                            <span title="En attente"><Clock className="h-3 w-3 text-gray-400" /></span>
+                          ) : Array.isArray(m.rawMsgObj?.readers) && m.rawMsgObj.readers.length > 0 ? (
+                            <span title="Lu"><CheckCheck className="h-3 w-3 text-blue-500" /></span>
                           ) : (
-                            <Check className="h-3 w-3 text-gray-400" />
+                            <span title="Envoyé"><Check className="h-3 w-3 text-gray-400" /></span>
                           )}
                         </div>
                       </div>
@@ -979,8 +981,12 @@ export default function SimpleSMSPage() {
                     <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
                     <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
                     <div className="flex-1 relative">
-                      <textarea value={defaultMsg} onChange={e => setDefaultMsg(e.target.value)} placeholder="Message..." maxLength={160} rows={1} className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
-                      <span className="absolute right-3 bottom-1.5 text-[9px] text-gray-400">{defaultMsg.length}/160</span>
+                      <textarea value={defaultMsg} onChange={e => {
+                        setDefaultMsg(e.target.value);
+                        e.target.style.height = 'auto';
+                        e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                      }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
+                      <span className="absolute right-3 bottom-2 text-[9px] text-gray-400 pointer-events-none">{defaultMsg.length}/160</span>
                     </div>
                     <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors"><Send className="h-4 w-4 text-white" /></button>
                   </div>
@@ -1509,7 +1515,16 @@ export default function SimpleSMSPage() {
                             >
                               {m.content}
                             </div>
-                            <span className="text-[9px] text-gray-400 mt-0.5 mr-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                            <div className="flex items-center justify-end gap-1 mt-0.5 mr-1">
+                              <span className="text-[9px] text-gray-400">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                              {m.rawMsgObj?.isPending ? (
+                                <span title="En attente"><Clock className="h-3 w-3 text-gray-400" /></span>
+                              ) : Array.isArray(m.rawMsgObj?.readers) && m.rawMsgObj.readers.length > 0 ? (
+                                <span title="Lu"><CheckCheck className="h-3 w-3 text-blue-500" /></span>
+                              ) : (
+                                <span title="Envoyé"><Check className="h-3 w-3 text-gray-400" /></span>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <div key={i} className="flex flex-col items-start max-w-[80%]">
@@ -1536,8 +1551,12 @@ export default function SimpleSMSPage() {
                         <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
                         <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
                         <div className="flex-1 relative">
-                          <textarea value={defaultMsg} onChange={e => setDefaultMsg(e.target.value)} placeholder="Message..." maxLength={160} rows={1} className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
-                          <span className="absolute right-3 bottom-1.5 text-[9px] text-gray-400">{defaultMsg.length}/160</span>
+                          <textarea value={defaultMsg} onChange={e => {
+                            setDefaultMsg(e.target.value);
+                            e.target.style.height = 'auto';
+                            e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                          }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
+                          <span className="absolute right-3 bottom-2 text-[9px] text-gray-400 pointer-events-none">{defaultMsg.length}/160</span>
                         </div>
                         <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors"><Send className="h-4 w-4 text-white" /></button>
                       </div>

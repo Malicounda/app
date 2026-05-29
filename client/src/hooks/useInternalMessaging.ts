@@ -219,10 +219,26 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         }
 
         const data = await response.json();
-        const created = (Array.isArray(data) ? data : [data]).map((message) => ({
-          ...message,
-          isGroupMessage: message?.isGroupMessage === true,
-        })) as InternalMessageRecord[];
+        
+        let created: InternalMessageRecord[];
+        if (data.offlineQueued) {
+          const tempMsg: InternalMessageRecord = {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            content,
+            subject,
+            createdAt: new Date().toISOString(),
+            isPending: true, // Custom flag for offline queue
+            recipientIdentifier,
+            isGroupMessage: false,
+          };
+          created = [tempMsg];
+        } else {
+          created = (Array.isArray(data) ? data : [data]).map((message) => ({
+            ...message,
+            isGroupMessage: message?.isGroupMessage === true,
+          })) as InternalMessageRecord[];
+        }
+
         setSent((prev) => {
           const updated = sortMessagesByDate([...created, ...prev]);
           saveToCache("sent", domaineId, updated);
@@ -272,6 +288,18 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
             throw new Error(await extractErrorMessage(response));
           }
           const data = await response.json();
+          if (data.offlineQueued) {
+            return [{
+              id: Date.now() + Math.floor(Math.random() * 1000),
+              content,
+              subject,
+              createdAt: new Date().toISOString(),
+              isPending: true,
+              targetRole: target.role,
+              targetRegion: target.region,
+              isGroupMessage: true,
+            }] as InternalMessageRecord[];
+          }
           return (Array.isArray(data) ? data : [data]).map((message) => ({
             ...message,
             isGroupMessage: true,
