@@ -149,9 +149,15 @@ export default function InternalMessageList({
 
   const totalPages = Math.max(1, Math.ceil(filteredMessages.length / PAGE_SIZE));
 
+  // Only reset page to 1 if the filter changes.
+  // We avoid resetting to page 1 simply because the messages list refreshed.
+  const prevFilterRef = useRef(listFilter);
   useEffect(() => {
-    setPage(1);
-  }, [filteredMessages]);
+    if (listFilter !== prevFilterRef.current) {
+      setPage(1);
+      prevFilterRef.current = listFilter;
+    }
+  }, [listFilter]);
 
   useEffect(() => {
     if (page > totalPages) {

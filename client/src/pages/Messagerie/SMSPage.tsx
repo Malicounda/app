@@ -61,6 +61,7 @@ export default function SimpleSMSPage() {
   // Phone messaging UI navigation state (supervisor)
   const [phoneView, setPhoneView] = useState<'list' | 'chat' | 'new'>('list');
   const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
+  const [tempConversation, setTempConversation] = useState<any | null>(null);
   const [newRecipientSearch, setNewRecipientSearch] = useState('');
   const [isResolvingContact, setIsResolvingContact] = useState(false);
   const [showAgentNotFoundDialog, setShowAgentNotFoundDialog] = useState(false);
@@ -558,8 +559,8 @@ export default function SimpleSMSPage() {
 
   const selectedConversation = useMemo(() => {
     if (!selectedContactKey) return null;
-    return conversations.find(c => c.contactKey === selectedContactKey) || null;
-  }, [conversations, selectedContactKey]);
+    return conversations.find(c => c.contactKey === selectedContactKey) || tempConversation || null;
+  }, [conversations, selectedContactKey, tempConversation]);
 
   const hasUnread = useMemo(() => conversations.some(c => c.unreadCount > 0), [conversations]);
 
@@ -573,7 +574,7 @@ export default function SimpleSMSPage() {
   // Mark unread messages as read when viewing conversation
   useEffect(() => {
     if (phoneView === 'chat' && selectedConversation) {
-      selectedConversation.messages.forEach(m => {
+      selectedConversation.messages.forEach((m: any) => {
         if (!m.isSent && m.rawMsgObj && !m.rawMsgObj.isRead) {
           void markMessageAsRead(m.id, Boolean(m.rawMsgObj?.isGroupMessage)).catch(() => {});
           m.rawMsgObj.isRead = true;
@@ -798,7 +799,12 @@ export default function SimpleSMSPage() {
                            className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors text-left select-none ${isSelectionMode ? 'cursor-pointer hover:bg-gray-50' : 'cursor-pointer hover:bg-gray-50 active:bg-gray-100'} ${isSelected ? 'bg-green-50/50' : ''}`}
                            onClick={() => {
                              if (isSelectionMode) toggleConvSelection(conv.contactKey);
-                             else { setSelectedContactKey(conv.contactKey); setPhoneView('chat'); setDefaultMsg(''); }
+                             else {
+                               setSelectedContactKey(conv.contactKey);
+                               setTempConversation(null);
+                               setPhoneView('chat');
+                               setDefaultMsg('');
+                             }
                            }}
                            onContextMenu={(e) => {
                              e.preventDefault();
@@ -833,7 +839,7 @@ export default function SimpleSMSPage() {
               <>
                 <div className="bg-[#114b26] text-white px-3 py-3 shrink-0 flex items-center gap-3 relative justify-between">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <button onClick={() => { setPhoneView('list'); setSelectedContactKey(null); }} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
+                    <button onClick={() => { setPhoneView('list'); setSelectedContactKey(null); setTempConversation(null); }} className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"><ArrowLeft className="h-5 w-5" /></button>
                     <ContactAvatar size="sm" variant="header" isGroup={selectedConversation.contactInitial === 'G'} />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold truncate">{selectedConversation.contactName}</div>
@@ -881,7 +887,7 @@ export default function SimpleSMSPage() {
                   {selectedConversation.messages.length === 0 && (
                     <div className="flex items-center justify-center h-full"><p className="text-xs text-gray-400">Aucun message</p></div>
                   )}
-                  {selectedConversation.messages.map((m, i) => {
+                  {selectedConversation.messages.map((m: any, i: number) => {
                     const hasAttachment = Boolean(m.rawMsgObj?.attachmentPath || m.rawMsgObj?.attachmentName);
                     const attachmentName = repairAttachmentFileName(m.rawMsgObj?.attachmentName) || 'Fichier joint';
                     const attachmentMime = guessAttachmentMime(
@@ -1046,9 +1052,10 @@ export default function SimpleSMSPage() {
                             const existingConv = conversations.find(c => c.contactKey === key || c.contactIdentifier === ident);
                             if (existingConv) { 
                               setSelectedContactKey(existingConv.contactKey); 
+                              setTempConversation(null);
                             } else { 
                               setSelectedContactKey(key); 
-                              conversations.push({ 
+                              setTempConversation({ 
                                 contactKey: key, 
                                 contactName: contactName, 
                                 contactInitial: contactName.charAt(0).toUpperCase(), 
@@ -1080,7 +1087,31 @@ export default function SimpleSMSPage() {
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {recipientOptions.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
-                    <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); setNewRecipientSearch(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                    <button key={i} onClick={() => {
+                      const existingConv = conversations.find(c => c.contactIdentifier === r.value);
+                      if (existingConv) {
+                        setSelectedContactKey(existingConv.contactKey);
+                        setTempConversation(null);
+                      } else {
+                        setSelectedContactKey(r.value);
+                        setTempConversation({
+                          contactKey: r.value,
+                          contactName: r.label,
+                          contactInitial: r.label.charAt(0).toUpperCase(),
+                          contactIdentifier: r.value,
+                          contactGrade: '',
+                          contactRoleMetier: '',
+                          lastMessage: '',
+                          lastTime: new Date(),
+                          lastIsSent: false,
+                          unreadCount: 0,
+                          messages: []
+                        });
+                      }
+                      setPhoneView('chat');
+                      setDefaultMsg('');
+                      setNewRecipientSearch('');
+                    }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
                       <ContactAvatar size="md" variant="search" />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-800 truncate">{r.label}</div>
@@ -1469,7 +1500,7 @@ export default function SimpleSMSPage() {
                       {selectedConversation.messages.length === 0 && (
                         <div className="flex items-center justify-center h-full"><p className="text-xs text-gray-400">Aucun message</p></div>
                       )}
-                      {selectedConversation.messages.map((m, i) => (
+                      {selectedConversation.messages.map((m: any, i: number) => (
                         m.isSent ? (
                           <div key={i} className="flex flex-col items-end max-w-[80%] ml-auto">
                             <div
