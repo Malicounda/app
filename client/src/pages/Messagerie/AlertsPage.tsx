@@ -839,7 +839,7 @@ function AlertsPage() {
       // Invalider les compteurs de notifications pour mise à jour immédiate des badges
       queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
       queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
-      queryClient.invalidateQueries({ queryKey: ["alerts-unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
       window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
 
       // Rafraîchir les données depuis le serveur
@@ -861,7 +861,7 @@ function AlertsPage() {
       queryClient.setQueryData(["/api/alerts/received", user?.id], []);
       queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
       queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
-      queryClient.invalidateQueries({ queryKey: ["alerts-unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
       window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
       refetch();
 
@@ -888,7 +888,7 @@ function AlertsPage() {
       // Invalider les compteurs de notifications pour mise à jour immédiate des badges
       queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
       queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
-      queryClient.invalidateQueries({ queryKey: ["alerts-unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
       window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
 
       toast({
@@ -1410,16 +1410,7 @@ function AlertsPage() {
                   Marquer tout comme lu
                 </Button>
               )}
-              {isPushSupported && !isPushSubscribed && (
-                <Button
-                  variant="default"
-                  className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-md hover:shadow-lg transition-all duration-300 rounded-lg text-xs sm:text-sm flex items-center gap-2 animate-pulse-subtle h-9"
-                  onClick={subscribeToPush}
-                >
-                  <Bell className="h-4 w-4" />
-                  <span>Activer les notifications</span>
-                </Button>
-              )}
+              {/* Bouton "Activer les notifications" masqué : la permission est gérée automatiquement à l'installation de l'APK */}
             </div>
           </div>
 

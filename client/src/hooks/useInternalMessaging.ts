@@ -366,9 +366,10 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         const msg = String(e?.message || '').toLowerCase();
         if (e?.status === 404 || msg.includes('non trouvé')) {
           purgeStaleMessage(id, isGroup);
-          await refreshAll();
           queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
           queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count-launcher-badge'] });
+          window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
           return;
         }
         throw err;
@@ -378,6 +379,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       await refreshAll();
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
+      queryClient.invalidateQueries({ queryKey: ['messages-unread-count-launcher-badge'] });
+      window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
     },
     [removeMessageFromState, purgeStaleMessage, refreshAll, queryClient]
   );
@@ -408,6 +411,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count-alerte'] });
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count-main'] });
     queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
+    queryClient.invalidateQueries({ queryKey: ['messages-unread-count-launcher-badge'] });
+    window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
   }, [queryClient, domaineId, purgeStaleMessage]);
 
   const state = useMemo(

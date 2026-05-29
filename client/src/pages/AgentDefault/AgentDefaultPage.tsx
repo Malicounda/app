@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import AlerteDomainActionCard from "@/components/alerte/AlerteDomainActionCard";
-import { Info } from "lucide-react";
+import { Info, MessageSquare } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -113,6 +113,27 @@ export default function AgentDefaultPage() {
               className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-green-100/30"
             />
           </div>
+
+          {/* Bouton SMS — Raccourci rapide vers la messagerie */}
+          <button
+            type="button"
+            onClick={() => {
+              let smsPath = "/sms";
+              if (user?.type === "secteur" || user?.role === "sub-agent") {
+                smsPath = "/sector-sms";
+              }
+              setLocation(smsPath);
+            }}
+            className="w-full flex items-center justify-center gap-2.5 py-3 px-5 mt-3 rounded-xl bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-300 active:scale-[0.97] relative"
+          >
+            <MessageSquare className="h-5 w-5" />
+            <span>Messagerie</span>
+            {msgUnread > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center shadow-md animate-pulse">
+                {msgUnread}
+              </span>
+            )}
+          </button>
 
           {/* Footer - Blasons */}
           <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-8 w-full">
