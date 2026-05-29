@@ -15,7 +15,7 @@ import {
 } from "@/lib/messagingUtils";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
 import { getMessagingDomaineIdForHook } from "@/utils/messagingDomain";
-import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Check, CheckCheck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 
@@ -925,9 +925,16 @@ export default function SimpleSMSPage() {
                             />
                           )}
                         </div>
-                        <span className="text-[9px] text-gray-400 mt-0.5 mr-1">
-                          {m.time.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                        <div className="flex items-center justify-end gap-1 mt-0.5 mr-1">
+                          <span className="text-[9px] text-gray-400">
+                            {m.time.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {Array.isArray(m.rawMsgObj?.readers) && m.rawMsgObj.readers.length > 0 ? (
+                            <CheckCheck className="h-3 w-3 text-blue-500" />
+                          ) : (
+                            <Check className="h-3 w-3 text-gray-400" />
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div key={i} className="flex flex-col items-start max-w-[80%]">

@@ -35,17 +35,8 @@ export interface InternalMessageRecord {
   [key: string]: unknown;
 }
 
-const isMessageVisible = (message: InternalMessageRecord) => {
-  const m = message as Record<string, unknown>;
-  if (m.deletedAt || m.deleted_at) return false;
-  if (m.deletedAtSender || m.deleted_at_sender) return false;
-  if (m.isGroupMessage && m.isDeleted) return false;
-  return true;
-};
-
 const sortMessagesByDate = (messages: InternalMessageRecord[]) =>
   messages
-    .filter(isMessageVisible)
     .slice()
     .sort((a, b) => {
       const dateA = a.createdAt || (typeof a.created_at === "string" ? a.created_at : undefined);
@@ -95,10 +86,10 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
   // Initialize state from localStorage cache immediately so data is visible
   // on first render even before the network request completes.
   const [inbox, setInbox] = useState<InternalMessageRecord[]>(() =>
-    loadFromCache("inbox", domaineId).filter(isMessageVisible)
+    loadFromCache("inbox", domaineId)
   );
   const [sent, setSent] = useState<InternalMessageRecord[]>(() =>
-    loadFromCache("sent", domaineId).filter(isMessageVisible)
+    loadFromCache("sent", domaineId)
   );
   const [loadingInbox, setLoadingInbox] = useState(false);
   const [loadingSent, setLoadingSent] = useState(false);
@@ -184,6 +175,10 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
   useEffect(() => {
     if (autoLoad) {
       void refreshAll();
+      const interval = setInterval(() => {
+        void refreshAll();
+      }, 5000);
+      return () => clearInterval(interval);
     }
   }, [autoLoad, refreshAll]);
 

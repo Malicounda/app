@@ -10,7 +10,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { InternalMessageRecord } from "@/hooks/useInternalMessaging";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2 } from "lucide-react";
+import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2, Check, CheckCheck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { repairAttachmentFileName } from "@/lib/attachmentMime";
@@ -497,9 +497,9 @@ export default function InternalMessageList({
                             )}
                             {context === 'sent' ? (
                               Array.isArray((message as any).readers) && (message as any).readers.length > 0 ? (
-                                <span className="rounded-full bg-green-100 text-green-700 text-[11px] px-2 py-0.5">Lu</span>
+                                <span title="Lu"><CheckCheck className="h-4 w-4 text-blue-500" /></span>
                               ) : (
-                                <span className="rounded-full bg-gray-100 text-gray-600 text-[11px] px-2 py-0.5">Non lu</span>
+                                <span title="Non lu"><Check className="h-4 w-4 text-gray-400" /></span>
                               )
                             ) : null}
                           </div>
