@@ -199,6 +199,7 @@ export default function SimpleSMSPage() {
     sending,
     sendGroup,
     sendIndividual,
+    editMessage,
     deleteMessage,
     markMessageAsRead,
     purgeStaleMessage,
@@ -215,6 +216,7 @@ export default function SimpleSMSPage() {
   const [defaultAttachment, setDefaultAttachment] = useState<File | null>(null);
   const [autoRecipients, setAutoRecipients] = useState<Array<{ value: string; label: string; roleTag: string }>>([]);
   const [domaines, setDomaines] = useState<Array<{ id: number; nomDomaine: string; codeSlug: string }>>([]);
+  const [editingMessage, setEditingMessage] = useState<any | null>(null);
 
   // Fetch all domaines
   useEffect(() => {
@@ -592,13 +594,19 @@ export default function SimpleSMSPage() {
     if (!defaultMsg.trim()) return;
     setDefaultSending(true);
     try {
-      await sendIndividual({ recipientIdentifier: contactIdentifier, content: defaultMsg.trim(), attachment: defaultAttachment });
-      toast({ title: "Message envoyé" });
+      if (editingMessage) {
+        await editMessage(editingMessage.id, defaultMsg.trim());
+        toast({ title: "Message modifié" });
+        setEditingMessage(null);
+      } else {
+        await sendIndividual({ recipientIdentifier: contactIdentifier, content: defaultMsg.trim(), attachment: defaultAttachment });
+        toast({ title: "Message envoyé" });
+      }
       setDefaultMsg(''); setDefaultAttachment(null);
       if (defaultFileRef.current) defaultFileRef.current.value = '';
       refreshSent();
     } catch (e: any) {
-      toast({ title: "Erreur", description: e?.message || "Impossible d'envoyer.", variant: "destructive" });
+      toast({ title: "Erreur", description: e?.message || "Impossible de terminer l'action.", variant: "destructive" });
     } finally { setDefaultSending(false); }
   };
 
@@ -971,9 +979,20 @@ export default function SimpleSMSPage() {
                   <div ref={chatEndRef} />
                 </div>
                 {defaultAttachment && (
-                  <div className="px-3 py-1.5 border-t border-gray-100 bg-gray-50 flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-gray-700 truncate flex-1">📎 {defaultAttachment.name}</span>
-                    <button type="button" onClick={() => { setDefaultAttachment(null); if (defaultFileRef.current) defaultFileRef.current.value = ''; }} className="text-xs text-red-500 hover:underline">✕</button>
+                  <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex flex-col gap-2 shrink-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-700 truncate">📎 Pièce jointe sélectionnée</span>
+                      <button type="button" onClick={() => { setDefaultAttachment(null); if (defaultFileRef.current) defaultFileRef.current.value = ''; }} className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-300 font-medium">Retirer</button>
+                    </div>
+                    {defaultAttachment.type.startsWith('image/') ? (
+                      <div className="relative rounded-lg overflow-hidden border border-gray-200 max-w-[150px] shadow-sm">
+                        <img src={URL.createObjectURL(defaultAttachment)} alt="Aperçu" className="w-full h-auto object-cover max-h-32" />
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500 bg-white border border-gray-200 p-2 rounded-md truncate">
+                        {defaultAttachment.name}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="px-1 sm:px-3 py-2 border-t border-gray-200 bg-white shrink-0">
@@ -981,14 +1000,22 @@ export default function SimpleSMSPage() {
                     <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
                     <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
                     <div className="flex-1 relative">
+                      {editingMessage && (
+                        <div className="absolute -top-8 left-0 right-0 bg-yellow-50 text-yellow-800 text-[10px] font-bold px-3 py-1.5 rounded-t-xl border border-yellow-200 border-b-0 flex justify-between items-center">
+                          <span>Modification du message...</span>
+                          <button onClick={() => { setEditingMessage(null); setDefaultMsg(''); }} className="text-yellow-900 hover:text-yellow-700">Annuler</button>
+                        </div>
+                      )}
                       <textarea value={defaultMsg} onChange={e => {
                         setDefaultMsg(e.target.value);
                         e.target.style.height = 'auto';
                         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                      }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
+                      }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className={`w-full resize-none ${editingMessage ? 'rounded-b-2xl rounded-t-none border-t-0' : 'rounded-2xl'} border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400`} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
                       <span className="absolute right-3 bottom-2 text-[9px] text-gray-400 pointer-events-none">{defaultMsg.length}/160</span>
                     </div>
-                    <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors"><Send className="h-4 w-4 text-white" /></button>
+                    <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors">
+                      {editingMessage ? <Check className="h-4 w-4 text-white" /> : <Send className="h-4 w-4 text-white" />}
+                    </button>
                   </div>
                 </div>
               </>
@@ -1264,6 +1291,21 @@ export default function SimpleSMSPage() {
               <div className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Options du message</div>
 
               <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 divide-y divide-gray-100">
+
+                {activeActionMessage?.isSent && (
+                  <button
+                    onClick={() => {
+                      setEditingMessage(activeActionMessage);
+                      setDefaultMsg(activeActionMessage.content || '');
+                      setActiveActionMessage(null);
+                      if (defaultFileRef.current) defaultFileRef.current.value = '';
+                      setDefaultAttachment(null);
+                    }}
+                    className="w-full text-left px-5 py-4 text-sm font-semibold text-gray-700 hover:bg-gray-100 active:bg-gray-200 flex items-center gap-3 transition-colors"
+                  >
+                    <span className="text-lg">✏️</span> Modifier le message
+                  </button>
+                )}
 
                 <button
                   onClick={async () => {

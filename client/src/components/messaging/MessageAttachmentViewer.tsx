@@ -3,6 +3,7 @@ import { guessAttachmentMime, isImageMime, repairAttachmentFileName } from '@/li
 import { buildMessageAttachmentUrl } from '@/lib/messageAttachments';
 import { Download, FileText, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export type AttachmentViewPayload = {
   messageId: number;
@@ -106,9 +107,9 @@ export default function MessageAttachmentViewer({ payload, onClose }: Props) {
     }
   };
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-[300] flex flex-col bg-black/95"
+      className="fixed inset-0 z-[9999] flex flex-col bg-black/95"
       role="dialog"
       aria-modal="true"
     >
@@ -195,4 +196,10 @@ export default function MessageAttachmentViewer({ payload, onClose }: Props) {
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  
+  return modalContent;
 }

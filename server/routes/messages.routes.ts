@@ -553,6 +553,51 @@ router.get('/sent', isAuthenticated, async (req, res) => {
   }
 });
 
+// Edit message content
+router.patch('/:id/content', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    const user = (req as any).user;
+
+    if (!user || !user.id) {
+      return res.status(401).json({ message: 'Non authentifié' });
+    }
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'Le contenu ne peut pas être vide' });
+    }
+
+    // Verify ownership
+    const [messageToUpdate] = await db.select()
+      .from(messages)
+      .where(eq(messages.id, Number(id)))
+      .limit(1);
+
+    if (!messageToUpdate) {
+      return res.status(404).json({ message: 'Message introuvable' });
+    }
+
+    if (Number(messageToUpdate.senderId) !== Number(user.id)) {
+      return res.status(403).json({ message: 'Non autorisé à modifier ce message' });
+    }
+
+    // Update content
+    const [updatedMessage] = await db.update(messages)
+      .set({ 
+        content: content.trim(),
+        updatedAt: new Date()
+      })
+      .where(eq(messages.id, Number(id)))
+      .returning();
+
+    return res.json(updatedMessage);
+  } catch (error) {
+    console.error('[Messages] Edit Error:', error);
+    return res.status(500).json({ message: 'Erreur lors de la modification du message' });
+  }
+});
+
 // Envoyer un message individuel avec pièce jointe
 router.post('/', isAuthenticated, upload.single('attachment'), async (req: Request, res: Response) => {
   try {

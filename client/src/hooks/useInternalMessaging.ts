@@ -252,12 +252,47 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
         
         return created;
+      } catch (err) {
+        console.error("[useInternalMessaging] sendIndividual error:", err);
+        throw err;
       } finally {
         setSending(false);
       }
     },
     [domaineId, fetchSent, queryClient]
   );
+
+  const editMessage = useCallback(async (messageId: number, newContent: string) => {
+    try {
+      const response = await authenticatedFetch(`/api/messages/${messageId}/content`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+      });
+      if (!response.ok) {
+        throw new Error(await extractErrorMessage(response));
+      }
+      const updatedData = await response.json();
+      
+      // Update local state for sent messages
+      setSent((prev) => {
+        const updated = prev.map(m => {
+          if (m.id === messageId) {
+            const rawObj = typeof m.rawMsgObj === 'object' && m.rawMsgObj !== null ? { ...m.rawMsgObj, content: newContent } : { content: newContent };
+            return { ...m, content: newContent, rawMsgObj: rawObj };
+          }
+          return m;
+        });
+        saveToCache("sent", domaineId, updated);
+        return updated;
+      });
+
+      return updatedData;
+    } catch (err) {
+      console.error("[useInternalMessaging] editMessage error:", err);
+      throw err;
+    }
+  }, [domaineId]);
 
   const sendGroup = useCallback(
     async ({ targets, content, subject = "Message", attachment }: SendInternalGroupMessageParams) => {
@@ -436,6 +471,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     refreshAll,
     sendIndividual,
     sendGroup,
+    editMessage,
     markMessageAsRead,
     deleteMessage: deleteMessageRecord,
     purgeStaleMessage,
