@@ -4091,10 +4091,12 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {codes.filter((code: any) =>
-                    code.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    code.nature.toLowerCase().includes(searchTerm.toLowerCase())
-                  ).map((code: any, index: number) => {
+                  {codes.filter((code: any) => {
+                    const term = (searchTerm || '').toLowerCase();
+                    const codeStr = String(code?.code || '').toLowerCase();
+                    const natureStr = String(code?.nature || '').toLowerCase();
+                    return codeStr.includes(term) || natureStr.includes(term);
+                  }).map((code: any, index: number) => {
                     const colors = [
                       { border: 'border-green-400', iconBg: 'bg-green-100', accent: 'text-green-700', chipBg: 'bg-green-50' },
                       { border: 'border-yellow-400', iconBg: 'bg-yellow-100', accent: 'text-yellow-700', chipBg: 'bg-yellow-50' },

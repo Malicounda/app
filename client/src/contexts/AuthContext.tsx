@@ -172,15 +172,19 @@ export function AuthProvider({
 
   /* ========================= */
   const refreshUser = async () => {
-    const response = await apiRequest<User>({
-      url: "/api/auth/me",
-      method: "GET",
-    });
+    try {
+      const response = await apiRequest<User>({
+        url: "/api/auth/me",
+        method: "GET",
+      });
 
-    if (response) {
-      setUser(response);
-      setIsAuthenticated(true);
-      await saveSession(response);
+      if (response) {
+        setUser(response);
+        setIsAuthenticated(true);
+        await saveSession(response);
+      }
+    } catch (e) {
+      console.warn("[AuthContext] Erreur lors du refreshUser (ex: token expiré)", e);
     }
   };
 
@@ -288,9 +292,22 @@ export function AuthProvider({
     const init = async () => {
       try {
         const token = await getPreference("token");
-
+        
         if (token) {
-          await refreshUser();
+          // Optimistic initialization from local session
+          try {
+            const savedSessionStr = await getPreference(SESSION_KEY);
+            if (savedSessionStr) {
+              const savedUser = JSON.parse(savedSessionStr);
+              setUser(savedUser);
+              setIsAuthenticated(true);
+            }
+          } catch (e) {
+            console.warn("Optimistic session load failed", e);
+          }
+          
+          // Refresh in background without awaiting (prevents 50s splash screen on backend cold start)
+          refreshUser().catch(console.error);
         }
       } finally {
         setAuthInitialized(true);
