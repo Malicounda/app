@@ -407,13 +407,13 @@ export const getHuntingReports = async (req: Request, res: Response) => {
       } else {
         // Par défaut: seulement les déclarations de l'utilisateur courant
         if (!requestedUserId) return res.status(400).json({ error: 'userId manquant' });
-        whereSql = sql`user_id = ${requestedUserId}`;
+        whereSql = sql`de.user_id = ${requestedUserId}`;
       }
     } catch (buildErr) {
       console.warn('[getHuntingReports] WHERE build failed, falling back to user scope:', buildErr);
       // Repli sécurisé: utilisateur courant ou TRUE si admin all
       if (isAdmin && scope === 'all') whereSql = sql`TRUE`;
-      else if (requestedUserId) whereSql = sql`user_id = ${requestedUserId}`;
+      else if (requestedUserId) whereSql = sql`de.user_id = ${requestedUserId}`;
       else whereSql = sql`FALSE`; // aucun résultat si on ne sait pas filtrer proprement
     }
 

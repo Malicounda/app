@@ -2663,9 +2663,9 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           layersRef.current.departements = undefined;
         }
 
-        // Add layer if toggled on and data present
         if (showDepartements) {
-          const validFeatures = departementsGeoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
+          const features = Array.isArray(departementsGeoJSON.features) ? departementsGeoJSON.features : [];
+          const validFeatures = features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
           );
           if (validFeatures.length > 0) {
             const geoJsonData = { ...departementsGeoJSON, features: validFeatures };
@@ -3100,7 +3100,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         layersRef.current.ecoZones = undefined;
       }
 
-      if (props.showEcoZones && props.ecoZonesGeoJSON && props.ecoZonesGeoJSON.features) {
+      if (props.showEcoZones && props.ecoZonesGeoJSON && Array.isArray(props.ecoZonesGeoJSON.features)) {
         const valid = props.ecoZonesGeoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
         );
         if (valid.length > 0) {
@@ -3197,7 +3197,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         layersRef.current.protectedZones = undefined;
       }
 
-      if (props.showProtectedZones && props.protectedZonesGeoJSON && props.protectedZonesGeoJSON.features) {
+      if (props.showProtectedZones && props.protectedZonesGeoJSON && Array.isArray(props.protectedZonesGeoJSON.features)) {
         const valid = props.protectedZonesGeoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
         );
         if (valid.length > 0) {
@@ -3251,7 +3251,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         (layersRef.current as any)[layerKey] = undefined;
       }
 
-      if (show && geoJSON && geoJSON.features) {
+      if (show && geoJSON && Array.isArray(geoJSON.features)) {
         const valid = geoJSON.features.filter((f: any) => f.geometry && typeof f.geometry === 'object' && f.geometry.type
         );
         if (valid.length > 0) {
