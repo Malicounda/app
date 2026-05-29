@@ -780,6 +780,27 @@ function AlertsPage() {
 
   const unreadCount = alerts.filter((alert: Alert) => !alert.isRead).length;
 
+  const { data: unreadMsgCount } = useQuery({
+    queryKey: ["/api/messages/unread-count"],
+    queryFn: async () => {
+      try {
+        const _domain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
+        const domaineParam = _domain ? `domaine=${_domain}` : '';
+        const resp: any = await apiRequest({ 
+          url: `/api/messages/unread-count${domaineParam ? `?${domaineParam}` : ''}`, 
+          method: 'GET' 
+        });
+        return resp;
+      } catch (error) {
+        console.error('Error fetching unread messages count:', error);
+        return { total: 0 };
+      }
+    },
+    refetchInterval: 15000,
+  });
+
+  const msgUnread = unreadMsgCount?.total || 0;
+
   const filteredInbox = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     // Inbox affiche toutes les alertes (lues et non lues)
@@ -1399,7 +1420,27 @@ function AlertsPage() {
               <ArrowLeft className="h-4 w-4" />
               <span className="font-medium">Retour</span>
             </Button>
-            <div className="flex flex-wrap gap-2">
+             <div className="flex flex-wrap gap-2">
+              {(isDefaultRole || isSupervisorRole) && (
+                <Button
+                  onClick={() => {
+                    let smsPath = "/sms";
+                    if (user?.type === "secteur" || user?.role === "sub-agent") {
+                      smsPath = "/sector-sms";
+                    }
+                    navigate(smsPath);
+                  }}
+                  className="relative flex items-center justify-center h-9 w-9 p-0 rounded-lg bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-sm transition-all active:scale-95"
+                  title="Messagerie SMS"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  {msgUnread > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center shadow-md animate-pulse">
+                      {msgUnread}
+                    </span>
+                  )}
+                </Button>
+              )}
               {unreadCount > 0 && activeTab === "inbox" && !isDefaultRole && (
                 <Button
                   variant="outline"
