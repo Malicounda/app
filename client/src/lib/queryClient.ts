@@ -135,8 +135,11 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
     } catch {}
 
     if (res.status === 401) {
-      // Silencieusement logger l'erreur 401
-      console.log("Session expirée - Redirection vers la page de connexion...");
+      // Émettre un événement global pour que AuthContext gère le logout proprement
+      console.log("Session expirée - Déclenchement du logout propre...");
+      try {
+        window.dispatchEvent(new CustomEvent('sessionExpired'));
+      } catch {}
     }
 
     throw error;
@@ -321,6 +324,10 @@ export function getQueryFn<T = any>(options: {
 
       if (res.status === 401) {
         console.log("Session expirée - 401 reçu");
+        // Émettre l'événement de session expirée pour logout propre
+        try {
+          window.dispatchEvent(new CustomEvent('sessionExpired'));
+        } catch {}
         if (unauthorizedBehavior === "returnNull") return null as any;
         const err: any = new Error("Unauthorized");
         err.status = 401;

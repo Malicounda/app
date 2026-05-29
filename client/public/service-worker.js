@@ -190,8 +190,21 @@ function syncPendingRequests() {
   return new Promise((resolve, reject) => {
     const dbRequest = indexedDB.open(DB_NAME, 1);
 
+    dbRequest.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+
     dbRequest.onsuccess = (event) => {
       const db = event.target.result;
+      // Vérifier que l'object store existe avant de créer la transaction
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        console.log('Service Worker: Object store non trouvé, rien à synchroniser');
+        resolve();
+        return;
+      }
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
 

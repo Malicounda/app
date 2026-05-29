@@ -301,6 +301,59 @@ export function AuthProvider({
     init();
   }, []);
 
+  /* === Gestion propre de l'expiration de session (style Facebook) === */
+  /* Quand n'importe quelle requête API reçoit un 401, on émet un événement
+     'sessionExpired'. Ce listener fait un logout propre au lieu d'afficher
+     une page blanche. Debounce pour éviter les redirections multiples. */
+  React.useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const handleSessionExpired = () => {
+      // Ne pas traiter si déjà en cours de déconnexion
+      if (isLoggingOutRef.current) return;
+
+      // Ne pas traiter si l'utilisateur n'est pas connecté (ex: login en cours)
+      if (!user) return;
+
+      // Ignorer les routes publiques (login, register, etc.)
+      try {
+        const currentPath = window.location.pathname;
+        const publicPaths = ['/login', '/register', '/produits-forestiers', '/reboisement-login', '/alerte-login'];
+        if (currentPath === '/' || publicPaths.some(p => currentPath.startsWith(p))) return;
+      } catch {}
+
+      // Debounce: plusieurs requêtes 401 en même temps → un seul logout
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        console.log("[AuthContext] Session expirée détectée → logout propre");
+
+        // Nettoyer le token et la session
+        try {
+          localStorage.removeItem("token");
+        } catch {}
+        await clearSession();
+        await afterLogoutClearAll();
+
+        setUser(null);
+        setIsAuthenticated(false);
+
+        // Stocker un message pour l'afficher sur la page de login
+        try {
+          localStorage.setItem("sessionExpiredMessage", "Votre session a expiré. Veuillez vous reconnecter.");
+        } catch {}
+
+        // Rediriger vers la page de login appropriée
+        setLocation(getLoginRoute(), { replace: true });
+      }, 300);
+    };
+
+    window.addEventListener('sessionExpired', handleSessionExpired);
+    return () => {
+      window.removeEventListener('sessionExpired', handleSessionExpired);
+      if (debounceTimer) clearTimeout(debounceTimer);
+    };
+  }, [user]);
+
   /* ========================= */
   return (
     <AuthContext.Provider

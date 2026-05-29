@@ -61,6 +61,21 @@ export default function AlerteLogin() {
     } catch { }
   }, []);
 
+  // Afficher le message de session expirée si présent
+  useEffect(() => {
+    try {
+      const expiredMsg = localStorage.getItem("sessionExpiredMessage");
+      if (expiredMsg) {
+        localStorage.removeItem("sessionExpiredMessage");
+        toast({
+          title: "Session expirée",
+          description: expiredMsg,
+          variant: "destructive",
+        });
+      }
+    } catch {}
+  }, []);
+
   // Back button APK
   useEffect(() => {
     if (!isApk) return;

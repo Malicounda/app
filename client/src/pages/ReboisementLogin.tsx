@@ -36,6 +36,21 @@ export default function ReboisementLogin() {
     localStorage.setItem("domain", "REBOISEMENT");
   }, []);
 
+  // Afficher le message de session expirée si présent
+  useEffect(() => {
+    try {
+      const expiredMsg = localStorage.getItem("sessionExpiredMessage");
+      if (expiredMsg) {
+        localStorage.removeItem("sessionExpiredMessage");
+        toast({
+          title: "Session expirée",
+          description: expiredMsg,
+          variant: "destructive",
+        });
+      }
+    } catch {}
+  }, []);
+
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: { identifier: "", password: "" },

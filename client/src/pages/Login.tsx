@@ -48,6 +48,21 @@ export default function Login() {
     } catch {}
   }, [setLocation]);
 
+  // Afficher le message de session expirée si présent
+  useEffect(() => {
+    try {
+      const expiredMsg = localStorage.getItem("sessionExpiredMessage");
+      if (expiredMsg) {
+        localStorage.removeItem("sessionExpiredMessage");
+        toast({
+          title: "Session expirée",
+          description: expiredMsg,
+          variant: "destructive",
+        });
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated && user) {
       const homePage = getHomePage(user.role, user.type, (user as any)?.isSuperAdmin, (user as any)?.isDefaultRole, (user as any)?.isSupervisorRole);
