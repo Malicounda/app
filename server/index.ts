@@ -91,8 +91,11 @@ const corsOptions: cors.CorsOptions = {
       allowedOrigins.push(process.env.FRONTEND_URL.trim());
     }
 
+    // Nettoyer l'origine (retirer le slash final éventuel)
+    const normalizedOrigin = origin ? origin.replace(/\/$/, '') : origin;
+
     // Autoriser les domaines serveo.net (tunnels SSH) et les déploiements Cloudflare Pages (.pages.dev)
-    if (!origin || allowedOrigins.includes(origin) || (origin && origin.includes('.serveo.net')) || (origin && origin.includes('.pages.dev'))) {
+    if (!normalizedOrigin || allowedOrigins.includes(normalizedOrigin) || (normalizedOrigin && normalizedOrigin.includes('.serveo.net')) || (normalizedOrigin && normalizedOrigin.includes('.pages.dev'))) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

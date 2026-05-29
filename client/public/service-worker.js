@@ -1,5 +1,5 @@
 // Service Worker pour la PWA de Gestion des Permis de Chasse
-const CACHE_NAME = 'permis-chasse-cache-v2';
+const CACHE_NAME = 'permis-chasse-cache-v3';
 const OFFLINE_URL = '/offline.html';
 
 // Liste des ressources à mettre en cache immédiatement
@@ -49,7 +49,18 @@ self.addEventListener('fetch', (event) => {
 
   // Ne jamais tenter de mettre en cache les requêtes non-GET (POST/PUT/DELETE/...) 
   if (req.method !== 'GET') {
-    event.respondWith(fetch(req));
+    event.respondWith(
+      fetch(req).catch((error) => {
+        console.error('Service Worker: Fetch failed for non-GET request:', req.url, error);
+        // Retourner une erreur formattée au lieu de laisser l'exception non gérée
+        // (les exceptions non gérées dans le SW sont souvent interprétées comme des erreurs CORS par Chrome)
+        return new Response(JSON.stringify({ error: "Network error or Server unreachable" }), {
+          status: 503,
+          statusText: "Service Unavailable",
+          headers: { 'Content-Type': 'application/json' }
+        });
+      })
+    );
     return;
   }
 
@@ -80,11 +91,15 @@ self.addEventListener('fetch', (event) => {
                 return cachedResponse;
               }
 
-              // IMPORTANT: Pour les API, ne pas renvoyer 503 statique si le serveur est juste lent (Cold Start)
-              // ou s'il y a une erreur CORS. On laisse l'erreur remonter pour que le client puisse 
-              // la gérer (ex: retry) et pour voir la vraie erreur dans la console.
+              // IMPORTANT: Les exceptions non gérées dans le Service Worker sont souvent 
+              // interprétées comme des erreurs CORS par Chrome. Au lieu de throw, 
+              // nous retournons une vraie réponse 503.
               console.warn('Service Worker: API fetch failed:', event.request.url, err);
-              throw err;
+              return new Response(JSON.stringify({ error: "Network error or Server unreachable" }), {
+                status: 503,
+                statusText: "Service Unavailable",
+                headers: { 'Content-Type': 'application/json' }
+              });
             });
         })
     );
