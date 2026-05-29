@@ -122,7 +122,7 @@ export function setupConnectivityListeners(onlineCallback: () => void, offlineCa
 
 // Base de données IndexedDB pour le stockage local
 const DB_NAME = 'permis-chasse-offline-db';
-const DB_VERSION = 2; // Mise à jour de la version pour résoudre le conflit
+const DB_VERSION = 3; // Mise à jour de la version pour résoudre le conflit
 
 // Fonction pour créer un store s'il n'existe pas
 async function createStoreIfNotExists(storeName: string, keyPath: string = 'id'): Promise<void> {
@@ -210,6 +210,7 @@ export function openDatabase(): Promise<IDBDatabase> {
         { name: 'requests', keyPath: 'id' },
         { name: 'activities', keyPath: 'id' },
         { name: 'alerts', keyPath: 'id' },
+        { name: 'misc', keyPath: 'id' },
         {
           name: 'pendingSync',
           options: { keyPath: 'id', autoIncrement: true },
@@ -301,6 +302,7 @@ function getStoreDefinition(storeName: string) {
     { name: 'requests', keyPath: 'id' },
     { name: 'activities', keyPath: 'id' },
     { name: 'alerts', keyPath: 'id' },  // Ajout du store pour les alertes
+    { name: 'misc', keyPath: 'id' },
     {
       name: 'pendingSync',
       options: { keyPath: 'id', autoIncrement: true },
