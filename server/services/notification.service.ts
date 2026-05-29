@@ -79,6 +79,12 @@ export class NotificationService {
                     title: payload.title,
                     body: payload.body,
                   },
+                  android: {
+                    notification: {
+                      channelId: 'alerte_messages_v5', // Forcer le channel avec son
+                      sound: 'default'
+                    }
+                  },
                   data: payload.data ? { data: JSON.stringify(payload.data) } : undefined,
                 });
                 log(`[FCM] Notification envoyée à l'utilisateur ${userId}`, 'notification');
