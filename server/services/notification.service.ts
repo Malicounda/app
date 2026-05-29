@@ -2,6 +2,9 @@ import webpush from 'web-push';
 import { storage } from '../storage.js';
 import { log } from '../utils/logger.js';
 import type { Express } from 'express';
+import admin from 'firebase-admin';
+import path from 'path';
+import fs from 'fs';
 
 /**
  * Service de gestion des notifications (Socket.io + Web Push)
@@ -29,6 +32,21 @@ export class NotificationService {
     } else {
       log('⚠️ Web Push non configuré (clés VAPID manquantes dans .env)', 'warning');
     }
+
+    // Configuration Firebase Admin (pour FCM natif)
+    try {
+      const serviceAccountPath = path.resolve(process.cwd(), 'serviceAccountKey.json');
+      if (fs.existsSync(serviceAccountPath)) {
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccountPath),
+        });
+        log('✅ Firebase Admin configuré avec succès', 'notification');
+      } else {
+        log('⚠️ Firebase Admin non configuré (serviceAccountKey.json introuvable)', 'warning');
+      }
+    } catch (error) {
+      log('❌ Erreur configuration Firebase Admin: ' + (error as Error).message, 'error');
+    }
   }
 
   /**
@@ -51,23 +69,46 @@ export class NotificationService {
       if (subscriptions && subscriptions.length > 0) {
         const pushPromises = subscriptions.map(async (sub) => {
           try {
-            await webpush.sendNotification(
-              {
-                endpoint: sub.endpoint,
-                keys: {
-                  p256dh: sub.p256dh,
-                  auth: sub.auth,
+            // Détection si c'est un token FCM ou Web Push classique
+            if (sub.p256dh === 'FCM' || !sub.p256dh || !sub.auth) {
+              // Envoi via Firebase Cloud Messaging (App native Android)
+              if (admin.apps.length > 0) {
+                await admin.messaging().send({
+                  token: sub.endpoint, // le endpoint contient le token FCM
+                  notification: {
+                    title: payload.title,
+                    body: payload.body,
+                  },
+                  data: payload.data ? { data: JSON.stringify(payload.data) } : undefined,
+                });
+                log(`[FCM] Notification envoyée à l'utilisateur ${userId}`, 'notification');
+              } else {
+                log(`[FCM] Impossible d'envoyer, Firebase Admin non initialisé`, 'warning');
+              }
+            } else {
+              // Envoi via Web Push (Navigateur / PWA)
+              await webpush.sendNotification(
+                {
+                  endpoint: sub.endpoint,
+                  keys: {
+                    p256dh: sub.p256dh,
+                    auth: sub.auth,
+                  },
                 },
-              },
-              JSON.stringify(payload)
-            );
+                JSON.stringify(payload)
+              );
+              log(`[Web Push] Notification envoyée à l'utilisateur ${userId}`, 'notification');
+            }
           } catch (error: any) {
-            // Supprimer l'abonnement s'il n'est plus valide (410 Gone ou 404 Not Found)
-            if (error.statusCode === 410 || error.statusCode === 404) {
-              log(`[Web Push] Abonnement expiré pour l'utilisateur ${userId}, suppression de l'endpoint ${sub.endpoint.substring(0, 30)}...`, 'notification');
+            // Supprimer l'abonnement s'il n'est plus valide (410 Gone, 404 Not Found, ou token FCM invalide)
+            const isWebPushExpired = error.statusCode === 410 || error.statusCode === 404;
+            const isFcmExpired = error.code === 'messaging/invalid-registration-token' || error.code === 'messaging/registration-token-not-registered';
+            
+            if (isWebPushExpired || isFcmExpired) {
+              log(`[Push] Abonnement expiré pour l'utilisateur ${userId}, suppression de l'endpoint ${sub.endpoint.substring(0, 30)}...`, 'notification');
               await storage.deletePushSubscription(sub.endpoint);
             } else {
-              log(`[Web Push] Erreur lors de l'envoi à l'utilisateur ${userId}: ${error.message}`, 'error');
+              log(`[Push] Erreur lors de l'envoi à l'utilisateur ${userId}: ${error.message || error}`, 'error');
             }
           }
         });

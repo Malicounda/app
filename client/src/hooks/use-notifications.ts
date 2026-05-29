@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
@@ -241,21 +242,91 @@ export function useNotifications(enabled = true, userId?: number | null) {
     };
   }, [enabled, userId, toast, queryClient]);
 
-  // Web Push (navigateurs web uniquement)
+  // Web Push (navigateurs web uniquement) et FCM (Android natif)
   useEffect(() => {
     if (!enabled) return;
-    const supported = 'serviceWorker' in navigator && 'PushManager' in window;
-    setIsPushSupported(supported);
-    if (!supported) return;
+    
+    if (isInAlerteApk()) {
+      setIsPushSupported(true); // FCM est toujours supporté sur Android
+      
+      // Listener pour le token FCM généré par l'app native
+      PushNotifications.addListener('registration', async (token) => {
+        console.log('[FCM] Token natif reçu:', token.value);
+        try {
+          // Enregistrer ce token sur notre backend de la même façon que Web Push
+          // mais avec un marqueur 'FCM' pour que le serveur sache comment l'utiliser
+          const subscriptionMock = {
+            endpoint: token.value,
+            keys: {
+              p256dh: 'FCM',
+              auth: 'FCM'
+            }
+          };
+          
+          await authenticatedFetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(subscriptionMock),
+          });
+          
+          setIsPushSubscribed(true);
+        } catch (e) {
+          console.error('[FCM] Erreur d\'enregistrement sur notre backend:', e);
+        }
+      });
+      
+      PushNotifications.addListener('registrationError', (error) => {
+        console.error('[FCM] Erreur de registration:', error);
+      });
+      
+    } else {
+      const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+      setIsPushSupported(supported);
+      if (!supported) return;
 
-    navigator.serviceWorker.ready
-      .then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setIsPushSubscribed(!!sub))
-      .catch(() => setIsPushSubscribed(false));
+      navigator.serviceWorker.ready
+        .then((reg) => reg.pushManager.getSubscription())
+        .then((sub) => setIsPushSubscribed(!!sub))
+        .catch(() => setIsPushSubscribed(false));
+    }
+    
+    return () => {
+      if (isInAlerteApk()) {
+        PushNotifications.removeAllListeners();
+      }
+    };
   }, [enabled]);
 
   const subscribeToPush = async () => {
     if (!isPushSupported || !enabled) return false;
+    
+    // CAS 1: Application Native Android (FCM)
+    if (isInAlerteApk()) {
+      try {
+        let permStatus = await PushNotifications.checkPermissions();
+        if (permStatus.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
+        }
+        
+        if (permStatus.receive !== 'granted') {
+          toast({
+            title: 'Notifications bloquées',
+            description: 'Autorisez les notifications dans les paramètres Android.',
+            variant: 'destructive',
+          });
+          return false;
+        }
+        
+        // Ceci va déclencher l'événement 'registration' configuré plus haut
+        await PushNotifications.register();
+        return true;
+      } catch (err) {
+        console.error('[FCM] Erreur subscribe:', err);
+        return false;
+      }
+    }
+    
+    // CAS 2: Navigateur Web / PWA (Web Push API)
     try {
       const registration = await navigator.serviceWorker.ready;
       let permission = Notification.permission;
