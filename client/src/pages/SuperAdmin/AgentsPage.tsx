@@ -359,6 +359,11 @@ export default function SuperAdminAgentsPage() {
   const [importUpdateExisting, setImportUpdateExisting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [deletePassword, setDeletePassword] = useState("");
+  const [showDeletePasswordDialog, setShowDeletePasswordDialog] = useState(false);
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [pendingDeleteAction, setPendingDeleteAction] = useState<(() => Promise<void>) | null>(null);
+
   // Normalize a string for comparison (remove accents, lowercase)
   const normalizeStr = (s: string) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[-_\s]+/g, "");
 
@@ -872,16 +877,53 @@ export default function SuperAdminAgentsPage() {
 
   const handleBulkDelete = async () => {
     if (selectedRows.size === 0) return;
-    for (const id of Array.from(selectedRows)) {
-      try {
-        await apiRequest({ url: `/api/agents/${id}`, method: "DELETE" });
-      } catch (e) {
-        console.error("Failed to delete agent", id, e);
+
+    const requiresPassword = Array.from(selectedRows).some((id) => {
+      const agent = filteredRows.find((r: any) => r.idAgent === id);
+      return agent?.userRole?.toLowerCase() === 'admin' || agent?.userRole?.toLowerCase() === 'super-admin';
+    });
+
+    const executeDelete = async () => {
+      for (const id of Array.from(selectedRows)) {
+        try {
+          await apiRequest({ url: `/api/agents/${id}`, method: "DELETE" });
+        } catch (e) {
+          console.error("Failed to delete agent", id, e);
+        }
       }
+      setSelectedRows(new Set());
+      qc.invalidateQueries({ queryKey: ["/api/agents"] });
+      toast({ title: "Agents supprimés" });
+      setShowDeletePasswordDialog(false);
+      setDeletePassword("");
+    };
+
+    if (requiresPassword) {
+      setPendingDeleteAction(() => executeDelete);
+      setShowDeletePasswordDialog(true);
+      return;
     }
-    setSelectedRows(new Set());
-    qc.invalidateQueries({ queryKey: ["/api/agents"] });
-    toast({ title: "Agents supprimés" });
+
+    await executeDelete();
+  };
+
+  const handlePasswordVerification = async () => {
+    if (!deletePassword) return;
+    setIsVerifyingPassword(true);
+    try {
+      await apiRequest({
+        url: "/api/auth/verify-password",
+        method: "POST",
+        data: { password: deletePassword },
+      });
+      if (pendingDeleteAction) {
+        await pendingDeleteAction();
+      }
+    } catch (e: any) {
+      toast({ title: "Erreur", description: "Mot de passe incorrect", variant: "destructive" });
+    } finally {
+      setIsVerifyingPassword(false);
+    }
   };
 
   return (
@@ -956,6 +998,40 @@ export default function SuperAdminAgentsPage() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+
+                <Dialog open={showDeletePasswordDialog} onOpenChange={(open) => {
+                  setShowDeletePasswordDialog(open);
+                  if (!open) {
+                    setDeletePassword("");
+                  }
+                }}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Autorisation requise</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <p className="text-sm text-muted-foreground">
+                        Vous tentez de supprimer un ou plusieurs administrateurs. Veuillez entrer votre mot de passe pour confirmer cette action critique.
+                      </p>
+                      <div className="space-y-2">
+                        <Label>Mot de passe</Label>
+                        <Input
+                          type="password"
+                          value={deletePassword}
+                          onChange={(e) => setDeletePassword(e.target.value)}
+                          placeholder="Votre mot de passe..."
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setShowDeletePasswordDialog(false)}>Annuler</Button>
+                      <Button onClick={handlePasswordVerification} disabled={isVerifyingPassword || !deletePassword}>
+                        {isVerifyingPassword ? "Vérification..." : "Confirmer la suppression"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
                 <Button variant="outline" onClick={handleDownloadTemplate}>
                   Modèle CSV
                 </Button>
