@@ -794,11 +794,13 @@ export default function RegionsZones() {
     const detectRegion = async () => {
       try {
         const coords = form.coordinates || [];
-        const valid = (Array.isArray(coords) ? coords : []).filter(c =>
-          form.coordinateSystem === 'geographic'
-            ? (c?.latitude?.trim?.() && c?.longitude?.trim?.())
-            : (c?.easting && c?.northing)
-        );
+        const valid = (Array.isArray(coords) ? coords : []).filter(c => {
+          if (!c) return false;
+          if (form.coordinateSystem === 'geographic') {
+            return 'latitude' in c && 'longitude' in c && c.latitude?.trim?.() && c.longitude?.trim?.();
+          }
+          return 'easting' in c && 'northing' in c && c.easting && c.northing;
+        });
         const count = valid.length;
         let geometryType: 'none' | 'point' | 'polygon' = 'none';
         if (count === 1) geometryType = 'point';
