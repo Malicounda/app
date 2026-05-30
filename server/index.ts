@@ -214,6 +214,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
     // Domaines publics (accueil / sélection profil)
     if (p === '/api/domaines/public/active' && r.method === 'GET') return true;
+    if (p === '/api/themes/active' && r.method === 'GET') return true;
 
     // Routes qui ont leur propre middleware d'authentification - les laisser passer
     if (p.startsWith('/api/hunters/')) return true;

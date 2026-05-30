@@ -16,7 +16,7 @@ import { useSessionHeartbeat } from "@/hooks/useSessionHeartbeat";
 import NotFound from "@/pages/not-found";
 import { isUserSuperAdmin } from "@/utils/navigation";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import { PwaUpdatePrompt } from "@/components/ui/PwaUpdatePrompt";
 import { SplashScreen } from "@/components/ui/SplashScreen";
@@ -1042,6 +1042,85 @@ function Router() {
   );
 }
 
+function GlobalThemeLoader() {
+  const { user } = useAuth();
+  const [location] = useLocation();
+  const [themeVersion, setThemeVersion] = useState(0);
+
+  useEffect(() => {
+    const onThemeUpdated = () => setThemeVersion((v) => v + 1);
+    window.addEventListener('theme:superadmin:updated', onThemeUpdated);
+    return () => window.removeEventListener('theme:superadmin:updated', onThemeUpdated);
+  }, []);
+
+  useEffect(() => {
+    const html = document.documentElement;
+
+    let cfg: any = null;
+    try {
+      const raw = localStorage.getItem('theme:superadmin');
+      cfg = raw ? JSON.parse(raw) : null;
+    } catch {
+      cfg = null;
+    }
+
+    const isSuperAdminUser = (user as any)?.isSuperAdmin === true;
+    const isSuperAdminSection = location.startsWith('/superadmin');
+    const shouldApplySuperAdminTheme = isSuperAdminUser && isSuperAdminSection;
+    
+    const domainKey = (localStorage.getItem('domain') || '').toUpperCase();
+    const domainTheme = cfg?.domains?.[domainKey] || {};
+
+    html.classList.remove('superadmin-theme', 'domain-theme', 'dark-superadmin');
+
+    let activeTheme: any = {};
+    
+    if (shouldApplySuperAdminTheme) {
+      activeTheme = cfg?.superAdmin || {};
+      html.classList.add('superadmin-theme');
+      if (cfg?.superAdmin?.useLegacyDark === true) {
+        html.classList.add('dark-superadmin');
+      }
+    } else if (domainTheme.bg || domainTheme.sidebarBg || domainTheme.headerBg) {
+      activeTheme = domainTheme;
+      html.classList.add('domain-theme');
+    }
+
+    const vars: Record<string, string | undefined> = {
+      '--sa-bg': activeTheme.bg,
+      '--sa-text': activeTheme.text,
+      '--sa-sidebar-bg': activeTheme.sidebarBg,
+      '--sa-header-bg': activeTheme.headerBg,
+      '--sa-surface': activeTheme.surface,
+      '--sa-border': activeTheme.border,
+      '--sa-accent': activeTheme.accent,
+    };
+
+    for (const [k, v] of Object.entries(vars)) {
+      if (v) html.style.setProperty(k, v);
+      else html.style.removeProperty(k);
+    }
+  }, [themeVersion, user, location]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/themes/active', { cache: 'no-store' });
+        if (res.ok) {
+          const theme = await res.json();
+          if (theme?.config) {
+            localStorage.setItem('theme:superadmin', JSON.stringify(theme.config));
+            setThemeVersion((v) => v + 1);
+            window.dispatchEvent(new Event('theme:superadmin:updated'));
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  return null;
+}
+
 function AppContent() {
   const { user } = useAuth();
 
@@ -1073,6 +1152,7 @@ function AppContent() {
 
   return (
     <>
+      <GlobalThemeLoader />
       <Router />
       <Toaster />
       <AppErrorDialog />

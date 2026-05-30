@@ -46,59 +46,59 @@
 
 /* ============================================================
    APPLICATION DU THÈME
-   Activé via la classe .superadmin-theme sur <html>
+   Activé via la classe .superadmin-theme ou .domain-theme sur <html>
    ============================================================ */
 
-html.superadmin-theme body,
-html.superadmin-theme .main-content,
-html.superadmin-theme .page-frame-container,
-html.superadmin-theme .page-frame-inner {
+html.superadmin-theme body, html.domain-theme body,
+html.superadmin-theme .main-content, html.domain-theme .main-content,
+html.superadmin-theme .page-frame-container, html.domain-theme .page-frame-container,
+html.superadmin-theme .page-frame-inner, html.domain-theme .page-frame-inner {
   background-color: var(--sa-bg) !important;
   color: var(--sa-text) !important;
 }
 
 /* ---------- Sidebar ---------- */
-html.superadmin-theme .sidebar,
-html.superadmin-theme .sidebar-desktop {
+html.superadmin-theme .sidebar, html.domain-theme .sidebar,
+html.superadmin-theme .sidebar-desktop, html.domain-theme .sidebar-desktop {
   background-color: var(--sa-sidebar-bg) !important;
   border-right-color: var(--sa-border-subtle) !important;
   border-top-color: var(--sa-border) !important;
 }
 
 /* ---------- Header ---------- */
-html.superadmin-theme #app-header {
+html.superadmin-theme #app-header, html.domain-theme #app-header {
   background-color: var(--sa-header-bg) !important;
   border-bottom: 1px solid var(--sa-border) !important;
 }
 
 /* ---------- Nav bar (desktop sticky) ---------- */
-html.superadmin-theme nav.bg-white {
+html.superadmin-theme nav.bg-white, html.domain-theme nav.bg-white {
   background-color: var(--sa-surface) !important;
   border-color: var(--sa-border) !important;
 }
 
 /* ---------- Cards & containers ---------- */
-html.superadmin-theme .bg-white,
-html.superadmin-theme [class*="bg-white"],
-html.superadmin-theme .card,
-html.superadmin-theme [class*="Card"] {
+html.superadmin-theme .bg-white, html.domain-theme .bg-white,
+html.superadmin-theme [class*="bg-white"], html.domain-theme [class*="bg-white"],
+html.superadmin-theme .card, html.domain-theme .card,
+html.superadmin-theme [class*="Card"], html.domain-theme [class*="Card"] {
   background-color: var(--sa-surface) !important;
   color: var(--sa-text) !important;
   border-color: var(--sa-border) !important;
 }
 
 /* ---------- Inputs & forms ---------- */
-html.superadmin-theme input,
-html.superadmin-theme select,
-html.superadmin-theme textarea {
+html.superadmin-theme input, html.domain-theme input,
+html.superadmin-theme select, html.domain-theme select,
+html.superadmin-theme textarea, html.domain-theme textarea {
   background-color: var(--sa-surface-high) !important;
   color: var(--sa-text) !important;
   border-color: var(--sa-border) !important;
 }
 
-html.superadmin-theme input:focus,
-html.superadmin-theme select:focus,
-html.superadmin-theme textarea:focus {
+html.superadmin-theme input:focus, html.domain-theme input:focus,
+html.superadmin-theme select:focus, html.domain-theme select:focus,
+html.superadmin-theme textarea:focus, html.domain-theme textarea:focus {
   border-color: var(--sa-primary) !important;
   box-shadow: 0 0 0 1px var(--sa-primary-glow) !important;
 }

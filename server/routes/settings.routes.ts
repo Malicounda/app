@@ -954,7 +954,7 @@ router.delete('/zone-statuses/:id', isAuthenticated, async (req, res) => {
 
 // --- New endpoints: national override for agents ---
 // GET /api/settings/national-override -> { enabled: boolean }
-router.get('/national-override', isAuthenticated, async (req, res) => {
+router.get('/national-override', async (req, res) => {
   try {
     const rows: any[] = await db.execute(sql`SELECT value FROM settings WHERE key = 'national_agent_override' LIMIT 1`);
     let enabled = false;
@@ -984,7 +984,7 @@ router.get('/national-override', isAuthenticated, async (req, res) => {
 });
 
 // GET /api/settings/regional-filter-protected-zones -> { enabled: boolean }
-router.get('/regional-filter-protected-zones', isAuthenticated, async (_req, res) => {
+router.get('/regional-filter-protected-zones', async (_req, res) => {
   try {
     const rows: any[] = await db.execute(sql`
       SELECT setting_value FROM system_settings WHERE setting_key = 'regional_filter_protected_zones' LIMIT 1
@@ -1046,7 +1046,7 @@ router.put('/national-override', isAuthenticated, async (req, res) => {
 
 // --- New endpoints: agent-permit-access (feature flag for showing permit details button in hunter modal) ---
 // GET /api/settings/agent-permit-access -> { enabled: boolean }
-router.get('/agent-permit-access', isAuthenticated, async (req, res) => {
+router.get('/agent-permit-access', async (req, res) => {
   try {
     const rows: any[] = await db.execute(sql`SELECT value FROM settings WHERE key = 'agent_permit_access' LIMIT 1`);
     let enabled = false;
@@ -1230,12 +1230,9 @@ router.delete('/protected-zone-types/:id', isAuthenticated, async (req, res) => 
 // ============ FILTRAGE RÉGIONAL DES ZONES PROTÉGÉES ============
 
 // GET /api/settings/regional-filter-protected-zones
-router.get('/regional-filter-protected-zones', isAuthenticated, async (req, res) => {
+router.get('/regional-filter-protected-zones', async (req, res) => {
   try {
-    const role = (req as any)?.user?.role;
-    if (role !== 'admin' && role !== 'regional-agent' && role !== 'sector-agent') {
-      return res.status(403).json({ message: "Accès refusé" });
-    }
+
 
     // Récupérer le paramètre depuis system_settings
     const result = await db.execute(sql`

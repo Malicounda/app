@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useMemo, useState } from "react";
 
 type Domaine = {
@@ -46,6 +47,13 @@ type DomainTheme = {
   icon?: string;
   logoUrl?: string;
   bgImage?: string;
+  bg?: string;
+  text?: string;
+  sidebarBg?: string;
+  headerBg?: string;
+  surface?: string;
+  border?: string;
+  accent?: string;
 };
 
 type ThemeConfig = {
@@ -64,7 +72,10 @@ const DEFAULT_CFG: ThemeConfig = {
     border: "#3d4947",
     accent: "#6bd8cb",
   },
-  domains: {},
+  domains: {
+    'CHASSE': { from: '#16a34a', to: '#15803d' },
+    'ALERTE': { from: '#f59e0b', to: '#f97316' },
+  },
 };
 
 const SUPERADMIN_PALETTES: Array<{ name: string; values: Omit<SuperAdminTheme, 'useLegacyDark'> }> = [
@@ -161,6 +172,11 @@ function normalizeCfg(cfg: ThemeConfig): ThemeConfig {
       ...cfg.superAdmin,
       useLegacyDark: false,
     },
+    domains: {
+      'CHASSE': { from: '#16a34a', to: '#15803d' },
+      'ALERTE': { from: '#f59e0b', to: '#f97316' },
+      ...(cfg.domains || {}),
+    }
   };
 }
 
@@ -324,13 +340,8 @@ export default function ThemePage() {
     );
   };
 
-  const [selectedDomain, setSelectedDomain] = useState<string>("");
-
-  useEffect(() => {
-    if (!selectedDomain && domainesList.length > 0) {
-      setSelectedDomain(domainesList[0].nomDomaine);
-    }
-  }, [domainesList, selectedDomain]);
+  const [activeTab, setActiveTab] = useState<string>("superadmin");
+  const selectedDomain = activeTab === "superadmin" ? "" : activeTab;
 
   const domainKey = String(selectedDomain || "").toUpperCase();
   const domainTheme: DomainTheme = draftCfg.domains[domainKey] || {};
@@ -445,124 +456,121 @@ export default function ThemePage() {
           </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>SuperAdmin</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2 grid gap-2">
-              <Label>Palettes proposées</Label>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="inline-flex flex-wrap rounded-md border overflow-hidden">
-                  {SUPERADMIN_PALETTES.map((p, idx) => (
-                    <button
-                      key={p.name}
-                      type="button"
-                      onClick={() => applyPalette(p)}
-                      className={`h-9 px-3 text-sm ${idx !== 0 ? "border-l" : ""} ${
-                        appliedPaletteName === p.name
-                          ? "bg-teal-600 text-white hover:bg-teal-700"
-                          : activePaletteName === p.name
-                            ? "bg-muted font-medium hover:bg-muted"
-                            : "bg-background hover:bg-muted"
-                      }`}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4 flex flex-wrap h-auto justify-start">
+            <TabsTrigger value="superadmin">SuperAdmin</TabsTrigger>
+            {domainesList.map((d) => (
+              <TabsTrigger key={d.id} value={d.nomDomaine}>{d.nomDomaine}</TabsTrigger>
+            ))}
+          </TabsList>
+
+          <TabsContent value="superadmin" className="mt-0">
+            <Card>
+              <CardHeader>
+                <CardTitle>SuperAdmin</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2 grid gap-2">
+                  <Label>Palettes proposées</Label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="inline-flex flex-wrap rounded-md border overflow-hidden">
+                      {SUPERADMIN_PALETTES.map((p, idx) => (
+                        <button
+                          key={p.name}
+                          type="button"
+                          onClick={() => applyPalette(p)}
+                          className={`h-9 px-3 text-sm ${idx !== 0 ? "border-l" : ""} ${
+                            appliedPaletteName === p.name
+                              ? "bg-teal-600 text-white hover:bg-teal-700"
+                              : activePaletteName === p.name
+                                ? "bg-muted font-medium hover:bg-muted"
+                                : "bg-background hover:bg-muted"
+                          }`}
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Couleur de fond</Label>
-              <ColorField
-                id="sa-bg"
-                value={draftCfg.superAdmin.bg || ""}
-                placeholder="#0a0a0a"
-                onChange={(next) => updateSuperAdmin({ bg: next })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Couleur du texte</Label>
-              <ColorField
-                id="sa-text"
-                value={draftCfg.superAdmin.text || ""}
-                placeholder="#22c55e"
-                onChange={(next) => updateSuperAdmin({ text: next })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Fond sidebar</Label>
-              <ColorField
-                id="sa-sidebar"
-                value={draftCfg.superAdmin.sidebarBg || ""}
-                placeholder="#111111"
-                onChange={(next) => updateSuperAdmin({ sidebarBg: next })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Fond header</Label>
-              <ColorField
-                id="sa-header"
-                value={draftCfg.superAdmin.headerBg || ""}
-                placeholder="#0d1b0d"
-                onChange={(next) => updateSuperAdmin({ headerBg: next })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Fond surface (cards)</Label>
-              <ColorField
-                id="sa-surface"
-                value={draftCfg.superAdmin.surface || ""}
-                placeholder="#1a1a1a"
-                onChange={(next) => updateSuperAdmin({ surface: next })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Couleur bordure</Label>
-              <ColorField
-                id="sa-border"
-                value={draftCfg.superAdmin.border || ""}
-                placeholder="#1a3a1a"
-                onChange={(next) => updateSuperAdmin({ border: next })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Couleur accent</Label>
-              <ColorField
-                id="sa-accent"
-                value={draftCfg.superAdmin.accent || ""}
-                placeholder="#22c55e"
-                onChange={(next) => updateSuperAdmin({ accent: next })}
-              />
-            </div>
-          </CardContent>
-        </Card>
+                <div className="space-y-2">
+                  <Label>Couleur de fond</Label>
+                  <ColorField
+                    id="sa-bg"
+                    value={draftCfg.superAdmin.bg || ""}
+                    placeholder="#0a0a0a"
+                    onChange={(next) => updateSuperAdmin({ bg: next })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Couleur du texte</Label>
+                  <ColorField
+                    id="sa-text"
+                    value={draftCfg.superAdmin.text || ""}
+                    placeholder="#22c55e"
+                    onChange={(next) => updateSuperAdmin({ text: next })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fond sidebar</Label>
+                  <ColorField
+                    id="sa-sidebar"
+                    value={draftCfg.superAdmin.sidebarBg || ""}
+                    placeholder="#111111"
+                    onChange={(next) => updateSuperAdmin({ sidebarBg: next })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fond header</Label>
+                  <ColorField
+                    id="sa-header"
+                    value={draftCfg.superAdmin.headerBg || ""}
+                    placeholder="#0d1b0d"
+                    onChange={(next) => updateSuperAdmin({ headerBg: next })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fond surface (cards)</Label>
+                  <ColorField
+                    id="sa-surface"
+                    value={draftCfg.superAdmin.surface || ""}
+                    placeholder="#1a1a1a"
+                    onChange={(next) => updateSuperAdmin({ surface: next })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Couleur bordure</Label>
+                  <ColorField
+                    id="sa-border"
+                    value={draftCfg.superAdmin.border || ""}
+                    placeholder="#1a3a1a"
+                    onChange={(next) => updateSuperAdmin({ border: next })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Couleur accent</Label>
+                  <ColorField
+                    id="sa-accent"
+                    value={draftCfg.superAdmin.accent || ""}
+                    placeholder="#22c55e"
+                    onChange={(next) => updateSuperAdmin({ accent: next })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Accueil (domaines)</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Domaine</Label>
-                <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={selectedDomain}
-                  onChange={(e) => setSelectedDomain(e.target.value)}
-                >
-                  {domainesList.map((d) => (
-                    <option key={d.id} value={d.nomDomaine}>
-                      {d.nomDomaine}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Couleur prédéfinie (Couleur du card)</Label>
+          {activeTab !== "superadmin" && (
+            <TabsContent value={activeTab} className="mt-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuration: {activeTab}</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Couleur prédéfinie (Couleur du card)</Label>
                 <select
                   className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   onChange={(e) => {
@@ -643,6 +651,75 @@ export default function ThemePage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
+                <div className="text-sm font-semibold mt-4 mb-2 border-b pb-2">Couleurs globales du thème pour ce domaine</div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Couleur de fond (Page)</Label>
+                    <ColorField
+                      id="dom-bg"
+                      value={domainTheme.bg || ""}
+                      placeholder="#0a0a0a"
+                      onChange={(next) => updateDomain({ bg: next })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Couleur du texte</Label>
+                    <ColorField
+                      id="dom-text"
+                      value={domainTheme.text || ""}
+                      placeholder="#22c55e"
+                      onChange={(next) => updateDomain({ text: next })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fond sidebar</Label>
+                    <ColorField
+                      id="dom-sidebar"
+                      value={domainTheme.sidebarBg || ""}
+                      placeholder="#111111"
+                      onChange={(next) => updateDomain({ sidebarBg: next })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fond header</Label>
+                    <ColorField
+                      id="dom-header"
+                      value={domainTheme.headerBg || ""}
+                      placeholder="#0d1b0d"
+                      onChange={(next) => updateDomain({ headerBg: next })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fond surface (cards)</Label>
+                    <ColorField
+                      id="dom-surface"
+                      value={domainTheme.surface || ""}
+                      placeholder="#1a1a1a"
+                      onChange={(next) => updateDomain({ surface: next })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Couleur bordure</Label>
+                    <ColorField
+                      id="dom-border"
+                      value={domainTheme.border || ""}
+                      placeholder="#1a3a1a"
+                      onChange={(next) => updateDomain({ border: next })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Couleur accent</Label>
+                    <ColorField
+                      id="dom-accent"
+                      value={domainTheme.accent || ""}
+                      placeholder="#22c55e"
+                      onChange={(next) => updateDomain({ accent: next })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
                 <Label>Téléverser un logo / icône</Label>
                 <input
                   type="file"
@@ -694,8 +771,11 @@ export default function ThemePage() {
             <div className="text-sm text-muted-foreground">
               Les changements s'appliquent automatiquement sur la page d'accueil.
             </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+            </TabsContent>
+          )}
+        </Tabs>
     </div>
   );
 }

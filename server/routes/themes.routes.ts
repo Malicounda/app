@@ -9,8 +9,8 @@ import {
 
 const router = Router();
 
-// GET /api/themes/active - Récupérer le thème actif (accessible à tous les utilisateurs authentifiés)
-router.get('/active', isAuthenticated, getActiveTheme);
+// GET /api/themes/active - Récupérer le thème actif (accessible publiquement)
+router.get('/active', getActiveTheme);
 
 // GET /api/themes - Lister tous les thèmes (admin/superadmin)
 router.get('/', isAuthenticated, listThemes);
