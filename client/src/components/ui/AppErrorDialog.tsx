@@ -67,9 +67,13 @@ export default function AppErrorDialog() {
       ) {
         return;
       }
-      if (Number(d.status) === 401 && isBackgroundPoll) {
+      
+      // Ignorer les erreurs 401 de session expirée pour les requêtes qui ne sont pas le login
+      // C'est AuthContext qui s'en charge (redirection + Toast sur la page de login)
+      if (Number(d.status) === 401 && !isLoginRequest(url)) {
         return;
       }
+
       setDetail(d);
       setOpen(true);
     };
