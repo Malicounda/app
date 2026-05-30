@@ -378,7 +378,7 @@ export default function HuntingReports() {
         console.error('Erreur chargement rapports:', response.error);
         return [];
       }
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     },
     enabled: !!user?.id,
   });

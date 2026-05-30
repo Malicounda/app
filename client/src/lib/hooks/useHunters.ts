@@ -15,7 +15,7 @@ export function useHunters() {
       if (!response.ok) {
         throw new Error(response.error || 'Failed to fetch hunters');
       }
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     },
     staleTime: 1000 * 30, // 30 seconds
   });
@@ -48,7 +48,7 @@ export function useHunters() {
         if (!response.ok) {
           throw new Error(response.error || 'Failed to fetch minor hunters');
         }
-        return response.data || [];
+        return Array.isArray(response.data) ? response.data : [];
       },
       staleTime: 1000 * 30,
     });
@@ -64,7 +64,7 @@ export function useHunters() {
         if (!response.ok) {
           throw new Error(response.error || 'Failed to fetch hunters by region');
         }
-        return response.data || [];
+        return Array.isArray(response.data) ? response.data : [];
       },
       staleTime: 1000 * 30,
     });
@@ -122,7 +122,7 @@ export function useSectorHuntersCreatedByMe() {
       if (!response.ok) {
         throw new Error(response.error || 'Failed to fetch sector hunters (created by me)');
       }
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     },
     staleTime: 1000 * 30,
   });
@@ -139,7 +139,7 @@ export function useNationalHunters() {
       if (!response.ok) {
         throw new Error(response.error || 'Failed to fetch national hunters');
       }
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     },
     staleTime: 1000 * 30,
   });

@@ -88,7 +88,7 @@ export function usePermitsByHunter(hunterId: number | null) {
       if (!response.ok) {
         throw new Error(response.error || 'Failed to fetch hunter permits');
       }
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     },
     enabled: !!hunterId,
     staleTime: 1000 * 30, // 30 seconds
@@ -223,7 +223,7 @@ export function useSuspendedPermits() {
       if (!response.ok) {
         throw new Error(response.error || 'Failed to fetch suspended permits');
       }
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     },
     staleTime: 1000 * 30, // 30 seconds
   });
@@ -347,7 +347,7 @@ export function useHuntersByRegion(region: string | null) {
         }
         throw new Error(response.error || 'Failed to fetch hunters');
       }
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error('Error fetching hunters by region:', error);
       toast({

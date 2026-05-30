@@ -525,7 +525,7 @@ export default function Infractions() {
     queryKey: ['contrevenants'],
     queryFn: async () => {
       const response = await apiRequest<any>('GET', '/api/infractions/contrevenants');
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     }
   });
 
@@ -980,7 +980,7 @@ export default function Infractions() {
     queryKey: ['infractions'],
     queryFn: async () => {
       const response = await apiRequest<any>('GET', '/api/infractions/infractions');
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     }
   });
 
@@ -2061,7 +2061,7 @@ export default function Infractions() {
     queryKey: ['codes-infractions'],
     queryFn: async () => {
       const response = await apiRequest<any>('GET', '/api/infractions/codes');
-      return response.data || [];
+      return Array.isArray(response.data) ? response.data : [];
     }
   });
 
@@ -2198,7 +2198,7 @@ const { data: agents = [] } = useQuery({
   queryKey: ['agents-verbalisateurs'],
   queryFn: async () => {
     const response = await apiRequest<any>('GET', '/api/infractions/agents');
-    return response.data || [];
+    return Array.isArray(response.data) ? response.data : [];
   }
 });
 
@@ -2472,7 +2472,7 @@ const { data: procesVerbaux = [], isLoading: isPVLoading } = useQuery({
   queryKey: ['proces-verbaux'],
   queryFn: async () => {
     const response = await apiRequest<any>('GET', '/api/infractions/pv');
-    return response.data || [];
+    return Array.isArray(response.data) ? response.data : [];
   },
   staleTime: 60_000,
   refetchOnWindowFocus: false,
