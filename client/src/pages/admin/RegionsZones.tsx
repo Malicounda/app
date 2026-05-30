@@ -794,7 +794,7 @@ export default function RegionsZones() {
     const detectRegion = async () => {
       try {
         const coords = form.coordinates || [];
-        const valid = (coords as any[]).filter(c =>
+        const valid = (Array.isArray(coords) ? coords : []).filter(c =>
           form.coordinateSystem === 'geographic'
             ? (c?.latitude?.trim?.() && c?.longitude?.trim?.())
             : (c?.easting && c?.northing)

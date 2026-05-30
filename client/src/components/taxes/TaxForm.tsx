@@ -327,7 +327,7 @@ export default function TaxForm({ taxId, open, onClose }: TaxFormProps) {
           // - Actifs non expirés
           // - Expirés mais n'ayant pas atteint 2 renouvellements (sinon ils sont bloqués)
           const today = new Date();
-          const relevantPermits = (allPermits as any[]).filter((permit: any) => {
+          const relevantPermits = (Array.isArray(allPermits) ? allPermits : []).filter((permit: any) => {
             const isExpired = new Date(permit.expiryDate) < new Date();
             const renewalsLen = Array.isArray(permit?.metadata?.renewals) ? permit.metadata.renewals.length : 0;
             const blocked = isExpired && renewalsLen >= 2;

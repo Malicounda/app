@@ -1205,7 +1205,7 @@ export default function NationalStatistics() {
                     const photoQuittanceUrl = getBlobUrl(vi.photo_quittance);
                     const offenders: any[] = Array.isArray(vi.contrevenants) ? vi.contrevenants : [];
                     const primary = offenders[0];
-                    const fullPrimary = primary ? (allContrevenants as any[]).find(x=> x.id === primary.id) : null;
+                    const fullPrimary = primary ? (Array.isArray(allContrevenants) ? allContrevenants : []).find((x: any)=> x.id === primary.id) : null;
                     const primaryPhoto = getBlobUrl(fullPrimary?.photo);
                     const primaryPiece = getBlobUrl(fullPrimary?.piece_identite);
                     const primaryBio = getBlobUrl(fullPrimary?.donnees_biometriques);

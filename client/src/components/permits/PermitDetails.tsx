@@ -1379,7 +1379,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
                             <p className="text-base font-semibold">{Array.isArray((permit.metadata as any)?.renewals) ? (permit.metadata as any).renewals.length : 0}</p>
                             {Array.isArray((permit.metadata as any)?.renewals) && (permit.metadata as any).renewals.length > 0 && (
                               <div className="mt-2 space-y-1 text-sm text-gray-700">
-                                {((permit.metadata as any).renewals as any[]).map((r: any, idx: number) => {
+                                {(Array.isArray((permit.metadata as any)?.renewals) ? (permit.metadata as any).renewals : []).map((r: any, idx: number) => {
                                   const d = r?.date ? new Date(r.date) : null;
                                   const dStr = d && !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy HH:mm', { locale: fr }) : String(r?.date || '');
                                   const who = r?.by ? `${r.by.firstName || ''} ${r.by.lastName || ''}`.trim() : '';

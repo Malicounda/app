@@ -2208,11 +2208,11 @@ const filteredAgentsByRole = useMemo(() => {
   if (!hasUser) return agents as any[];
 
   // Admin : tous les agents
-  if (isAdmin) return agents as any[];
+  if (isAdmin) return Array.isArray(agents) ? agents : [];
 
   // Agent régional : agents de sa région
   if (userType === 'regional' && region) {
-    return (agents as any[]).filter((agent: any) => {
+    return (Array.isArray(agents) ? agents : []).filter((agent: any) => {
       const agentRegion = norm(agent?.region || agent?.user?.region);
       return agentRegion === region;
     });
@@ -2220,7 +2220,7 @@ const filteredAgentsByRole = useMemo(() => {
 
   // Agent secteur (sub-agent) : agents de son département
   if ((userType === 'secteur' || (isSectorSubRole && !isDepartmentLevelSubRole)) && departement) {
-    return (agents as any[]).filter((agent: any) => {
+    return (Array.isArray(agents) ? agents : []).filter((agent: any) => {
       const agentDept = norm(agent?.departement || agent?.user?.departement);
       return agentDept === departement;
     });
@@ -2229,7 +2229,7 @@ const filteredAgentsByRole = useMemo(() => {
   // Sous-rôles départementaux (brigade, triage, poste-control, sous-secteur) :
   // Agents de leur propre zone (commune/arrondissement/sousService)
   if (isDepartmentLevelSubRole) {
-    return (agents as any[]).filter((agent: any) => {
+    return (Array.isArray(agents) ? agents : []).filter((agent: any) => {
       const a = agent?.user || agent;
       const agentCommune = norm(a?.commune);
       const agentArrond = norm(a?.arrondissement);
@@ -2248,7 +2248,7 @@ const filteredAgentsByRole = useMemo(() => {
 
   // Fallback : agents de la même région ou département si disponible
   if (departement || region) {
-    return (agents as any[]).filter((agent: any) => {
+    return (Array.isArray(agents) ? agents : []).filter((agent: any) => {
       if (departement) {
         const agentDept = norm(agent?.departement || agent?.user?.departement);
         if (agentDept === departement) return true;
@@ -2888,12 +2888,12 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
   const filteredPvByRole = useMemo(() => {
   if (!Array.isArray(normalizedProcesVerbaux)) return [] as any[];
   const { hasUser, isAdmin, departement, region, commune, arrondissement, sousService, userType, isSectorSubRole, isDepartmentLevelSubRole, norm, isCreatedByMe } = roleContext;
-  if (!hasUser) return normalizedProcesVerbaux as any[];
+  if (!hasUser) return Array.isArray(normalizedProcesVerbaux) ? normalizedProcesVerbaux : [];
 
-  const mineOnly = normalizedProcesVerbaux.filter((pv: any) => isCreatedByMe(pv));
+  const mineOnly = (Array.isArray(normalizedProcesVerbaux) ? normalizedProcesVerbaux : []).filter((pv: any) => isCreatedByMe(pv));
 
   const apply = (predicate: (pv: any) => boolean, fallbackToMine = false) => {
-    const list = (normalizedProcesVerbaux as any[]).filter((pv: any) => {
+    const list = (Array.isArray(normalizedProcesVerbaux) ? normalizedProcesVerbaux : []).filter((pv: any) => {
       if (predicate(pv)) return true;
       return isCreatedByMe(pv);
     });
@@ -5161,7 +5161,7 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                     <SelectValue placeholder="Sélectionner un code" />
                   </SelectTrigger>
                   <SelectContent>
-                    {codes.map((c: any) => (
+                    {(Array.isArray(codes) ? codes : []).map((c: any) => (
                       <SelectItem key={c.id} value={String(c.id)}>
                         {c.code} - {c.nature}
                       </SelectItem>
@@ -6108,7 +6108,7 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                       <SelectValue placeholder="Sélectionner un code" />
                     </SelectTrigger>
                     <SelectContent className="z-[99999] fixed">
-                      {codes.map((c: any) => (
+                      {(Array.isArray(codes) ? codes : []).map((c: any) => (
                         <SelectItem key={c.id} value={String(c.id)}>
                           <span className="inline-flex items-center gap-2">
                             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600">
@@ -6128,7 +6128,7 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                       <SelectValue placeholder="Sélectionner un agent" />
                     </SelectTrigger>
                     <SelectContent>
-                      {agents.map((a: any) => (
+                      {(Array.isArray(agents) ? agents : []).map((a: any) => (
                         <SelectItem key={a.id} value={String(a.id)}>
                           <span className="inline-flex items-center gap-2">
                             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white">

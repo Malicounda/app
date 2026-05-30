@@ -505,7 +505,7 @@ const MapPage: React.FC = () => {
         return fc;
       }
       // Filtrage pour agents régionaux/secteur uniquement
-      const features = (fc.features as any[]).filter(filterZoneFeatureByUserScope);
+      const features = (Array.isArray(fc.features) ? fc.features : []).filter(filterZoneFeatureByUserScope);
       console.log(`[MapPage] Agent filtrage: ${fc.features.length} -> ${features.length} zones`);
       return { ...(fc || {}), features };
     } catch {

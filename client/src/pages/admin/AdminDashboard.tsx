@@ -280,7 +280,8 @@ const AdminDashboard = () => {
   // Montant cumulé des taxes pour la région sélectionnée
   const regionalTaxesAmount = useMemo(() => {
     if (!selectedRegion || !regionalRevenueByType) return 0;
-    const taxesItem = (regionalRevenueByType as any[]).find((d: any) => (d.name || '').toLowerCase().includes('taxes'));
+    const revenueArr = Array.isArray(regionalRevenueByType) ? regionalRevenueByType : [];
+    const taxesItem = revenueArr.find((d: any) => (d.name || '').toLowerCase().includes('taxes'));
     return Number(taxesItem?.value || 0);
   }, [regionalRevenueByType, selectedRegion]);
 
