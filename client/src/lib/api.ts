@@ -150,6 +150,10 @@ export async function apiRequest<T>(
 
     // En erreur, essayer d'extraire un message des payloads communs
     const errorPayload: any = parsed ?? {};
+    if (errorPayload?.debug) {
+      console.error('[API Error Debug]', errorPayload.debug);
+      if (errorPayload?.stack) console.error('[API Error Stack]', errorPayload.stack);
+    }
     const errorMsg = errorPayload?.error || errorPayload?.message || response.statusText || 'Unknown error';
 
     return {

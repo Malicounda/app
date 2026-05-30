@@ -5,8 +5,27 @@ export const isUserSuperAdmin = (user?: any): boolean => {
   return user.isSuperAdmin === true || String(user.isSuperAdmin).toLowerCase() === 'true' || user.isSuperAdmin === 1;
 };
 
+/**
+ * Détermine le sous-type effectif d'un sub-agent à partir de serviceLocation.
+ * Hiérarchie : Agent Secteur (sub-agent) → Sous-Secteur → Brigade → Triage → Poste de contrôle
+ *
+ * @returns 'sous-secteur' | 'brigade' | 'triage' | 'poste-control' | 'sub-agent'
+ */
+export const getUserSubType = (user?: any): string => {
+  if (!user) return 'sub-agent';
+  const role = String(user.role || '').toLowerCase();
+  if (role !== 'sub-agent') return role; // pas un sub-agent, retourner le rôle tel quel
+
+  const sl = String(user.serviceLocation || user.sousService || '').trim().toLowerCase();
+  if (sl.includes('brigade')) return 'brigade';
+  if (sl.includes('triage')) return 'triage';
+  if (sl.includes('poste') && sl.includes('contr')) return 'poste-control';
+  if (sl.includes('sous') && sl.includes('sect')) return 'sous-secteur';
+  return 'sub-agent'; // Agent secteur standard (serviceLocation = "Secteur")
+};
+
 // Fonction centralisée pour déterminer la page d'accueil selon le rôle
-export const getHomePage = (role?: string, type?: string, isSuperAdmin?: boolean | string | number, isDefaultRole?: boolean, isSupervisorRole?: boolean): string => {
+export const getHomePage = (role?: string, type?: string, isSuperAdmin?: boolean | string | number, isDefaultRole?: boolean, isSupervisorRole?: boolean, user?: any): string => {
   if (!role) return '/login';
 
   const superAdminFlag = isSuperAdmin === true || String(isSuperAdmin).toLowerCase() === 'true' || isSuperAdmin === 1;
@@ -39,44 +58,44 @@ export const getHomePage = (role?: string, type?: string, isSuperAdmin?: boolean
       case 'agent':
         return '/reboisement/regional';
       case 'sub-agent':
-      case 'brigade':
-      case 'triage':
-      case 'poste-control':
-      case 'sous-secteur':
         return '/reboisement/departement';
       default:
         return '/reboisement';
     }
   }
 
-  // Sous-rôles secteur avec leur page d'accueil dédiée (Chasse / Défaut)
-  const subRoleHomePages: Record<string, string> = {
-    'sub-agent': '/sector-agents',
-    'brigade': '/brigade',
-    'triage': '/triage',
-    'poste-control': '/poste-control',
-    'sous-secteur': '/sous-secteur',
-  };
-
+  // Domaine CHASSE ou par défaut
   switch (role) {
     case 'admin':
       return '/admin';
     case 'agent':
       return type === 'secteur' ? '/sector' : '/regional';
+    case 'sub-agent': {
+      // Déterminer la page selon le sous-type (serviceLocation)
+      const subType = getUserSubType(user);
+      const subRoleHomePages: Record<string, string> = {
+        'sous-secteur': '/sous-secteur',
+        'brigade': '/brigade',
+        'triage': '/triage',
+        'poste-control': '/poste-control',
+      };
+      return subRoleHomePages[subType] || '/sector-agents';
+    }
     case 'hunter':
       return '/hunter';
     case 'hunting-guide':
       return '/guide';
     default:
-      if (subRoleHomePages[role]) return subRoleHomePages[role];
       return '/login';
   }
 };
 
 // Vérifie si un rôle est un sous-rôle secteur (sub-agent ou ses déclinaisons)
-export const isSectorSubRole = (role?: string): boolean => {
+export const isSectorSubRole = (role?: string, user?: any): boolean => {
   if (!role) return false;
-  return ['sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur'].includes(role);
+  if (role === 'sub-agent') return true;
+  // Compatibilité : si un ancien code passe encore 'brigade' etc. comme role
+  return ['brigade', 'triage', 'poste-control', 'sous-secteur'].includes(role);
 };
 
 // Détermine si un utilisateur chasseur doit impérativement compléter son profil (étape 2)

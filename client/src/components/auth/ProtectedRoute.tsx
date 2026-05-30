@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { getHomePage, isSectorSubRole, isUserSuperAdmin } from "@/utils/navigation";
+import { getHomePage, getUserSubType, isSectorSubRole, isUserSuperAdmin } from "@/utils/navigation";
 import { ReactNode, useEffect } from "react";
 import { useLocation, Redirect } from "wouter";
 import { getLoginRoute } from "@/utils/getLoginRoute";
@@ -63,7 +63,14 @@ export function ProtectedRoute({
       const rolesToCheck = allowedRoles || roles;
       if (rolesToCheck) {
         const allowedRolesArray = Array.isArray(rolesToCheck) ? rolesToCheck : [rolesToCheck];
-        if (!allowedRolesArray.includes(user.role)) return false;
+        // Vérification directe du rôle
+        let roleMatch = allowedRolesArray.includes(user.role);
+        // Si pas de match direct et que le user est sub-agent, vérifier le sous-type via serviceLocation
+        if (!roleMatch && user.role === 'sub-agent') {
+          const subType = getUserSubType(user);
+          roleMatch = allowedRolesArray.includes(subType);
+        }
+        if (!roleMatch) return false;
       }
 
       // Vérification des types autorisés (priorité aux nouveaux paramètres)

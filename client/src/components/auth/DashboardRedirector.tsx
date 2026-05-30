@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { isUserSuperAdmin } from '@/utils/navigation';
+import { getUserSubType, isUserSuperAdmin } from '@/utils/navigation';
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 
@@ -77,10 +77,6 @@ export default function DashboardRedirector() {
           target = '/reboisement/regional';
           break;
         case 'sub-agent':
-        case 'brigade':
-        case 'triage':
-        case 'poste-control':
-        case 'sous-secteur':
           target = '/reboisement/departement';
           break;
         default:
@@ -98,21 +94,18 @@ export default function DashboardRedirector() {
         case 'agent':
           target = user.type === 'secteur' ? '/sector' : '/regional';
           break;
-        case 'sub-agent':
-          target = '/sector-agents';
+        case 'sub-agent': {
+          // Déterminer la page selon le sous-type (serviceLocation)
+          const subType = getUserSubType(user);
+          const subTypeRoutes: Record<string, string> = {
+            'sous-secteur': '/sous-secteur',
+            'brigade': '/brigade',
+            'triage': '/triage',
+            'poste-control': '/poste-control',
+          };
+          target = subTypeRoutes[subType] || '/sector-agents';
           break;
-        case 'brigade':
-          target = '/brigade';
-          break;
-        case 'triage':
-          target = '/triage';
-          break;
-        case 'poste-control':
-          target = '/poste-control';
-          break;
-        case 'sous-secteur':
-          target = '/sous-secteur';
-          break;
+        }
         case 'hunter':
           target = '/hunter';
           break;

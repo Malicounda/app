@@ -273,7 +273,7 @@ export default function SectorSubAgentsPage() {
         url: "/api/users/create-agent",
         method: "POST",
         data: {
-          role,
+          role: 'sub-agent',
           username: username.trim(),
           email: email.trim(),
           password,
@@ -366,7 +366,7 @@ export default function SectorSubAgentsPage() {
                       <TableRow key={r.id}>
                         <TableCell className="font-medium">{r.username}</TableCell>
                         <TableCell>{`${r.firstName || ""} ${r.lastName || ""}`.trim() || "-"}</TableCell>
-                        <TableCell>{r.role}</TableCell>
+                        <TableCell>{r.sousService || r.role || "-"}</TableCell>
                         <TableCell>{r.arrondissement || "-"}</TableCell>
                         <TableCell>{r.commune || "-"}</TableCell>
                         <TableCell>{r.phone || "-"}</TableCell>

@@ -13,7 +13,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { getSessionMaxAgeMs } from './sessionConfig.js';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, or } from 'drizzle-orm';
 import { users as usersTable, agents as agentsTable } from '../shared/schema.js';
 import alertsRoutes from './routes/alerts.routes.js';
 import ecoZonesRoutes from './routes/ecoZones.routes.js'; // Ajout des routes pour les zones écogéographiques
@@ -371,22 +371,14 @@ const startServer = async (): Promise<HttpServer> => {
       setImmediate(async () => {
         try {
           log('🔄 [sync] Démarrage de la vérification de cohérence users/agents...', 'database');
-          const agentRoles = ['agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur'];
+          const agentRoles = ['agent', 'sub-agent'];
 
-          // Récupérer tous les utilisateurs ayant un rôle d'agent
-          const agentUsers = await db
+          // Récupérer tous les utilisateurs ayant un rôle d'agent ou sub-agent
+          const allAgentUsers = await db
             .select()
             .from(usersTable)
-            .where(eq(usersTable.role, 'agent') as any);
+            .where(or(eq(usersTable.role as any, 'agent'), eq(usersTable.role as any, 'sub-agent')));
 
-          // Récupérer aussi les autres rôles agents via une requête brute pour éviter l'IN dynamique compliqué
-          const otherAgentUsers: any[] = [];
-          for (const role of ['sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur']) {
-            const rows = await db.select().from(usersTable).where(eq(usersTable.role as any, role));
-            otherAgentUsers.push(...rows);
-          }
-
-          const allAgentUsers = [...agentUsers, ...otherAgentUsers];
           log(`🔄 [sync] ${allAgentUsers.length} utilisateurs agents trouvés en base.`, 'database');
 
           let created = 0;

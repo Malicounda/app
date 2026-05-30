@@ -56,9 +56,9 @@ router.get('/', isAuthenticated, async (req, res) => {
     };
 
     return res.json(stats);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur lors de la récupération des statistiques:', error);
-    return res.status(500).json({ message: 'Erreur lors de la récupération des statistiques' });
+    return res.status(500).json({ message: 'Erreur lors de la récupération des statistiques', debug: error?.message || String(error), stack: error?.stack });
   }
 });
 
@@ -953,9 +953,9 @@ router.get('/national/aggregates', isAuthenticated, async (req, res) => {
       totalPiecesAbattues: totalPiecesValue,
       infractionsCount: infractionsCountValue,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur /api/stats/national/aggregates:', error);
-    return res.status(500).json({ message: 'Erreur lors de la récupération des agrégats nationaux' });
+    return res.status(500).json({ message: 'Erreur lors de la récupération des agrégats nationaux', debug: error?.message || String(error), stack: error?.stack });
   }
 });
 
@@ -1149,9 +1149,9 @@ router.get('/national/revenue-by-department', isAuthenticated, async (_req, res)
     }));
 
     return res.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur /api/stats/national/revenue-by-department:', error);
-    return res.status(500).json({ message: 'Erreur lors de la récupération des recettes par département' });
+    return res.status(500).json({ message: 'Erreur lors de la récupération des recettes par département', debug: error?.message || String(error), stack: error?.stack });
   }
 });
 

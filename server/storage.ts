@@ -479,7 +479,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
       // Auto-créer un agent si le rôle correspond à un agent
       if (result[0]) {
         const createdUser = result[0];
-        const agentRoles = ['agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur'];
+        const agentRoles = ['agent', 'sub-agent'];
         if (agentRoles.includes(createdUser.role)) {
           try {
             const matriculeSol = String(createdUser.matricule || createdUser.username || `SOL_${createdUser.id}`).trim();
@@ -548,7 +548,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
       // Mettre à jour / Synchroniser / Créer le profil agent
       if (result[0]) {
         const updatedUser = result[0];
-        const agentRoles = ['agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur'];
+        const agentRoles = ['agent', 'sub-agent'];
         if (agentRoles.includes(updatedUser.role)) {
           try {
             const matriculeSol = String(updatedUser.matricule || updatedUser.username || `SOL_${updatedUser.id}`).trim();

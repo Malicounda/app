@@ -20,11 +20,11 @@ function requireRole(roles: string[]) {
 }
 
 export const isAdmin = requireRole(['admin']);
-export const isAgent = requireRole(['agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur', 'regional-agent', 'sector-agent']);
-export const isSubAgent = requireRole(['sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur']);
+export const isAgent = requireRole(['agent', 'sub-agent']);
+export const isSubAgent = requireRole(['sub-agent']);
 export const isHuntingGuide = requireRole(['hunting-guide']);
 
 // Combinaisons de rôles couramment utilisées
-export const isAdminOrAgent = requireRole(['admin', 'agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur', 'regional-agent', 'sector-agent']);
-export const isAgentOrSubAgent = requireRole(['agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur', 'regional-agent', 'sector-agent']);
-export const isAdminAgentOrSubAgent = requireRole(['admin', 'agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur', 'regional-agent', 'sector-agent']);
+export const isAdminOrAgent = requireRole(['admin', 'agent', 'sub-agent']);
+export const isAgentOrSubAgent = requireRole(['agent', 'sub-agent']);
+export const isAdminAgentOrSubAgent = requireRole(['admin', 'agent', 'sub-agent']);

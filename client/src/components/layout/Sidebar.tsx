@@ -31,7 +31,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiRequest } from '@/lib/api';
 import { useUnreadNotificationsCount } from '@/lib/hooks/useUnreadNotifications';
 import { cn } from '@/lib/utils';
-import { isUserSuperAdmin } from '@/utils/navigation';
+import { getUserSubType, isUserSuperAdmin } from '@/utils/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, Activity } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -51,6 +51,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
   const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
   const isSuperAdminNav = isUserSuperAdmin(user);
+  const subType = getUserSubType(user);
 
   // Fermer les sections au changement de page
   useEffect(() => {
@@ -90,10 +91,6 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
           active: 'bg-green-100 text-green-700',
         };
       case 'sub-agent':
-      case 'brigade':
-      case 'triage':
-      case 'poste-control':
-      case 'sous-secteur':
         return {
           hover: 'hover:bg-teal-50 hover:text-teal-700',
           active: 'bg-teal-100 text-teal-700',
@@ -227,11 +224,10 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
   } catch {}
 
   const profileHref = (() => {
-    const role = user?.role;
-    if (role === 'sous-secteur') return '/sous-secteur/profile';
-    if (role === 'brigade') return '/brigade/profile';
-    if (role === 'triage') return '/triage/profile';
-    if (role === 'poste-control') return '/poste-control/profile';
+    if (subType === 'sous-secteur') return '/sous-secteur/profile';
+    if (subType === 'brigade') return '/brigade/profile';
+    if (subType === 'triage') return '/triage/profile';
+    if (subType === 'poste-control') return '/poste-control/profile';
     return '/profile';
   })();
 
@@ -902,7 +898,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
         )}
 
         {/* ═══ Sous-Secteur ═══ */}
-        {user?.role === 'sous-secteur' && (
+        {subType === 'sous-secteur' && (
           <>
             <Link
               href="/sous-secteur"
@@ -992,7 +988,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
         )}
 
         {/* ═══ Brigade ═══ */}
-        {user?.role === 'brigade' && (
+        {subType === 'brigade' && (
           <>
             <Link
               href="/brigade"
@@ -1042,7 +1038,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
         )}
 
         {/* ═══ Triage ═══ */}
-        {user?.role === 'triage' && (
+        {subType === 'triage' && (
           <>
             <Link
               href="/triage"
@@ -1092,7 +1088,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
         )}
 
         {/* ═══ Poste de Contrôle ═══ */}
-        {user?.role === 'poste-control' && (
+        {subType === 'poste-control' && (
           <>
             <Link
               href="/poste-control"

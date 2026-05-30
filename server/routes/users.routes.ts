@@ -574,8 +574,8 @@ router.post('/create-agent', isAuthenticated, async (req, res) => {
         lastName: validatedData.lastName,
         phone: validatedData.phone,
         matricule: validatedData.matricule,
-        // Lieu de service: automatiquement 'Secteur' pour un sous-agent
-        serviceLocation: 'Secteur',
+        // Lieu de service: automatiquement 'Secteur' pour un sous-agent standard, ou la valeur fournie
+        serviceLocation: validatedData.serviceLocation || 'Secteur',
         region: currentUser.region,
         departement: validatedData.departement,
         role: 'sub-agent' as any,
@@ -691,7 +691,7 @@ router.post('/create-agent', isAuthenticated, async (req, res) => {
             email: validatedData.email ?? (existingByMatricule as any).email,
             phone: validatedData.phone ?? (existingByMatricule as any).phone ?? null,
             role: roleToAssignExisting as any,
-            serviceLocation: roleToAssignExisting === 'sub-agent' ? 'Secteur' : (validatedData.serviceLocation ?? (existingByMatricule as any).serviceLocation ?? null),
+            serviceLocation: roleToAssignExisting === 'sub-agent' ? (validatedData.serviceLocation || 'Secteur') : (validatedData.serviceLocation ?? (existingByMatricule as any).serviceLocation ?? null),
             region: roleToAssignExisting === 'sub-agent'
               ? ((validatedData.region ?? currentUser?.region) as any)
               : ((validatedData.region ?? (existingByMatricule as any).region) as any),
@@ -799,8 +799,8 @@ router.post('/create-agent', isAuthenticated, async (req, res) => {
       lastName: validatedData.lastName,
       phone: validatedData.phone,
       matricule: validatedData.matricule,
-      // Lieu de service: 'IREF' pour agent régional, 'Secteur' pour agent de secteur
-      serviceLocation: roleToAssign === 'agent' ? 'IREF' : (roleToAssign === 'sub-agent' ? 'Secteur' : validatedData.serviceLocation),
+      // Lieu de service: 'IREF' pour agent régional, ou type spécifique si fourni
+      serviceLocation: roleToAssign === 'agent' ? 'IREF' : (roleToAssign === 'sub-agent' ? (validatedData.serviceLocation || 'Secteur') : validatedData.serviceLocation),
       region: validatedData.region || (roleToAssign === 'sub-agent' ? currentUser?.region : undefined),
       departement: validatedData.departement,
       role: roleToAssign as User['role'],

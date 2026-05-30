@@ -139,7 +139,8 @@ function Router() {
     ((_appDomain !== 'CHASSE' && _appDomain !== 'REBOISEMENT') &&
       ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
   const isHunterOrGuide = user?.role === 'hunter' || user?.role === 'hunting-guide';
-  const disableLockScreen = isAlerteDomain || isHunterOrGuide;
+  // L'utilisateur a demandé à désactiver l'écran de verrouillage / session expirée
+  const disableLockScreen = true; // isAlerteDomain || isHunterOrGuide;
 
   // Heartbeat de session + verrouillage d'écran après inactivité
   const sessionHeartbeat = useSessionHeartbeat(isAuthenticated, disableLockScreen);
@@ -447,28 +448,28 @@ function Router() {
         {/* ═══ Sous-Secteur ═══ */}
         <Route path="/sous-secteur">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["sous-secteur"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <SousSecteurDashboard />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/sous-secteur/profile">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["sous-secteur"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <Profile />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/sous-secteur/sms">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["sous-secteur"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <SectorSMSPage />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/sous-secteur/infractions">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["sous-secteur"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <Infractions />
             </ProtectedRoute>
           </ChasseRoute>
@@ -498,28 +499,28 @@ function Router() {
         {/* ═══ Brigade ═══ */}
         <Route path="/brigade">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["brigade"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <BrigadeDashboard />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/brigade/profile">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["brigade"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <Profile />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/brigade/sms">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["brigade"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <SectorSMSPage />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/brigade/infractions">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["brigade"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <Infractions />
             </ProtectedRoute>
           </ChasseRoute>
@@ -528,28 +529,28 @@ function Router() {
         {/* ═══ Triage ═══ */}
         <Route path="/triage">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["triage"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <TriageDashboard />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/triage/profile">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["triage"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <Profile />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/triage/sms">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["triage"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <SectorSMSPage />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/triage/infractions">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["triage"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <Infractions />
             </ProtectedRoute>
           </ChasseRoute>
@@ -558,28 +559,28 @@ function Router() {
         {/* ═══ Poste de Contrôle ═══ */}
         <Route path="/poste-control">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["poste-control"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <PosteControlDashboard />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/poste-control/profile">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["poste-control"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <Profile />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/poste-control/sms">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["poste-control"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <SectorSMSPage />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/poste-control/infractions">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["poste-control"]}>
+            <ProtectedRoute allowedRoles={["sub-agent"]}>
               <Infractions />
             </ProtectedRoute>
           </ChasseRoute>

@@ -21,7 +21,9 @@ const geometry = customType<{ data: string; driverData: string }>({
 
 
 // Enum pour les rôles utilisateur
-export const userRoleEnum = pgEnum('user_role', ['admin', 'hunter', 'agent', 'sub-agent', 'hunting-guide', 'brigade', 'triage', 'poste-control', 'sous-secteur']);
+// Rôles principaux uniquement. Les sous-types (Brigade, Triage, Poste de contrôle, Sous-Secteur)
+// sont des sub-agent identifiés par la colonne service_location.
+export const userRoleEnum = pgEnum('user_role', ['admin', 'hunter', 'agent', 'sub-agent', 'hunting-guide']);
 
 
 // User schema (utilisé pour l'authentification)

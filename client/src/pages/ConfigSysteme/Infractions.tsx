@@ -131,7 +131,7 @@ export default function Infractions() {
     const r = normalizedRole;
     return r === 'sub-agent' || r.includes('agent-secteur') || r.includes('secteur-agent') || r.includes('sector-agent');
   })();
-  const isBrigadeOrOtherSubRole = ['brigade', 'triage', 'poste-control', 'sous-secteur'].includes(normalizedRole);
+  const isBrigadeOrOtherSubRole = normalizedRole === 'sub-agent' && ['brigade', 'triage', 'poste de contrôle', 'poste de controle', 'sous-secteur'].some(t => String((user as any)?.serviceLocation || '').toLowerCase().includes(t));
   const showGeoRepartition = isAdmin || isRegionalAgent || isSectorAgent;
 
   // Pie chart state for geography repartition
@@ -603,12 +603,13 @@ export default function Infractions() {
       return Number.isFinite(userId) && Number.isFinite(createdNumber) && userId === createdNumber;
     };
 
-    const sectorSubRoles = ['sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur'];
+    const sectorSubRoles = ['sub-agent'];
     const userRole = String(user.role || '').toLowerCase();
     const isSectorSubRole = sectorSubRoles.includes(userRole);
-    // Les sous-rôles (brigade, triage, poste-control, sous-secteur) sont des sous-entités du département
-    // Ils ne voient que les données de leur propre zone (commune/arrondissement/sousService)
-    const isDepartmentLevelSubRole = ['brigade', 'triage', 'poste-control', 'sous-secteur'].includes(userRole);
+    // Les sous-rôles (brigade, triage, poste-control, sous-secteur) sont des sub-agent
+    // avec un serviceLocation spécifique. Ils ne voient que les données de leur propre zone.
+    const sl = String((user as any)?.serviceLocation || '').toLowerCase();
+    const isDepartmentLevelSubRole = userRole === 'sub-agent' && ['brigade', 'triage', 'poste de contrôle', 'poste de controle', 'sous-secteur'].some(t => sl.includes(t));
 
     return {
       hasUser: true,

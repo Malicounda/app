@@ -103,6 +103,12 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
       typeof body?.message === "string" ? body.message.trim() : (typeof body?.error === "string" ? body.error.trim() : "");
     let baseMessage = serverMessage;
     
+    if (body?.debug) {
+      console.error('[API Error Debug]', body.debug);
+      if (body?.stack) console.error('[API Error Stack]', body.stack);
+      baseMessage += ` (Debug: ${body.debug})`;
+    }
+    
     if (!baseMessage) {
       if (res.status >= 500) {
         baseMessage = "Erreur serveur";

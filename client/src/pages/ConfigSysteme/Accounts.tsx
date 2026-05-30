@@ -619,14 +619,15 @@ export default function Accounts() {
                       {
                         user.role === 'admin' ? 'Admin' :
                           user.role === 'agent' ? 'Agent Régional' :
-                            user.role === 'sub-agent' ? 'Agent Secteur' :
-                              user.role === 'hunting-guide' ? 'Guide de chasse' :
-                                user.role === 'hunter' ? 'Chasseur' :
-                                  user.role === 'brigade' ? 'Brigade' :
-                                    user.role === 'triage' ? 'Triage' :
-                                      user.role === 'poste-control' ? 'Poste Contrôle' :
-                                        user.role === 'sous-secteur' ? 'Sous-secteur' :
-                                          user.role
+                            user.role === 'hunting-guide' ? 'Guide de chasse' :
+                              user.role === 'hunter' ? 'Chasseur' :
+                                user.role === 'sub-agent' ? (
+                                  user.serviceLocation === 'Brigade' ? 'Brigade' :
+                                  user.serviceLocation === 'Triage' ? 'Triage' :
+                                  user.serviceLocation === 'Poste de contrôle' ? 'Poste Contrôle' :
+                                  user.serviceLocation === 'Sous-Secteur' ? 'Sous-secteur' :
+                                  'Agent Secteur'
+                                ) : user.role
                       }
                     </Badge>
                   </TableCell>
