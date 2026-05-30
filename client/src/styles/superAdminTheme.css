@@ -91,7 +91,7 @@ html.superadmin-theme [class*="Card"], html.domain-theme [class*="Card"] {
 html.superadmin-theme input, html.domain-theme input,
 html.superadmin-theme select, html.domain-theme select,
 html.superadmin-theme textarea, html.domain-theme textarea {
-  background-color: var(--sa-surface-high) !important;
+  background-color: var(--sa-input-bg, var(--sa-surface-high)) !important;
   color: var(--sa-text) !important;
   border-color: var(--sa-border) !important;
 }

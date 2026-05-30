@@ -204,7 +204,7 @@ html.dark-superadmin .text-green-600 {
 html.dark-superadmin input,
 html.dark-superadmin select,
 html.dark-superadmin textarea {
-  background-color: var(--sa-surface-high, #222a3d) !important;
+  background-color: var(--sa-input-bg, var(--sa-surface-high, #222a3d)) !important;
   color: var(--sa-text, #dae2fd) !important;
   border-color: var(--sa-border, #3d4947) !important;
 }

@@ -39,6 +39,7 @@ type SuperAdminTheme = {
   surface?: string;
   border?: string;
   accent?: string;
+  inputBg?: string;
 };
 
 type DomainTheme = {
@@ -54,6 +55,7 @@ type DomainTheme = {
   surface?: string;
   border?: string;
   accent?: string;
+  inputBg?: string;
 };
 
 type ThemeConfig = {
@@ -229,6 +231,7 @@ export default function ThemePage() {
     if (cfg.border) html.style.setProperty("--sa-border", cfg.border);
     if (cfg.accent) html.style.setProperty("--sa-primary", cfg.accent);
     if (cfg.text) html.style.setProperty("--sa-text-secondary", cfg.text);
+    if (cfg.inputBg) html.style.setProperty("--sa-input-bg", cfg.inputBg);
     // Compat legacy
     if (cfg.bg) html.style.setProperty("--superadmin-bg", cfg.bg);
     if (cfg.text) html.style.setProperty("--superadmin-text", cfg.text);
@@ -557,6 +560,15 @@ export default function ThemePage() {
                     onChange={(next) => updateSuperAdmin({ accent: next })}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Fond des zones de saisie</Label>
+                  <ColorField
+                    id="sa-input-bg"
+                    value={draftCfg.superAdmin.inputBg || ""}
+                    placeholder="#222a3d"
+                    onChange={(next) => updateSuperAdmin({ inputBg: next })}
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -714,6 +726,15 @@ export default function ThemePage() {
                       value={domainTheme.accent || ""}
                       placeholder="#22c55e"
                       onChange={(next) => updateDomain({ accent: next })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fond des zones de saisie</Label>
+                    <ColorField
+                      id="dom-input-bg"
+                      value={domainTheme.inputBg || ""}
+                      placeholder="#222a3d"
+                      onChange={(next) => updateDomain({ inputBg: next })}
                     />
                   </div>
                 </div>

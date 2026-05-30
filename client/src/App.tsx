@@ -1094,6 +1094,7 @@ function GlobalThemeLoader() {
       '--sa-surface': activeTheme.surface,
       '--sa-border': activeTheme.border,
       '--sa-accent': activeTheme.accent,
+      '--sa-input-bg': activeTheme.inputBg,
     };
 
     for (const [k, v] of Object.entries(vars)) {
