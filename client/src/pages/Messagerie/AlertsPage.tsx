@@ -1233,8 +1233,13 @@ function AlertsPage() {
       setSelectedAlertType('autre');
       setAlertNature('autre');
       setShowAlertForm(true); // Activer automatiquement le formulaire pour les chasseurs
+    } else {
+      // Pour les non-chasseurs, initialiser sans type d'alerte sélectionné
+      setSelectedAlertType(null);
+    }
 
-      // Vérifier l'état de la géolocalisation au chargement pour les chasseurs
+    // Auto-capture de la localisation au chargement pour tous ceux qui peuvent envoyer des alertes
+    if (canSendAlerts && !locationPermissionDenied) {
       const checkLocation = async () => {
         try {
           const permissionState = await checkGeolocationPermission();
@@ -1246,8 +1251,9 @@ function AlertsPage() {
               description: "L'application a besoin d'accéder à votre position pour envoyer des alertes. Veuillez autoriser l'accès à la géolocalisation dans les paramètres de votre navigateur.",
               duration: 10000,
             });
-          } else if (permissionState === 'granted') {
-            // Si la permission est déjà accordée, on peut essayer de récupérer la position
+          } else {
+            // Si la permission est accordée ou 'prompt', on essaie de récupérer la position
+            // (le prompt s'affichera automatiquement)
             handleGetLocation();
           }
         } catch (error) {
@@ -1255,14 +1261,9 @@ function AlertsPage() {
         }
       };
 
-      if (!locationPermissionDenied) {
-        checkLocation();
-      }
-    } else {
-      // Pour les non-chasseurs, initialiser sans type d'alerte sélectionné
-      setSelectedAlertType(null);
+      checkLocation();
     }
-  }, [isHunter, isGuide, locationPermissionDenied]);
+  }, [isHunter, isGuide, canSendAlerts, locationPermissionDenied]);
 
   // Gestion de l'envoi d'une alerte
   const handleSendAlert = async () => {
@@ -1366,7 +1367,7 @@ function AlertsPage() {
   // Gestion de la réinitialisation du formulaire
   const resetForm = () => {
     setAlertNature('braconnage'); // Valeur par défaut
-    setLocation(null);
+    // ON NE RESET PAS LA LOCATION ICI POUR POUVOIR ENVOYER PLUSIEURS ALERTES RAPIDEMENT
     setSelectedAlertType(null);
   };
 
@@ -1507,10 +1508,24 @@ function AlertsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 mb-3">
-                    <MapPin className="h-4 w-4 text-emerald-600" />
-                    <span className="text-sm text-emerald-800 font-medium">Position enregistrée</span>
-                    <span className="text-xs text-emerald-600 ml-auto">{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}</span>
+                  <div className="flex flex-col gap-2 mb-3">
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <MapPin className="h-4 w-4 text-emerald-600" />
+                      <span className="text-sm text-emerald-800 font-medium">Position enregistrée</span>
+                      <span className="text-xs text-emerald-600 ml-auto">{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={handleGetLocation}
+                      disabled={isLoadingLocation}
+                      className="text-[10px] font-medium text-emerald-700 underline self-end px-1 hover:text-emerald-900 flex items-center gap-1"
+                    >
+                      {isLoadingLocation ? (
+                        <>Actualisation...</>
+                      ) : (
+                        <>Re-capturer ma position</>
+                      )}
+                    </button>
                   </div>
                 )}
 

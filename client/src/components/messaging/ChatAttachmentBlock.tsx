@@ -10,11 +10,20 @@ const formatFileSize = (bytes?: number | null) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 };
 
+// Cache global en mémoire pour éviter de re-télécharger les images 
+// à chaque aller-retour dans la discussion
+const blobCache = new Map<string, string>();
+
 function AuthInlineImage({ url, alt, className }: { url: string; alt: string; className?: string }) {
   const [src, setSrc] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (blobCache.has(url)) {
+      setSrc(blobCache.get(url)!);
+      return;
+    }
+
     let objectUrl = '';
     setError(null);
     setSrc('');
@@ -39,14 +48,12 @@ function AuthInlineImage({ url, alt, className }: { url: string; alt: string; cl
       .then((blob) => {
         if (!blob.size) throw new Error('Fichier vide');
         objectUrl = URL.createObjectURL(blob);
+        blobCache.set(url, objectUrl);
         setSrc(objectUrl);
       })
       .catch((e) => {
         setError(e?.message || 'Chargement impossible');
       });
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
   }, [url]);
 
   if (error) {

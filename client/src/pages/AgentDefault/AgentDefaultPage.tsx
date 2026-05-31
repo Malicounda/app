@@ -1,19 +1,70 @@
 import React, { useState, useEffect } from "react";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import AlerteDomainActionCard from "@/components/alerte/AlerteDomainActionCard";
-import { Info, MessageSquare } from "lucide-react";
+import { AlertTriangle, Info, MessageSquare } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LicenseDialog from "@/components/layout/LicenseDialog";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { apiRequest } from "@/lib/api";
 import { getMessagingDomaineQueryParam } from "@/utils/messagingDomain";
+import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
+import { buildSupervisorTickerParts } from "@/utils/alertZoneScope";
+
+function renderTickerItem(n: any) {
+  const { grade, fullName, zoneSummary, title, gpsLocation } = buildSupervisorTickerParts(n);
+  const sep = <span className="text-amber-600/50 mx-1.5">•</span>;
+
+  return (
+    <div className="flex items-center gap-2 text-[11px] font-semibold text-amber-900 group-hover:text-amber-950 transition-colors">
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" />
+      <div className="flex items-center gap-x-1 whitespace-nowrap">
+        <span className="font-bold">
+          {grade ? `${grade} ` : ""}
+          {fullName}
+        </span>
+        {zoneSummary ? (
+          <>
+            {sep}
+            <span className="text-amber-800">{zoneSummary}</span>
+          </>
+        ) : null}
+        {sep}
+        <span>{title}</span>
+        {sep}
+        <span className="font-medium text-amber-700">{gpsLocation}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function AgentDefaultPage() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [showLicense, setShowLicense] = useState(false);
   const [outOfZone, setOutOfZone] = useState(false);
+
+  const { data: unreadData } = useUnreadNotificationsCount();
+  const unreadAlerts = unreadData?.count ?? 0;
+
+  const { data: recentNotifs } = useQuery({
+    queryKey: ["agent-recent-notifs"],
+    queryFn: async () => {
+      try {
+        const res = await apiRequest<any[]>("GET", `/alerts/received/${user?.id}`);
+        if (!res.ok) return [];
+        const notifs = res.data as any[];
+        return notifs.filter((n: any) => !n.is_read && n.alert).slice(0, 10);
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!user,
+    refetchInterval: 3000,
+    staleTime: 1000,
+  });
 
   // Heartbeat SANS GPS (test stabilité APK)
   useEffect(() => {
@@ -46,7 +97,7 @@ export default function AgentDefaultPage() {
         return { total: 0 };
       }
     },
-    refetchInterval: 30000,
+    refetchInterval: 3000,
   });
 
   const msgUnread = unreadMsgCount?.total || 0;
@@ -93,6 +144,7 @@ export default function AgentDefaultPage() {
                 }
                 setLocation("/alerts");
               }}
+              badge={unreadAlerts}
               className={`shadow-sm transition-shadow duration-200 border border-orange-100/30 ${outOfZone
                 ? 'opacity-50 grayscale cursor-not-allowed'
                 : 'hover:shadow-md'
@@ -113,6 +165,51 @@ export default function AgentDefaultPage() {
               className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-green-100/30"
             />
           </div>
+
+          {recentNotifs && recentNotifs.length > 0 && (
+            <div className="mt-6 w-full">
+              <div className="overflow-hidden rounded-lg border border-amber-200 bg-amber-50">
+                <div className="flex items-center justify-between gap-1.5 border-b border-amber-200 bg-amber-100 px-3 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                      Nouvelle alerte{recentNotifs.length > 1 ? `s (${recentNotifs.length})` : ""}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await apiRequest("PATCH", `/alerts/user/${user?.id}/read-all`);
+                        queryClient.invalidateQueries({ queryKey: ["agent-recent-notifs"] });
+                        queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className="text-[9px] font-bold text-amber-700 underline transition-colors hover:text-amber-900"
+                  >
+                    Tout marquer lu
+                  </button>
+                </div>
+
+                {/* Section bande d'annonce scrollable (Ticker) */}
+                <div className="relative flex h-10 items-center overflow-hidden whitespace-nowrap bg-amber-50">
+                  <div className="animate-marquee flex items-center gap-8 pl-4">
+                    {recentNotifs.map((n: any) => (
+                      <div
+                        key={n.id}
+                        className="group flex cursor-pointer items-center rounded-full bg-amber-100/50 px-3 py-1 transition-colors hover:bg-amber-200/50"
+                        onClick={() => setLocation("/alerts")}
+                      >
+                        {renderTickerItem(n)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Footer - Blasons */}
           <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-8 w-full">

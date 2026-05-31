@@ -82,6 +82,109 @@ async function downloadBlob(url: string, filename: string) {
   URL.revokeObjectURL(objectUrl);
 }
 
+function InteractiveImage({ src, alt }: { src: string; alt: string }) {
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [initialDistance, setInitialDistance] = useState<number | null>(null);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setScale(s => Math.min(Math.max(1, s - e.deltaY * 0.01), 4));
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    setScale(s => s > 1 ? 1 : 2);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && scale > 1) {
+      setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    }
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setInitialDistance(dist);
+    } else if (e.touches.length === 1 && scale > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && initialDistance !== null) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const zoomFactor = currentDist / initialDistance;
+      setScale(s => Math.min(Math.max(1, s * zoomFactor * 0.05 + s), 4));
+    } else if (e.touches.length === 1 && isDragging && scale > 1) {
+      setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setInitialDistance(null);
+    setIsDragging(false);
+  };
+
+  const [lastTap, setLastTap] = useState(0);
+  const onTouchEndCombo = (e: React.TouchEvent) => {
+    handleTouchEnd();
+    const now = Date.now();
+    if (now - lastTap < 300) {
+      handleDoubleClick(e);
+    }
+    setLastTap(now);
+  };
+
+  return (
+    <div 
+      className="w-full h-full flex items-center justify-center overflow-hidden touch-none"
+      onWheel={handleWheel}
+      onDoubleClick={handleDoubleClick}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={onTouchEndCombo}
+    >
+      <img
+        src={src}
+        alt={alt}
+        style={{
+          transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+          transition: isDragging || initialDistance !== null ? 'none' : 'transform 0.2s ease-out',
+          cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
+        }}
+        className="max-w-full max-h-full w-auto h-auto object-contain select-none"
+        draggable={false}
+      />
+    </div>
+  );
+}
+
 export default function MessageAttachmentViewer({ payload, onClose }: Props) {
   if (!payload) return null;
 
@@ -163,11 +266,7 @@ export default function MessageAttachmentViewer({ payload, onClose }: Props) {
               </button>
             </div>
           ) : isImage && blobUrl ? (
-            <img
-              src={blobUrl}
-              alt={displayName}
-              className="max-w-full max-h-full w-auto h-auto object-contain"
-            />
+            <InteractiveImage src={blobUrl} alt={displayName || 'image'} />
           ) : isPdf && blobUrl ? (
             <iframe
               src={blobUrl}

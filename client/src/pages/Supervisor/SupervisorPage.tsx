@@ -62,6 +62,7 @@ export default function SupervisorPage() {
     },
     enabled: !!user,
     refetchInterval: 3_000, // Actualisation presque instantanée de la carte SMS
+    refetchOnWindowFocus: true,
   });
   const unreadMessages = unreadMsgCount?.total ?? 0;
 
@@ -79,6 +80,7 @@ export default function SupervisorPage() {
     },
     enabled: !!user,
     refetchInterval: 3_000, // Actualisation presque instantanée de la carte Alertes
+    refetchOnWindowFocus: true,
     staleTime: 1_000,
   });
 
