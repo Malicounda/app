@@ -11,6 +11,8 @@ import { Server } from 'socket.io';
 import cron from 'node-cron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import { db } from './db.js';
 import { getSessionMaxAgeMs } from './sessionConfig.js';
 import { eq, and, isNull, or } from 'drizzle-orm';
@@ -169,7 +171,12 @@ const sessionConfig: session.SessionOptions = {
   },
   store: process.env.REDIS_URL
     ? new (require('connect-redis')(session))({ url: process.env.REDIS_URL })
-    : new session.MemoryStore()
+    : process.env.DATABASE_URL
+      ? new (require('connect-pg-simple')(session))({
+          conObject: { connectionString: process.env.DATABASE_URL },
+          createTableIfMissing: true
+        })
+      : new session.MemoryStore()
 };
 
 // Initialiser le middleware de session AVANT les routes
