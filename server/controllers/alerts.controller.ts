@@ -576,9 +576,28 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
         // Utiliser des rôles NORMALISÉS pour éviter les mismatchs ('sub-agent' vs 'sub_agent')
         const allowedSenderRoles = new Set<string>(['admin', 'agent', 'sub_agent', 'hunter', 'hunting_guide']);
 
-        // Vérifier les rôles autorisés (comparaison sur la version normalisée)
-        if (!allowedSenderRoles.has(normalizedRole)) {
-            console.warn('[Alerts Controller] createAlert denied due to role:', { rawRole, normalizedRole, userId: authenticatedUser.id });
+        // Vérifier si l'utilisateur a le profil superviseur
+        let isSupervisorUser = !!(authenticatedUser as any)?.isSupervisorRole;
+        if (!isSupervisorUser) {
+            try {
+                const profileRows = await db
+                    .select({ isSupervisor: (rolesMetier as any).isSupervisor })
+                    .from(users as any)
+                    .leftJoin(agents as any, eq(agents.userId as any, users.id as any))
+                    .leftJoin(rolesMetier as any, eq(rolesMetier.id as any, agents.roleMetierId as any))
+                    .where(eq(users.id as any, authenticatedUser.id))
+                    .limit(1);
+                if (profileRows && profileRows.length > 0) {
+                    isSupervisorUser = !!profileRows[0].isSupervisor;
+                }
+            } catch (e) {
+                console.warn('[Alerts Controller] Impossible de vérifier si le créateur est superviseur:', e);
+            }
+        }
+
+        // Vérifier les rôles autorisés (comparaison sur la version normalisée ou si l'utilisateur est superviseur)
+        if (!allowedSenderRoles.has(normalizedRole) && !isSupervisorUser) {
+            console.warn('[Alerts Controller] createAlert denied due to role:', { rawRole, normalizedRole, isSupervisorUser, userId: authenticatedUser.id });
             return res.status(403).json({ message: "Vous n'êtes pas autorisé à créer des alertes." });
         }
 
