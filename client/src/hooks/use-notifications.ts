@@ -401,9 +401,26 @@ export function useNotifications(enabled = true, userId?: number | null) {
         return false;
       }
 
+      let vapidKey = VAPID_PUBLIC_KEY;
+      try {
+        const keyRes = await authenticatedFetch('/api/push/key');
+        if (keyRes.ok) {
+          const data = await keyRes.json();
+          if (data.publicKey) vapidKey = data.publicKey;
+        }
+      } catch (e) {
+        console.warn('Fallback to hardcoded VAPID key', e);
+      }
+
+      // Se désabonner de l'ancien pour éviter les erreurs de clé invalide
+      const existingSub = await registration.pushManager.getSubscription();
+      if (existingSub) {
+        await existingSub.unsubscribe();
+      }
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
 
       const response = await authenticatedFetch('/api/push/subscribe', {
