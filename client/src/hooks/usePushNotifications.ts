@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 // La clé publique VAPID récupérée depuis l'API ou définie en dur (fallback)
-const FALLBACK_VAPID_PUBLIC_KEY = 'BIwl8hmLRepd0cgGPD7Sq8b89y-PzV-4G0s0e9dJeKXYTMtjTF-r5xZGTDoWGdURgXWyvgeZf6rhM2N86zs639k';
+const FALLBACK_VAPID_PUBLIC_KEY = 'BNcXB8lrjG6n81HfH7lTfqSB-yT3ucZj23LNcfD2NSrAiiZxIHmX63svFrUdGfUuThsi6kCWYD0TRvtKCAk9P9A';
 
 /**
  * Convertit une chaîne Base64 URL-safe en Uint8Array (nécessaire pour la souscription Web Push)

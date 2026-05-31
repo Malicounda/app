@@ -9,7 +9,7 @@ import { useToast } from './use-toast';
 import { syncLauncherBadge } from '../lib/launcherBadge';
 
 const VAPID_PUBLIC_KEY =
-  'BEeDwYMq5gQ4AKENupJYtKL4NyqNojph-vAchHIr-2ROFRevIuihgrb4Y5ZCV1Nc4qrIag74HHqQgDiKafO8Fpw';
+  'BNcXB8lrjG6n81HfH7lTfqSB-yT3ucZj23LNcfD2NSrAiiZxIHmX63svFrUdGfUuThsi6kCWYD0TRvtKCAk9P9A';
 
 // ──────────────────────────────────────────────────────────────────────
 // IMPORTANT: Sur Android, un channel de notification est IMMUABLE une
@@ -329,6 +329,7 @@ export function useNotifications(enabled = true, userId?: number | null) {
           });
           
           setIsPushSubscribed(true);
+          console.log('[FCM] ✅ Token enregistré sur le backend avec succès');
         } catch (e) {
           console.error('[FCM] Erreur d\'enregistrement sur notre backend:', e);
         }
@@ -337,6 +338,33 @@ export function useNotifications(enabled = true, userId?: number | null) {
       PushNotifications.addListener('registrationError', (error) => {
         console.error('[FCM] Erreur de registration:', error);
       });
+
+      // Listener pour les notifications reçues en arrière-plan (quand l'utilisateur clique dessus)
+      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+        console.log('[FCM] Notification cliquée (arrière-plan):', notification);
+        // On pourrait naviguer vers la page correspondante ici
+      });
+
+      // ═══ ENREGISTREMENT AUTOMATIQUE FCM ═══
+      // Demander la permission et enregistrer le device auprès de Firebase
+      // pour recevoir les notifications même quand l'app est fermée
+      (async () => {
+        try {
+          let permStatus = await PushNotifications.checkPermissions();
+          if (permStatus.receive === 'prompt') {
+            permStatus = await PushNotifications.requestPermissions();
+          }
+          
+          if (permStatus.receive === 'granted') {
+            await PushNotifications.register();
+            console.log('[FCM] ✅ Enregistrement FCM lancé automatiquement');
+          } else {
+            console.warn('[FCM] ⚠️ Permission notifications refusée par l\'utilisateur');
+          }
+        } catch (e) {
+          console.error('[FCM] Erreur lors de l\'enregistrement automatique:', e);
+        }
+      })();
       
     } else {
       const supported = 'serviceWorker' in navigator && 'PushManager' in window;
