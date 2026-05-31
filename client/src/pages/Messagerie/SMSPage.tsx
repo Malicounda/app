@@ -1086,11 +1086,11 @@ export default function SimpleSMSPage() {
                               setShowAgentNotFoundDialog(true);
                               return;
                             }
-                            const key = `direct_${userObj.id}`;
+                            const key = String(userObj.id);
                             const contactName = [userObj.grade, userObj.firstName, userObj.lastName].filter(Boolean).join(' ').trim() || userObj.username || ident;
                             const roleMetier = userObj.roleMetier || userObj.serviceLocation || userObj.role || '';
                             
-                            const existingConv = conversations.find(c => c.contactKey === key || c.contactIdentifier === ident);
+                            const existingConv = conversations.find(c => String(c.contactKey) === key || c.contactIdentifier === ident);
                             if (existingConv) { 
                               setSelectedContactKey(existingConv.contactKey); 
                               setTempConversation(null);
@@ -1129,7 +1129,7 @@ export default function SimpleSMSPage() {
                 <div className="flex-1 overflow-y-auto">
                   {recipientOptions.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
                     <button key={i} onClick={() => {
-                      const existingConv = conversations.find(c => c.contactIdentifier === r.value);
+                      const existingConv = conversations.find(c => String(c.contactKey) === String(r.value) || c.contactIdentifier === r.value);
                       if (existingConv) {
                         setSelectedContactKey(existingConv.contactKey);
                         setTempConversation(null);
@@ -1633,7 +1633,7 @@ export default function SimpleSMSPage() {
 
                       {/* Superviseurs / destinataires automatiques */}
                       {autoRecipients.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
-                        <button key={i} onClick={() => { const existingConv = conversations.find(c => c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); } else { setSelectedContactKey(r.value); conversations.push({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                        <button key={i} onClick={() => { const existingConv = conversations.find(c => String(c.contactKey) === String(r.value) || c.contactIdentifier === r.value); if (existingConv) { setSelectedContactKey(existingConv.contactKey); setTempConversation(null); } else { setSelectedContactKey(r.value); setTempConversation({ contactKey: r.value, contactName: r.label, contactInitial: r.label.charAt(0).toUpperCase(), contactIdentifier: r.value, contactGrade: '', contactRoleMetier: '', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] }); } setPhoneView('chat'); setDefaultMsg(''); }} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
                           <ContactAvatar size="md" variant="search" />
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-medium text-gray-800 truncate">{r.label}</div>
@@ -1666,12 +1666,12 @@ export default function SimpleSMSPage() {
                               onClick={() => {
                                 const ident = newRecipientSearch.startsWith('@') ? newRecipientSearch.slice(1).trim() : '';
                                 if (!ident) return;
-                                const key = `direct_${ident}`;
-                                const existingConv = conversations.find(c => c.contactIdentifier === ident);
-                                if (existingConv) { setSelectedContactKey(existingConv.contactKey); }
+                                const existingConv = conversations.find(c => String(c.contactKey) === ident || c.contactIdentifier === ident || String(c.contactIdentifier).toLowerCase() === ident.toLowerCase());
+                                if (existingConv) { setSelectedContactKey(existingConv.contactKey); setTempConversation(null); }
                                 else {
+                                  const key = `direct_${ident}`;
                                   setSelectedContactKey(key);
-                                  conversations.push({ contactKey: key, contactName: ident, contactInitial: ident.charAt(0).toUpperCase(), contactIdentifier: ident, contactGrade: '', contactRoleMetier: 'Contact direct', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] });
+                                  setTempConversation({ contactKey: key, contactName: ident, contactInitial: ident.charAt(0).toUpperCase(), contactIdentifier: ident, contactGrade: '', contactRoleMetier: 'Contact direct', lastMessage: '', lastTime: new Date(), lastIsSent: false, unreadCount: 0, messages: [] });
                                 }
                                 setPhoneView('chat');
                                 setDefaultMsg('');
