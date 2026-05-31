@@ -209,6 +209,14 @@ export default function SimpleSMSPage() {
 
   const targets = useMemo(() => GLOBAL_TARGETS, []);
 
+  const initialLoadRef = useRef(true);
+
+  useEffect(() => {
+    if (!loadingInbox && !loadingSent) {
+      initialLoadRef.current = false;
+    }
+  }, [loadingInbox, loadingSent]);
+
   // --- Simplified composer for default role (auto-send to regional + sector of user's zone) ---
   const [defaultMsg, setDefaultMsg] = useState("");
   const [defaultSending, setDefaultSending] = useState(false);
@@ -780,7 +788,7 @@ export default function SimpleSMSPage() {
                 )}
                 <div className="flex-1 overflow-y-auto">
                   {/* Skeleton loader while fetching */}
-                  {(loadingInbox || loadingSent) && conversations.length === 0 && (
+                  {initialLoadRef.current && (loadingInbox || loadingSent) && conversations.length === 0 && (
                     <div className="flex flex-col gap-0 animate-pulse">
                       {[...Array(5)].map((_, i) => (
                         <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
@@ -795,7 +803,7 @@ export default function SimpleSMSPage() {
                     </div>
                   )}
                   {/* Empty state — shown only after loading finishes */}
-                  {!loadingInbox && !loadingSent && conversations.length === 0 && (
+                  {!initialLoadRef.current && conversations.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full gap-2 py-12">
                       <p className="text-sm text-gray-400">Aucune conversation</p>
                     </div>
@@ -1010,7 +1018,7 @@ export default function SimpleSMSPage() {
                         setDefaultMsg(e.target.value);
                         e.target.style.height = 'auto';
                         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                      }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className={`w-full resize-none ${editingMessage ? 'rounded-b-2xl rounded-t-none border-t-0' : 'rounded-2xl'} border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400`} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
+                      }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className={`w-full resize-none no-scrollbar ${editingMessage ? 'rounded-b-2xl rounded-t-none border-t-0' : 'rounded-2xl'} border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400`} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
                       <span className="absolute right-3 bottom-2 text-[9px] text-gray-400 pointer-events-none">{defaultMsg.length}/160</span>
                     </div>
                     <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors">
@@ -1597,7 +1605,7 @@ export default function SimpleSMSPage() {
                             setDefaultMsg(e.target.value);
                             e.target.style.height = 'auto';
                             e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                          }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
+                          }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className="w-full resize-none no-scrollbar rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
                           <span className="absolute right-3 bottom-2 text-[9px] text-gray-400 pointer-events-none">{defaultMsg.length}/160</span>
                         </div>
                         <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors"><Send className="h-4 w-4 text-white" /></button>
