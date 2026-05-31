@@ -15,7 +15,7 @@ import {
 } from "@/lib/messagingUtils";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
 import { getMessagingDomaineIdForHook } from "@/utils/messagingDomain";
-import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Check, CheckCheck, Clock } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Check, CheckCheck, Clock, Camera, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 
@@ -986,6 +986,25 @@ export default function SimpleSMSPage() {
                   })}
                   <div ref={chatEndRef} />
                 </div>
+                {defaultSending && (
+                  <div className="flex flex-col items-end max-w-[80%] ml-auto opacity-70 px-4 mb-2">
+                    {defaultAttachment && (
+                      <div className="mb-1 relative w-32 h-32 bg-green-800 rounded-xl flex items-center justify-center overflow-hidden">
+                        <Loader2 className="h-8 w-8 text-white animate-spin z-10" />
+                        <div className="absolute inset-0 bg-black/20 z-0"></div>
+                      </div>
+                    )}
+                    {defaultMsg.trim() && (
+                      <div className="bg-green-600/80 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm flex items-center gap-2">
+                        {defaultMsg}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-end gap-1 mt-0.5 mr-1">
+                      <span className="text-[9px] text-gray-400">Envoi...</span>
+                      <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                    </div>
+                  </div>
+                )}
                 {defaultAttachment && (
                   <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex flex-col gap-2 shrink-0">
                     <div className="flex items-center justify-between">
@@ -1007,6 +1026,11 @@ export default function SimpleSMSPage() {
                   <div className="flex items-end gap-1 sm:gap-2">
                     <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
                     <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
+                    
+                    {/* Hidden input and button for direct Camera capture */}
+                    <input id="camera-capture-input-2" type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
+                    <button type="button" onClick={() => document.getElementById('camera-capture-input-2')?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Camera className="h-4 w-4 text-gray-500" /></button>
+                    
                     <div className="flex-1 relative">
                       {editingMessage && (
                         <div className="absolute -top-8 left-0 right-0 bg-yellow-50 text-yellow-800 text-[10px] font-bold px-3 py-1.5 rounded-t-xl border border-yellow-200 border-b-0 flex justify-between items-center">
@@ -1021,8 +1045,8 @@ export default function SimpleSMSPage() {
                       }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className={`w-full resize-none no-scrollbar ${editingMessage ? 'rounded-b-2xl rounded-t-none border-t-0' : 'rounded-2xl'} border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400`} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
                       <span className="absolute right-3 bottom-2 text-[9px] text-gray-400 pointer-events-none">{defaultMsg.length}/160</span>
                     </div>
-                    <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors">
-                      {editingMessage ? <Check className="h-4 w-4 text-white" /> : <Send className="h-4 w-4 text-white" />}
+                    <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || (!defaultMsg.trim() && !defaultAttachment)} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors">
+                      {defaultSending ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : editingMessage ? <Check className="h-4 w-4 text-white" /> : <Send className="h-4 w-4 text-white" />}
                     </button>
                   </div>
                 </div>
@@ -1232,39 +1256,66 @@ export default function SimpleSMSPage() {
 
                 <div className="space-y-2">
                   <div className="text-xs text-gray-600 font-medium">Pièce jointe (optionnelle)</div>
-                  <input
-                    ref={defaultFileRef}
-                    type="file"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) setDefaultAttachment(file);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => defaultFileRef.current?.click()}
-                    className="w-full rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-4 text-left hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="text-sm font-semibold text-green-700">Joindre un fichier</div>
-                    <div className="text-xs text-gray-500 mt-1">Glissez-déposez un fichier ici ou cliquez pour sélectionner</div>
-                    {defaultAttachment && (
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <div className="text-xs text-gray-700 truncate flex-1">{defaultAttachment.name}</div>
-                        <span
-                          className="text-xs text-red-600 hover:underline cursor-pointer"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDefaultAttachment(null);
-                            if (defaultFileRef.current) defaultFileRef.current.value = "";
-                          }}
-                        >
-                          Retirer
-                        </span>
-                      </div>
-                    )}
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* File Browser */}
+                    <input
+                      ref={defaultFileRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setDefaultAttachment(file);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => defaultFileRef.current?.click()}
+                      className="w-full flex flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 px-2 py-3 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="text-sm font-semibold text-green-700">Joindre un fichier</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">Parcourir la galerie</div>
+                    </button>
+
+                    {/* Camera Capture */}
+                    <input
+                      id="form-camera-input"
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setDefaultAttachment(file);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('form-camera-input')?.click()}
+                      className="w-full flex flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 px-2 py-3 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="text-sm font-semibold text-green-700">Prendre une photo</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">Appareil photo</div>
+                    </button>
+                  </div>
+
+                  {defaultAttachment && (
+                    <div className="mt-2 flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="text-xs text-gray-700 truncate flex-1 font-medium">{defaultAttachment.name}</div>
+                      <span
+                        className="text-xs text-red-600 hover:underline cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDefaultAttachment(null);
+                          if (defaultFileRef.current) defaultFileRef.current.value = "";
+                          const camInput = document.getElementById('form-camera-input') as HTMLInputElement;
+                          if (camInput) camInput.value = "";
+                        }}
+                      >
+                        Retirer
+                      </span>
+                    </div>
+                  )}
                   <div className="text-[11px] text-gray-500">
                     Formats acceptés selon configuration du serveur. Taille maximale 5 Mo.
                   </div>
@@ -1559,12 +1610,35 @@ export default function SimpleSMSPage() {
                       {selectedConversation.messages.map((m: any, i: number) => (
                         m.isSent ? (
                           <div key={i} className="flex flex-col items-end max-w-[80%] ml-auto">
-                            <div
-                              onClick={() => setActiveActionMessage(m)}
-                              className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-green-700 active:scale-95 transition-all"
-                            >
-                              {m.content}
-                            </div>
+                            {m.rawMsgObj?.attachments && m.rawMsgObj.attachments.length > 0 && (
+                              <div className="mb-1 w-full max-w-[200px]">
+                                {m.rawMsgObj.attachments.map((att: any, idx: number) => (
+                                   <ChatAttachmentBlock
+                                     key={idx}
+                                     url={att.url}
+                                     name={att.name || 'Fichier'}
+                                     mime={att.mime}
+                                     size={att.size}
+                                     variant="sent"
+                                     onOpen={() => setPreview({
+                                       messageId: m.id,
+                                       url: att.url,
+                                       name: att.name || 'Fichier',
+                                       mime: att.mime,
+                                       size: att.size
+                                     } as any)}
+                                   />
+                                ))}
+                              </div>
+                            )}
+                            {m.content && (
+                              <div
+                                onClick={() => setActiveActionMessage(m)}
+                                className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-green-700 active:scale-95 transition-all"
+                              >
+                                {m.content}
+                              </div>
+                            )}
                             <div className="flex items-center justify-end gap-1 mt-0.5 mr-1">
                               <span className="text-[9px] text-gray-400">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                               {m.rawMsgObj?.isPending ? (
@@ -1578,16 +1652,58 @@ export default function SimpleSMSPage() {
                           </div>
                         ) : (
                           <div key={i} className="flex flex-col items-start max-w-[80%]">
-                            <div
-                              onClick={() => setActiveActionMessage(m)}
-                              className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all"
-                            >
-                              {m.content}
-                            </div>
+                            {m.rawMsgObj?.attachments && m.rawMsgObj.attachments.length > 0 && (
+                              <div className="mb-1 w-full max-w-[200px]">
+                                {m.rawMsgObj.attachments.map((att: any, idx: number) => (
+                                   <ChatAttachmentBlock
+                                     key={idx}
+                                     url={att.url}
+                                     name={att.name || 'Fichier'}
+                                     mime={att.mime}
+                                     size={att.size}
+                                     variant="received"
+                                     onOpen={() => setPreview({
+                                       messageId: m.id,
+                                       url: att.url,
+                                       name: att.name || 'Fichier',
+                                       mime: att.mime,
+                                       size: att.size
+                                     } as any)}
+                                   />
+                                ))}
+                              </div>
+                            )}
+                            {m.content && (
+                              <div
+                                onClick={() => setActiveActionMessage(m)}
+                                className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all"
+                              >
+                                {m.content}
+                              </div>
+                            )}
                             <span className="text-[9px] text-gray-400 mt-0.5 ml-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                         )
                       ))}
+                      {defaultSending && (
+                        <div className="flex flex-col items-end max-w-[80%] ml-auto opacity-70">
+                          {defaultAttachment && (
+                            <div className="mb-1 relative w-32 h-32 bg-green-800 rounded-xl flex items-center justify-center overflow-hidden">
+                              <Loader2 className="h-8 w-8 text-white animate-spin z-10" />
+                              <div className="absolute inset-0 bg-black/20 z-0"></div>
+                            </div>
+                          )}
+                          {defaultMsg.trim() && (
+                            <div className="bg-green-600/80 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm flex items-center gap-2">
+                              {defaultMsg}
+                            </div>
+                          )}
+                          <div className="flex items-center justify-end gap-1 mt-0.5 mr-1">
+                            <span className="text-[9px] text-gray-400">Envoi...</span>
+                            <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                          </div>
+                        </div>
+                      )}
                       <div ref={chatEndRef} />
                     </div>
                     {defaultAttachment && (
@@ -1600,6 +1716,11 @@ export default function SimpleSMSPage() {
                       <div className="flex items-end gap-1 sm:gap-2">
                         <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
                         <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
+                        
+                        {/* Hidden input and button for direct Camera capture */}
+                        <input id="camera-capture-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
+                        <button type="button" onClick={() => document.getElementById('camera-capture-input')?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Camera className="h-4 w-4 text-gray-500" /></button>
+                        
                         <div className="flex-1 relative">
                           <textarea value={defaultMsg} onChange={e => {
                             setDefaultMsg(e.target.value);
@@ -1608,7 +1729,9 @@ export default function SimpleSMSPage() {
                           }} placeholder="Message..." maxLength={160} rows={1} style={{ maxHeight: '120px' }} className="w-full resize-none no-scrollbar rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 pr-12 text-sm focus:outline-none focus:border-green-400" onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendToContact(selectedConversation.contactIdentifier); } }} />
                           <span className="absolute right-3 bottom-2 text-[9px] text-gray-400 pointer-events-none">{defaultMsg.length}/160</span>
                         </div>
-                        <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || !defaultMsg.trim()} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors"><Send className="h-4 w-4 text-white" /></button>
+                        <button type="button" onClick={() => handleSendToContact(selectedConversation.contactIdentifier)} disabled={defaultSending || (!defaultMsg.trim() && !defaultAttachment)} className="shrink-0 h-9 w-9 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center disabled:opacity-40 transition-colors">
+                          {defaultSending ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Send className="h-4 w-4 text-white" />}
+                        </button>
                       </div>
                     </div>
                   </>

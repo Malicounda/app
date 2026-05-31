@@ -301,44 +301,75 @@ export function InternalMessageComposer({
 
       <div className="space-y-1">
         <Label className="text-sm font-medium text-gray-700">Pièce jointe (optionnelle)</Label>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) {
-              setAttachment(file);
-            }
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-4 text-left hover:bg-gray-100 transition-colors"
-        >
-          <div className="text-sm font-medium text-green-700">Joindre un fichier</div>
-          <div className="text-xs text-gray-500">Glissez-déposez un fichier ici ou cliquez pour sélectionner</div>
-          {attachment && (
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <div className="text-xs text-gray-700 truncate">{attachment.name}</div>
-              <span
-                className="text-xs text-red-600 hover:underline"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setAttachment(null);
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                  }
-                }}
-              >
-                Retirer
-              </span>
-            </div>
-          )}
-        </button>
-        <p className="text-xs text-gray-500">Formats acceptés selon configuration du serveur. Taille maximale 5 Mo.</p>
+        
+        <div className="grid grid-cols-2 gap-2">
+          {/* File Browser */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                setAttachment(file);
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 px-2 py-3 hover:bg-gray-100 transition-colors"
+          >
+            <div className="text-sm font-medium text-green-700">Joindre un fichier</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">Parcourir la galerie</div>
+          </button>
+
+          {/* Camera Capture */}
+          <input
+            id="composer-camera-input"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                setAttachment(file);
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => document.getElementById('composer-camera-input')?.click()}
+            className="w-full flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 px-2 py-3 hover:bg-gray-100 transition-colors"
+          >
+            <div className="text-sm font-medium text-green-700">Prendre une photo</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">Appareil photo</div>
+          </button>
+        </div>
+
+        {attachment && (
+          <div className="mt-2 flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-700 truncate font-medium">{attachment.name}</div>
+            <span
+              className="text-xs text-red-600 hover:underline cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setAttachment(null);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                }
+                const camInput = document.getElementById('composer-camera-input') as HTMLInputElement;
+                if (camInput) camInput.value = "";
+              }}
+            >
+              Retirer
+            </span>
+          </div>
+        )}
+        
+        <p className="text-xs text-gray-500 mt-1">Formats acceptés selon configuration du serveur. Taille maximale 5 Mo.</p>
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
