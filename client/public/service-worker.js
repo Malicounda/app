@@ -1,5 +1,5 @@
 // Service Worker pour la PWA de Gestion des Permis de Chasse
-const CACHE_NAME = 'permis-chasse-cache-v3';
+const CACHE_NAME = 'permis-chasse-cache-v4';
 const OFFLINE_URL = '/offline.html';
 
 // Liste des ressources à mettre en cache immédiatement
@@ -9,10 +9,7 @@ const PRECACHE_ASSETS = [
   '/offline.html',
   '/manifest.json',
   '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  // Ajoutez ici les CSS et JS principaux de votre application
-  '/assets/index.css',
-  '/assets/index.js'
+  '/icons/icon-512x512.png'
 ];
 
 // Installation du service worker
@@ -64,7 +61,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Vérifier si la requête est une requête API
+  // Requêtes API
   if (event.request.url.includes('/api/')) {
     // Stratégie Network First pour les API
     event.respondWith(
@@ -103,45 +100,66 @@ self.addEventListener('fetch', (event) => {
             });
         })
     );
-  } else {
-    // Stratégie Stale-While-Revalidate pour les ressources statiques
+    return;
+  }
+  
+  // Requêtes de navigation (HTML) - Stratégie Network First
+  if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match(event.request)
-        .then((cachedResponse) => {
-          const fetchPromise = fetch(event.request)
-            .then((networkResponse) => {
-              // Ne pas mettre en cache les réponses d'erreur
-              if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-                return networkResponse;
-              }
-
-              // Mettre en cache la nouvelle ressource (en arrière-plan)
-              const responseToCache = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
-              return networkResponse;
-            })
-            .catch(() => {
-              // Retourner la page hors ligne pour les navigations si pas de réseau et pas de cache
-              if (event.request.mode === 'navigate') {
-                return caches.match(OFFLINE_URL);
-              }
-              return new Response('Ressource non disponible hors ligne', {
-                status: 503,
-                statusText: 'Service Unavailable',
-                headers: new Headers({
-                  'Content-Type': 'text/plain'
-                })
-              });
-            });
-
-          // Retourner la réponse en cache immédiatement si elle existe, sinon attendre le réseau
-          return cachedResponse || fetchPromise;
+      fetch(event.request)
+        .then((networkResponse) => {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || caches.match(OFFLINE_URL);
+          });
         })
     );
+    return;
   }
+  
+  // Autres ressources statiques - Stratégie Stale-While-Revalidate
+  event.respondWith(
+    caches.match(event.request)
+      .then((cachedResponse) => {
+        const fetchPromise = fetch(event.request)
+          .then((networkResponse) => {
+            // Ne pas mettre en cache les réponses d'erreur
+            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+              return networkResponse;
+            }
+
+            // Mettre en cache la nouvelle ressource (en arrière-plan)
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+
+            return networkResponse;
+          })
+          .catch(() => {
+            // Retourner la page hors ligne pour les navigations si pas de réseau et pas de cache
+            if (event.request.mode === 'navigate') {
+              return caches.match(OFFLINE_URL);
+            }
+            return new Response('Ressource non disponible hors ligne', {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: new Headers({
+                'Content-Type': 'text/plain'
+              })
+            });
+          });
+
+        // Retourner la réponse en cache immédiatement si elle existe, sinon attendre le réseau
+        return cachedResponse || fetchPromise;
+      })
+  );
 });
 
 // Écouter les messages pour forcer la mise à jour de la PWA (skipWaiting)
