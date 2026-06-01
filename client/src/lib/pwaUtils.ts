@@ -211,9 +211,19 @@ async function forceCreateMissingStores(): Promise<void> {
       };
     };
 
-    checkRequest.onerror = () => {
-      console.error('[IndexedDB] Erreur vérification stores');
-      resolve(); // Ne pas bloquer l'app
+    checkRequest.onerror = (event) => {
+      console.error('[IndexedDB] Erreur vérification stores:', event);
+      console.warn('[IndexedDB] Base corrompue → tentative de reset');
+      try {
+        const deleteReq = indexedDB.deleteDatabase(DB_NAME);
+        deleteReq.onsuccess = () => {
+          console.log('[IndexedDB] Base supprimée, rechargement...');
+          setTimeout(() => window.location.reload(), 500);
+        };
+        deleteReq.onerror = () => resolve(); // Fallback si impossible à supprimer
+      } catch (e) {
+        resolve(); // Ne pas bloquer l'app en cas d'erreur
+      }
     };
   });
 }
@@ -286,10 +296,23 @@ export function openDatabase(): Promise<IDBDatabase> {
 
     openRequest.onerror = (event) => {
       console.error('[IndexedDB] Erreur ouverture:', event);
-      // Fallback : ouvrir sans version spécifique
-      const readOnlyRequest = indexedDB.open(DB_NAME);
-      readOnlyRequest.onsuccess = () => resolve(readOnlyRequest.result);
-      readOnlyRequest.onerror = () => reject(new Error('Impossible d\'ouvrir IndexedDB'));
+      console.warn('[IndexedDB] Base corrompue ou incompatible → reset automatique');
+      
+      try {
+        // Tenter de supprimer la base pour repartir à zéro
+        const deleteReq = indexedDB.deleteDatabase(DB_NAME);
+        deleteReq.onsuccess = () => {
+          console.log('[IndexedDB] Base supprimée, rechargement de la page...');
+          setTimeout(() => window.location.reload(), 500);
+        };
+        deleteReq.onerror = () => {
+          console.error('[IndexedDB] Impossible de supprimer la base');
+          reject(new Error('IndexedDB corrompue et impossible à supprimer'));
+        };
+      } catch (e) {
+        console.error('[IndexedDB] Erreur lors de la tentative de suppression', e);
+        reject(new Error('IndexedDB corrompue, erreur de suppression'));
+      }
     };
 
     openRequest.onsuccess = (event: Event) => {
