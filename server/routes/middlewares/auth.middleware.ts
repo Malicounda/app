@@ -8,10 +8,17 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
   const currentUser = sessionUser || req.user;
 
   if (!currentUser) {
-    // Fallback: accepter un JWT dans l'en-tête Authorization
+    // Fallback: accepter un JWT dans l'en-tête Authorization ou via le paramètre de requête 'token'
     const authHeader = req.headers['authorization'];
+    let token = '';
+    
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.slice(7);
+      token = authHeader.slice(7);
+    } else if (req.query && typeof req.query.token === 'string') {
+      token = req.query.token;
+    }
+
+    if (token) {
       try {
         const decoded: any = jwt.verify(token, getJwtSecret());
         // decoded devrait contenir au moins id et role (selon le login controller)
@@ -22,7 +29,7 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
         return res.status(401).json({ message: "Token invalide ou expiré" });
       }
     }
-    console.warn(`[AUTH] Rejet 401: Aucun utilisateur connecté pour ${req.path}. authHeader présent: ${!!authHeader}`);
+    console.warn(`[AUTH] Rejet 401: Aucun utilisateur connecté pour ${req.path}. token présent: ${!!token}`);
     return res.status(401).json({ message: "Vous devez être connecté pour accéder à cette ressource" });
   }
 

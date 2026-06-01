@@ -68,18 +68,17 @@ function useAuthBlob(url: string, enabled: boolean) {
   return { blobUrl, error, loading };
 }
 
-async function downloadBlob(url: string, filename: string) {
-  const res = await authenticatedFetch(url);
-  if (!res.ok) throw new Error('Téléchargement impossible');
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = objectUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(objectUrl);
+function downloadBlob(url: string, filename: string) {
+  // Les téléchargements blob ne marchent pas toujours dans les WebViews Capacitor/Android
+  // Nous passons plutôt par window.open() vers l'URL d'API (avec le token) qui a Content-Disposition: attachment
+  const token = localStorage.getItem('token');
+  let finalUrl = url;
+  if (token) {
+    finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
+  }
+  
+  // Utiliser _system pour essayer d'ouvrir via le navigateur/téléchargeur natif
+  window.open(finalUrl, '_system');
 }
 
 function InteractiveImage({ src, alt }: { src: string; alt: string }) {
@@ -88,6 +87,7 @@ function InteractiveImage({ src, alt }: { src: string; alt: string }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [initialDistance, setInitialDistance] = useState<number | null>(null);
+  const [initialScale, setInitialScale] = useState(1);
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -123,6 +123,7 @@ function InteractiveImage({ src, alt }: { src: string; alt: string }) {
         e.touches[0].clientY - e.touches[1].clientY
       );
       setInitialDistance(dist);
+      setInitialScale(scale);
     } else if (e.touches.length === 1 && scale > 1) {
       setIsDragging(true);
       setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y });
@@ -136,7 +137,7 @@ function InteractiveImage({ src, alt }: { src: string; alt: string }) {
         e.touches[0].clientY - e.touches[1].clientY
       );
       const zoomFactor = currentDist / initialDistance;
-      setScale(s => Math.min(Math.max(1, s * zoomFactor * 0.05 + s), 4));
+      setScale(Math.min(Math.max(1, initialScale * zoomFactor), 4));
     } else if (e.touches.length === 1 && isDragging && scale > 1) {
       setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y });
     }
@@ -202,9 +203,9 @@ export default function MessageAttachmentViewer({ payload, onClose }: Props) {
 
   const { blobUrl, error, loading } = useAuthBlob(url, true);
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     try {
-      await downloadBlob(downloadUrl, displayName || 'fichier');
+      downloadBlob(downloadUrl, displayName || 'fichier');
     } catch (e) {
       console.error('[MessageAttachmentViewer] download', e);
     }
