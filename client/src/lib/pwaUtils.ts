@@ -8,6 +8,17 @@ export function initPWA() {
   // Configurer le fetch pour le mode hors ligne
   createOfflineFetch();
 
+  // Vérifier/créer les stores IndexedDB manquants au démarrage
+  forceCreateMissingStores()
+    .then(() => {
+      console.log('[PWA] Stores IndexedDB vérifiés');
+      // Nettoyer les entrées de cache expirées
+      return cleanExpiredCache();
+    })
+    .catch((err) => {
+      console.warn('[PWA] Erreur initialisation IndexedDB:', err);
+    });
+
   // Configurer les écouteurs de connectivité
   setupConnectivityListeners(
     () => {
@@ -122,76 +133,171 @@ export function setupConnectivityListeners(onlineCallback: () => void, offlineCa
 
 // Base de données IndexedDB pour le stockage local
 const DB_NAME = 'permis-chasse-offline-db';
-const DB_VERSION = 3; // Mise à jour de la version pour résoudre le conflit
+const DB_VERSION = 4; // v4: ajout apiCache, domaines, users + migration défensive
 
-// Fonction pour créer un store s'il n'existe pas
-async function createStoreIfNotExists(storeName: string, keyPath: string = 'id'): Promise<void> {
-  const db = await openDatabase();
+// Durée maximale de validité du cache (24 heures)
+const CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 
+// Configuration centralisée de tous les stores
+const STORES_CONFIG = [
+  { name: 'permits', keyPath: 'id' },
+  { name: 'hunters', keyPath: 'id' },
+  { name: 'requests', keyPath: 'id' },
+  { name: 'activities', keyPath: 'id' },
+  { name: 'alerts', keyPath: 'id' },
+  { name: 'domaines', keyPath: 'id' },
+  { name: 'users', keyPath: 'id' },
+  {
+    name: 'apiCache',
+    keyPath: 'url',
+    indexes: [
+      { name: 'cachedAt', keyPath: 'cachedAt', options: { unique: false } }
+    ]
+  },
+  {
+    name: 'pendingSync',
+    options: { keyPath: 'id', autoIncrement: true },
+    indexes: [
+      { name: 'timestamp', keyPath: 'timestamp', options: { unique: false } }
+    ]
+  }
+] as const;
+
+// Fonction défensive pour s'assurer que tous les stores requis existent
+// Si un store manque, on force une migration en incrémentant la version
+async function forceCreateMissingStores(): Promise<void> {
   return new Promise((resolve, reject) => {
-    // Vérifier si le store existe déjà
-    if (db.objectStoreNames.contains(storeName)) {
+    // D'abord vérifier l'état actuel
+    const checkRequest = indexedDB.open(DB_NAME);
+
+    checkRequest.onsuccess = () => {
+      const db = checkRequest.result;
+      const missingStores = STORES_CONFIG.filter(
+        s => !db.objectStoreNames.contains(s.name)
+      );
+      const currentVersion = db.version;
       db.close();
-      resolve();
-      return;
-    }
 
-    // Si le store n'existe pas, on doit fermer la connexion actuelle
-    // et en ouvrir une nouvelle avec une version supérieure
-    db.close();
-
-    const newVersion = DB_VERSION + 1; // Incrémenter la version pour déclencher onupgradeneeded
-    const request = indexedDB.open(DB_NAME, newVersion);
-
-    request.onerror = (event) => {
-      console.error(`Erreur lors de la création du store ${storeName}:`, event);
-      reject(new Error(`Impossible de créer le store ${storeName}`));
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-
-      // Créer le store manquant
-      if (!db.objectStoreNames.contains(storeName)) {
-        const store = db.createObjectStore(storeName, { keyPath });
-        console.log(`Store ${storeName} créé avec succès`);
-
-        // Ajouter des index si nécessaire
-        if (storeName === 'pendingSync') {
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-        }
+      if (missingStores.length === 0) {
+        resolve();
+        return;
       }
+
+      console.log(`[IndexedDB] ${missingStores.length} store(s) manquant(s), migration forcée...`);
+
+      // Ouvrir avec une version supérieure pour déclencher onupgradeneeded
+      const newVersion = Math.max(currentVersion, DB_VERSION) + 1;
+      const upgradeRequest = indexedDB.open(DB_NAME, newVersion);
+
+      upgradeRequest.onupgradeneeded = (event) => {
+        const upgradedDb = (event.target as IDBOpenDBRequest).result;
+        applyIdempotentMigration(upgradedDb, event);
+      };
+
+      upgradeRequest.onsuccess = () => {
+        upgradeRequest.result.close();
+        console.log('[IndexedDB] Migration forcée terminée');
+        resolve();
+      };
+
+      upgradeRequest.onerror = (event) => {
+        console.error('[IndexedDB] Erreur migration forcée:', event);
+        reject(new Error('Migration forcée échouée'));
+      };
+
+      upgradeRequest.onblocked = () => {
+        console.warn('[IndexedDB] Migration bloquée par un autre onglet');
+        resolve(); // Ne pas bloquer l'app
+      };
     };
 
-    request.onsuccess = () => {
-      const db = request.result;
-      db.close();
-      resolve();
+    checkRequest.onerror = () => {
+      console.error('[IndexedDB] Erreur vérification stores');
+      resolve(); // Ne pas bloquer l'app
     };
   });
+}
+
+// Migration idempotente : crée tous les stores manquants sans toucher aux existants
+function applyIdempotentMigration(db: IDBDatabase, event: IDBVersionChangeEvent) {
+  const oldVersion = event.oldVersion;
+  console.log(`[IndexedDB] Migration v${oldVersion} → v${event.newVersion}`);
+
+  for (const storeConfig of STORES_CONFIG) {
+    if (!db.objectStoreNames.contains(storeConfig.name)) {
+      try {
+        const storeOptions = ('options' in storeConfig && storeConfig.options)
+          ? storeConfig.options
+          : { keyPath: ('keyPath' in storeConfig ? storeConfig.keyPath : 'id') };
+        const store = db.createObjectStore(storeConfig.name, storeOptions as IDBObjectStoreParameters);
+
+        if ('indexes' in storeConfig && storeConfig.indexes) {
+          for (const index of storeConfig.indexes) {
+            try {
+              store.createIndex(index.name, index.keyPath, index.options);
+            } catch (indexError) {
+              console.warn(`[IndexedDB] Index ${index.name} pour ${storeConfig.name}:`, indexError);
+            }
+          }
+        }
+        console.log(`[IndexedDB] Store ${storeConfig.name} créé`);
+      } catch (createError) {
+        console.error(`[IndexedDB] Erreur création store ${storeConfig.name}:`, createError);
+      }
+    } else if (oldVersion > 0 && 'indexes' in storeConfig && storeConfig.indexes) {
+      // Mettre à jour les index sur les stores existants
+      const transaction = (event.target as IDBOpenDBRequest).transaction;
+      if (transaction) {
+        try {
+          const store = transaction.objectStore(storeConfig.name);
+          const existingIndexes = new Set(Array.from(store.indexNames));
+          for (const index of storeConfig.indexes) {
+            if (!existingIndexes.has(index.name)) {
+              store.createIndex(index.name, index.keyPath, index.options);
+              console.log(`[IndexedDB] Index ${index.name} ajouté à ${storeConfig.name}`);
+            }
+          }
+        } catch (e) {
+          console.warn(`[IndexedDB] Mise à jour index ${storeConfig.name}:`, e);
+        }
+      }
+    }
+  }
+
+  // Supprimer les stores obsolètes (dont 'misc' qui est remplacé par 'apiCache')
+  const storesToKeep = new Set<string>(STORES_CONFIG.map(s => s.name));
+  for (let i = 0; i < db.objectStoreNames.length; i++) {
+    const storeName = db.objectStoreNames[i];
+    if (!storesToKeep.has(storeName)) {
+      try {
+        db.deleteObjectStore(storeName);
+        console.log(`[IndexedDB] Store obsolète ${storeName} supprimé`);
+      } catch (deleteError) {
+        console.warn(`[IndexedDB] Suppression store ${storeName}:`, deleteError);
+      }
+    }
+  }
 }
 
 // Fonction pour ouvrir la base de données
 export function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    // Ouvrir directement avec la version définie dans DB_VERSION
     const openRequest = indexedDB.open(DB_NAME, DB_VERSION);
 
     openRequest.onerror = (event) => {
-      console.error('Erreur lors de l\'ouverture de la base de données:', event);
-      // En cas d'échec, essayer d'ouvrir en lecture seule
+      console.error('[IndexedDB] Erreur ouverture:', event);
+      // Fallback : ouvrir sans version spécifique
       const readOnlyRequest = indexedDB.open(DB_NAME);
       readOnlyRequest.onsuccess = () => resolve(readOnlyRequest.result);
-      readOnlyRequest.onerror = () => reject(new Error('Impossible d\'ouvrir la base de données en lecture seule'));
+      readOnlyRequest.onerror = () => reject(new Error('Impossible d\'ouvrir IndexedDB'));
     };
 
     openRequest.onsuccess = (event: Event) => {
       const db = (event.target as IDBOpenDBRequest).result;
 
-      // Sur changement de version (autre onglet), fermer proprement sans forcer un reload
       db.onversionchange = () => {
         try { db.close(); } catch { }
-        console.warn('IndexedDB: changement de version détecté (autre onglet). Recharger manuellement si nécessaire.');
+        console.warn('[IndexedDB] Changement de version détecté (autre onglet)');
       };
 
       resolve(db);
@@ -199,144 +305,51 @@ export function openDatabase(): Promise<IDBDatabase> {
 
     openRequest.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      const oldVersion = event.oldVersion;
-
-      console.log(`Mise à jour de la base de données de la version ${oldVersion} à ${event.newVersion}`);
-
-      // Définir la configuration des stores
-      const storesConfig = [
-        { name: 'permits', keyPath: 'id' },
-        { name: 'hunters', keyPath: 'id' },
-        { name: 'requests', keyPath: 'id' },
-        { name: 'activities', keyPath: 'id' },
-        { name: 'alerts', keyPath: 'id' },
-        { name: 'misc', keyPath: 'id' },
-        {
-          name: 'pendingSync',
-          options: { keyPath: 'id', autoIncrement: true },
-          indexes: [
-            { name: 'timestamp', keyPath: 'timestamp', options: { unique: false } }
-          ]
-        }
-      ];
-
-      // Créer ou mettre à jour les stores
-      for (const storeConfig of storesConfig) {
-        if (!db.objectStoreNames.contains(storeConfig.name)) {
-          try {
-            const storeOptions = storeConfig.options || { keyPath: storeConfig.keyPath };
-            const store = db.createObjectStore(storeConfig.name, storeOptions);
-
-            if (storeConfig.indexes) {
-              for (const index of storeConfig.indexes) {
-                try {
-                  store.createIndex(index.name, index.keyPath, index.options);
-                  console.log(`Index ${index.name} créé pour le store ${storeConfig.name}`);
-                } catch (indexError) {
-                  console.warn(`Impossible de créer l'index ${index.name} pour ${storeConfig.name}:`, indexError);
-                }
-              }
-            }
-
-            console.log(`Store ${storeConfig.name} créé avec succès`);
-          } catch (createError) {
-            console.error(`Erreur lors de la création du store ${storeConfig.name}:`, createError);
-          }
-        } else if (oldVersion > 0) {
-          // Si le store existe déjà, mettre à jour ses index si nécessaire
-          const transaction = (event.target as IDBOpenDBRequest).transaction;
-          if (transaction) {
-            const store = transaction.objectStore(storeConfig.name);
-
-            if (storeConfig.indexes) {
-              const existingIndexes = new Set(Array.from(store.indexNames));
-
-              for (const index of storeConfig.indexes) {
-                if (!existingIndexes.has(index.name)) {
-                  try {
-                    store.createIndex(index.name, index.keyPath, index.options);
-                    console.log(`Index ${index.name} ajouté au store ${storeConfig.name}`);
-                  } catch (indexError) {
-                    console.warn(`Impossible d'ajouter l'index ${index.name} à ${storeConfig.name}:`, indexError);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Supprimer les stores obsolètes
-      const storesToKeep = new Set(storesConfig.map(s => s.name));
-      for (let i = 0; i < db.objectStoreNames.length; i++) {
-        const storeName = db.objectStoreNames[i];
-        if (!storesToKeep.has(storeName)) {
-          try {
-            db.deleteObjectStore(storeName);
-            console.log(`Store obsolète ${storeName} supprimé`);
-          } catch (deleteError) {
-            console.error(`Erreur lors de la suppression du store ${storeName}:`, deleteError);
-          }
-        }
-      }
+      // Utiliser la migration idempotente centralisée
+      applyIdempotentMigration(db, event);
     };
 
-    openRequest.onblocked = (event) => {
-      console.warn('La base de données est bloquée par un autre onglet, tentative de réouverture...');
-      // Essayer de se reconnecter avec la version actuelle
+    openRequest.onblocked = () => {
+      console.warn('[IndexedDB] DB bloquée par un autre onglet, tentative de réouverture...');
       const retryRequest = indexedDB.open(DB_NAME, DB_VERSION);
       retryRequest.onsuccess = () => resolve(retryRequest.result);
       retryRequest.onerror = () => {
-        console.error('Impossible de rouvrir la base de données après blocage');
-        reject(new Error('Base de données bloquée par un autre onglet'));
+        reject(new Error('IndexedDB bloquée par un autre onglet'));
       };
     };
   });
 }
 
-// Fonction pour obtenir la définition d'un store par son nom
-function getStoreDefinition(storeName: string) {
-  const stores = [
-    { name: 'permits', keyPath: 'id' },
-    { name: 'hunters', keyPath: 'id' },
-    { name: 'requests', keyPath: 'id' },
-    { name: 'activities', keyPath: 'id' },
-    { name: 'alerts', keyPath: 'id' },  // Ajout du store pour les alertes
-    { name: 'misc', keyPath: 'id' },
-    {
-      name: 'pendingSync',
-      options: { keyPath: 'id', autoIncrement: true },
-      indexes: [
-        { name: 'timestamp', keyPath: 'timestamp', options: { unique: false } }
-      ]
-    }
-  ];
-
-  return stores.find(s => s.name === storeName);
-}
-
-// Fonction pour s'assurer qu'un store existe
+// Fonction pour s'assurer qu'un store existe, avec migration forcée si nécessaire
 async function ensureStoreExists(storeName: string): Promise<IDBDatabase> {
   try {
-    // Vérifier d'abord avec une simple ouverture
-    const db = await openDatabase();
+    let db = await openDatabase();
 
-    // Si le store existe déjà, on le retourne
     if (db.objectStoreNames.contains(storeName)) {
       return db;
     }
 
-    // Ne plus monter la version dynamiquement pour éviter les conflits inter-onglets
-    console.warn(`Le store ${storeName} n'existe pas dans la version actuelle de la base. Aucune mise à niveau automatique effectuée.`);
+    // Le store manque → forcer la migration
+    console.log(`[IndexedDB] Store ${storeName} manquant, migration forcée...`);
+    db.close();
+
+    try {
+      await forceCreateMissingStores();
+    } catch (migrationError) {
+      console.warn('[IndexedDB] Migration forcée échouée:', migrationError);
+    }
+
+    // Réouvrir après migration
+    db = await openDatabase();
+
+    if (!db.objectStoreNames.contains(storeName)) {
+      console.warn(`[IndexedDB] Store ${storeName} toujours absent après migration`);
+    }
+
     return db;
   } catch (error) {
-    console.error(`Erreur lors de la vérification du store ${storeName}:`, error);
-    // En cas d'échec, essayer de rouvrir la base en lecture seule
-    const db = await openDatabase();
-    if (!db.objectStoreNames.contains(storeName)) {
-      console.warn(`Le store ${storeName} n'existe toujours pas après tentative de création`);
-    }
-    return db;
+    console.error(`[IndexedDB] Erreur ensureStoreExists(${storeName}):`, error);
+    return await openDatabase();
   }
 }
 
@@ -966,9 +979,147 @@ function getStoreNameFromUrl(url: string): string {
   if (url.includes('/requests')) return 'requests';
   if (url.includes('/activities')) return 'activities';
   if (url.includes('/users')) return 'users';
-  if (url.includes('/settings')) return 'settings';
-  if (url.includes('/documents')) return 'documents';
-  return 'misc';
+  if (url.includes('/domaines')) return 'domaines';
+  // Tous les endpoints non mappés → apiCache (évite le fourre-tout misc)
+  return 'apiCache';
+}
+
+// === Cache API dans IndexedDB ===
+
+// Stocker une réponse API dans le cache IndexedDB avec expiration
+async function cacheApiResponse(url: string, data: any): Promise<void> {
+  try {
+    const db = await ensureStoreExists('apiCache');
+    if (!db.objectStoreNames.contains('apiCache')) {
+      db.close();
+      return;
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction('apiCache', 'readwrite');
+        const store = transaction.objectStore('apiCache');
+        store.put({
+          url,
+          data,
+          cachedAt: Date.now()
+        });
+        transaction.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        transaction.onerror = () => {
+          db.close();
+          resolve();
+        };
+      } catch {
+        db.close();
+        resolve();
+      }
+    });
+  } catch {
+    // Silencieux : le cache est un bonus, pas critique
+  }
+}
+
+// Récupérer une réponse API depuis le cache IndexedDB (avec vérification d'expiration)
+async function getCachedApiResponse(url: string): Promise<any | null> {
+  try {
+    const db = await ensureStoreExists('apiCache');
+    if (!db.objectStoreNames.contains('apiCache')) {
+      db.close();
+      return null;
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction('apiCache', 'readonly');
+        const store = transaction.objectStore('apiCache');
+        const request = store.get(url);
+
+        request.onsuccess = () => {
+          const result = request.result;
+          if (!result) {
+            resolve(null);
+            return;
+          }
+
+          // Vérifier l'expiration (24h)
+          const age = Date.now() - (result.cachedAt || 0);
+          if (age > CACHE_MAX_AGE) {
+            // Données expirées, les supprimer
+            try {
+              const delTx = db.transaction('apiCache', 'readwrite');
+              delTx.objectStore('apiCache').delete(url);
+              delTx.oncomplete = () => db.close();
+            } catch { db.close(); }
+            resolve(null);
+            return;
+          }
+
+          resolve(result.data);
+        };
+
+        request.onerror = () => resolve(null);
+        transaction.oncomplete = () => db.close();
+      } catch {
+        db.close();
+        resolve(null);
+      }
+    });
+  } catch {
+    return null;
+  }
+}
+
+// Nettoyer les entrées expirées du cache
+async function cleanExpiredCache(): Promise<void> {
+  try {
+    const db = await openDatabase();
+    if (!db.objectStoreNames.contains('apiCache')) {
+      db.close();
+      return;
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction('apiCache', 'readwrite');
+        const store = transaction.objectStore('apiCache');
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+          const entries = request.result || [];
+          const now = Date.now();
+          let cleaned = 0;
+
+          for (const entry of entries) {
+            if (now - (entry.cachedAt || 0) > CACHE_MAX_AGE) {
+              store.delete(entry.url);
+              cleaned++;
+            }
+          }
+
+          if (cleaned > 0) {
+            console.log(`[IndexedDB] ${cleaned} entrée(s) de cache expirée(s) supprimée(s)`);
+          }
+        };
+
+        transaction.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        transaction.onerror = () => {
+          db.close();
+          resolve();
+        };
+      } catch {
+        db.close();
+        resolve();
+      }
+    });
+  } catch {
+    // Silencieux
+  }
 }
 
 // Gestionnaire d'erreur générique pour les appels API
@@ -1092,6 +1243,9 @@ export async function resetDatabase(): Promise<boolean> {
   });
 }
 
+// Timeout pour les requêtes API (10 secondes) - adapté pour Render qui peut être en sleep
+const API_TIMEOUT_MS = 10_000;
+
 // Fonction pour créer un wrapper fetch pour le mode hors ligne
 export function createOfflineFetch() {
   if (typeof window === 'undefined') return;
@@ -1099,78 +1253,129 @@ export function createOfflineFetch() {
   const originalFetch = window.fetch;
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : (input as Request).url;
+
+    const method = init?.method || 'GET';
+    const isApiRequest = url.includes('/api/');
+
     try {
-      // Essayer d'abord la requête réseau
-      return await originalFetch(input, init);
+      // Ajouter un timeout pour les requêtes API (évite l'attente infinie quand Render est en sleep)
+      let response: Response;
+      if (isApiRequest && !init?.signal) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+        try {
+          response = await originalFetch(input, {
+            ...init,
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      } else {
+        response = await originalFetch(input, init);
+      }
+
+      // Cache automatique des réponses GET API réussies dans IndexedDB
+      if (method === 'GET' && isApiRequest && response.ok) {
+        try {
+          const responseClone = response.clone();
+          const data = await responseClone.json();
+          // Cacher en arrière-plan (non bloquant)
+          cacheApiResponse(url, data).catch(() => {});
+        } catch {
+          // Silencieux : le cache est un bonus
+        }
+      }
+
+      return response;
     } catch (error) {
-      const url = typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : (input as Request).url;
+      // === MODE OFFLINE / TIMEOUT ===
 
-      const method = init?.method || 'GET';
+      // Pour les requêtes GET sur l'API, fallback silencieux multi-couches
+      if (method === 'GET' && isApiRequest) {
+        console.log(`[Offline] Récupération cache pour ${url}`);
 
-      console.warn(`Erreur réseau sur ${method} ${url}, tentative de récupération en mode hors ligne`);
-
-      // Pour les requêtes GET sur l'API, essayer de récupérer depuis le cache
-      if (method === 'GET' && url.includes('/api/')) {
+        // 1. Essayer le Cache API du Service Worker
         try {
           const cache = await caches.open('api-cache');
-          const response = await cache.match(url);
-
-          if (response) {
-            console.log(`Données récupérées depuis le cache pour ${url}`);
-            return response;
+          const cachedResponse = await cache.match(url);
+          if (cachedResponse) {
+            console.log(`[Offline] ✓ Cache API pour ${url}`);
+            return cachedResponse;
           }
-
-          // Si pas dans le cache, essayer de récupérer depuis IndexedDB
-          try {
-            const storeName = getStoreNameFromUrl(url);
-            if (storeName) {
-              const data = await getAllData(storeName);
-              if (data) {
-                console.log(`Données récupérées depuis IndexedDB pour ${url}`);
-                return new Response(JSON.stringify(data), {
-                  status: 200,
-                  headers: { 'Content-Type': 'application/json' }
-                });
-              }
-            }
-          } catch (dbError) {
-            console.error('Erreur lors de la récupération depuis IndexedDB:', dbError);
-          }
-
-          // Si aucune donnée n'a été trouvée
-          return new Response(JSON.stringify([]), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Cache-Source': 'no-data'
-            }
-          });
-        } catch (cacheError) {
-          console.error('Erreur lors de la récupération depuis le cache:', cacheError);
+        } catch {
+          // Silencieux
         }
+
+        // 2. Essayer le cache IndexedDB (apiCache avec expiration)
+        try {
+          const cachedData = await getCachedApiResponse(url);
+          if (cachedData !== null && cachedData !== undefined) {
+            console.log(`[Offline] ✓ IndexedDB apiCache pour ${url}`);
+            return new Response(JSON.stringify(cachedData), {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Cache-Source': 'indexeddb-api-cache'
+              }
+            });
+          }
+        } catch {
+          // Silencieux
+        }
+
+        // 3. Essayer les stores spécifiques IndexedDB
+        try {
+          const storeName = getStoreNameFromUrl(url);
+          if (storeName && storeName !== 'apiCache') {
+            const data = await getAllData(storeName);
+            if (data && (Array.isArray(data) ? data.length > 0 : true)) {
+              console.log(`[Offline] ✓ IndexedDB store '${storeName}' pour ${url}`);
+              return new Response(JSON.stringify(data), {
+                status: 200,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Cache-Source': `indexeddb-${storeName}`
+                }
+              });
+            }
+          }
+        } catch {
+          // Silencieux
+        }
+
+        // 4. Retourner un tableau vide (aucune erreur visible utilisateur)
+        console.log(`[Offline] Aucune donnée en cache pour ${url}, retour []`);
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Cache-Source': 'no-data'
+          }
+        });
       }
 
       // Pour les requêtes de modification, les enregistrer pour synchronisation ultérieure
       // EXCLUSION : Ne jamais mettre en file d'attente offline les requêtes d'authentification
       const isAuthRequest = url.includes('/auth/login') || url.includes('/auth/logout');
-      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && url.includes('/api/') && !isAuthRequest) {
-        console.log(`Enregistrement de la requête ${method} ${url} pour synchronisation ultérieure`);
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && isApiRequest && !isAuthRequest) {
+        console.log(`[Offline] Mise en queue: ${method} ${url}`);
 
         let body: Record<string, any> | null = null;
         if (init?.body) {
           if (typeof init.body === 'string') {
             try {
               body = JSON.parse(init.body);
-            } catch (e) {
-              console.warn('Impossible de parser le corps de la requête JSON', e);
+            } catch {
               body = { raw: init.body };
             }
           } else if (init.body instanceof FormData) {
-            // Convertir FormData en objet
             const formData = init.body;
             const obj: Record<string, any> = {};
             formData.forEach((value: FormDataEntryValue, key: string) => {
@@ -1183,7 +1388,6 @@ export function createOfflineFetch() {
         try {
           await savePendingRequest(url, method, body);
 
-          // Retourner une réponse simulée pour indiquer que la requête a été mise en file d'attente
           return new Response(JSON.stringify({
             success: true,
             message: 'Requête mise en file d\'attente pour synchronisation ultérieure',
@@ -1196,7 +1400,7 @@ export function createOfflineFetch() {
             }
           });
         } catch (saveError) {
-          console.error('Erreur lors de la sauvegarde de la requête en attente:', saveError);
+          console.error('[Offline] Échec sauvegarde requête:', saveError);
           throw new Error('Impossible de sauvegarder la requête pour synchronisation ultérieure');
         }
       }

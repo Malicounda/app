@@ -55,7 +55,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
   const checkPendingSyncs = async () => {
     try {
       const DB_NAME = 'permis-chasse-offline-db';
-      const DB_VERSION = 3;
+      const DB_VERSION = 4;
       
       const request = window.indexedDB.open(DB_NAME, DB_VERSION);
       
