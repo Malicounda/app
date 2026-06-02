@@ -166,6 +166,7 @@ export default function ReforestationSMSPage() {
     }
 
     try {
+      const isOffline = !navigator.onLine;
       if (type === "individual") {
         const ident = String(recipientIdentifier || '').trim();
         if (!ident) {
@@ -188,7 +189,15 @@ export default function ReforestationSMSPage() {
         }
         await sendGroup({ targets: resolvedTargets, content, attachment });
       }
-      toast({ title: "Message envoyé", description: "Le message a été envoyé." });
+      
+      if (isOffline) {
+        toast({
+          title: "Mode hors-ligne",
+          description: "Message sauvegardé localement. Envoi automatique dès le retour du réseau.",
+        });
+      } else {
+        toast({ title: "Message envoyé", description: "Le message a été envoyé." });
+      }
       return true;
     } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
@@ -261,8 +270,13 @@ export default function ReforestationSMSPage() {
                   onDelete={handleDelete}
                   onReply={async ({ recipientIdentifier, content }) => {
                     try {
+                      const isOffline = !navigator.onLine;
                       await sendIndividual({ recipientIdentifier, content });
-                      toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
+                      if (isOffline) {
+                        toast({ title: 'Mode hors-ligne', description: 'Réponse sauvegardée localement. Envoi automatique dès le retour du réseau.' });
+                      } else {
+                        toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
+                      }
                       return;
                     } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
                       toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });

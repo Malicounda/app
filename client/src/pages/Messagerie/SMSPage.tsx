@@ -361,27 +361,26 @@ export default function SimpleSMSPage() {
     }
     setDefaultSending(true);
     try {
-      // Send to each auto-recipient individually — no domaineId forced so server uses user's context
+      const isOffline = !navigator.onLine;
+      // Send to each auto-recipient individually using sendIndividual for full Offline-First compatibility
       for (const r of autoRecipients) {
-        const formData = new FormData();
-        formData.append("recipient", r.value);
-        formData.append("subject", "Message");
-        formData.append("content", defaultMsg.trim());
-        if (defaultAttachment) {
-          formData.append("attachment", defaultAttachment, defaultAttachment.name);
-        }
-        const response = await authenticatedFetch("/api/messages/", {
-          method: "POST",
-          body: formData,
+        await sendIndividual({
+          recipientIdentifier: r.value,
+          content: defaultMsg.trim(),
+          subject: "Message",
+          attachment: defaultAttachment,
         });
-        if (!response.ok) {
-          const errText = await response.text();
-          let errMsg = "Impossible d'envoyer le message.";
-          try { const j = JSON.parse(errText); errMsg = j?.message || errMsg; } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
-          throw new Error(errMsg);
-        }
       }
-      toast({ title: "Message envoyé", description: `Envoyé à ${autoRecipients.length} destinataire(s) de votre zone.` });
+      
+      if (isOffline) {
+        toast({
+          title: "Mode hors-ligne",
+          description: `Message(s) sauvegardé(s) localement pour ${autoRecipients.length} destinataire(s). Envoi automatique au retour du réseau.`,
+        });
+      } else {
+        toast({ title: "Message envoyé", description: `Envoyé à ${autoRecipients.length} destinataire(s) de votre zone.` });
+      }
+      
       setDefaultMsg("");
       setDefaultAttachment(null);
       if (defaultFileRef.current) defaultFileRef.current.value = "";
@@ -652,6 +651,7 @@ export default function SimpleSMSPage() {
     }
 
     try {
+      const isOffline = !navigator.onLine;
       if (type === "individual") {
         const ident = String(recipientIdentifier || '').trim();
         if (!ident) {
@@ -673,7 +673,15 @@ export default function SimpleSMSPage() {
         }
         await sendGroup({ targets: resolvedTargets, content, attachment });
       }
-      toast({ title: "Message envoyé", description: "Le message a été envoyé." });
+      
+      if (isOffline) {
+        toast({
+          title: "Mode hors-ligne",
+          description: "Message sauvegardé localement. Envoi automatique dès le retour du réseau.",
+        });
+      } else {
+        toast({ title: "Message envoyé", description: "Le message a été envoyé." });
+      }
       return true;
     } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({

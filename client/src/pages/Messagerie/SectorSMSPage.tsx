@@ -156,6 +156,7 @@ export default function SectorSMSPage() {
     }
 
     try {
+      const isOffline = !navigator.onLine;
       if (type === "individual") {
         if (!recipientIdentifier) {
           toast({ title: "Destinataire manquant", description: "Un identifiant est requis.", variant: "destructive" });
@@ -176,7 +177,15 @@ export default function SectorSMSPage() {
         }
         await sendGroup({ targets: resolvedTargets, content, attachment });
       }
-      toast({ title: "Message envoyé", description: "Le message a été envoyé." });
+      
+      if (isOffline) {
+        toast({
+          title: "Mode hors-ligne",
+          description: "Message sauvegardé localement. Envoi automatique dès le retour du réseau.",
+        });
+      } else {
+        toast({ title: "Message envoyé", description: "Le message a été envoyé." });
+      }
       return true;
     } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({

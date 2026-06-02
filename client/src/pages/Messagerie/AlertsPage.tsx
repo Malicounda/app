@@ -1309,9 +1309,11 @@ function AlertsPage() {
       console.log('Envoi de l\'alerte:', alertData);
 
       // Gestion de l'envoi avec support Offline-First complet
+      let wasQueuedOffline = false;
       if (!navigator.onLine) {
         // Hors-ligne détecté immédiatement : on met en file d'attente locale
-        await createOfflineAlert(alertData, 3, []);
+        try { await createOfflineAlert(alertData, 3, []); } catch (e) { console.warn('[Offline] createOfflineAlert fallback error (non-blocking):', e); }
+        wasQueuedOffline = true;
         toast({
           title: "Mode hors-ligne",
           description: "Alerte mise en attente. Envoi automatique dès le retour du réseau.",
@@ -1330,7 +1332,8 @@ function AlertsPage() {
           const isServerDown = e?.status === 502 || e?.status === 503 || e?.status === 504;
           // Si l'erreur ressemble à une perte de connexion, on bascule en Offline
           if (msg.includes('fetch') || msg.includes('network') || msg.includes('survenue') || msg.includes('serveur') || isServerDown) {
-            await createOfflineAlert(alertData, 3, []);
+            try { await createOfflineAlert(alertData, 3, []); } catch (e2) { console.warn('[Offline] createOfflineAlert fallback error (non-blocking):', e2); }
+            wasQueuedOffline = true;
             toast({
               title: "Réseau instable",
               description: "Alerte sauvegardée localement. Envoi dès le retour du réseau.",
@@ -1345,11 +1348,37 @@ function AlertsPage() {
       resetForm();
       setMessageText("");
 
-      // Recharger les alertes (inbox et outbox)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["/api/alerts/received", user?.id] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/alerts/sent", user?.id] })
-      ]);
+      if (wasQueuedOffline) {
+        // Injection optimiste : ajouter l'alerte en attente dans le cache local
+        const pendingAlert: Alert = {
+          id: -(Date.now()),  // ID temporaire négatif pour éviter les conflits
+          title: alertData.title,
+          message: alertData.message,
+          type: alertData.type as any,
+          nature: alertData.nature as any,
+          isRead: true,
+          createdAt: new Date().toISOString(),
+          region: alertData.region || undefined,
+          sender: {
+            username: user?.username || 'moi',
+            firstName: user?.firstName || '',
+            lastName: user?.lastName || '',
+            role: user?.role || 'agent',
+            region: user?.region || undefined,
+          },
+          location: location ? { latitude: location.latitude, longitude: location.longitude } : undefined,
+        };
+        queryClient.setQueryData(["/api/alerts/sent", user?.id], (old: any) => {
+          const arr = Array.isArray(old) ? old : [];
+          return [pendingAlert, ...arr];
+        });
+      } else {
+        // En ligne : recharger les alertes (inbox et outbox)
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["/api/alerts/received", user?.id] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/alerts/sent", user?.id] })
+        ]);
+      }
 
     } catch (error: any) {
       console.error('Erreur lors de l\'envoi de l\'alerte:', error);

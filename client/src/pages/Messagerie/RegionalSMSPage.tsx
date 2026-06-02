@@ -140,6 +140,7 @@ export default function RegionalSMSPage() {
     }
 
     try {
+      const isOffline = !navigator.onLine;
       if (type === "individual") {
         if (!recipientIdentifier) {
           toast({ title: "Destinataire manquant", description: "Un destinataire doit être renseigné.", variant: "destructive" });
@@ -160,7 +161,15 @@ export default function RegionalSMSPage() {
         }
         await sendGroup({ targets, content, attachment });
       }
-      toast({ title: "Message envoyé", description: "Le message a été transmis." });
+      
+      if (isOffline) {
+        toast({
+          title: "Mode hors-ligne",
+          description: "Message sauvegardé localement. Envoi automatique dès le retour du réseau.",
+        });
+      } else {
+        toast({ title: "Message envoyé", description: "Le message a été transmis." });
+      }
       return true;
     } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
@@ -218,8 +227,13 @@ export default function RegionalSMSPage() {
                     onDelete={handleDelete}
                     onReply={async ({ recipientIdentifier, content }) => {
                       try {
+                        const isOffline = !navigator.onLine;
                         await sendIndividual({ recipientIdentifier, content });
-                        toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
+                        if (isOffline) {
+                          toast({ title: 'Mode hors-ligne', description: 'Réponse sauvegardée localement. Envoi automatique dès le retour du réseau.' });
+                        } else {
+                          toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
+                        }
                         return;
                       } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
                         toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });

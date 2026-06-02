@@ -136,6 +136,7 @@ export async function verifyAuditChainIntegrity(): Promise<AuditVerificationResu
       // 2. Re-calculer le hash du contenu pour détecter une modification
       const logDataToHash = JSON.stringify({
         id: entry.id,
+        sequenceNumber: entry.sequenceNumber,
         timestamp: entry.timestamp,
         action: entry.action,
         entityId: entry.entityId,
