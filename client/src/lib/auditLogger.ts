@@ -14,66 +14,76 @@ export async function calculateHash(data: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+let logQueuePromise: Promise<void> = Promise.resolve();
+
 export async function logAudit(action: string, entityId: string, details: any = {}): Promise<void> {
-  try {
-    const db = await DatabaseManager.getDB();
-    if (!db.objectStoreNames.contains('auditLogs')) return;
+  const run = async () => {
+    try {
+      const db = await DatabaseManager.getDB();
+      if (!db.objectStoreNames.contains('auditLogs')) return;
 
-    // 1. Récupérer le dernier log pour obtenir son hash (previousHash) et sequenceNumber
-    const lastLog = await new Promise<{hash: string, seq: number}>((resolve) => {
-      const tx = db.transaction('auditLogs', 'readonly');
-      const store = tx.objectStore('auditLogs');
+      // 1. Récupérer le dernier log pour obtenir son hash (previousHash) et sequenceNumber
+      const lastLog = await new Promise<{hash: string, seq: number}>((resolve) => {
+        const tx = db.transaction('auditLogs', 'readonly');
+        const store = tx.objectStore('auditLogs');
+        
+        const request = store.openCursor(null, 'prev');
+        
+        request.onsuccess = (event) => {
+          const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+          if (cursor) {
+            resolve({ hash: cursor.value.hash, seq: cursor.value.sequenceNumber });
+          } else {
+            resolve({ hash: 'GENESIS', seq: 0 }); // Premier log
+          }
+        };
+        
+        request.onerror = () => resolve({ hash: 'ERROR', seq: 0 });
+      });
+
+      // 2. Construire le nouveau log
+      const timestamp = Date.now();
+      const id = generateUUID();
+      const sequenceNumber = lastLog.seq + 1;
+      const previousHash = lastLog.hash;
       
-      const request = store.openCursor(null, 'prev');
-      
-      request.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-        if (cursor) {
-          resolve({ hash: cursor.value.hash, seq: cursor.value.sequenceNumber });
-        } else {
-          resolve({ hash: 'GENESIS', seq: 0 }); // Premier log
-        }
+      const logDataToHash = JSON.stringify({
+        id,
+        sequenceNumber,
+        timestamp,
+        action,
+        entityId,
+        details,
+        previousHash
+      });
+
+      const hash = await calculateHash(logDataToHash);
+
+      const logEntry: AuditLogEntry = {
+        id,
+        sequenceNumber,
+        timestamp,
+        action,
+        entityId,
+        details,
+        previousHash,
+        hash
       };
-      
-      request.onerror = () => resolve({ hash: 'ERROR', seq: 0 });
-    });
 
-    // 2. Construire le nouveau log
-    const timestamp = Date.now();
-    const id = generateUUID();
-    const sequenceNumber = lastLog.seq + 1;
-    const previousHash = lastLog.hash;
-    
-    const logDataToHash = JSON.stringify({
-      id,
-      sequenceNumber,
-      timestamp,
-      action,
-      entityId,
-      details,
-      previousHash
-    });
+      // 3. Sauvegarder
+      await storeData('auditLogs', logEntry);
+      console.log(`[Audit] ${action} sur ${entityId} (Hash: ${hash.substring(0, 8)}...)`);
 
-    const hash = await calculateHash(logDataToHash);
+    } catch (error) {
+      console.error('[Audit] Échec de la journalisation:', error);
+    }
+  };
 
-    const logEntry: AuditLogEntry = {
-      id,
-      sequenceNumber,
-      timestamp,
-      action,
-      entityId,
-      details,
-      previousHash,
-      hash
-    };
+  logQueuePromise = logQueuePromise.then(run).catch((err) => {
+    console.error('[Audit Queue] Critical execution failure:', err);
+  });
 
-    // 3. Sauvegarder
-    await storeData('auditLogs', logEntry);
-    console.log(`[Audit] ${action} sur ${entityId} (Hash: ${hash.substring(0, 8)}...)`);
-
-  } catch (error) {
-    console.error('[Audit] Échec de la journalisation:', error);
-  }
+  return logQueuePromise;
 }
 
 /**

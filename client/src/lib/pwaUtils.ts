@@ -1065,7 +1065,7 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: n
           let response: Response;
           console.log(`[${requestId}] Action: ${request.action || 'LEGACY_FETCH'} → ${request.entityId || requestPath}`);
 
-          // === CQRS ACTION ROUTING ===
+          const { resolveApiUrl } = await import('../utils/environment');
           if (request.action === 'UPLOAD_ATTACHMENT') {
             const { uploadAttachmentChunked } = await import('./chunkedUpload');
 
@@ -1087,15 +1087,15 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: n
             }
             response = new Response(null, { status: 200, statusText: 'OK' });
           } else if (request.action === 'CREATE_ALERT') {
-            response = await fetch('/api/alerts', { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
+            response = await fetch(resolveApiUrl('/api/alerts'), { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
           } else if (request.action === 'UPDATE_ALERT') {
-            response = await fetch(`/api/alerts/${request.entityId}`, { method: 'PUT', headers, body: JSON.stringify(request.payload), credentials: 'include' });
+            response = await fetch(resolveApiUrl(`/api/alerts/${request.entityId}`), { method: 'PUT', headers, body: JSON.stringify(request.payload), credentials: 'include' });
           } else if (request.action === 'CREATE_MESSAGE') {
-            const endpoint = request.payload.isGroupMessage ? '/api/messages/group' : '/api/messages';
+            const endpoint = resolveApiUrl(request.payload.isGroupMessage ? '/api/messages/group' : '/api/messages');
             response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
           } else {
             // Fallback legacy
-            response = await fetch(request.url || '', { method: requestMethod, headers, body: request.body, credentials: 'include' });
+            response = await fetch(resolveApiUrl(request.url || ''), { method: requestMethod, headers, body: request.body, credentials: 'include' });
           }
 
           if (response.ok) {

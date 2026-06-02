@@ -108,6 +108,7 @@ export const getApiBaseUrl = (): string => {
 
 /** Construit l'URL API absolue à partir d'un chemin (/api/... ou /...). */
 export function resolveApiUrl(endpoint: string): string {
+  if (/^https?:\/\//i.test(endpoint)) return endpoint;
   const apiBaseUrl = getApiBaseUrl();
   let path = endpoint || '';
   if (path.startsWith('/api/')) path = path.slice(4);
