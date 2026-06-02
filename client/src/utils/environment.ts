@@ -66,7 +66,16 @@ export const getApiBaseUrl = (): string => {
     return 'https://malicounda-api.onrender.com/api';
   }
 
-  // 1. Prioritize explicit environment variables
+  // 1. Check current browser location FIRST to override bundled .env issues
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isProdHost = hostname === 'eforets.pages.dev' || hostname.endsWith('.pages.dev');
+  const isDevHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.');
+
+  if (isProdHost) {
+    return 'https://malicounda-api.onrender.com/api';
+  }
+
+  // 2. Prioritize explicit environment variables (if not overridden by ProdHost)
   const rawEnv = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL) as string | undefined;
 
   if (rawEnv) {
@@ -78,11 +87,6 @@ export const getApiBaseUrl = (): string => {
       return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
     }
   }
-
-  // 2. Check current browser location
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-  const isProdHost = hostname === 'eforets.pages.dev' || hostname.endsWith('.pages.dev');
-  const isDevHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.');
 
   // 3. Check build mode
   const isViteProd = import.meta.env.MODE === 'production';
