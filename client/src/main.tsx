@@ -20,9 +20,9 @@ try {
   if (isAlerteApk) {
     localStorage.setItem("domain", "ALERTE");
   }
-} catch {
+} catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
   // ignore
-}
+ }
 
 // Logger les détails de l'environnement (mode, URL API, plateforme, réseau)
 logEnvironmentInfo();

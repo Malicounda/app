@@ -59,12 +59,12 @@ export function LinkHunterProfile({
       });
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: 'Erreur',
         description: 'Une erreur est survenue lors de l\'association du profil',
         variant: 'destructive'
-      });
+       });
     } finally {
       setIsSubmitting(false);
     }

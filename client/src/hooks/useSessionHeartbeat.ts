@@ -55,12 +55,12 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
       setLockState("active");
       lastActivityRef.current = Date.now();
       return { ok: true };
-    } catch (err: any) {
+    } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
       const status = err?.status ?? err?.response?.status;
       const msg = err?.body?.message || err?.message || "";
       if (status === 401) {
         if (String(msg).toLowerCase().includes("incorrect")) {
-          return { ok: false, error: "Mot de passe incorrect." };
+          return { ok: false, error: "Mot de passe incorrect."  };
         }
         setLockState("expired");
         return {
@@ -87,11 +87,11 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
         method: "POST",
         data: { reason: lockState === "expired" ? "session_expired" : "inactivity" },
       });
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     try {
       localStorage.removeItem("token");
       sessionStorage.removeItem("token");
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     const prevDomain = localStorage.getItem('domain');
     if (prevDomain === "ALERTE") {
       window.location.href = "/alerte-login";
@@ -114,10 +114,10 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
         // Session serveur expirée
         setLockState("expired");
       }
-    } catch (err: any) {
+    } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
       if (err?.status === 401) {
         setLockState("expired");
-      }
+       }
     }
   }, []);
 

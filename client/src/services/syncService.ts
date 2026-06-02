@@ -68,7 +68,8 @@ export class SyncService {
       payload: (() => {
         try {
           return JSON.parse(r.payload);
-        } catch {
+        } catch (e) {
+          if (import.meta.env.DEV) console.warn('[SyncService] Failed to parse payload for outbox item', r.id, e);
           return r.payload;
         }
       })(),

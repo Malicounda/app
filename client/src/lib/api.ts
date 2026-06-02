@@ -30,7 +30,7 @@ export async function apiRequestBlob(
       token = (typeof window !== 'undefined')
         ? (localStorage.getItem('token') || sessionStorage.getItem('token'))
         : null;
-    } catch (_) {}
+    } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);  }
 
     const headers: Record<string, string> = { 'X-Requested-With': 'fetch' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -50,7 +50,7 @@ export async function apiRequestBlob(
     if (!response.ok) {
       // Essayer d'extraire un message d'erreur texte
       let msg = response.statusText;
-      try { msg = await response.text(); } catch {}
+      try { msg = await response.text(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       return { ok: false, error: msg || 'Erreur de téléchargement' };
     }
 
@@ -67,8 +67,8 @@ export async function apiRequestBlob(
     });
     
     return { ok: true, blob, contentType, fileName };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Une erreur est survenue' };
+  } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
+    return { ok: false, error: error instanceof Error ? error.message : 'Une erreur est survenue'  };
   }
 }
 
@@ -83,9 +83,9 @@ async function safeParseResponse<T = any>(response: Response): Promise<T | undef
   if (contentType.includes('application/json')) {
     try {
       return JSON.parse(raw) as T;
-    } catch (_) {
+    } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
       return undefined as any;
-    }
+     }
   }
   return raw as any;
 }
@@ -111,9 +111,9 @@ export async function apiRequest<T>(
       token = (typeof window !== 'undefined')
         ? (localStorage.getItem('token') || sessionStorage.getItem('token'))
         : null;
-    } catch (_) {
+    } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
       // accès storage non disponible
-    }
+     }
 
     // Déterminer si le corps est un FormData/Blob (multipart ou binaire)
     const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
@@ -162,11 +162,11 @@ export async function apiRequest<T>(
       data: parsed as T | undefined,
       status: response.status,
     };
-  } catch (error) {
+  } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
     return {
       ok: false,
       error: error instanceof Error ? error.message : 'Une erreur est survenue',
-    };
+     };
   }
 }
 

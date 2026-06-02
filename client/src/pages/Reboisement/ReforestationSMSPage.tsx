@@ -106,9 +106,9 @@ export default function ReforestationSMSPage() {
 
         const unique = Array.from(new Map(opts.map((o) => [o.value, o])).values());
         if (!cancelled) setRecipientOptions(unique);
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         if (!cancelled) setRecipientOptions([]);
-      }
+       }
     })();
     return () => { cancelled = true; };
   }, [role, user]);
@@ -133,8 +133,8 @@ export default function ReforestationSMSPage() {
     try {
       await deleteMessage(message);
       toast({ title: "Supprimé", description: "Le message a été supprimé." });
-    } catch (error: any) {
-      toast({ title: "Suppression impossible", description: error?.message || "Une erreur est survenue lors de la suppression.", variant: "destructive" });
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
+      toast({ title: "Suppression impossible", description: error?.message || "Une erreur est survenue lors de la suppression.", variant: "destructive"  });
     }
   };
 
@@ -190,12 +190,12 @@ export default function ReforestationSMSPage() {
       }
       toast({ title: "Message envoyé", description: "Le message a été envoyé." });
       return true;
-    } catch (error: any) {
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Erreur",
         description: error?.message || "Impossible d'envoyer le message.",
         variant: "destructive",
-      });
+       });
       return false;
     }
   };
@@ -264,8 +264,8 @@ export default function ReforestationSMSPage() {
                       await sendIndividual({ recipientIdentifier, content });
                       toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
                       return;
-                    } catch (e: any) {
-                      toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive' });
+                    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                      toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });
                     }
                   }}
                 />

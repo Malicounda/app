@@ -9,7 +9,7 @@ export function initPWA() {
   createOfflineFetch();
 
   // Vérifier/créer les stores IndexedDB manquants au démarrage
-  forceCreateMissingStores()
+  DatabaseManager.getDB()
     .then(() => {
       console.log('[PWA] Stores IndexedDB vérifiés');
       // Nettoyer les entrées de cache expirées
@@ -133,10 +133,18 @@ export function setupConnectivityListeners(onlineCallback: () => void, offlineCa
 
 // Base de données IndexedDB pour le stockage local
 const DB_NAME = 'permis-chasse-offline-db';
-const DB_VERSION = 4; // v4: ajout apiCache, domaines, users + migration défensive
+const DB_VERSION = 6; // v6: Ajout store conflicts pour gestion des rejets serveur (CQRS)
 
 // Durée maximale de validité du cache (24 heures)
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
+
+export function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0,
+      v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 // Configuration centralisée de tous les stores
 const STORES_CONFIG = [
@@ -144,9 +152,60 @@ const STORES_CONFIG = [
   { name: 'hunters', keyPath: 'id' },
   { name: 'requests', keyPath: 'id' },
   { name: 'activities', keyPath: 'id' },
-  { name: 'alerts', keyPath: 'id' },
+  {
+    name: 'alerts',
+    keyPath: 'id',
+    indexes: [
+      { name: 'status', keyPath: 'status', options: { unique: false } },
+      { name: 'version', keyPath: 'version', options: { unique: false } }
+    ]
+  },
+  {
+    name: 'messages',
+    keyPath: 'id',
+    indexes: [
+      { name: 'conversationId', keyPath: 'conversationId', options: { unique: false } },
+      { name: 'createdAtLocal', keyPath: 'createdAtLocal', options: { unique: false } },
+      { name: 'status', keyPath: 'status', options: { unique: false } }
+    ]
+  },
+  {
+    name: 'attachments',
+    keyPath: 'id',
+    indexes: [
+      { name: 'status', keyPath: 'status', options: { unique: false } },
+      { name: 'alertId', keyPath: 'alertId', options: { unique: false } }
+    ]
+  },
   { name: 'domaines', keyPath: 'id' },
   { name: 'users', keyPath: 'id' },
+  {
+    name: 'auditLogs',
+    keyPath: 'id',
+    indexes: [
+      { name: 'sequenceNumber', keyPath: 'sequenceNumber', options: { unique: true } }
+    ]
+  },
+  { name: 'metadata', keyPath: 'id' },
+  { name: 'syncLocks', keyPath: 'id' },
+  {
+    name: 'deadLetters',
+    keyPath: 'id',
+    indexes: [
+      { name: 'action', keyPath: 'action', options: { unique: false } },
+      { name: 'status', keyPath: 'status', options: { unique: false } },
+      { name: 'failedAt', keyPath: 'failedAt', options: { unique: false } }
+    ]
+  },
+  {
+    name: 'conflicts',
+    keyPath: 'id',
+    indexes: [
+      { name: 'action', keyPath: 'action', options: { unique: false } },
+      { name: 'status', keyPath: 'status', options: { unique: false } },
+      { name: 'conflictAt', keyPath: 'conflictAt', options: { unique: false } }
+    ]
+  },
   {
     name: 'apiCache',
     keyPath: 'url',
@@ -156,76 +215,103 @@ const STORES_CONFIG = [
   },
   {
     name: 'pendingSync',
-    options: { keyPath: 'id', autoIncrement: true },
+    options: { keyPath: 'id', autoIncrement: false }, // Changé en UUID explicite
     indexes: [
-      { name: 'timestamp', keyPath: 'timestamp', options: { unique: false } }
+      { name: 'timestamp', keyPath: 'createdAt', options: { unique: false } },
+      { name: 'priority', keyPath: 'priority', options: { unique: false } },
+      { name: 'status', keyPath: 'status', options: { unique: false } }
     ]
   }
 ] as const;
 
-// Fonction défensive pour s'assurer que tous les stores requis existent
-// Si un store manque, on force une migration en incrémentant la version
-async function forceCreateMissingStores(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // D'abord vérifier l'état actuel
-    const checkRequest = indexedDB.open(DB_NAME);
+// --- V1 Offline-First Types ---
 
-    checkRequest.onsuccess = () => {
-      const db = checkRequest.result;
-      const missingStores = STORES_CONFIG.filter(
-        s => !db.objectStoreNames.contains(s.name)
-      );
-      const currentVersion = db.version;
-      db.close();
+export interface OfflineEntity {
+  id: string;                 // UUID v4 local
+  version: number;            // Auto-incrémenté à chaque modif
+  createdAtLocal: number;     // Heure de l'appareil
+  createdAtServer?: number;   // Heure réelle (injectée par l'API)
+}
 
-      if (missingStores.length === 0) {
-        resolve();
-        return;
-      }
+export type AlertPriority = 'NORMAL' | 'HIGH' | 'CRITICAL' | 'EMERGENCY';
+export type AlertStatus = 'DRAFT' | 'PENDING_SYNC' | 'SENT' | 'CONFIRMED' | 'FAILED';
 
-      console.log(`[IndexedDB] ${missingStores.length} store(s) manquant(s), migration forcée...`);
+export interface AlertOffline extends OfflineEntity {
+  payload: any;
+  priority: AlertPriority;
+  status: AlertStatus;
+}
 
-      // Ouvrir avec une version supérieure pour déclencher onupgradeneeded
-      const newVersion = Math.max(currentVersion, DB_VERSION) + 1;
-      const upgradeRequest = indexedDB.open(DB_NAME, newVersion);
+export type AttachmentStatus = 'STORED_LOCAL' | 'UPLOAD_PENDING' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
 
-      upgradeRequest.onupgradeneeded = (event) => {
-        const upgradedDb = (event.target as IDBOpenDBRequest).result;
-        applyIdempotentMigration(upgradedDb, event);
-      };
+export interface AttachmentOffline extends OfflineEntity {
+  blob: Blob | ArrayBuffer;
+  alertId?: string;           // ID de l'alerte parente
+  fileSize: number;           // Taille exacte
+  fileHash: string;           // SHA-256 pour vérification
+  status: AttachmentStatus;
+  uploadedChunks?: number[];
+}
 
-      upgradeRequest.onsuccess = () => {
-        upgradeRequest.result.close();
-        console.log('[IndexedDB] Migration forcée terminée');
-        resolve();
-      };
+export type SyncAction = 'UPLOAD_ATTACHMENT' | 'CREATE_ALERT' | 'UPDATE_ALERT' | 'CREATE_MESSAGE' | 'UPDATE_PERMIT_STATUS' | 'GENERIC_POST' | 'GENERIC_PUT' | 'GENERIC_DELETE';
+export type SyncQueueStatus = 'PENDING' | 'IN_PROGRESS' | 'RETRY_WAIT';
 
-      upgradeRequest.onerror = (event) => {
-        console.error('[IndexedDB] Erreur migration forcée:', event);
-        reject(new Error('Migration forcée échouée'));
-      };
+export interface SyncTask {
+  id: string;
+  action: SyncAction;
+  priority: 0 | 1 | 2 | 3; // 0: Emergency, 1: High, 2: Normal, 3: Low
+  payload: any;
+  entityId: string;
+  createdAt: number;
 
-      upgradeRequest.onblocked = () => {
-        console.warn('[IndexedDB] Migration bloquée par un autre onglet');
-        resolve(); // Ne pas bloquer l'app
-      };
-    };
+  status: SyncQueueStatus;
+  attempts: number;
+  lastAttempt?: number;
+  errorLog?: string;
 
-    checkRequest.onerror = (event) => {
-      console.error('[IndexedDB] Erreur vérification stores:', event);
-      console.warn('[IndexedDB] Base corrompue → tentative de reset');
-      try {
-        const deleteReq = indexedDB.deleteDatabase(DB_NAME);
-        deleteReq.onsuccess = () => {
-          console.log('[IndexedDB] Base supprimée, rechargement...');
-          setTimeout(() => window.location.reload(), 500);
-        };
-        deleteReq.onerror = () => resolve(); // Fallback si impossible à supprimer
-      } catch (e) {
-        resolve(); // Ne pas bloquer l'app en cas d'erreur
-      }
-    };
-  });
+  idempotencyKey?: string;
+  dependencies?: string[]; // IDs des requêtes parentes
+
+  // Backward compatibility / Dynamic properties used in syncEngine
+  timestamp?: number;
+  req?: any;
+  reason?: string;
+  url?: string;
+  method?: string;
+  body?: any;
+  headers?: any;
+}
+
+export type ConflictStatus = 'PENDING_RESOLUTION' | 'RESOLVED_LOCAL' | 'RESOLVED_SERVER';
+
+export interface ConflictRecord extends SyncTask {
+  serverPayload?: any;
+  conflictAt: number;
+  conflictStatus: ConflictStatus;
+}
+
+export interface SyncHealth {
+  id: 'HEALTH_CHECK';
+  queueDepth: number;
+  oldestPendingItem: number;
+  retryCount: number;
+  lastSuccess: number | null;
+}
+
+export interface SyncLock {
+  id: 'GLOBAL_SYNC_LOCK';
+  lockedAt: number;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  sequenceNumber: number;
+  timestamp: number;
+  action: string;
+  entityId: string;
+  details: any;
+  previousHash: string;
+  hash: string;
 }
 
 // Migration idempotente : crée tous les stores manquants sans toucher aux existants
@@ -265,6 +351,18 @@ function applyIdempotentMigration(db: IDBDatabase, event: IDBVersionChangeEvent)
             if (!existingIndexes.has(index.name)) {
               store.createIndex(index.name, index.keyPath, index.options);
               console.log(`[IndexedDB] Index ${index.name} ajouté à ${storeConfig.name}`);
+            } else {
+              // Vérifier si le keyPath a changé (ex: timestamp -> createdAt)
+              const existingIndex = store.index(index.name);
+              const isKeyPathDifferent = Array.isArray(existingIndex.keyPath)
+                ? JSON.stringify(existingIndex.keyPath) !== JSON.stringify(index.keyPath)
+                : existingIndex.keyPath !== index.keyPath;
+
+              if (isKeyPathDifferent) {
+                console.log(`[IndexedDB] Modification du keyPath pour l'index ${index.name} de ${storeConfig.name}`);
+                store.deleteIndex(index.name);
+                store.createIndex(index.name, index.keyPath, index.options);
+              }
             }
           }
         } catch (e) {
@@ -276,8 +374,8 @@ function applyIdempotentMigration(db: IDBDatabase, event: IDBVersionChangeEvent)
 
   // Supprimer les stores obsolètes (dont 'misc' qui est remplacé par 'apiCache')
   const storesToKeep = new Set<string>(STORES_CONFIG.map(s => s.name));
-  for (let i = 0; i < db.objectStoreNames.length; i++) {
-    const storeName = db.objectStoreNames[i];
+  const existingStores = Array.from(db.objectStoreNames);
+  for (const storeName of existingStores) {
     if (!storesToKeep.has(storeName)) {
       try {
         db.deleteObjectStore(storeName);
@@ -289,13 +387,26 @@ function applyIdempotentMigration(db: IDBDatabase, event: IDBVersionChangeEvent)
   }
 }
 
+export class DatabaseManager {
+  private static dbPromise: Promise<IDBDatabase> | null = null;
+
+  static getDB(): Promise<IDBDatabase> {
+    if (!this.dbPromise) {
+      console.log("[DB OPEN]");
+      this.dbPromise = openDatabase();
+    }
+    return this.dbPromise;
+  }
+}
+
 // Fonction pour ouvrir la base de données
-export function openDatabase(): Promise<IDBDatabase> {
+function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
+    // Unique point d'ouverture de toute l'application
     const openRequest = indexedDB.open(DB_NAME, DB_VERSION);
 
     openRequest.onerror = (event) => {
-      console.error('[IndexedDB] Erreur ouverture:', event);
+      console.error("[DB ERROR]", openRequest.error);
       console.warn('[IndexedDB] Base corrompue ou incompatible → reset automatique');
       
       try {
@@ -306,20 +417,19 @@ export function openDatabase(): Promise<IDBDatabase> {
           setTimeout(() => window.location.reload(), 500);
         };
         deleteReq.onerror = () => {
-          console.error('[IndexedDB] Impossible de supprimer la base');
           reject(new Error('IndexedDB corrompue et impossible à supprimer'));
         };
-      } catch (e) {
-        console.error('[IndexedDB] Erreur lors de la tentative de suppression', e);
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         reject(new Error('IndexedDB corrompue, erreur de suppression'));
-      }
+       }
     };
 
     openRequest.onsuccess = (event: Event) => {
+      console.log("[DB SUCCESS]");
       const db = (event.target as IDBOpenDBRequest).result;
 
       db.onversionchange = () => {
-        try { db.close(); } catch { }
+        try { db.close(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
         console.warn('[IndexedDB] Changement de version détecté (autre onglet)');
       };
 
@@ -327,52 +437,33 @@ export function openDatabase(): Promise<IDBDatabase> {
     };
 
     openRequest.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+      console.log("[DB UPGRADE]");
       const db = (event.target as IDBOpenDBRequest).result;
       // Utiliser la migration idempotente centralisée
       applyIdempotentMigration(db, event);
     };
 
     openRequest.onblocked = () => {
-      console.warn('[IndexedDB] DB bloquée par un autre onglet, tentative de réouverture...');
-      const retryRequest = indexedDB.open(DB_NAME, DB_VERSION);
-      retryRequest.onsuccess = () => resolve(retryRequest.result);
-      retryRequest.onerror = () => {
-        reject(new Error('IndexedDB bloquée par un autre onglet'));
-      };
+      console.warn("[DB BLOCKED]");
+      reject(new Error('IndexedDB bloquée par un autre onglet'));
     };
   });
 }
 
-// Fonction pour s'assurer qu'un store existe, avec migration forcée si nécessaire
+// Fonction pour s'assurer qu'un store existe
 async function ensureStoreExists(storeName: string): Promise<IDBDatabase> {
   try {
-    let db = await openDatabase();
+    const db = await DatabaseManager.getDB();
 
     if (db.objectStoreNames.contains(storeName)) {
       return db;
     }
 
-    // Le store manque → forcer la migration
-    console.log(`[IndexedDB] Store ${storeName} manquant, migration forcée...`);
-    db.close();
-
-    try {
-      await forceCreateMissingStores();
-    } catch (migrationError) {
-      console.warn('[IndexedDB] Migration forcée échouée:', migrationError);
-    }
-
-    // Réouvrir après migration
-    db = await openDatabase();
-
-    if (!db.objectStoreNames.contains(storeName)) {
-      console.warn(`[IndexedDB] Store ${storeName} toujours absent après migration`);
-    }
-
+    console.warn(`[IndexedDB] Store ${storeName} absent après migration`);
     return db;
   } catch (error) {
     console.error(`[IndexedDB] Erreur ensureStoreExists(${storeName}):`, error);
-    return await openDatabase();
+    return await DatabaseManager.getDB();
   }
 }
 
@@ -530,7 +621,7 @@ export async function savePendingRequest(url: string, method: string, body: any)
     body: typeof body === 'string' ? body : JSON.stringify(body),
     timestamp: Date.now(),
     attempts: 0,
-    lastAttempt: null,
+    lastAttempt: undefined,
     status: 'pending'
   };
 
@@ -581,331 +672,512 @@ function showNotification(title: string, message: string, type: 'success' | 'err
   }
 }
 
-// Fonction pour synchroniser les requêtes en attente
+// === CONCURRENCE : SYNC LOCK ===
+
+const LOCK_TTL_MS = 60_000; // 60 secondes
+
+async function acquireSyncLock(): Promise<boolean> {
+  try {
+    const db = await DatabaseManager.getDB();
+    if (!db.objectStoreNames.contains('syncLocks')) return true;
+
+    return new Promise<boolean>((resolve) => {
+      const tx = db.transaction('syncLocks', 'readwrite');
+      const store = tx.objectStore('syncLocks');
+      const getReq = store.get('GLOBAL_SYNC_LOCK');
+
+      getReq.onsuccess = () => {
+        const existing = getReq.result;
+        if (existing && (Date.now() - existing.lockedAt) < LOCK_TTL_MS) {
+          resolve(false); // Lock still active
+        } else {
+          store.put({ id: 'GLOBAL_SYNC_LOCK', lockedAt: Date.now() });
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        }
+      };
+      getReq.onerror = () => resolve(false);
+    });
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return true;  }
+}
+
+async function releaseSyncLock(): Promise<void> {
+  try {
+    const db = await DatabaseManager.getDB();
+    if (!db.objectStoreNames.contains('syncLocks')) return;
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction('syncLocks', 'readwrite');
+      tx.objectStore('syncLocks').delete('GLOBAL_SYNC_LOCK');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  /* silent */  }
+}
+
+async function refreshSyncLock(): Promise<void> {
+  try {
+    const db = await DatabaseManager.getDB();
+    if (!db.objectStoreNames.contains('syncLocks')) return;
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction('syncLocks', 'readwrite');
+      tx.objectStore('syncLocks').put({ id: 'GLOBAL_SYNC_LOCK', lockedAt: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  /* silent */  }
+}
+
+// === RETENTION STRATEGY ===
+
+const RETENTION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 jours
+const RETENTION_MAX_ENTRIES = 5000;
+
+async function applyRetentionPolicy(storeName: string, dateField: string): Promise<void> {
+  try {
+    const db = await DatabaseManager.getDB().catch(() => null);
+    if (!db || !db.objectStoreNames.contains(storeName)) return;
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      function safeResolve() {
+        if (settled) return;
+        settled = true;
+        resolve();
+      }
+
+      try {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const req = store.getAll();
+
+        req.onsuccess = () => {
+          try {
+            const items = req.result || [];
+            const now = Date.now();
+            const toDelete: string[] = [];
+
+            // Trier du plus récent au plus ancien
+            items.sort((a, b) => (b[dateField] || 0) - (a[dateField] || 0));
+
+            items.forEach((item, index) => {
+              const age = now - (item[dateField] || 0);
+              if (age > RETENTION_MAX_AGE_MS || index >= RETENTION_MAX_ENTRIES) {
+                toDelete.push(item.id);
+              }
+            });
+
+            if (toDelete.length === 0) {
+              safeResolve();
+              return;
+            }
+
+            let deletedCount = 0;
+            for (const id of toDelete) {
+              const delReq = store.delete(id);
+              delReq.onsuccess = () => {
+                deletedCount++;
+                if (deletedCount === toDelete.length) safeResolve();
+              };
+              delReq.onerror = () => {
+                deletedCount++;
+                if (deletedCount === toDelete.length) safeResolve();
+              };
+            }
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+            safeResolve();
+           }
+        };
+        req.onerror = () => safeResolve();
+        tx.oncomplete = () => safeResolve();
+        tx.onerror = () => safeResolve();
+        tx.onabort = () => safeResolve();
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  safeResolve();  }
+    });
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  /* silent */  }
+}
+
+// === DEAD LETTER QUEUE ===
+
+async function moveToDeadLetters(db: IDBDatabase, task: SyncTask, reason: string): Promise<void> {
+  if (!db.objectStoreNames.contains('deadLetters')) return;
+  await new Promise<void>((resolve) => {
+    try {
+      const tx = db.transaction(['pendingSync', 'deadLetters'], 'readwrite');
+      tx.objectStore('deadLetters').put({ ...task, failedAt: Date.now(), reason, status: 'DEAD' });
+      tx.objectStore('pendingSync').delete(task.id);
+      tx.oncomplete = () => {
+        console.error(`[DeadLetter] ${task.id?.substring(0, 8)} → ${reason}`);
+        resolve();
+      };
+      tx.onerror = () => resolve();
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  resolve();  }
+  });
+}
+
+// === CONFLICT STORE ===
+
+async function moveToConflicts(db: IDBDatabase, task: SyncTask, serverPayload: unknown): Promise<void> {
+  if (!db.objectStoreNames.contains('conflicts')) return;
+  await new Promise<void>((resolve) => {
+    try {
+      const tx = db.transaction(['pendingSync', 'conflicts'], 'readwrite');
+      tx.objectStore('conflicts').put({
+        ...task,
+        serverPayload,
+        conflictAt: Date.now(),
+        conflictStatus: 'PENDING_RESOLUTION',
+        status: 'CONFLICT'
+      });
+      tx.objectStore('pendingSync').delete(task.id);
+      tx.oncomplete = () => {
+        console.warn(`[Conflict] ${task.id?.substring(0, 8)} → 409 Conflit serveur`);
+        resolve();
+      };
+      tx.onerror = () => resolve();
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  resolve();  }
+  });
+}
+
+// === CRASH RECOVERY ===
+
+async function recoverStaleTasks(): Promise<number> {
+  try {
+    const db = await DatabaseManager.getDB();
+    if (!db.objectStoreNames.contains('pendingSync')) return 0;
+
+    const allTasks = await new Promise<SyncTask[]>((resolve) => {
+      const tx = db.transaction('pendingSync', 'readonly');
+      const req = tx.objectStore('pendingSync').getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+
+    const staleTasks = allTasks.filter(t => t.status === 'IN_PROGRESS');
+    if (staleTasks.length === 0) return 0;
+
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction('pendingSync', 'readwrite');
+      const store = tx.objectStore('pendingSync');
+      for (const task of staleTasks) {
+        store.put({ ...task, status: 'RETRY_WAIT' });
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+
+    return staleTasks.length;
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return 0;  }
+}
+
+// Fonction pour synchroniser les requêtes en attente (Event-Driven Scheduler)
 export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: number; failed: number }> {
   if (!navigator.onLine) {
-    const message = 'Hors ligne, impossible de synchroniser les requêtes en attente';
-    console.log(message);
-    showNotification('Synchronisation échouée', message, 'error');
+    console.log('[SyncEngine] Hors ligne, synchronisation impossible');
+    return { success: 0, failed: 0 };
+  }
+
+  // === BATTERY THROTTLING ===
+  let emergencyOnly = false;
+  try {
+    const nav = navigator as any;
+    if (nav.getBattery) {
+      const battery = await nav.getBattery();
+      if (!battery.charging && battery.level < 0.15) {
+        emergencyOnly = true;
+        console.warn(`[SyncEngine] ⚡ Batterie critique (${Math.round(battery.level * 100)}%) — mode Emergency Only`);
+      }
+    }
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+    // API Battery non disponible, on continue normalement
+   }
+
+  // === VERROU DE CONCURRENCE ===
+  const lockAcquired = await acquireSyncLock();
+  if (!lockAcquired) {
+    console.log('[SyncEngine] Synchronisation déjà en cours, abandon');
     return { success: 0, failed: 0 };
   }
 
   let db: IDBDatabase;
   try {
-    db = await openDatabase();
+    db = await DatabaseManager.getDB();
   } catch (error) {
-    const message = 'Erreur lors de l\'ouverture de la base de données';
-    console.error(message, error);
-    showNotification('Erreur de synchronisation', message, 'error');
+    await releaseSyncLock();
+    console.error('[SyncEngine] Erreur ouverture DB:', error);
     return { success: 0, failed: 0 };
   }
 
-  // Afficher une notification de début de synchronisation
-  showNotification('Synchronisation', 'Début de la synchronisation des données...', 'info');
-
-  let successCount = 0;
-  let failedCount = 0;
+  let globalSuccessCount = 0;
+  let globalFailedCount = 0;
 
   try {
-    // Récupérer toutes les requêtes en attente dans une transaction en lecture seule
-    const pendingRequests = await new Promise<any[]>((resolve, reject) => {
-      const transaction = db.transaction('pendingSync', 'readonly');
-      const store = transaction.objectStore('pendingSync');
-      const request = store.getAll();
+    let hasMoreToProcess = true;
 
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = (event) => {
-        console.error('Erreur lors de la récupération des requêtes en attente:', event);
-        reject(new Error('Impossible de récupérer les requêtes en attente'));
-      };
-    });
+    while (hasMoreToProcess) {
+      hasMoreToProcess = false;
+      let passSuccessCount = 0;
+      let passFailedCount = 0;
 
-    if (pendingRequests.length === 0) {
-      console.log('Aucune requête en attente à synchroniser');
-      db.close();
-      return { success: 0, failed: 0 };
-    }
+      // Récupérer toutes les requêtes en attente
+      const pendingRequests = await new Promise<SyncTask[]>((resolve, reject) => {
+        const transaction = db.transaction('pendingSync', 'readonly');
+        const store = transaction.objectStore('pendingSync');
+        const request = store.getAll();
 
-    console.log(`Tentative de synchronisation de ${pendingRequests.length} requêtes en attente`);
-
-    // Trier les requêtes par ordre chronologique (les plus anciennes d'abord)
-    pendingRequests.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-    // Limiter le nombre de tentatives de synchronisation
-    const requestsToProcess = pendingRequests.filter(req => {
-      const attempts = req.attempts || 0;
-      return attempts < maxAttempts;
-    });
-
-    if (requestsToProcess.length === 0) {
-      const message = 'Toutes les requêtes ont dépassé le nombre maximum de tentatives';
-      console.log(message);
-      showNotification('Synchronisation échouée', message, 'error');
-      return { success: 0, failed: pendingRequests.length };
-    }
-
-    console.log(`Traitement de ${requestsToProcess.length} requêtes sur ${pendingRequests.length}`);
-
-    // Statuts HTTP considérés comme non-réessayables (erreurs côté client, conflit, validation, etc.)
-    const nonRetryableStatuses = new Set([400, 404, 405, 409, 422]);
-
-    // Traiter les requêtes une par une avec des transactions séparées
-    for (const request of requestsToProcess) {
-      const requestId = request.id?.substring(0, 8) || 'unknown'; // ID court pour les logs
-      const requestMethod = request.method || 'GET';
-      const requestPath = (() => {
-        try {
-          return new URL(request.url).pathname;
-        } catch {
-          return request.url;
-        }
-      })();
-
-      try {
-        // Mettre à jour le nombre de tentatives
-        const updatedRequest = {
-          ...request,
-          attempts: (request.attempts || 0) + 1,
-          lastAttempt: new Date().toISOString()
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = (event) => {
+          console.error('[SyncEngine] Erreur récupération queue:', event);
+          reject(new Error('Impossible de récupérer les requêtes en attente'));
         };
+      });
 
-        // Mettre à jour la requête dans la base de données avec une transaction dédiée
-        await new Promise<void>((resolve, reject) => {
-          try {
-            const updateTransaction = db.transaction('pendingSync', 'readwrite');
+      if (pendingRequests.length === 0) {
+        console.log('[SyncEngine] Queue vide');
+        break;
+      }
 
-            updateTransaction.oncomplete = () => resolve();
-            updateTransaction.onerror = (event) => {
-              console.error(`[${requestId}] Erreur de transaction:`, event);
-              reject(new Error('Erreur de transaction'));
-            };
+      console.log(`[SyncEngine] ${pendingRequests.length} requête(s) en attente`);
 
-            const updateStore = updateTransaction.objectStore('pendingSync');
-            const updateRequest = updateStore.put(updatedRequest);
+      // Trier par priorité puis par date
+      pendingRequests.sort((a, b) => {
+        const prioA = a.priority ?? 3;
+        const prioB = b.priority ?? 3;
+        if (prioA !== prioB) return prioA - prioB;
+        return (a.timestamp || a.createdAt || 0) - (b.timestamp || b.createdAt || 0);
+      });
 
-            updateRequest.onsuccess = () => {
-              // Ne pas fermer la connexion ici, la transaction se fermera automatiquement
-              // avec oncomplete
-            };
+      const pendingIds = new Set(pendingRequests.map(r => r.id));
 
-            updateRequest.onerror = (event) => {
-              console.error(`[${requestId}] Erreur lors de la mise à jour:`, event);
-              reject(new Error('Mise à jour échouée'));
-            };
-          } catch (error) {
-            console.error(`[${requestId}] Erreur lors de la création de la transaction:`, error);
-            reject(error);
+      const deadIds = await new Promise<Set<string>>((resolve) => {
+        const tx = db.transaction('deadLetters', 'readonly');
+        const req = tx.objectStore('deadLetters').getAllKeys();
+        req.onsuccess = () => resolve(new Set(req.result as string[]));
+        req.onerror = () => resolve(new Set());
+      });
+
+      const conflictIds = await new Promise<Set<string>>((resolve) => {
+        const tx = db.transaction('conflicts', 'readonly');
+        const req = tx.objectStore('conflicts').getAllKeys();
+        req.onsuccess = () => resolve(new Set(req.result as string[]));
+        req.onerror = () => resolve(new Set());
+      });
+
+      const tasksToFail: { req: SyncTask; reason: string }[] = [];
+
+      const requestsToProcess = pendingRequests.filter(req => {
+        const attempts = req.attempts || 0;
+        if (attempts >= maxAttempts) return false;
+
+        if (emergencyOnly && (req.priority ?? 3) > 1) {
+          return false;
+        }
+
+        if (req.dependencies && Array.isArray(req.dependencies)) {
+          for (const depId of req.dependencies) {
+            if (pendingIds.has(depId)) {
+              return false;
+            }
+            if (deadIds.has(depId) || conflictIds.has(depId)) {
+              tasksToFail.push({ req, reason: `Dépendance ${depId} en échec ou conflit` });
+              return false;
+            }
           }
-        });
+        }
+        return true;
+      });
 
-        // Préparer les en-têtes
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        const token = localStorage.getItem('token');
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+      for (const failItem of tasksToFail) {
+        await moveToDeadLetters(db, failItem.req, failItem.reason);
+      }
 
-        // Exécuter la requête
-        console.log(`[${requestId}] Envoi de la requête vers ${request.url}`);
-        const response = await fetch(request.url, {
-          method: requestMethod,
-          headers,
-          body: request.body,
-          credentials: 'include'
-        });
+      if (requestsToProcess.length === 0) {
+        console.log('[SyncEngine] Toutes les requêtes sont bloquées ou ont dépassé maxAttempts');
+        for (const req of pendingRequests) {
+          if ((req.attempts || 0) >= maxAttempts) {
+            await moveToDeadLetters(db, req, `Max tentatives atteint (${req.attempts})`);
+          }
+        }
+        break;
+      }
 
-        if (response.ok) {
-          // Supprimer la requête synchronisée avec une transaction dédiée
+      const nonRetryableStatuses = new Set([400, 404, 405, 422]);
+
+      for (const request of requestsToProcess) {
+        const requestId = request.id?.substring(0, 8) || 'unknown';
+        const requestMethod = request.method || 'GET';
+        const requestPath = (() => {
+          try { return new URL(request.url || '').pathname; } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return request.url || '';  }
+        })();
+
+        try {
+          await refreshSyncLock();
+
+          const updatedRequest = {
+            ...request,
+            attempts: (request.attempts || 0) + 1,
+            lastAttempt: Date.now(),
+            status: 'IN_PROGRESS' as SyncQueueStatus
+          };
+
           await new Promise<void>((resolve, reject) => {
             try {
-              const deleteTransaction = db.transaction('pendingSync', 'readwrite');
-
-              deleteTransaction.oncomplete = () => {
-                console.log(`[${requestId}] Requête synchronisée et supprimée`);
-                successCount++;
-                showNotification(
-                  'Synchronisation réussie',
-                  `Requête ${requestMethod} vers ${requestPath} traitée avec succès`,
-                  'success'
-                );
-                resolve();
-              };
-
-              deleteTransaction.onerror = (event) => {
-                console.error(`[${requestId}] Erreur de transaction lors de la suppression:`, event);
-                // On considère quand même la synchronisation comme réussie
-                successCount++;
-                resolve();
-              };
-
-              const deleteStore = deleteTransaction.objectStore('pendingSync');
-              const deleteRequest = deleteStore.delete(request.id);
-
-              deleteRequest.onsuccess = () => {
-                // La suppression sera confirmée par oncomplete de la transaction
-              };
-
-              deleteRequest.onerror = (event) => {
-                console.error(`[${requestId}] Erreur lors de la suppression:`, event);
-                // On considère quand même la synchronisation comme réussie
-                successCount++;
-                resolve();
-              };
-            } catch (error) {
-              console.error(`[${requestId}] Erreur lors de la création de la transaction de suppression:`, error);
-              // On considère quand même la synchronisation comme réussie
-              successCount++;
-              resolve();
-            }
+              const updateTransaction = db.transaction('pendingSync', 'readwrite');
+              updateTransaction.oncomplete = () => resolve();
+              updateTransaction.onerror = () => reject(new Error('Erreur update'));
+              updateTransaction.objectStore('pendingSync').put(updatedRequest);
+            } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);  reject(error);  }
           });
-        } else {
-          console.error(`[${requestId}] Erreur HTTP ${response.status}: ${response.statusText}`);
 
-          // Si erreur d'authentification, supprimer la requête
-          if (response.status === 401 || response.status === 403) {
-            console.log(`[${requestId}] Suppression en raison d'une erreur d'authentification (${response.status})`);
-            await new Promise<void>((resolve) => {
-              try {
-                const deleteTransaction = db.transaction('pendingSync', 'readwrite');
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          const token = localStorage.getItem('token');
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          // === IDEMPOTENCY KEY (ACK Safety) ===
+          headers['X-Idempotency-Key'] = request.idempotencyKey || request.id;
 
-                deleteTransaction.oncomplete = () => {
-                  console.log(`[${requestId}] Requête supprimée après erreur d'authentification`);
-                  resolve();
-                };
+          let response: Response;
+          console.log(`[${requestId}] Action: ${request.action || 'LEGACY_FETCH'} → ${request.entityId || requestPath}`);
 
-                deleteTransaction.onerror = (event) => {
-                  console.error(`[${requestId}] Erreur lors de la suppression après 401:`, event);
-                  resolve();
-                };
+          // === CQRS ACTION ROUTING ===
+          if (request.action === 'UPLOAD_ATTACHMENT') {
+            const { uploadAttachmentChunked } = await import('./chunkedUpload');
 
-                const deleteStore = deleteTransaction.objectStore('pendingSync');
-                const deleteRequest = deleteStore.delete(request.id);
-
-                deleteRequest.onsuccess = () => {
-                  // La suppression sera confirmée par oncomplete
-                };
-
-                deleteRequest.onerror = (event) => {
-                  console.error(`[${requestId}] Erreur lors de la suppression après 401:`, event);
-                  resolve();
-                };
-              } catch (error) {
-                console.error(`[${requestId}] Erreur lors de la suppression après 401:`, error);
-                resolve();
-              }
-            });
-
-            // Ne pas compter comme un échec pour ne pas bloquer les autres requêtes
-            continue;
-          }
-
-          const attemptsSoFar = updatedRequest.attempts ?? 0;
-          const shouldDiscardStatus = nonRetryableStatuses.has(response.status);
-          const reachedAttemptLimit = attemptsSoFar >= maxAttempts;
-
-          if (shouldDiscardStatus || reachedAttemptLimit) {
-            await new Promise<void>((resolve) => {
-              try {
-                const deleteTransaction = db.transaction('pendingSync', 'readwrite');
-
-                deleteTransaction.oncomplete = () => {
-                  console.log(`[${requestId}] Requête supprimée après ${shouldDiscardStatus ? `statut ${response.status}` : `${attemptsSoFar} tentative(s)`}`);
-                  resolve();
-                };
-
-                deleteTransaction.onerror = (event) => {
-                  console.error(`[${requestId}] Erreur lors de la suppression après abandon:`, event);
-                  resolve();
-                };
-
-                const deleteStore = deleteTransaction.objectStore('pendingSync');
-                const deleteRequest = deleteStore.delete(request.id);
-
-                deleteRequest.onsuccess = () => {
-                  // La suppression sera confirmée par oncomplete
-                };
-
-                deleteRequest.onerror = (event) => {
-                  console.error(`[${requestId}] Erreur lors de la suppression après abandon:`, event);
-                  resolve();
-                };
-              } catch (error) {
-                console.error(`[${requestId}] Erreur lors de la suppression après abandon:`, error);
-                resolve();
-              }
-            });
-
-            failedCount++;
-            const message = shouldDiscardStatus
-              ? `Requête ${requestMethod} vers ${requestPath} ignorée (${response.status} ${response.statusText})`
-              : `Requête ${requestMethod} vers ${requestPath} abandonnée après ${attemptsSoFar} tentative(s)`;
-            showNotification(
-              'Synchronisation abandonnée',
-              message,
-              shouldDiscardStatus ? 'info' : 'error'
+            // Heartbeat Guard pour maintenir le lock vivant même si un chunk est très lent (> 60s)
+            const heartbeat = setInterval(
+              () => refreshSyncLock().catch(() => {}),
+              LOCK_TTL_MS / 3 // ex: 60s / 3 = 20s
             );
-            continue;
+
+            try {
+              await uploadAttachmentChunked(
+                request.payload.attachId,
+                request.payload.fileName,
+                request.payload.type,
+                headers
+              );
+            } finally {
+              clearInterval(heartbeat);
+            }
+            response = new Response(null, { status: 200, statusText: 'OK' });
+          } else if (request.action === 'CREATE_ALERT') {
+            response = await fetch('/api/alerts', { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
+          } else if (request.action === 'UPDATE_ALERT') {
+            response = await fetch(`/api/alerts/${request.entityId}`, { method: 'PUT', headers, body: JSON.stringify(request.payload), credentials: 'include' });
+          } else if (request.action === 'CREATE_MESSAGE') {
+            response = await fetch('/api/messages', { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
+          } else {
+            // Fallback legacy
+            response = await fetch(request.url || '', { method: requestMethod, headers, body: request.body, credentials: 'include' });
           }
 
-          failedCount++;
-          showNotification(
-            'Erreur de synchronisation',
-            `Échec de la requête ${requestMethod} (${response.status} ${response.statusText})`,
-            'error'
-          );
-        }
-      } catch (error) {
-        console.error(`[${requestId}] Erreur lors du traitement:`, error);
-        failedCount++;
+          if (response.ok) {
+            // === ACK SAFETY : Purge APRÈS log d'audit ===
+            // On log le succès AVANT de purger pour garantir la traçabilité
+            // même si le serveur crash juste après commit.
+            const { logAudit } = await import('./auditLogger');
+            await logAudit('SYNC_SUCCESS', request.id, {
+              action: request.action,
+              entityId: request.entityId,
+              serverAckAt: Date.now()
+            });
 
-        if (error instanceof Error) {
-          showNotification(
-            'Erreur de synchronisation',
-            `Erreur lors du traitement d'une requête: ${error.message}`,
-            'error'
-          );
+            // Maintenant on peut purger la queue en toute sécurité
+            await new Promise<void>((resolve) => {
+              try {
+                const deleteTransaction = db.transaction('pendingSync', 'readwrite');
+                deleteTransaction.oncomplete = () => {
+                  console.log(`[${requestId}] ✓ Synchronisé`);
+                  passSuccessCount++;
+                  resolve();
+                };
+                deleteTransaction.onerror = () => { passSuccessCount++; resolve(); };
+                deleteTransaction.objectStore('pendingSync').delete(request.id);
+              } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  passSuccessCount++; resolve();  }
+            });
+
+          } else {
+            console.error(`[${requestId}] Erreur HTTP ${response.status}: ${response.statusText}`);
+
+            if (response.status === 401 || response.status === 403) {
+              await moveToDeadLetters(db, updatedRequest, `Auth error ${response.status}`);
+              continue;
+            }
+
+            // === 409 CONFLIT → CONFLICT STORE ===
+            if (response.status === 409) {
+              let serverPayload: unknown = null;
+              try { serverPayload = await response.json(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
+              await moveToConflicts(db, updatedRequest, serverPayload);
+              passFailedCount++;
+              continue;
+            }
+
+            if (nonRetryableStatuses.has(response.status)) {
+              await moveToDeadLetters(db, updatedRequest, `HTTP ${response.status}`);
+              passFailedCount++;
+              continue;
+            }
+
+            if (updatedRequest.attempts >= maxAttempts) {
+              await moveToDeadLetters(db, updatedRequest, `Max tentatives`);
+              passFailedCount++;
+              continue;
+            }
+
+            updatedRequest.status = 'RETRY_WAIT';
+            await new Promise<void>((resolve) => {
+              try {
+                const retryTx = db.transaction('pendingSync', 'readwrite');
+                retryTx.objectStore('pendingSync').put(updatedRequest);
+                retryTx.oncomplete = () => resolve();
+                retryTx.onerror = () => resolve();
+              } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  resolve();  }
+            });
+
+            passFailedCount++;
+          }
+        } catch (error) {
+          console.error(`[${requestId}] Erreur réseau:`, error);
+          passFailedCount++;
         }
+
+        // Rate limiting adaptatif
+        const baseDelay = emergencyOnly ? 2000 : 500;
+        const backoffMs = Math.min(baseDelay * Math.pow(1.5, request.attempts || 0), 10000);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
       }
 
-      // Petite pause entre les requêtes pour éviter de surcharger le serveur
-      await new Promise(resolve => setTimeout(resolve, 500));
+      globalSuccessCount += passSuccessCount;
+      globalFailedCount += passFailedCount;
+
+      // === EVENT-DRIVEN : Si succès, réévaluer les enfants débloqués ===
+      if (passSuccessCount > 0) {
+        console.log('[SyncEngine] Passe réussie, réévaluation des dépendances enfants...');
+        hasMoreToProcess = true;
+      }
+    } // End While Loop
+
+    if (globalSuccessCount > 0 || globalFailedCount > 0) {
+      const message = `Synchronisation: ${globalSuccessCount} réussie(s), ${globalFailedCount} échouée(s)`;
+      console.log(`[SyncEngine] ${message}`);
+      showNotification('Synchronisation terminée', message, globalFailedCount === 0 ? 'success' : 'error');
     }
 
-    // Afficher un résumé de la synchronisation
-    if (successCount > 0 || failedCount > 0) {
-      const message = `Synchronisation terminée: ${successCount} réussie(s), ${failedCount} échouée(s)`;
-      console.log(message);
-      showNotification(
-        'Synchronisation terminée',
-        message,
-        failedCount === 0 ? 'success' : 'error'
-      );
-    }
-
-    return { success: successCount, failed: failedCount };
+    return { success: globalSuccessCount, failed: globalFailedCount };
 
   } catch (error) {
-    const message = 'Erreur critique lors de la synchronisation';
-    console.error(message, error);
-    showNotification('Erreur critique', message, 'error');
-    return { success: successCount, failed: failedCount };
+    console.error('[SyncEngine] Erreur critique:', error);
+    return { success: globalSuccessCount, failed: globalFailedCount };
 
   } finally {
-    if (db) {
-      try {
-        // Nettoyer les requêtes obsolètes ou en double avec une nouvelle connexion
-        await cleanUpPendingRequests();
-      } catch (error) {
-        console.error('Erreur lors du nettoyage des requêtes:', error);
-      } finally {
-        db.close();
-      }
-    }
+    // === TOUJOURS libérer le verrou ===
+    await releaseSyncLock();
   }
 }
 
 // Fonction pour nettoyer les requêtes en double ou obsolètes
 async function cleanUpPendingRequests(): Promise<void> {
   // Ouvrir une nouvelle connexion pour éviter "The database connection is closing"
-  const db = await openDatabase().catch(() => null);
+  const db = await DatabaseManager.getDB().catch(() => null);
   if (!db) return;
   return new Promise((resolve) => {
     try {
@@ -978,7 +1250,7 @@ async function cleanUpPendingRequests(): Promise<void> {
       };
 
       transaction.oncomplete = () => {
-        try { db.close(); } catch { }
+        try { db.close(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
         // La transaction est terminée
       };
 
@@ -988,7 +1260,7 @@ async function cleanUpPendingRequests(): Promise<void> {
       };
     } catch (error) {
       console.error('Erreur lors du nettoyage des requêtes:', error);
-      try { db.close(); } catch { }
+      try { db.close(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
       resolve();
     }
   });
@@ -1035,14 +1307,14 @@ async function cacheApiResponse(url: string, data: any): Promise<void> {
           db.close();
           resolve();
         };
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         db.close();
         resolve();
-      }
+       }
     });
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     // Silencieux : le cache est un bonus, pas critique
-  }
+   }
 }
 
 // Récupérer une réponse API depuis le cache IndexedDB (avec vérification d'expiration)
@@ -1075,7 +1347,7 @@ async function getCachedApiResponse(url: string): Promise<any | null> {
               const delTx = db.transaction('apiCache', 'readwrite');
               delTx.objectStore('apiCache').delete(url);
               delTx.oncomplete = () => db.close();
-            } catch { db.close(); }
+            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  db.close();  }
             resolve(null);
             return;
           }
@@ -1085,20 +1357,20 @@ async function getCachedApiResponse(url: string): Promise<any | null> {
 
         request.onerror = () => resolve(null);
         transaction.oncomplete = () => db.close();
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         db.close();
         resolve(null);
-      }
+       }
     });
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     return null;
-  }
+   }
 }
 
 // Nettoyer les entrées expirées du cache
 async function cleanExpiredCache(): Promise<void> {
   try {
-    const db = await openDatabase();
+    const db = await DatabaseManager.getDB();
     if (!db.objectStoreNames.contains('apiCache')) {
       db.close();
       return;
@@ -1135,14 +1407,14 @@ async function cleanExpiredCache(): Promise<void> {
           db.close();
           resolve();
         };
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         db.close();
         resolve();
-      }
+       }
     });
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     // Silencieux
-  }
+   }
 }
 
 // Gestionnaire d'erreur générique pour les appels API
@@ -1311,9 +1583,9 @@ export function createOfflineFetch() {
           const data = await responseClone.json();
           // Cacher en arrière-plan (non bloquant)
           cacheApiResponse(url, data).catch(() => {});
-        } catch {
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
           // Silencieux : le cache est un bonus
-        }
+         }
       }
 
       return response;
@@ -1332,9 +1604,9 @@ export function createOfflineFetch() {
             console.log(`[Offline] ✓ Cache API pour ${url}`);
             return cachedResponse;
           }
-        } catch {
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
           // Silencieux
-        }
+         }
 
         // 2. Essayer le cache IndexedDB (apiCache avec expiration)
         try {
@@ -1349,9 +1621,9 @@ export function createOfflineFetch() {
               }
             });
           }
-        } catch {
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
           // Silencieux
-        }
+         }
 
         // 3. Essayer les stores spécifiques IndexedDB
         try {
@@ -1369,9 +1641,9 @@ export function createOfflineFetch() {
               });
             }
           }
-        } catch {
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
           // Silencieux
-        }
+         }
 
         // 4. Retourner un tableau vide (aucune erreur visible utilisateur)
         console.log(`[Offline] Aucune donnée en cache pour ${url}, retour []`);
@@ -1395,8 +1667,8 @@ export function createOfflineFetch() {
           if (typeof init.body === 'string') {
             try {
               body = JSON.parse(init.body);
-            } catch {
-              body = { raw: init.body };
+            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+              body = { raw: init.body  };
             }
           } else if (init.body instanceof FormData) {
             const formData = init.body;
@@ -1491,4 +1763,114 @@ export async function unregisterAndClearPWA(): Promise<void> {
   } catch (e) {
     console.error('Erreur lors du nettoyage PWA:', e);
   }
+}
+
+// === BOOT SEQUENCE OBLIGATOIRE ===
+
+let bootInProgress = false;
+let isBooted = false;
+
+export async function bootSCoDiCore(): Promise<void> {
+  if (bootInProgress || isBooted) {
+    return;
+  }
+  bootInProgress = true;
+
+  try {
+    const BOOT_STATE_KEY = 'scodi_boot_state';
+    const bootAttempts = parseInt(sessionStorage.getItem(BOOT_STATE_KEY) || '0', 10);
+
+    // === BOOT STATE MACHINE : Crash Loop Detector ===
+    if (bootAttempts > 2) {
+      console.error('[SCoDi Boot] 🚨 CRASH LOOP DÉTECTÉE. Boot annulé (Safe Mode).');
+      // Signal FORT pour éviter la dégradation silencieuse :
+      showNotification(
+        '⚠️ MODE DÉGRADÉ',
+        'Le démarrage sécurisé a échoué 3 fois. La synchronisation est désactivée. Contactez le support.',
+        'error'
+      );
+      return;
+    }
+
+    // Marquer le début du boot (sera nettoyé en cas de succès)
+    sessionStorage.setItem(BOOT_STATE_KEY, (bootAttempts + 1).toString());
+
+    console.log('🚀 [SCoDi Boot] Démarrage de la séquence d\'initialisation...');
+    try {
+      const db = await DatabaseManager.getDB();
+
+      // 1. Libérer les éventuels verrous morts (stale syncLocks)
+      if (db.objectStoreNames.contains('syncLocks')) {
+        await new Promise<void>((resolve) => {
+          try {
+            const tx = db.transaction('syncLocks', 'readwrite');
+            const store = tx.objectStore('syncLocks');
+            const getReq = store.get('GLOBAL_SYNC_LOCK');
+
+            getReq.onsuccess = () => {
+              const existing = getReq.result;
+              if (existing && (Date.now() - existing.lockedAt) >= LOCK_TTL_MS) {
+                store.delete('GLOBAL_SYNC_LOCK');
+                console.log('[SCoDi Boot] Verrous de synchronisation stale purgés.');
+              }
+            };
+
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  resolve();  }
+        });
+      }
+
+      // 2. Vérification de la chaîne d'audit (Anti-falsification)
+      try {
+        const { verifyAuditChainIntegrity } = await import('./auditLogger');
+        const auditResult = await verifyAuditChainIntegrity();
+        if (!auditResult.valid) {
+          console.error('[SCoDi Boot] 🚨 CORRUPTION AUDIT DÉTECTÉE 🚨', auditResult);
+          showNotification(
+            '⚠️ Intégrité Audit',
+            'Une corruption de la chaîne d\'audit a été détectée. Les données sont intactes mais la traçabilité est compromise.',
+            'error'
+          );
+        }
+      } catch (auditErr) {
+        console.warn('[SCoDi Boot] Audit check skipped:', auditErr);
+      }
+
+      // 3. Récupérer les tâches IN_PROGRESS bloquées par un crash
+      const recoveredCount = await recoverStaleTasks();
+      if (recoveredCount > 0) {
+        console.log(`[SCoDi Boot] ${recoveredCount} tâche(s) zombie(s) récupérée(s) (Crash Recovery).`);
+      }
+
+      // 4. Lancer une synchronisation initiale si en ligne
+      if (navigator.onLine) {
+        console.log('[SCoDi Boot] Connexion détectée, lancement de la synchronisation de fond...');
+        syncPendingRequests().catch(e => console.error('[SCoDi Boot] Erreur sync initiale:', e));
+      }
+
+      // 5. Appliquer les politiques de rétention (en arrière-plan)
+      Promise.all([
+        applyRetentionPolicy('deadLetters', 'failedAt'),
+        applyRetentionPolicy('conflicts', 'conflictAt')
+      ]).catch(e => console.warn('[SCoDi Boot] Erreur rétention:', e));
+
+      // Succès : nettoyer le compteur de crash
+      sessionStorage.removeItem(BOOT_STATE_KEY);
+      isBooted = true;
+      console.log('✅ [SCoDi Boot] Séquence terminée. Système prêt.');
+    } catch (error) {
+      console.error('[SCoDi Boot] Échec de la séquence d\'initialisation:', error);
+      // Le flag sessionStorage reste, incrémentera au prochain reload
+    }
+  } finally {
+    bootInProgress = false;
+  }
+}
+
+// Auto-démarrage au chargement de la fenêtre (sauf SSR)
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => {
+    bootSCoDiCore();
+  });
 }

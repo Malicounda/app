@@ -170,12 +170,12 @@ export default function AssociateHunters({ guideId, onAssociationComplete }: Ass
                     variant: "destructive",
                 });
             }
-        } catch (error: any) {
+        } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
             toast({
                 title: "Erreur de recherche",
                 description: error.message || "Une erreur est survenue lors de la recherche.",
                 variant: "destructive",
-            });
+             });
             setSearchResults([]);
         } finally {
             setIsSearching(false);
@@ -265,10 +265,10 @@ export default function AssociateHunters({ guideId, onAssociationComplete }: Ass
             } else if (parsed.userId) {
                 hunterId = parsed.userId;
             }
-        } catch (e) {
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
             // Si ce n'est pas du JSON, extraire le numéro de pièce d'identité du texte
             hunterId = extractHunterIdFromText(qrData);
-        }
+         }
         
         console.log('Hunter ID extrait:', hunterId);
         

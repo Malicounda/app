@@ -49,10 +49,10 @@ export const DataMigrationComponent: React.FC = () => {
         setMessage(result.error || 'Erreur lors de l\'import');
         setIsSuccess(false);
       }
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       setMessage('Erreur de format JSON ou lors de l\'import');
       setIsSuccess(false);
-    } finally {
+     } finally {
       setIsLoading(false);
     }
   };
@@ -78,10 +78,10 @@ export const DataMigrationComponent: React.FC = () => {
 
       setMessage('Données exportées avec succès !');
       setIsSuccess(true);
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       setMessage('Erreur lors de l\'export');
       setIsSuccess(false);
-    } finally {
+     } finally {
       setIsLoading(false);
     }
   };

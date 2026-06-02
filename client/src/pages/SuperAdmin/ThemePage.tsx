@@ -162,9 +162,9 @@ function safeParse(raw: string | null): ThemeConfig | null {
   if (!raw) return null;
   try {
     return JSON.parse(raw);
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     return null;
-  }
+   }
 }
 
 function normalizeCfg(cfg: ThemeConfig): ThemeConfig {
@@ -213,7 +213,7 @@ export default function ThemePage() {
       setDraftCfg(cfg);
       applyPreviewToDom(cfg.superAdmin);
       // Sync localStorage aussi
-      try { localStorage.setItem("theme:superadmin", JSON.stringify(cfg)); } catch {}
+      try { localStorage.setItem("theme:superadmin", JSON.stringify(cfg)); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       setInitialized(true);
     }
   }, [activeThemeFromApi]);
@@ -245,9 +245,9 @@ export default function ThemePage() {
   const hasChanges = useMemo(() => {
     try {
       return JSON.stringify(draftCfg) !== JSON.stringify(appliedCfg);
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return true;
-    }
+     }
   }, [draftCfg, appliedCfg]);
 
   useEffect(() => {
@@ -286,12 +286,12 @@ export default function ThemePage() {
     // Sauvegarder en localStorage (fallback immédiat)
     try {
       localStorage.setItem("theme:superadmin", JSON.stringify(next));
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     setDraftCfg(next);
     setAppliedCfg(next);
     try {
       window.dispatchEvent(new Event('theme:superadmin:updated'));
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     // Persister en base de données
     saveMutation.mutate(next);
   };
@@ -422,7 +422,7 @@ export default function ThemePage() {
         reader.readAsDataURL(file);
       });
       updateDomain({ logoUrl: dataUrl });
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   };
 
   return (
@@ -775,7 +775,7 @@ export default function ThemePage() {
                         reader.readAsDataURL(file);
                       });
                       updateDomain({ bgImage: dataUrl });
-                    } catch {}
+                    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                   }}
                 />
                 {domainTheme.bgImage ? (

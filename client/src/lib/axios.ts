@@ -35,7 +35,7 @@ export const apiRequest = async <T = any>({
 
     const response: AxiosResponse<T> = await axios(config);
     return response.data;
-  } catch (error: any) {
+  } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx
@@ -43,7 +43,7 @@ export const apiRequest = async <T = any>({
       const customError = new Error(errorMessage);
       (customError as any).response = error.response;
       throw customError;
-    } else if (error.request) {
+     } else if (error.request) {
       // The request was made but no response was received
       throw new Error('Aucune réponse du serveur. Veuillez vérifier votre connexion.');
     } else {

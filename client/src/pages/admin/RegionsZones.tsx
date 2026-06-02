@@ -284,7 +284,7 @@ export default function RegionsZones() {
         } else {
           setTypeFilter('all');
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
@@ -701,10 +701,10 @@ export default function RegionsZones() {
             } else {
               setTypeFilter('all');
             }
-          } catch {}
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
         }
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, []);
 
   useEffect(() => {
@@ -720,7 +720,7 @@ export default function RegionsZones() {
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(PERSIST_KEY, JSON.stringify(payload));
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, [activeTab, searchQuery, currentPage, typeFilter, displayMode, form]);
   // Verrouillage des champs Région/Département après détection automatique
   const [locationLocked, setLocationLocked] = useState(false);
@@ -829,8 +829,8 @@ export default function RegionsZones() {
             setLocationLocked(false);
           }
         }
-      } catch {
-        setCoordsDerived({ pointCount: 0, centroid: null, geometryType: 'none' });
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+        setCoordsDerived({ pointCount: 0, centroid: null, geometryType: 'none'  });
       }
     };
     detectRegion();
@@ -1159,7 +1159,7 @@ export default function RegionsZones() {
           setLoadingConfig(false);
           return;
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
       // Charger les types de zones
       const typesResp = await apiRequest<any>('GET', '/settings/zone-types');
@@ -1172,7 +1172,7 @@ export default function RegionsZones() {
           color: String(t.color ?? '#0ea5e9'),
           isActive: !!(t.isActive ?? t.is_active)
         })));
-        try { window.localStorage.setItem('regionsZones.zoneTypes', JSON.stringify({ data: typesBody.data, cachedAt: Date.now() })); } catch {}
+        try { window.localStorage.setItem('regionsZones.zoneTypes', JSON.stringify({ data: typesBody.data, cachedAt: Date.now() })); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       }
 
       // Charger les statuts de zones
@@ -1185,7 +1185,7 @@ export default function RegionsZones() {
           label: String(s.label),
           isActive: !!(s.isActive ?? s.is_active)
         })));
-        try { window.localStorage.setItem('regionsZones.zoneStatuses', JSON.stringify({ data: statusesBody.data, cachedAt: Date.now() })); } catch {}
+        try { window.localStorage.setItem('regionsZones.zoneStatuses', JSON.stringify({ data: statusesBody.data, cachedAt: Date.now() })); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       }
     } catch (e: any) {
       console.error('Erreur chargement config zones:', e);
@@ -1273,13 +1273,13 @@ export default function RegionsZones() {
               }
             }
           }
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       }
 
       // No fresh cache -> utiliser un spinner différé pour éviter les flashs
       try {
         loadingTimer = window.setTimeout(() => setLoading(true), 250);
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       const resp = await apiRequest<any>('GET', '/api/zones?lite=1');
       const fc = resp?.data as any;
       const features = (fc?.features ?? []) as any[];
@@ -1340,14 +1340,14 @@ export default function RegionsZones() {
             };
           });
           window.localStorage.setItem(ZONES_CACHE_KEY, JSON.stringify({ features: enhancedFeatures, cachedAt: Date.now() }));
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       }
     } catch (e: any) {
       console.error(e);
       setError(e?.message || 'Erreur de chargement');
       toast({ title: 'Erreur', description: 'Impossible de charger les zones', });
     } finally {
-      try { if (loadingTimer) window.clearTimeout(loadingTimer); } catch {}
+      try { if (loadingTimer) window.clearTimeout(loadingTimer); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       setLoading(false);
     }
   };
@@ -1361,7 +1361,7 @@ export default function RegionsZones() {
   // À la réception, on purge le cache local et on recharge depuis l'API.
   useEffect(() => {
     const onGlobalRefresh = () => {
-      try { window.localStorage.removeItem(ZONES_CACHE_KEY); } catch {}
+      try { window.localStorage.removeItem(ZONES_CACHE_KEY); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       loadZones(true);
     };
     window.addEventListener('refresh-map-data', onGlobalRefresh as EventListener);
@@ -1657,10 +1657,10 @@ export default function RegionsZones() {
           u.searchParams.set('mime', att.mime);
           chosen = u.toString();
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }
     // Debug pour comprendre pourquoi rien ne s'affiche
-    try { console.log('[Zones] Preview attachment click', { att, primary, fallbackByName, chosen }); } catch {}
+    try { console.log('[Zones] Preview attachment click', { att, primary, fallbackByName, chosen }); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     // Test if the URL is accessible before opening modal
     try {
       fetch(chosen, { method: 'HEAD' }).then(response => {
@@ -1673,13 +1673,13 @@ export default function RegionsZones() {
       }).catch(err => {
         console.error('[Zones] File URL test failed:', err);
       });
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     try {
       new URL(chosen);
       setPreviewAttachment({ url: chosen, name: att.name, mime: att.mime });
       setIframeError(false); // Réinitialiser l'état d'erreur pour le nouvel aperçu
-    } catch (_) {
-      toast({ title: 'Erreur', description: `URL invalide: ${chosen}` });
+    } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
+      toast({ title: 'Erreur', description: `URL invalide: ${chosen }` });
     }
   };
 
@@ -1952,9 +1952,9 @@ export default function RegionsZones() {
       const merged = [...activeFromConfig, ...missingDefaults].filter(t => allowed.has(t.key));
       const fallback = defaultZoneTypes.filter(t => allowed.has(t.key));
       return merged.length > 0 ? merged : fallback;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return defaultZoneTypes.filter(t => ['zic', 'amodiee', 'parc_visite', 'regulation'].includes(t.key));
-    }
+     }
   };
 
   const defaultZoneStatuses = [
@@ -2193,7 +2193,7 @@ export default function RegionsZones() {
       await removeZoneFromMap(id);
 
       // 3. Invalider le cache persistant et mettre à jour l'UI immédiatement
-      try { window.localStorage.removeItem(ZONES_CACHE_KEY); } catch {}
+      try { window.localStorage.removeItem(ZONES_CACHE_KEY); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       setZones(prev => prev.filter(z => z.id !== id));
       // 4. Forcer un rechargement depuis l'API pour garantir la cohérence
       await loadZones(true);
@@ -2481,7 +2481,7 @@ export default function RegionsZones() {
                               const inputEl = e.currentTarget;
                               const f = inputEl.files?.[0];
                               await onExcelFileChange(f);
-                              try { inputEl.value = ''; } catch {}
+                              try { inputEl.value = ''; } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                             }}
                           />
                           <Button
@@ -2927,7 +2927,7 @@ export default function RegionsZones() {
                           });
 
                           // Invalider le cache et réinitialiser complètement le formulaire d'ajout
-                          try { window.localStorage.removeItem(ZONES_CACHE_KEY); } catch {}
+                          try { window.localStorage.removeItem(ZONES_CACHE_KEY); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                           setForm({
                             name: '',
                             type: getDefaultZoneTypeKey(),
@@ -3358,8 +3358,8 @@ export default function RegionsZones() {
                                 } else {
                                   toast({ title: 'Erreur', description: 'Impossible de mettre à jour le statut' });
                                 }
-                              } catch (error) {
-                                toast({ title: 'Erreur', description: 'Impossible de mettre à jour le statut' });
+                              } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
+                                toast({ title: 'Erreur', description: 'Impossible de mettre à jour le statut'  });
                               }
                             }}
                             className={`

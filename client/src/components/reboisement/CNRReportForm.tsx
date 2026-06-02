@@ -646,7 +646,7 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
           // S'assurer que chaque espèce a bien tous les types de pépinières requis (pour l'affichage en colonnes)
           let nurseriesRaw = s.nurseries;
           if (typeof nurseriesRaw === 'string') {
-            try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { nurseriesRaw = []; }
+            try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  nurseriesRaw = [];  }
           }
           const nurseries = (nurseriesRaw && Array.isArray(nurseriesRaw)) ? [...nurseriesRaw] : [];
 
@@ -673,7 +673,7 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
         reportToUse.production.forEach((d: any) => {
           let nurseries = d.nurseries;
           if (typeof nurseries === 'string') {
-            try { nurseries = JSON.parse(nurseries); } catch (e) { nurseries = []; }
+            try { nurseries = JSON.parse(nurseries); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  nurseries = [];  }
           }
           const rowData = { ...d, nurseries: Array.isArray(nurseries) ? nurseries : [] };
 
@@ -697,7 +697,7 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
         const mappedPlants = reportToUse.plants.map((p: any) => {
           let nurseries = p.nurseries;
           if (typeof nurseries === 'string') {
-            try { nurseries = JSON.parse(nurseries); } catch (e) { nurseries = []; }
+            try { nurseries = JSON.parse(nurseries); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  nurseries = [];  }
           }
           if (!Array.isArray(nurseries) || nurseries.length === 0) {
             nurseries = [
@@ -1037,7 +1037,7 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
             // Chaque ligne plate EST un item nursery (nurseryType + champs numériques)
             let nurseriesRaw = consItem.nurseries;
             if (typeof nurseriesRaw === 'string') {
-              try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { nurseriesRaw = null; }
+              try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  nurseriesRaw = null;  }
             }
             const hasNurseriesArray = nurseriesRaw && Array.isArray(nurseriesRaw) && nurseriesRaw.length > 0;
             const key = normalizeLoc(consItem.localite);
@@ -1090,7 +1090,7 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
             consolidationData.production.forEach((consItem: any) => {
               let nurseriesRaw = consItem.nurseries;
               if (typeof nurseriesRaw === 'string') {
-                try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { nurseriesRaw = null; }
+                try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  nurseriesRaw = null;  }
               }
               const hasNurseriesArray = nurseriesRaw && Array.isArray(nurseriesRaw) && nurseriesRaw.length > 0;
               const consLoc = normalizeLoc(consItem.localite);
@@ -1150,7 +1150,7 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
         const mappedPlants = consolidationData.plants.map((p: any) => {
           let nurseriesRaw = p.nurseries;
           if (typeof nurseriesRaw === 'string') {
-            try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { nurseriesRaw = []; }
+            try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  nurseriesRaw = [];  }
           }
 
           let nurseries = (nurseriesRaw && Array.isArray(nurseriesRaw)) ? [...nurseriesRaw] : [];
@@ -1197,7 +1197,7 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
           consolidationData.species.map((s: any) => {
             let nurseriesRaw = s.nurseries;
             if (typeof nurseriesRaw === 'string') {
-              try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { nurseriesRaw = []; }
+              try { nurseriesRaw = JSON.parse(nurseriesRaw); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  nurseriesRaw = [];  }
             }
 
             const nurseries = (nurseriesRaw && Array.isArray(nurseriesRaw)) ? [...nurseriesRaw] : [];
@@ -1341,13 +1341,13 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
           commune: communeName,
         },
       });
-    } catch (e) {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       const msg = (e as any)?.body?.message || (e as any)?.message;
       toast({
         title: "Enregistrement impossible",
         description: msg || "Erreur lors de l'enregistrement de la localité.",
         variant: "destructive",
-      });
+       });
       return;
     }
 
@@ -1416,13 +1416,13 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
           commune: communeName,
         },
       });
-    } catch (e) {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       const msg = (e as any)?.body?.message || (e as any)?.message;
       toast({
         title: "Enregistrement impossible",
         description: msg || "Erreur lors de l'enregistrement de la localité.",
         variant: "destructive",
-      });
+       });
       return;
     }
 
@@ -1929,9 +1929,9 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
                         method: 'DELETE',
                       });
                     }
-                  } catch (e) {
+                  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
                     throw e;
-                  }
+                   }
                 }}
               />
             ) : (
@@ -2249,9 +2249,9 @@ export function CNRReportForm({ onClose, existingReport, existingReports }: Prop
                           method: 'DELETE',
                         });
                       }
-                    } catch (e) {
+                    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
                       throw e;
-                    }
+                     }
                   }}
                 />
               ) : (

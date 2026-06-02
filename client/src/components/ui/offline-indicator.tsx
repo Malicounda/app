@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { AlertCircle, Wifi, WifiOff, ChevronDown, ChevronUp } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { syncPendingRequests } from "@/lib/pwaUtils";
+import { syncPendingRequests, DatabaseManager } from "@/lib/pwaUtils";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface OfflineIndicatorProps {
@@ -17,9 +17,9 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem('offlineIndicatorCollapsed') === '1';
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return false;
-    }
+     }
   });
   
   // État de rafraîchissement temporel (tick toutes les 30s pour mettre à jour le temps "il y a X min")
@@ -46,45 +46,25 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
         hour: '2-digit',
         minute: '2-digit'
       });
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return "Inconnue";
-    }
+     }
   };
 
   // Vérifier le nombre de requêtes en attente
   const checkPendingSyncs = async () => {
     try {
-      const DB_NAME = 'permis-chasse-offline-db';
-      const DB_VERSION = 4;
-      
-      const request = window.indexedDB.open(DB_NAME, DB_VERSION);
-      
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains('pendingSync')) {
-          db.createObjectStore('pendingSync', { keyPath: 'id', autoIncrement: true });
-        }
-      };
-      request.onsuccess = (event) => {
-        const database = (event.target as IDBOpenDBRequest).result;
-        try {
-          const transaction = database.transaction('pendingSync', 'readonly');
-          const store = transaction.objectStore('pendingSync');
-          const countRequest = store.count();
-          countRequest.onsuccess = () => {
-            setPendingSyncs(countRequest.result);
-          };
-          transaction.oncomplete = () => {
-            database.close();
-          };
-        } catch (err) {
-          setPendingSyncs(0);
-          database.close();
-        }
-      };
-      request.onerror = () => {
-        console.error('Erreur lors de l\'ouverture de la base IndexedDB:', request.error);
-      };
+      const database = await DatabaseManager.getDB();
+      try {
+        const transaction = database.transaction('pendingSync', 'readonly');
+        const store = transaction.objectStore('pendingSync');
+        const countRequest = store.count();
+        countRequest.onsuccess = () => {
+          setPendingSyncs(countRequest.result);
+        };
+      } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
+        setPendingSyncs(0);
+       }
     } catch (error) {
       console.error('Erreur lors de la vérification des synchronisations en attente:', error);
     }
@@ -127,7 +107,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
   useEffect(() => {
     try {
       localStorage.setItem('offlineIndicatorCollapsed', collapsed ? '1' : '0');
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, [collapsed]);
 
   // Forcer la synchronisation

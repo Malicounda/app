@@ -82,8 +82,8 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
         ? (localStorage.getItem('token') || sessionStorage.getItem('token'))
         : null;
       return token ? { Authorization: `Bearer ${token}` } : {};
-    } catch {
-      return {};
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      return { };
     }
   };
 
@@ -208,9 +208,9 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
               const res = await apiRequest<any[]>('GET', `/taxes/permit/${p.id}`);
               const ok = res?.ok && Array.isArray(res.data) && res.data.length > 0;
               return [p.id, !!ok] as [number, boolean];
-            } catch {
+            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
               return [p.id, false] as [number, boolean];
-            }
+             }
           })
         );
         const map: Record<number, boolean> = {};
@@ -221,8 +221,8 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
           }
         }
         setHasTaxesMap(map);
-      } catch {
-        setHasTaxesMap({});
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+        setHasTaxesMap({ });
       }
     };
     run();
@@ -294,9 +294,9 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       const raw = localStorage.getItem(AGENT_PERMIT_ACCESS_LOCAL_KEY);
       if (!raw) return null;
       return { enabled: raw === 'true' } as { enabled: boolean };
-    } catch (e) {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return null;
-    }
+     }
   };
 
   const { data: agentPermitAccess = { enabled: false } } = useQuery<{ enabled: boolean }>({
@@ -308,9 +308,9 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
         // if server returned ok=false, fallback to local
         const local = readLocalAgentPermitAccess();
         return local ?? { enabled: false };
-      } catch (e) {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         const local = readLocalAgentPermitAccess();
-        return local ?? { enabled: false };
+        return local ?? { enabled: false  };
       }
     },
     initialData: readLocalAgentPermitAccess() ?? { enabled: false },
@@ -326,7 +326,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     try {
       const el = document.activeElement as HTMLElement | null;
       el?.blur?.();
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, []);
 
   // Plus de récupération directe verbeuse: s'appuyer sur React Query
@@ -337,9 +337,9 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       await deleteHunter.mutateAsync({ id: hunterId, force: true });
       setShowDeleteConfirm(false);
       onClose();
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       setShowDeleteConfirm(false);
-    }
+     }
   };
 
   // Gérer la suppression forcée d'un chasseur (même avec des permis actifs)
@@ -348,9 +348,9 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       await deleteHunter.mutateAsync({ id: hunterId, force: true });
       setShowForceDeleteConfirm(false);
       onClose();
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       setShowForceDeleteConfirm(false);
-    }
+     }
   };
 
   // Gérer la suspension d'un chasseur
@@ -358,9 +358,9 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     try {
       await suspendHunter.mutateAsync();
       setSuspendConfirm(false);
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       setSuspendConfirm(false);
-    }
+     }
   };
 
   // Gérer la réactivation d'un chasseur
@@ -368,9 +368,9 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     try {
       await reactivateHunter.mutateAsync();
       setReactivateConfirm(false);
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       setReactivateConfirm(false);
-    }
+     }
   };
 
   // Fonction pour charger les taxes d'un permis
@@ -390,12 +390,12 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
         });
         return [];
       }
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les taxes associées",
         variant: "destructive",
-      });
+       });
       return [];
     } finally {
       setLoadingTaxes(false);
@@ -540,10 +540,10 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       const blobUrl = URL.createObjectURL(res.blob);
       setPreviewUrl(blobUrl);
       setPreviewOpen(true);
-    } catch (e: any) {
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       setPreviewError(e?.message || 'Impossible d\'ouvrir le document');
       setPreviewOpen(true);
-    } finally {
+     } finally {
       setPreviewLoading(false);
     }
   };

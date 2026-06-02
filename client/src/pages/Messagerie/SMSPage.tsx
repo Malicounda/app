@@ -120,8 +120,8 @@ export default function SimpleSMSPage() {
       setPhoneView('list');
       setSelectedContactKey(null);
       await refreshAll();
-    } catch (e: any) {
-      toast({ title: "Erreur", description: e?.message || "Impossible de supprimer la discussion.", variant: "destructive" });
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: e?.message || "Impossible de supprimer la discussion.", variant: "destructive"  });
     } finally {
       setDeletingConv(false);
       setShowHeaderMenu(false);
@@ -176,8 +176,8 @@ export default function SimpleSMSPage() {
           variant: "destructive",
         });
       }
-    } catch {
-      toast({ title: "Erreur", description: "Une erreur est survenue lors de la suppression.", variant: "destructive" });
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: "Une erreur est survenue lors de la suppression.", variant: "destructive"  });
     } finally {
       setMassDeleting(false);
     }
@@ -237,7 +237,7 @@ export default function SimpleSMSPage() {
           const data = await resp.json();
           if (!cancelled && Array.isArray(data)) setDomaines(data);
         }
-      } catch { }
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
     })();
     return () => { cancelled = true; };
   }, [isDefaultRole]);
@@ -339,9 +339,9 @@ export default function SimpleSMSPage() {
           .filter(o => Boolean(o.value));
         const unique = Array.from(new Map(opts.map(o => [o.value, o])).values());
         if (!cancelled) setAutoRecipients(unique);
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         if (!cancelled) setAutoRecipients([]);
-      }
+       }
     })();
     return () => { cancelled = true; };
   }, [isAlerteDomain, isDefaultRole, isSupervisorRole, user]);
@@ -377,7 +377,7 @@ export default function SimpleSMSPage() {
         if (!response.ok) {
           const errText = await response.text();
           let errMsg = "Impossible d'envoyer le message.";
-          try { const j = JSON.parse(errText); errMsg = j?.message || errMsg; } catch { }
+          try { const j = JSON.parse(errText); errMsg = j?.message || errMsg; } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
           throw new Error(errMsg);
         }
       }
@@ -386,8 +386,8 @@ export default function SimpleSMSPage() {
       setDefaultAttachment(null);
       if (defaultFileRef.current) defaultFileRef.current.value = "";
       refreshSent();
-    } catch (e: any) {
-      toast({ title: "Erreur", description: e?.message || "Impossible d'envoyer le message.", variant: "destructive" });
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: e?.message || "Impossible d'envoyer le message.", variant: "destructive"  });
     } finally {
       setDefaultSending(false);
     }
@@ -465,9 +465,9 @@ export default function SimpleSMSPage() {
 
         const unique = Array.from(new Map(opts.map((o) => [o.value, o])).values());
         if (!cancelled) setRecipientOptions(unique);
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         if (!cancelled) setRecipientOptions([]);
-      }
+       }
     })();
     return () => { cancelled = true; };
   }, [role, user, isAlerteDomain]);
@@ -492,8 +492,8 @@ export default function SimpleSMSPage() {
     try {
       await deleteMessage(message);
       toast({ title: "Supprimé", description: "Le message a été supprimé." });
-    } catch (error: any) {
-      toast({ title: "Suppression impossible", description: error?.message || "Une erreur est survenue lors de la suppression.", variant: "destructive" });
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
+      toast({ title: "Suppression impossible", description: error?.message || "Une erreur est survenue lors de la suppression.", variant: "destructive"  });
     }
   };
   const filteredInbox = useMemo(() => filterMessages(inbox), [inbox, normalizedQuery]);
@@ -613,8 +613,8 @@ export default function SimpleSMSPage() {
       setDefaultMsg(''); setDefaultAttachment(null);
       if (defaultFileRef.current) defaultFileRef.current.value = '';
       refreshSent();
-    } catch (e: any) {
-      toast({ title: "Erreur", description: e?.message || "Impossible de terminer l'action.", variant: "destructive" });
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: e?.message || "Impossible de terminer l'action.", variant: "destructive"  });
     } finally { setDefaultSending(false); }
   };
 
@@ -675,12 +675,12 @@ export default function SimpleSMSPage() {
       }
       toast({ title: "Message envoyé", description: "Le message a été envoyé." });
       return true;
-    } catch (error: any) {
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Erreur",
         description: error?.message || "Impossible d'envoyer le message.",
         variant: "destructive",
-      });
+       });
       return false;
     }
   };
@@ -1137,9 +1137,9 @@ export default function SimpleSMSPage() {
                             setPhoneView('chat'); 
                             setDefaultMsg('');
                             setNewRecipientSearch('');
-                          } catch (e) {
+                          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
                             setShowAgentNotFoundDialog(true);
-                          } finally {
+                           } finally {
                             setIsResolvingContact(false);
                           }
                         }}
@@ -1487,8 +1487,8 @@ export default function SimpleSMSPage() {
                           await sendIndividual({ recipientIdentifier, content });
                           toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
                           return;
-                        } catch (e: any) {
-                          toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive' });
+                        } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                          toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });
                         }
                       }}
                     />

@@ -212,13 +212,13 @@ export default function SectorSubAgentsPage() {
 
       setMatriculeLookupStatus('found');
       setMatriculeLookupMessage('Agent trouvé');
-    } catch (e: any) {
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       const status = e?.response?.status;
       if (status === 404) {
         setMatriculeLookupStatus('not_found');
         setMatriculeLookupMessage('');
         setAgentNotFoundOpen(true);
-      } else {
+       } else {
         setMatriculeLookupStatus('error');
         setMatriculeLookupMessage('Erreur lors de la recherche');
       }
@@ -298,12 +298,12 @@ export default function SectorSubAgentsPage() {
       setOpen(false);
       resetForm();
       refetch();
-    } catch (e: any) {
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       toast({
         variant: "destructive",
         title: "Erreur",
         description: e?.message || "Impossible de créer l'agent.",
-      });
+       });
     } finally {
       setSaving(false);
     }

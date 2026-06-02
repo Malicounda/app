@@ -34,12 +34,12 @@ function AuthInlineImage({ url, alt, className }: { url: string; alt: string; cl
           try {
             const j = await res.json();
             msg = j?.message || msg;
-          } catch {
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
             try {
               msg = await res.text();
-            } catch {
+             } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
               /* ignore */
-            }
+             }
           }
           throw new Error(msg);
         }

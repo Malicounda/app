@@ -18,6 +18,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "optimize-images": "node scripts/optimize-images.js",
     "optimize-images:watch": "nodemon --watch public --ext jpg,jpeg,png,webp --exec \"npm run optimize-images\"",
+    "test": "vitest run src/lib/__tests__/syncEngine.test.ts",
     "test:compatibility": "node scripts/test-compatibility.js",
     "test:compatibility:ci": "node scripts/test-compatibility.js http://localhost:5173",
     "test:lighthouse": "lighthouse http://localhost:5173 --output html --output-path ./test-results/lighthouse-report.html --chrome-flags=\"--headless\""
@@ -84,6 +85,11 @@
     "zod": "^3.22.4",
     "zustand": "^5.0.5"
   },
+  "overrides": {
+    "esbuild": "^0.25.0",
+    "minimatch": "^9.0.7",
+    "ws": "^8.20.1"
+  },
   "devDependencies": {
     "@babel/core": "^7.23.6",
     "@babel/plugin-transform-react-constant-elements": "^7.29.7",
@@ -106,6 +112,7 @@
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "fake-indexeddb": "^6.2.5",
     "glob": "^10.3.10",
     "postcss": "^8.4.33",
     "sharp": "^0.33.0",
@@ -114,6 +121,7 @@
     "typescript": "^5.9.2",
     "vite": "^5.4.19",
     "vite-plugin-mkcert": "^1.17.6",
-    "vite-tsconfig-paths": "^4.3.2"
+    "vite-tsconfig-paths": "^4.3.2",
+    "vitest": "^4.1.8"
   }
 }

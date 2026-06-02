@@ -58,9 +58,9 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       setOpen(false);
       setSelectedFile(null);
       onUploadSuccess();
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       // Error is handled in the hook
-    }
+     }
   };
 
   const getDocumentLabel = (type: string) => {

@@ -111,9 +111,9 @@ export default function SectorSMSPage() {
 
         const unique = Array.from(new Map(opts.map((o) => [o.value, o])).values());
         if (!cancelled) setRecipientOptions(unique);
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         if (!cancelled) setRecipientOptions([]);
-      }
+       }
     })();
     return () => { cancelled = true; };
   }, [domaineId, user]);
@@ -178,12 +178,12 @@ export default function SectorSMSPage() {
       }
       toast({ title: "Message envoyé", description: "Le message a été envoyé." });
       return true;
-    } catch (error: any) {
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Erreur",
         description: error?.message || "Impossible d'envoyer le message.",
         variant: "destructive",
-      });
+       });
       return false;
     }
   };
@@ -192,12 +192,12 @@ export default function SectorSMSPage() {
     try {
       await deleteMessage(message);
       toast({ title: "Message supprimé", description: "Le message a été retiré." });
-    } catch (error: any) {
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Suppression impossible",
         description: error?.message || "Une erreur est survenue lors de la suppression.",
         variant: "destructive",
-      });
+       });
     }
   };
 

@@ -183,9 +183,9 @@ export default function HunterPermits() {
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'dd MMMM yyyy', { locale: fr });
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       return dateString;
-    }
+     }
   };
 
   // Fonction pour obtenir le label du type de pièce jointe

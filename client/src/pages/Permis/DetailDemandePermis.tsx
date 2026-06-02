@@ -109,9 +109,9 @@ export default function DetailDemandePermis() {
 
         const data = await response.json();
         setDemande(data);
-      } catch (err) {
+      } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
         setError(err instanceof Error ? err.message : 'Une erreur est survenue');
-      } finally {
+       } finally {
         setIsLoading(false);
       }
     };

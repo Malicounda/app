@@ -31,7 +31,7 @@ export default function AgentTopHeader() {
         const res = await authenticatedFetch(`/api/messages/unread-count?${getMessagingDomaineQueryParam()}`);
         if (!res.ok) return { total: 0 };
         return await res.json();
-      } catch { return { total: 0 }; }
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return { total: 0  }; }
     },
     enabled: !!user,
     refetchInterval: 5_000,

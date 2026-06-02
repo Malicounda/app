@@ -35,7 +35,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         const res = await authenticatedFetch(`/api/messages/unread-count`);
         if (!res.ok) return { total: 0 };
         return await res.json();
-      } catch { return { total: 0 }; }
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return { total: 0  }; }
     },
     enabled: !!user,
     refetchInterval: 15_000,
@@ -96,7 +96,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     try {
       const v = localStorage.getItem('sidebar:collapsed');
       return v === '1';
-    } catch { return false; }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return false;  }
   });
 
   // Fonction pour gérer le toggle du sidebar
@@ -138,7 +138,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     const handleToggleSidebarCollapse = () => {
       setIsSidebarCollapsed((prev) => {
         const next = !prev;
-        try { localStorage.setItem('sidebar:collapsed', next ? '1' : '0'); } catch {}
+        try { localStorage.setItem('sidebar:collapsed', next ? '1' : '0'); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
         return next;
       });
     };

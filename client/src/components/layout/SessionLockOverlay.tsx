@@ -23,7 +23,7 @@ function restoreBodyPointerEvents() {
     document.documentElement.style.removeProperty("overflow");
     document.body.removeAttribute("data-scroll-locked");
     document.documentElement.removeAttribute("data-scroll-locked");
-  } catch {}
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 }
 
 function LockBackdrop({
@@ -96,10 +96,10 @@ export default function SessionLockOverlay({
     setError("");
     try {
       await forceLogout();
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       setError("Déconnexion impossible. Rechargez la page ou videz le cache.");
       setIsLoggingOut(false);
-    }
+     }
   }, [forceLogout, isLoggingOut]);
 
   const handleUnlock = async () => {

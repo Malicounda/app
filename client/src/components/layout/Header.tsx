@@ -58,12 +58,12 @@ export default function Header() {
         description: "Toutes les données ont été mises à jour",
         variant: "default",
       });
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Erreur d'actualisation",
         description: "Impossible de mettre à jour les données",
         variant: "destructive",
-      });
+       });
     } finally {
       // Arrêter l'animation
       if (refreshButton) {

@@ -26,7 +26,7 @@ function createOutboxId() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const uuid = (globalThis as any)?.crypto?.randomUUID?.();
     if (uuid) return uuid;
-  } catch {}
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
@@ -95,9 +95,9 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
     let body: any = undefined;
     try {
       body = text ? JSON.parse(text) : undefined;
-    } catch (_) {
+    } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
       body = undefined;
-    }
+     }
 
     const serverMessage =
       typeof body?.message === "string" ? body.message.trim() : (typeof body?.error === "string" ? body.error.trim() : "");
@@ -138,14 +138,14 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
       if (!isDuplicateAlert && !isStaleMessaging404) {
         window.dispatchEvent(new CustomEvent('apiRefusal', { detail }));
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
     if (res.status === 401) {
       // Émettre un événement global pour que AuthContext gère le logout proprement
       console.log("Session expirée - Déclenchement du logout propre...");
       try {
         window.dispatchEvent(new CustomEvent('sessionExpired'));
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }
 
     throw error;
@@ -164,10 +164,10 @@ async function safeParseResponse<T = any>(res: Response): Promise<T | undefined>
   if (contentType.includes("application/json")) {
     try {
       return JSON.parse(raw) as T;
-    } catch (_) {
+    } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
       // Si JSON invalide, fallback undefined
       return undefined as any;
-    }
+     }
   }
 
   // Non-JSON, retourner le texte brut si besoin
@@ -240,7 +240,7 @@ export async function apiRequest<T>({
       if (domain) {
         headers.append('X-Domain', domain);
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     
     let body: BodyInit | undefined;
 
@@ -283,12 +283,12 @@ export async function apiRequestFallback<T = any>(options: { url: string; method
     // assume apiRequest is defined earlier in this file
     // @ts-ignore
     return await apiRequest(options) as T;
-  } catch (err: any) {
+  } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
     const msg = String(err?.message || '').toLowerCase();
     const url = String(options?.url || '').toLowerCase();
     if ((url.endsWith('/api/hunters/me') || url.includes('/api/hunters/me')) && (msg.includes('chasseur non trouv') || err?.status === 404)) {
       return null;
-    }
+     }
     throw err;
   }
 }
@@ -320,7 +320,7 @@ export function getQueryFn<T = any>(options: {
         if (domain) {
           (headers as any)['X-Domain'] = domain;
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       const res = await fetch(fullUrl, {
         credentials: "include", // Toujours envoyer les cookies de session
         headers,
@@ -333,7 +333,7 @@ export function getQueryFn<T = any>(options: {
         // Émettre l'événement de session expirée pour logout propre
         try {
           window.dispatchEvent(new CustomEvent('sessionExpired'));
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
         if (unauthorizedBehavior === "returnNull") return null as any;
         const err: any = new Error("Unauthorized");
         err.status = 401;

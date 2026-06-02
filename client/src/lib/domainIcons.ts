@@ -56,9 +56,9 @@ function readThemeCfg(): ThemeConfig | null {
   try {
     const raw = localStorage.getItem("theme:superadmin");
     return raw ? JSON.parse(raw) : null;
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     return null;
-  }
+   }
 }
 
 export type DomainVisual = {

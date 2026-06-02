@@ -75,7 +75,7 @@ const ProfileSelectionModal: React.FC<{ isOpen: boolean; onOpenChange: (open: bo
       };
       const dom = domainMap[type];
       if (dom) localStorage.setItem('domain', dom);
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
     navigate(path);
   };

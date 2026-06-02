@@ -56,8 +56,8 @@ export default function SupervisorPage() {
         const res = await authenticatedFetch(`/api/messages/unread-count?${getMessagingDomaineQueryParam()}`);
         if (!res.ok) return { total: 0 };
         return await res.json();
-      } catch {
-        return { total: 0 };
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+        return { total: 0  };
       }
     },
     enabled: !!user,
@@ -74,9 +74,9 @@ export default function SupervisorPage() {
         if (!res.ok) return [];
         const notifs = res.data as any[];
         return notifs.filter((n: any) => !n.is_read && n.alert).slice(0, 10);
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         return [];
-      }
+       }
     },
     enabled: !!user,
     refetchInterval: 3_000, // Actualisation presque instantanée de la carte Alertes
@@ -149,9 +149,9 @@ export default function SupervisorPage() {
                         await apiRequest("PATCH", `/alerts/user/${user?.id}/read-all`);
                         queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
                         queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
-                      } catch {
+                      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
                         /* ignore */
-                      }
+                       }
                     }}
                     className="text-[9px] font-bold text-amber-700 underline transition-colors hover:text-amber-900"
                   >

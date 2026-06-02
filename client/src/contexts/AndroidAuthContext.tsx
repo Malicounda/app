@@ -138,11 +138,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         throw new Error(result.error || 'Erreur de connexion');
       }
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       const errorMessage = error instanceof Error ? error.message : 'Erreur de connexion';
       setError(errorMessage);
       throw error;
-    } finally {
+     } finally {
       setIsLoading(false);
     }
   };

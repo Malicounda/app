@@ -222,8 +222,8 @@ const HuntingPermitRequest: React.FC = () => {
       setSubmissionSuccess(true);
       toast({ title: "Succès", description: "Votre demande de permis a été soumise avec succès." });
 
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message || "La soumission a échoué." });
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
+      toast({ variant: "destructive", title: "Erreur", description: error.message || "La soumission a échoué."  });
     } finally {
       setIsSubmitting(false);
     }

@@ -33,16 +33,16 @@ const EspecesFauniques: React.FC = () => {
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed?.data) ? parsed.data : [];
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return [];
-    }
+     }
   });
   const [loading, setLoading] = useState<boolean>(() => {
     try {
       return !localStorage.getItem('settings_species_cache_v1');
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return true;
-    }
+     }
   });
   const speciesCache = useRef<{ data: Species[], timestamp: number } | null>(null);
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -56,14 +56,14 @@ const EspecesFauniques: React.FC = () => {
     try {
       const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : null;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return null;
-    }
+     }
   };
   const writeCache = (key: string, data: any) => {
     try {
       localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   };
   const getCachedWithTTL = (key: string, ttl: number): { expired: boolean; data: any } | null => {
     const c = readCache(key);
@@ -74,7 +74,7 @@ const EspecesFauniques: React.FC = () => {
   const removeCache = (key: string) => {
     try {
       localStorage.removeItem(key);
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   };
   const [newSpeciesOpen, setNewSpeciesOpen] = useState(false);
   const [editSpeciesOpen, setEditSpeciesOpen] = useState(false);
@@ -86,14 +86,14 @@ const EspecesFauniques: React.FC = () => {
       const raw = localStorage.getItem('settings_species_page');
       const n = raw ? parseInt(raw, 10) : 1;
       return Number.isFinite(n) && n > 0 ? n : 1;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return 1;
-    }
+     }
   });
   const itemsPerPage = 10;
 
   useEffect(() => {
-    try { localStorage.setItem('settings_species_page', String(currentPage)); } catch {}
+    try { localStorage.setItem('settings_species_page', String(currentPage)); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, [currentPage]);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -116,9 +116,9 @@ const EspecesFauniques: React.FC = () => {
       const parsed = JSON.parse(raw);
       const arr = Array.isArray(parsed?.data) ? parsed.data : [];
       return arr;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return [];
-    }
+     }
   });
   const groupOptionsCache = useRef<{ data: string[], timestamp: number } | null>(null);
   
@@ -152,7 +152,7 @@ const EspecesFauniques: React.FC = () => {
         groupOptionsCache.current = { data: options, timestamp: Date.now() };
         writeCache(LS_KEYS.groups, options);
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, [CACHE_DURATION]);
 
   // Garde: s'assurer que species est toujours un tableau pour le rendu

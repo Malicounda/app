@@ -60,9 +60,9 @@ export default function ReboisementLocalisation() {
         if (arr) setArrondissements(arr);
         if (eco) setEcoZones(eco);
         setLoadProgress(100);
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         if (!cancelled) setLoadProgress(100);
-      }
+       }
     };
     loadAll();
     return () => { cancelled = true; };

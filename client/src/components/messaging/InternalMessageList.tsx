@@ -181,9 +181,9 @@ export default function InternalMessageList({
           setSectorAgents(arr.map((u: any) => ({ id: Number(u.id), label: String((u.label || `#${u.id}`) + (u.departement ? ` — ${u.departement}` : '')) })));
           const depts = Array.from(new Set(arr.map((u: any) => String(u.departement || '').trim()).filter(Boolean)));
           setDeptOptions(depts);
-        } catch (e: any) {
+        } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
           setSectorError(e?.message || 'Impossible de charger la liste des agents de secteur');
-        } finally {
+         } finally {
           setSectorLoading(false);
         }
       })();
@@ -202,9 +202,9 @@ export default function InternalMessageList({
         const data = await resp.json();
         const arr = Array.isArray(data) ? data : [];
         setSectorAgents(arr.map((u: any) => ({ id: Number(u.id), label: String((u.label || `#${u.id}`) + (u.departement ? ` — ${u.departement}` : '')) })));
-      } catch (e: any) {
+      } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         setSectorError(e?.message || 'Impossible de charger la liste des agents de secteur');
-      } finally {
+       } finally {
         setSectorLoading(false);
       }
     };
@@ -257,9 +257,9 @@ export default function InternalMessageList({
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-launcher-badge'] });
         window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         onStaleMessage?.(m);
-      }
+       }
     }
   };
 
@@ -313,10 +313,10 @@ export default function InternalMessageList({
     try {
       await onDelete(messageToDelete);
       setMessageToDelete(null);
-    } catch (error: any) {
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       const message = error?.message ?? error?.toString?.() ?? "Une erreur est survenue lors de la suppression.";
       setDeleteError(message);
-    } finally {
+     } finally {
       setDeleting(false);
     }
   };
@@ -817,9 +817,9 @@ export default function InternalMessageList({
                     throw new Error(data?.message || 'Échec du transfert');
                   }
                   setForwardFor(null);
-                } catch (err: any) {
+                } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
                   setForwardError(err?.message || 'Échec du transfert');
-                } finally {
+                 } finally {
                   setForwardSubmitting(false);
                 }
               }}

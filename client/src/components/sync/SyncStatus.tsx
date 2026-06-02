@@ -41,9 +41,9 @@ export const SyncStatusComponent: React.FC = () => {
       } else {
         setSyncError(result.error || 'Erreur de synchronisation');
       }
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       setSyncError('Erreur de synchronisation');
-    } finally {
+     } finally {
       setIsSyncing(false);
     }
   };

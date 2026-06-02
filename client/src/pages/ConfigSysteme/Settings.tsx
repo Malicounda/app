@@ -36,9 +36,9 @@ const formatPrice = (value: string | number): string => {
 const formatXof = (n: number): string => {
   try {
     return Number(n).toLocaleString('fr-FR');
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     return String(n ?? '');
-  }
+   }
 };
 const parseXof = (s: string): number | null => {
   const digits = (s || '').replace(/[^0-9]/g, '');
@@ -91,9 +91,9 @@ export default function Settings() {
           out = out.slice(1);
         }
         return out;
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         return null;
-      }
+       }
     };
 
     // 1) Tenter UTF-8
@@ -135,8 +135,8 @@ export default function Settings() {
       if (!res.ok) throw new Error(res.error || 'save failed');
       setEnableRegionalFilterProtectedZones(next);
       toast({ title: next ? 'Filtrage régional activé' : 'Filtrage régional désactivé' });
-    } catch (e: any) {
-      toast({ title: 'Erreur', description: 'Impossible de sauvegarder le paramètre', variant: 'destructive' });
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: 'Erreur', description: 'Impossible de sauvegarder le paramètre', variant: 'destructive'  });
     } finally {
       setLoadingRegionalFilter(false);
     }
@@ -170,7 +170,7 @@ export default function Settings() {
       if (t === 'season') return 'hunting-season';
       if (t === 'zones') return 'zones-config';
       if (t === 'periods') return 'specific-periods';
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     return 'hunting-season';
   })();
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -196,9 +196,9 @@ export default function Settings() {
     try {
       if (!Array.isArray(deleteLayerEntities) || !Array.isArray(selectedDeleteEntities)) return 0;
       return deleteLayerEntities.reduce((acc, e) => acc + (selectedDeleteEntities.includes(e.id) ? 1 : 0), 0);
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return selectedDeleteEntities.length;
-    }
+     }
   }, [deleteLayerEntities, selectedDeleteEntities]);
 
   // États pour la gestion des types de zones protégées
@@ -310,9 +310,9 @@ export default function Settings() {
       } else {
         setUnits([]);
       }
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       setUnits([]);
-    } finally {
+     } finally {
       setLoadingUnits(false);
     }
   }, []);
@@ -434,9 +434,9 @@ export default function Settings() {
       } else {
         setSaisieGroups([]);
       }
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       setSaisieGroups([]);
-    } finally {
+     } finally {
       setLoadingSaisieGroups(false);
     }
   }, [selectedSaisieGroupKey]);
@@ -446,9 +446,9 @@ export default function Settings() {
     try {
       const resp = await apiRequest<any>('GET', '/api/infractions/saisie-items');
       if (resp.ok && Array.isArray(resp.data)) setSaisieItems(resp.data as SaisieItem[]); else setSaisieItems([]);
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       setSaisieItems([]);
-    } finally {
+     } finally {
       setLoadingSaisie(false);
     }
   }, []);
@@ -580,8 +580,8 @@ export default function Settings() {
       setGroupManagerOpen(false);
       resetGroupForm();
       await loadSaisieGroups();
-    } catch (e) {
-      toast({ title: 'Erreur', description: 'Impossible de sauvegarder le groupe', variant: 'destructive' });
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: 'Erreur', description: 'Impossible de sauvegarder le groupe', variant: 'destructive'  });
     } finally {
       setGroupFormSubmitting(false);
     }
@@ -976,9 +976,9 @@ export default function Settings() {
         setSavingTaxEspeceId(row.espece_id);
         try {
           await saveHuntingTax({ espece_id: row.espece_id, prix_xof: newVal }, { silent: true });
-        } catch {
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
           // handled inside saveHuntingTax toast
-        } finally {
+         } finally {
           setSavingTaxEspeceId(null);
         }
       }
@@ -1646,10 +1646,10 @@ export default function Settings() {
       // Pré-sélectionner une cible différente si possible
       const firstOther = zoneTypes.find(t => t.id !== id);
       setDeleteZoneTypeTargetId(firstOther ? firstOther.id : null);
-    } catch (e) {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       setDeleteZoneTypeUsageCount(0);
       setDeleteZoneTypeUsageIds([]);
-    }
+     }
   };
 
   // Confirmer la suppression d'un type de zone
@@ -1744,7 +1744,7 @@ export default function Settings() {
           });
 
           setDeleteZoneTypeConfirm({ open: false, id: null, name: '' });
-          try { await loadZoneTypes(); } catch {}
+          try { await loadZoneTypes(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
           return;
         } catch (cascadeErr: any) {
           console.error('[SETTINGS] cascade delete failed:', cascadeErr);
@@ -1894,9 +1894,9 @@ export default function Settings() {
         const list = features.map((f: any) => ({ id: f.properties?.id ?? f.properties?.code ?? f.properties?.nom, name: f.properties?.nom ?? f.properties?.name ?? f.properties?.code } as StatusEntity));
         setRegionsList(list);
       }
-    } catch (e) {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       // silencieux
-    }
+     }
   }, []);
 
   const loadStatusEntities = useCallback(async (level: StatusLevel) => {
@@ -2682,9 +2682,9 @@ export default function Settings() {
                         }
                         if (rows.length === 0) { setImportErrors(['Aucune ligne valide détectée']); return; }
                         setImportRows(rows);
-                      } catch (err: any) {
+                      } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
                         setImportErrors([err?.message || 'Erreur de lecture du fichier']);
-                      }
+                       }
                     }} />
                     {importFileName && (
                       <div className="text-xs text-gray-600">Fichier: {importFileName}</div>
@@ -2719,8 +2719,8 @@ export default function Settings() {
                         setImportFileName('');
                         await loadCodesInfractions();
                         await loadCodeItems();
-                      } catch (e: any) {
-                        toast({ title: 'Erreur', description: e?.message || 'Import échoué', variant: 'destructive' });
+                      } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                        toast({ title: 'Erreur', description: e?.message || 'Import échoué', variant: 'destructive'  });
                       } finally {
                         setImporting(false);
                       }
@@ -4558,12 +4558,12 @@ export default function Settings() {
 
                             setProtectedZoneType('');
 
-                          } catch (error: any) {
+                          } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
                             toast({
                               title: "Erreur",
                               description: error.message || "Impossible de téléverser les fichiers shapefile",
                               variant: "destructive"
-                            });
+                             });
                           } finally {
                             setLoading(false);
                           }
@@ -5705,9 +5705,9 @@ export default function Settings() {
                                           }
                                           if (rows.length === 0) { setInlineImportErrors(['Aucune ligne valide détectée']); return; }
                                           setInlineImportRows(rows);
-                                        } catch (err: any) {
+                                        } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
                                           setInlineImportErrors([err?.message || 'Erreur de lecture du fichier']);
-                                        }
+                                         }
                                       }} />
                                       {inlineImportFileName && (<div className="text-xs text-gray-600">Fichier: {inlineImportFileName}</div>)}
                                       {inlineImportErrors.length > 0 && (
@@ -5743,8 +5743,8 @@ export default function Settings() {
                                               setInlineImportFileName('');
                                               setInlineImportRows([]);
                                               await loadCodeItems();
-                                            } catch (e: any) {
-                                              toast({ title: 'Erreur', description: e?.message || 'Import échoué', variant: 'destructive' });
+                                            } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                                              toast({ title: 'Erreur', description: e?.message || 'Import échoué', variant: 'destructive'  });
                                             } finally {
                                               setInlineImporting(false);
                                             }
@@ -6274,8 +6274,8 @@ export default function Settings() {
                         } else {
                           toast({ title: 'Succès', description: 'Code et documents ajoutés' });
                         }
-                      } catch {
-                        toast({ title: 'Info', description: 'Code créé. Upload documents non disponible pour le moment.', variant: 'default' });
+                      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                        toast({ title: 'Info', description: 'Code créé. Upload documents non disponible pour le moment.', variant: 'default'  });
                       }
                     } else {
                       toast({ title: 'Succès', description: 'Code créé' });

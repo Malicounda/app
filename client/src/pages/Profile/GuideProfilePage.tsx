@@ -252,7 +252,7 @@ export default function GuideProfilePage() {
         try {
             const u = new URL(apiUrl, window.location.origin);
             serverOrigin = `${u.protocol}//${u.host}`;
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
         let v = "";
         if (typeof raw === "string") {

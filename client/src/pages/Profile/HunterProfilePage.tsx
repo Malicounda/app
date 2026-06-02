@@ -56,12 +56,12 @@ export default function HunterProfilePage() {
           url: '/api/hunters/me',
           method: 'GET',
         });
-      } catch (err: any) {
+      } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
         const msg = String(err?.message || '').toLowerCase();
         if (msg.includes('chasseur non trouvé') || msg.includes('aucun profil chasseur') || err?.status === 404) {
           // Treat "hunter not found" as no profile for the current user
           return null;
-        }
+         }
         throw err;
       }
     },
@@ -97,9 +97,9 @@ export default function HunterProfilePage() {
           } else {
             setAvatarUrl("");
           }
-        } catch (_) {
+        } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
           setAvatarUrl("");
-        }
+         }
       })();
     } else {
       setAvatarUrl("");

@@ -418,7 +418,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           if (selectedArrondissementLayerRef.current && layersRef.current.arrondissements) {
             (layersRef.current.arrondissements as any).resetStyle(selectedArrondissementLayerRef.current as any);
           }
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
         selectedRegionLayerRef.current = null;
         selectedDepartementLayerRef.current = null;
         selectedCommuneLayerRef.current = null;
@@ -1248,7 +1248,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         if (b && b.isValid && b.isValid()) {
           map.fitBounds(b, { padding: [24, 24], maxZoom: 11 });
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }, [(props as any).zicsGeoJSON, (props as any).showZics]);
 
     // Rendu des zones Amodiées depuis les données GeoJSON en props
@@ -1314,7 +1314,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         if (b && b.isValid && b.isValid()) {
           map.fitBounds(b, { padding: [24, 24], maxZoom: 11 });
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }, [(props as any).amodieesGeoJSON, (props as any).showAmodiees]);
 
     // Rendu des Parcs de visite depuis les données GeoJSON en props
@@ -1407,7 +1407,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         if (b && b.isValid && b.isValid()) {
           map.fitBounds(b, { padding: [24, 24], maxZoom: 11 });
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }, [(props as any).parcVisiteGeoJSON, (props as any).showParcVisite]);
 
     // Rendu des zones de Régulation depuis les données GeoJSON en props
@@ -1500,7 +1500,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         if (b && b.isValid && b.isValid()) {
           map.fitBounds(b, { padding: [24, 24], maxZoom: 11 });
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }, [(props as any).regulationGeoJSON, (props as any).showRegulation]);
 
     // État pour filtrer les alertes par type
@@ -1800,7 +1800,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       const ensureLayerOnTop = (layer: any) => {
         if (!layer) return;
         if (typeof layer.setZIndexOffset === 'function') {
-          try { layer.setZIndexOffset(2000); } catch {}
+          try { layer.setZIndexOffset(2000); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
         }
         const el = layer.getElement?.();
         if (el) {
@@ -1826,7 +1826,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
               L.DomEvent.stopPropagation(e.originalEvent);
             }
             L.DomEvent.stop(e);
-          } catch {}
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
           return false;
         });
 
@@ -1928,7 +1928,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                 L.DomEvent.stopPropagation(e.originalEvent);
               }
               L.DomEvent.stop(e);
-            } catch {}
+            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
             return false;
           });
 
@@ -1978,13 +1978,13 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                 L.DomEvent.stopPropagation(e.originalEvent);
               }
               L.DomEvent.stop(e);
-            } catch {}
+            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
             try {
               if (e?.layer?.spiderfy) {
                 e.layer.spiderfy();
                 console.log('[Cluster] Spiderfy executed');
               }
-            } catch {}
+            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
             return false;
           });
 
@@ -1996,7 +1996,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                 L.DomEvent.stopPropagation(e.originalEvent);
               }
               L.DomEvent.stop(e);
-            } catch {}
+            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
             return false;
           });
 
@@ -2213,7 +2213,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           const c = b.getCenter();
           (gj as any).remove();
           return c;
-        } catch { return null; }
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return null;  }
       };
 
       for (const f of (props.regionsGeoJSON.features as any[])) {
@@ -2305,7 +2305,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       };
       const hideNoReportsBanner = () => {
         if (noReportsControlRef.current) {
-          try { (noReportsControlRef.current as any).remove(); } catch {}
+          try { (noReportsControlRef.current as any).remove(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
           noReportsControlRef.current = null;
           noReportsElRef.current = null;
         }
@@ -2328,7 +2328,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           } else {
             hideNoReportsBanner();
           }
-        } catch { /* ignore */ }
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  /* ignore */  }
       };
 
       if (!show || !data.length) return;
@@ -2455,7 +2455,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
 
             // Ouvrir popup et zoomer au clic
             oms.addListener('click', function(marker: L.Marker) {
-              try { map.setView((marker as any).getLatLng(), 16, { animate: true }); } catch {}
+              try { map.setView((marker as any).getLatLng(), 16, { animate: true }); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
               marker.openPopup();
             });
             // Fit bounds sur l'ensemble des points
@@ -2464,7 +2464,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
               map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
               // La vue s'est ajustée, retirer la bannière si elle était affichée
               if (noReportsControlRef.current) {
-                try { (noReportsControlRef.current as any).remove(); } catch {}
+                try { (noReportsControlRef.current as any).remove(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                 noReportsControlRef.current = null;
                 noReportsElRef.current = null;
               }
@@ -2528,11 +2528,11 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             }
           }
           let expanded = false;
-          const addBranches = () => { if (expanded) return; branchLines.forEach(l => layersRef.current.huntingReports!.addLayer(l)); branchMarkers.forEach(m => { try { (m as any).setZIndexOffset?.(1000); } catch {} layersRef.current.huntingReports!.addLayer(m); }); expanded = true; };
+          const addBranches = () => { if (expanded) return; branchLines.forEach(l => layersRef.current.huntingReports!.addLayer(l)); branchMarkers.forEach(m => { try { (m as any).setZIndexOffset?.(1000); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  } layersRef.current.huntingReports!.addLayer(m); }); expanded = true; };
           const removeBranches = () => { if (!expanded) return; branchLines.forEach(l => layersRef.current.huntingReports!.removeLayer(l)); branchMarkers.forEach(m => layersRef.current.huntingReports!.removeLayer(m)); expanded = false; };
           centerMarker.on('click', () => {
             // Zoomer sur la zone, déployer les branches et ouvrir la popup du premier prélèvement
-            try { map.setView(center, 16, { animate: true }); } catch {}
+            try { map.setView(center, 16, { animate: true }); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
             if (!expanded) addBranches(); else addBranches();
             centerMarker.openPopup();
           });
@@ -2545,7 +2545,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
           // La vue s'est ajustée, retirer la bannière si elle était affichée
           if (noReportsControlRef.current) {
-            try { (noReportsControlRef.current as any).remove(); } catch {}
+            try { (noReportsControlRef.current as any).remove(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
             noReportsControlRef.current = null;
             noReportsElRef.current = null;
           }
@@ -2557,8 +2557,8 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
 
       // Cleanup: timer et listener
       return () => {
-        try { if (bannerTimer) clearTimeout(bannerTimer); } catch {}
-        try { map.off('moveend', updateNoReportsBanner as any); } catch {}
+        try { if (bannerTimer) clearTimeout(bannerTimer); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+        try { map.off('moveend', updateNoReportsBanner as any); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       };
     }, [props.showHuntingReports, props.huntingReports, internalHuntingReports, reportsVisible, props.userRole]);
 
@@ -2775,12 +2775,12 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                         // Toggle: re-click to deselect
                         if (selectedDepartementLayerRef.current === (e.target as any)) {
                           if (layersRef.current.departements) {
-                            try { (layersRef.current.departements as any).resetStyle(selectedDepartementLayerRef.current as any); } catch {}
+                            try { (layersRef.current.departements as any).resetStyle(selectedDepartementLayerRef.current as any); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                           }
                           selectedDepartementLayerRef.current = null;
                         } else {
                           if (selectedDepartementLayerRef.current && layersRef.current.departements) {
-                            try { (layersRef.current.departements as any).resetStyle(selectedDepartementLayerRef.current as any); } catch {}
+                            try { (layersRef.current.departements as any).resetStyle(selectedDepartementLayerRef.current as any); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                           }
                           selectedDepartementLayerRef.current = e.target as any;
                           (e.target as any).setStyle({ color: '#FFD700', weight: 3 });
@@ -2916,17 +2916,17 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             },
             click: (e: any) => {
               if ((e.target as any).getBounds) {
-                try { map.fitBounds((e.target as any).getBounds()); } catch {}
+                try { map.fitBounds((e.target as any).getBounds()); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
               }
               if (!colorizeRegionsByStatus) {
                 if (selectedCommuneLayerRef.current === (e.target as any)) {
                   if (layersRef.current.communes) {
-                    try { (layersRef.current.communes as any).resetStyle(selectedCommuneLayerRef.current as any); } catch {}
+                    try { (layersRef.current.communes as any).resetStyle(selectedCommuneLayerRef.current as any); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                   }
                   selectedCommuneLayerRef.current = null;
                 } else {
                   if (selectedCommuneLayerRef.current && layersRef.current.communes) {
-                    try { (layersRef.current.communes as any).resetStyle(selectedCommuneLayerRef.current as any); } catch {}
+                    try { (layersRef.current.communes as any).resetStyle(selectedCommuneLayerRef.current as any); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                   }
                   selectedCommuneLayerRef.current = e.target as any;
                   (e.target as any).setStyle({ color: '#f59e0b', weight: 2.4 });
@@ -3055,17 +3055,17 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             },
             click: (e: any) => {
               if ((e.target as any).getBounds) {
-                try { map.fitBounds((e.target as any).getBounds()); } catch {}
+                try { map.fitBounds((e.target as any).getBounds()); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
               }
               if (!colorizeRegionsByStatus) {
                 if (selectedArrondissementLayerRef.current === (e.target as any)) {
                   if (layersRef.current.arrondissements) {
-                    try { (layersRef.current.arrondissements as any).resetStyle(selectedArrondissementLayerRef.current as any); } catch {}
+                    try { (layersRef.current.arrondissements as any).resetStyle(selectedArrondissementLayerRef.current as any); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                   }
                   selectedArrondissementLayerRef.current = null;
                 } else {
                   if (selectedArrondissementLayerRef.current && layersRef.current.arrondissements) {
-                    try { (layersRef.current.arrondissements as any).resetStyle(selectedArrondissementLayerRef.current as any); } catch {}
+                    try { (layersRef.current.arrondissements as any).resetStyle(selectedArrondissementLayerRef.current as any); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                   }
                   selectedArrondissementLayerRef.current = e.target as any;
                   (e.target as any).setStyle({ color: '#a855f7', weight: 2.1 });
@@ -3612,7 +3612,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
               try {
                 (layer as any).bringToFront && (layer as any).bringToFront();
                 ensureAlertsPaneZIndex();
-              } catch {}
+              } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
             }
           }
         }).addTo(map);
@@ -3654,9 +3654,9 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         const center = gj.getBounds().getCenter();
         gj.remove();
         return center;
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         return null;
-      }
+       }
     };
 
     const findDepartementCenter = (name?: string): L.LatLng | null => {
@@ -3673,7 +3673,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         const center = gj.getBounds().getCenter();
         gj.remove();
         return center;
-      } catch { return null; }
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return null;  }
     };
 
     useEffect(() => {
@@ -3983,13 +3983,13 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             // Toggle: si on re-clique la même couche, on désélectionne
             if (selectedRegionLayerRef.current === (e.target as any)) {
               if (layersRef.current.regions) {
-                try { (layersRef.current.regions as any).resetStyle(selectedRegionLayerRef.current as any); } catch {}
+                try { (layersRef.current.regions as any).resetStyle(selectedRegionLayerRef.current as any); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
               }
               selectedRegionLayerRef.current = null;
             } else {
               // Réinitialiser l'ancienne sélection
               if (selectedRegionLayerRef.current && layersRef.current.regions) {
-                try { (layersRef.current.regions as any).resetStyle(selectedRegionLayerRef.current as any); } catch {}
+                try { (layersRef.current.regions as any).resetStyle(selectedRegionLayerRef.current as any); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
               }
               selectedRegionLayerRef.current = e.target as any;
               (e.target as any).setStyle({ color: '#FFD700', weight: 3 });
@@ -4088,7 +4088,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           const c = b.getCenter();
           return c;
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       // 2) Fallback: coordonnées approximatives de Dakar (Cap-Vert)
       return new L.LatLng(14.7167, -17.4677);
     };

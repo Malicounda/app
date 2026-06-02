@@ -52,7 +52,7 @@ async function ensureAndroidNotificationChannel(): Promise<void> {
   try {
     // Supprimer TOUS les anciens channels (y compris v4 qui était sans son)
     for (const oldId of OLD_CHANNEL_IDS) {
-      try { await LocalNotifications.deleteChannel({ id: oldId }); } catch { /* ignore */ }
+      try { await LocalNotifications.deleteChannel({ id: oldId }); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  /* ignore */  }
     }
 
     await LocalNotifications.createChannel({
@@ -172,7 +172,7 @@ export async function clearAllSystemNotifications(): Promise<void> {
       if (delivered.notifications.length > 0) {
         await LocalNotifications.removeDeliveredNotifications(delivered);
       }
-    } catch { /* removeDelivered pas toujours dispo */ }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  /* removeDelivered pas toujours dispo */  }
     console.log('[Notif] 🗑️ Toutes les notifications supprimées');
   } catch (e) {
     console.warn('[Notif] ⚠️ clearAll error:', e);
@@ -310,7 +310,8 @@ export function useNotifications(enabled = true, userId?: number | null) {
       
       // Listener pour le token FCM généré par l'app native
       PushNotifications.addListener('registration', async (token) => {
-        console.log('[FCM] Token natif reçu:', token.value);
+        // Cache the token to avoid printing it
+        console.log('[FCM] Token natif reçu: (redacted)');
         try {
           // Enregistrer ce token sur notre backend de la même façon que Web Push
           // mais avec un marqueur 'FCM' pour que le serveur sache comment l'utiliser

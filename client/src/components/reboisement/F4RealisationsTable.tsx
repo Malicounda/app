@@ -181,10 +181,10 @@ export function F4RealisationsTable({ rows, onChange, readOnly = false, globalTo
       onChange(rows.filter(r => r !== deleteTarget));
       setDeleteOpen(false);
       setDeleteTarget(null);
-    } catch (e: any) {
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       const msg = e?.body?.message || e?.message;
       setDeleteError(msg || "Suppression impossible");
-    }
+     }
   };
 
   const displayParent = (parent: string) => {

@@ -137,7 +137,7 @@ async function saveSession(u: User) {
         username: u.username,
       })
     );
-  } catch { }
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
 }
 
 async function clearSession() {
@@ -149,7 +149,7 @@ async function clearSession() {
       "userRegion",
       SYNC_KEY,
     ]);
-  } catch { }
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
 }
 
 /* ========================= */
@@ -186,7 +186,7 @@ export function AuthProvider({
         await saveSession(response);
       }
     } catch (e) {
-      console.warn("[AuthContext] Erreur lors du refreshUser (ex: token expiré)", e);
+      if (import.meta.env.DEV) console.warn("[AuthContext] Erreur lors du refreshUser (ex: token expiré)", e);
     }
   };
 
@@ -199,7 +199,7 @@ export function AuthProvider({
     setIsLoading(true);
 
     try {
-      console.log(`[AuthContext] Envoi POST /api/auth/login, identifier=${identifier}, domain=${localStorage.getItem("domain")}`);
+      if (import.meta.env.DEV) console.log(`[AuthContext] Envoi POST /api/auth/login, identifier=${identifier}, domain=${localStorage.getItem("domain")}`);
       const response = await apiRequest<{ user: User; token: string }>({
         url: "/api/auth/login",
         method: "POST",
@@ -210,9 +210,9 @@ export function AuthProvider({
         },
       });
 
-      console.log("[AuthContext] Backend Response:", { status: 200, data: response });
+      if (import.meta.env.DEV) console.log("[AuthContext] Backend Response:", { status: 200, data: { ...response, token: "[REDACTED]" } });
       if (response?.token) {
-        console.log("[AuthContext] Token reçu:", response.token);
+        if (import.meta.env.DEV) console.log("[AuthContext] Token reçu: (redacted)");
       }
 
       if (!response?.user) throw new Error("Utilisateur invalide");
@@ -252,9 +252,9 @@ export function AuthProvider({
 
       setLocation(homePage);
     } catch (err: any) {
-      console.error("[AuthContext] Erreur détaillée backend:", err);
+      if (import.meta.env.DEV) console.error("[AuthContext] Erreur détaillée backend:", err);
       if (err.response) {
-        console.error("[AuthContext] Status HTTP:", err.response.status, err.response.data);
+        if (import.meta.env.DEV) console.error("[AuthContext] Status HTTP:", err.response.status, err.response.data);
       }
       setError(err.message || "Erreur connexion");
       throw err;
@@ -275,7 +275,7 @@ export function AuthProvider({
           method: "POST",
         });
       } catch (e) {
-        console.warn("Logout API failed (ignored)", e);
+        if (import.meta.env.DEV) console.warn("Logout API failed (ignored)", e);
         // TODO: analytics / monitoring (ex: Sentry, Datadog)
         // trackEvent("logout_api_failed", { error: e });
       }
@@ -308,11 +308,11 @@ export function AuthProvider({
               setIsAuthenticated(true);
             }
           } catch (e) {
-            console.warn("Optimistic session load failed", e);
+            if (import.meta.env.DEV) console.warn("Optimistic session load failed", e);
           }
           
           // Refresh in background without awaiting (prevents 50s splash screen on backend cold start)
-          refreshUser().catch(console.error);
+          refreshUser().catch(err => { if (import.meta.env.DEV) console.error(err); });
         }
       } finally {
         setAuthInitialized(true);
@@ -342,17 +342,17 @@ export function AuthProvider({
         const currentPath = window.location.pathname;
         const publicPaths = ['/login', '/register', '/produits-forestiers', '/reboisement-login', '/alerte-login'];
         if (currentPath === '/' || publicPaths.some(p => currentPath.startsWith(p))) return;
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
       // Debounce: plusieurs requêtes 401 en même temps → un seul logout
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
-        console.log("[AuthContext] Session expirée détectée → logout propre");
+        if (import.meta.env.DEV) console.log("[AuthContext] Session expirée détectée → logout propre");
 
         // Nettoyer le token et la session
         try {
           localStorage.removeItem("token");
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
         await clearSession();
         await afterLogoutClearAll();
 
@@ -362,7 +362,7 @@ export function AuthProvider({
         // Stocker un message pour l'afficher sur la page de login
         try {
           localStorage.setItem("sessionExpiredMessage", "Votre session a expiré. Veuillez vous reconnecter.");
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
         // Rediriger vers la page de login appropriée
         setLocation(getLoginRoute(), { replace: true });

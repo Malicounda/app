@@ -34,7 +34,7 @@ const isApkMode = (): boolean => {
     }
     if (typeof (window as any).Capacitor !== "undefined" &&
       (window as any).Capacitor.isNativePlatform?.()) return true;
-  } catch { }
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
   return false;
 };
 
@@ -58,7 +58,7 @@ export default function AlerteLogin() {
     document.title = "Connexion Alerte | SCoDi";
     try {
       localStorage.setItem("domain", "ALERTE");
-    } catch { }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
   }, []);
 
   // Afficher le message de session expirée si présent
@@ -73,7 +73,7 @@ export default function AlerteLogin() {
           variant: "destructive",
         });
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, []);
 
   // Back button APK
@@ -86,7 +86,7 @@ export default function AlerteLogin() {
         App.addListener("backButton", ({ canGoBack }) => {
           if (!canGoBack) App.exitApp();
         });
-      } catch { }
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
     };
 
     setupBack();
@@ -108,9 +108,9 @@ export default function AlerteLogin() {
         title: "Connexion réussie",
         description: "Bienvenue dans le module Alerte.",
       });
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       // géré globalement
-    }
+     }
   };
 
   if (isAuthenticated) return null;

@@ -855,9 +855,9 @@ export default function SuperAdminAgentsPage() {
               });
             }
             successCount++;
-          } catch (err: any) {
+          } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
             const msg = err?.body?.message || err?.message || "Erreur inconnue";
-            errors.push(`Ligne ${i + 2} (${matricule}): ${msg}`);
+            errors.push(`Ligne ${i + 2 } (${matricule}): ${msg}`);
           }
           setImportProgress({ current: i + 1, total: rows.length });
           setImportSuccessCount(successCount);
@@ -919,8 +919,8 @@ export default function SuperAdminAgentsPage() {
       if (pendingDeleteAction) {
         await pendingDeleteAction();
       }
-    } catch (e: any) {
-      toast({ title: "Erreur", description: "Mot de passe incorrect", variant: "destructive" });
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: "Mot de passe incorrect", variant: "destructive"  });
     } finally {
       setIsVerifyingPassword(false);
     }

@@ -107,8 +107,8 @@ function CategoryManagerModal({ open, onOpenChange }: { open: boolean, onOpenCha
       });
       // Si on arrive ici, le mot de passe est correct
       deleteCat.mutate(categoryToDelete.id);
-    } catch (err: any) {
-      toast({ title: "Erreur", description: "Mot de passe incorrect.", variant: "destructive" });
+    } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
+      toast({ title: "Erreur", description: "Mot de passe incorrect.", variant: "destructive"  });
     } finally {
       setIsVerifying(false);
     }
@@ -368,8 +368,8 @@ export function SpeciesCatalogManager() {
         title: "Import terminé ✓",
         description: `${res?.inserted ?? items.length} espèces importées sur ${items.length} (doublons ignorés).`,
       });
-    } catch (err) {
-      toast({ title: "Erreur d'import", description: "Vérifiez le format de votre fichier.", variant: "destructive" });
+    } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
+      toast({ title: "Erreur d'import", description: "Vérifiez le format de votre fichier.", variant: "destructive"  });
     } finally {
       setIsImporting(false);
       if (fileRef.current) fileRef.current.value = "";

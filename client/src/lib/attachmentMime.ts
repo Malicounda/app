@@ -6,9 +6,9 @@ export function repairAttachmentFileName(name?: string | null): string {
   try {
     const fixed = Buffer.from(s, 'latin1').toString('utf8');
     if (fixed && !fixed.includes('\uFFFD')) return fixed.normalize('NFC');
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     /* ignore */
-  }
+   }
   return s.normalize('NFC');
 }
 

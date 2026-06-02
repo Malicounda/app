@@ -524,10 +524,10 @@ function deleteZone(name: string): boolean {
     // Retirer couche/marker si présents (responsabilité d'affichage côté carte)
     const { layer, marker } = zicsData[name];
     if (layer && (layer as any).remove) {
-      try { (layer as any).remove(); } catch {}
+      try { (layer as any).remove(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }
     if (marker && (marker as any).remove) {
-      try { (marker as any).remove(); } catch {}
+      try { (marker as any).remove(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }
     delete zicsData[name];
     return true;
@@ -538,10 +538,10 @@ function deleteZone(name: string): boolean {
   amodieesData.forEach((z) => {
     if (z.name === name) {
       if (z.layer && (z.layer as any).remove) {
-        try { (z.layer as any).remove(); } catch {}
+        try { (z.layer as any).remove(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       }
       if (z.marker && (z.marker as any).remove) {
-        try { (z.marker as any).remove(); } catch {}
+        try { (z.marker as any).remove(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       }
     }
   });

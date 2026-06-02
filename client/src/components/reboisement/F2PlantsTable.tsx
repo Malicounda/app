@@ -119,10 +119,10 @@ export function F2PlantsTable({ rows, onChange, nurseryTypes, readOnly = false, 
       onChange(rows.filter(r => r !== deleteTarget));
       setDeleteOpen(false);
       setDeleteTarget(null);
-    } catch (e: any) {
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       const msg = e?.body?.message || e?.message;
       setDeleteError(msg || "Suppression impossible");
-    }
+     }
   };
 
   const parents = Array.from(new Set(rows.map(r => r.parentLocalite || "").filter(Boolean)));

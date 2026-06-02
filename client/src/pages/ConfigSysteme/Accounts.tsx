@@ -130,9 +130,9 @@ export default function Accounts() {
       const raw = localStorage.getItem(AGENT_PERMIT_ACCESS_LOCAL_KEY);
       if (!raw) return null;
       return { enabled: raw === 'true' } as { enabled: boolean };
-    } catch (e) {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return null;
-    }
+     }
   };
 
   const { data: agentPermitAccessData, isLoading: isLoadingAgentPermitAccess } = useQuery<{ enabled: boolean } | null>({
@@ -144,7 +144,7 @@ export default function Accounts() {
       } catch (err: any) {
         // If backend route not found (404) or other error, fallback to localStorage
         console.warn('agent-permit-access fetch failed, falling back to localStorage', err?.message || err);
-        try { setAgentPermitAccessUnavailable(true); } catch (_) {}
+        try { setAgentPermitAccessUnavailable(true); } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);  }
         const local = readLocalAgentPermitAccess();
         return local ?? { enabled: false };
       }
@@ -178,9 +178,9 @@ export default function Accounts() {
           queryClient.setQueryData(["/api/settings/agent-permit-access"], { enabled: variables });
           toast({ title: "Paramètre enregistré localement", description: "Le backend ne fournit pas encore ce paramètre. La valeur est conservée localement pour votre navigateur.", });
           return;
-        } catch (e) {
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
           // fallback to showing error
-        }
+         }
       }
       // generic rollback
       toast({ variant: "destructive", title: "Erreur", description: msg });
@@ -855,9 +855,9 @@ export default function Accounts() {
                     if (typeof window !== 'undefined') {
                       localStorage.setItem(AGENT_PERMIT_ACCESS_LOCAL_KEY, String(next));
                     }
-                  } catch (e) {
+                  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
                     // ignore
-                  }
+                   }
                   queryClient.setQueryData(["/api/settings/agent-permit-access"], { enabled: next });
                   toggleAgentPermitAccessMutation.mutate(Boolean(next));
                 }}

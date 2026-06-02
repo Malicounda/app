@@ -377,8 +377,8 @@ export default function ReforestationRegionalDashboard() {
                   await apiRequest({ url: `/api/users/${selectedUser.id}`, method: "DELETE" });
                   toast({ title: "Succès", description: "Agent supprimé" });
                   queryClient.invalidateQueries({ queryKey: ["/api/reboisement/regional/my-sector-agents"] });
-                } catch (e) {
-                  toast({ variant: "destructive", title: "Erreur", description: "Échec de la suppression" });
+                } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                  toast({ variant: "destructive", title: "Erreur", description: "Échec de la suppression"  });
                 } finally {
                   setIsDeleteDialogOpen(false);
                 }
@@ -426,8 +426,8 @@ export default function ReforestationRegionalDashboard() {
                   await apiRequest({ url: `/api/users/${selectedUser.id}`, method: "PUT", data: { password: newPassword } });
                   toast({ title: "Succès", description: "Mot de passe mis à jour" });
                   setIsResetPasswordDialogOpen(false);
-                } catch (e) {
-                  toast({ variant: "destructive", title: "Erreur" });
+                } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                  toast({ variant: "destructive", title: "Erreur"  });
                 }
               }}
             >

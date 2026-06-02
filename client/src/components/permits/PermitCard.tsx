@@ -184,7 +184,7 @@ export default function PermitCard({ permit, hunter }: PermitCardProps) {
           if (issue && expiry && !isNaN(issue.getTime()) && !isNaN(expiry.getTime())) {
             return Math.max(0, Math.ceil((expiry.getTime() - issue.getTime()) / msPerDay));
           }
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
         return undefined as unknown as number;
       })();
 

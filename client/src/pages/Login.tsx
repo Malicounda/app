@@ -35,7 +35,7 @@ export default function Login() {
 
   useEffect(() => {
     document.title = "Connexion | Système de Contrôle et de Digitalisation";
-    try { localStorage.setItem('domain', 'CHASSE'); } catch {}
+    try { localStorage.setItem('domain', 'CHASSE'); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, []);
 
   // Ouvre automatiquement la modale si l'URL contient ?selectProfile=1 (redirigé depuis /select-profile)
@@ -45,7 +45,7 @@ export default function Login() {
       if (params.get("selectProfile") === "1") {
         setLocation("/register");
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, [setLocation]);
 
   // Afficher le message de session expirée si présent
@@ -60,7 +60,7 @@ export default function Login() {
           variant: "destructive",
         });
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, []);
 
   useEffect(() => {

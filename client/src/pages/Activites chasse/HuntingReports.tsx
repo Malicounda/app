@@ -181,7 +181,7 @@ export default function HuntingReports() {
         const path = url.startsWith('/') ? url : `/${url}`;
         return `${window.location.origin}${path}`; // URL relative -> absolue
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     return undefined; // pas d'image
   };
 
@@ -336,7 +336,7 @@ export default function HuntingReports() {
         try {
           const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
           setCapturedDataUrl(dataUrl);
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
         // On éteint la caméra après capture pour économiser la batterie
         stopCamera();
       }
@@ -425,9 +425,9 @@ export default function HuntingReports() {
             const res: any = await apiRequest('GET', `/api/permits/hunter/${a.hunterId}`);
             const list = Array.isArray(res) ? res : (res?.data ?? []);
             return [a.hunterId, list] as const;
-          } catch {
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
             return [a.hunterId, []] as const;
-          }
+           }
         })
       );
       return Object.fromEntries(entries);

@@ -1061,9 +1061,9 @@ function GlobalThemeLoader() {
     try {
       const raw = localStorage.getItem('theme:superadmin');
       cfg = raw ? JSON.parse(raw) : null;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       cfg = null;
-    }
+     }
 
     const isSuperAdminUser = (user as any)?.isSuperAdmin === true;
     const isSuperAdminSection = location.startsWith('/superadmin');
@@ -1116,7 +1116,7 @@ function GlobalThemeLoader() {
             window.dispatchEvent(new Event('theme:superadmin:updated'));
           }
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     })();
   }, []);
 

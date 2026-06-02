@@ -57,9 +57,9 @@ export default function AgentDefaultPage() {
         if (!res.ok) return [];
         const notifs = res.data as any[];
         return notifs.filter((n: any) => !n.is_read && n.alert).slice(0, 10);
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         return [];
-      }
+       }
     },
     enabled: !!user,
     refetchInterval: 3000,
@@ -93,8 +93,8 @@ export default function AgentDefaultPage() {
         const res = await authenticatedFetch(`/api/messages/unread-count?${getMessagingDomaineQueryParam()}`);
         if (!res.ok) return { total: 0 };
         return await res.json();
-      } catch {
-        return { total: 0 };
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+        return { total: 0  };
       }
     },
     refetchInterval: 3000,
@@ -183,9 +183,9 @@ export default function AgentDefaultPage() {
                         await apiRequest("PATCH", `/alerts/user/${user?.id}/read-all`);
                         queryClient.invalidateQueries({ queryKey: ["agent-recent-notifs"] });
                         queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
-                      } catch {
+                      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
                         /* ignore */
-                      }
+                       }
                     }}
                     className="text-[9px] font-bold text-amber-700 underline transition-colors hover:text-amber-900"
                   >

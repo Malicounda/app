@@ -196,12 +196,12 @@ export default function AddReforestationSectorAgentForm({ open, onClose, trigger
 
       setMatriculeLookupStatus("found");
       setMatriculeLookupMessage("Agent trouvé");
-    } catch (e: any) {
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       if (e?.response?.status === 404) {
         setMatriculeLookupStatus("not_found");
         setMatriculeLookupMessage("");
         setAgentNotFoundOpen(true);
-      } else {
+       } else {
         setMatriculeLookupStatus("error");
         setMatriculeLookupMessage("Erreur lors de la recherche");
       }

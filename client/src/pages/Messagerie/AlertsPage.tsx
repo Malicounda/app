@@ -429,18 +429,18 @@ function AlertsPage() {
   const [alertTypeHintDismissed, setAlertTypeHintDismissed] = useState(() => {
     try {
       return localStorage.getItem("scodi:alerts-select-type-hint-dismissed") === "1";
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return false;
-    }
+     }
   });
 
   const dismissAlertTypeHint = () => {
     setAlertTypeHintDismissed(true);
     try {
       localStorage.setItem("scodi:alerts-select-type-hint-dismissed", "1");
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       /* ignore */
-    }
+     }
   };
 
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -868,12 +868,12 @@ function AlertsPage() {
 
       // Rafraîchir les données depuis le serveur
       refetch();
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         variant: "destructive",
         title: "Erreur",
         description: "Une erreur s'est produite. Veuillez réessayer.",
-      });
+       });
     }
   };
 
@@ -893,8 +893,8 @@ function AlertsPage() {
       refetch();
 
       toast({ title: "Toutes les alertes marquées comme lues" });
-    } catch {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible de marquer toutes les alertes comme lues." });
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible de marquer toutes les alertes comme lues."  });
     }
   };
 
@@ -922,12 +922,12 @@ function AlertsPage() {
         title: "Alerte supprimée",
         description: "L'alerte a été supprimée définitivement.",
       });
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         variant: "destructive",
         title: "Erreur",
         description: "Une erreur s'est produite lors de la suppression.",
-      });
+       });
     }
   };
 
@@ -1082,7 +1082,7 @@ function AlertsPage() {
           });
         }
       }
-    } catch { }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
 
     // Demander explicitement la permission avant de continuer
     const hasPermission = await requestGeolocationPermission();

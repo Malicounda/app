@@ -14,7 +14,7 @@ const restoreBodyInteraction = () => {
     document.documentElement.style.overflow = "";
     document.body.removeAttribute('data-scroll-locked');
     document.documentElement.removeAttribute('data-scroll-locked');
-  } catch {}
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 }
 
 const scheduleRestore = (triesLeft = 8) => {
@@ -59,7 +59,7 @@ const DialogOverlay = React.forwardRef<
         if (state === 'closed') {
           scheduleRestore()
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       props.onAnimationEnd?.(e)
     }}
     ref={ref}
@@ -96,7 +96,7 @@ const DialogContent = React.forwardRef<
             if (state === 'closed') {
               scheduleRestore()
             }
-          } catch {}
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
           ;(restProps as any).onAnimationEnd?.(e)
         }}
         className={cn(

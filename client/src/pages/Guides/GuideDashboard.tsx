@@ -135,9 +135,9 @@ export default function GuideDashboard() {
             const res = await apiRequest<any>({ url: `/api/permits/hunter/${a.hunterId}`, method: "GET" });
             const list = Array.isArray(res) ? res : (res?.data ?? []);
             return [a.hunterId, list] as const;
-          } catch {
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
             return [a.hunterId, []] as const;
-          }
+           }
         })
       );
       return Object.fromEntries(entries);

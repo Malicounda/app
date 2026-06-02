@@ -56,9 +56,9 @@ export function EditableField({
       await onSave(value);
       setIsEditing(false);
       setError(null);
-    } catch (err) {
+    } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
       setError('Erreur lors de la sauvegarde');
-    } finally {
+     } finally {
       setIsSaving(false);
     }
   };

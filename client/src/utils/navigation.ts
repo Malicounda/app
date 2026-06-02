@@ -37,7 +37,7 @@ export const getHomePage = (role?: string, type?: string, isSuperAdmin?: boolean
   let domain = '';
   try {
     domain = (localStorage.getItem('domain') || '').toUpperCase();
-  } catch (e) {}
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
   // Redirection Alerte : uniquement si le domaine est explicitement ALERTE,
   // OU si les flags isDefaultRole/isSupervisorRole sont actifs MAIS que le domaine
@@ -106,8 +106,8 @@ export const needsHunterProfileCompletion = (user?: { role?: string; hunterId?: 
     const profileCompleted = localStorage.getItem('profileCompleted') === 'true';
     const hasHunterId = !!user.hunterId;
     return !(profileCompleted && hasHunterId);
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     // Par sûreté, si localStorage inaccessible, exiger la complétion
     return !!user && user.role === 'hunter' && !user.hunterId;
-  }
+   }
 };

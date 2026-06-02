@@ -30,9 +30,9 @@ export function isAlerteApk(): boolean {
     if (cap?.isNativePlatform?.()) {
       return true;
     }
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     /* ignore */
-  }
+   }
   return false;
 }
 

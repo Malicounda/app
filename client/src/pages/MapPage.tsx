@@ -181,7 +181,7 @@ const MapPage: React.FC = () => {
       if (!hasCached) {
         fetchInfractionsForMap().catch(() => {});
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, []);
 
   const [alertsForMap, setAlertsForMap] = useState<Array<{ id: number; title: string | null; message: string | null; nature: string | null; region: string | null; departement?: string | null; lat: number; lon: number; created_at: string; sender?: { first_name: string | null; last_name: string | null; phone: string | null; role?: string | null; region?: string | null; departement?: string | null } }>>([]);
@@ -292,7 +292,7 @@ const MapPage: React.FC = () => {
         if (typeof t.showInfractions === 'boolean') setShowInfractions(t.showInfractions);
         if (typeof t.showExploitationForestiere === 'boolean') setShowExploitationForestiere(t.showExploitationForestiere);
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, []);
 
   useEffect(() => {
@@ -313,7 +313,7 @@ const MapPage: React.FC = () => {
       showExploitationForestiere,
       useSatellite,
     };
-    try { localStorage.setItem('mapPage.toggles', JSON.stringify(t)); } catch {}
+    try { localStorage.setItem('mapPage.toggles', JSON.stringify(t)); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, [showRegions, showDepartements, showCommunes, showArrondissements, showZics, showAmodiees, showParcVisite, showRegulation, showEcoZones, showProtectedZones, showAgents, colorizeRegionsByStatus, showInfractions, showExploitationForestiere, useSatellite]);
 
   useEffect(() => {
@@ -508,9 +508,9 @@ const MapPage: React.FC = () => {
       const features = (Array.isArray(fc.features) ? fc.features : []).filter(filterZoneFeatureByUserScope);
       console.log(`[MapPage] Agent filtrage: ${fc.features.length} -> ${features.length} zones`);
       return { ...(fc || {}), features };
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return fc;
-    }
+     }
   };
 
   // Callback pour MapComponent pour mettre à jour le type de marqueur sélectionné
@@ -923,7 +923,7 @@ const MapPage: React.FC = () => {
         setZonesCounts(zonesCountsData);
         setProtectedZonesCounts(protectedCountsData);
         mapCache.set({ zonesCounts: zonesCountsData, protectedCounts: protectedCountsData });
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
       if (showAgents) {
         try {
@@ -931,9 +931,9 @@ const MapPage: React.FC = () => {
           const data = Array.isArray(json) ? json : (json?.data ?? []);
           setAgentsForMap(data || []);
           mapCache.set({ agents: data || [] });
-        } catch {
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
           setAgentsForMap([]);
-        }
+         }
       }
 
       mapCache.set({

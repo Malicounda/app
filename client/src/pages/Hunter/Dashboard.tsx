@@ -354,7 +354,7 @@ export default function HunterDashboard() {
           title: "Bienvenue",
           description: "Complétez votre profil chasseur pour accéder à toutes les fonctionnalités.",
         });
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }
     return () => {
       // En cas de démontage, réafficher par défaut
@@ -657,16 +657,16 @@ export default function HunterDashboard() {
                       queryClient.invalidateQueries({ queryKey: ['hunter-permits'] }),
                       queryClient.invalidateQueries({ queryKey: ['hunter-documents'] }),
                     ]);
-                  } catch {}
+                  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                   try {
                     toast({
                       title: "Profil complété",
                       description: "Votre profil chasseur a été enregistré. Rechargement en cours...",
                     });
-                  } catch {}
+                  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                   // Recharger complètement la page pour repartir sur un état propre
                   setTimeout(() => {
-                    try { window.location.reload(); } catch {}
+                    try { window.location.reload(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                   }, 250);
                 }}
               />

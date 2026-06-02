@@ -123,7 +123,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
     let profileCompleted = false;
     try {
       profileCompleted = localStorage.getItem('profileCompleted') === 'true';
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     return !user.hunterId || !profileCompleted;
   }, [user]);
 
@@ -186,9 +186,9 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
           // Ne pas effacer d'autres erreurs éventuelles sur ce champ (ex: longueur)
           if (form.getFieldState('username').error?.type === 'server') form.clearErrors('username');
         }
-      } catch (e) {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         // silencieux: ne pas bloquer la saisie si le check échoue
-      }
+       }
     }, 500)
   );
 
@@ -206,9 +206,9 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
         } else {
           if (form.getFieldState('email').error?.type === 'server') form.clearErrors('email');
         }
-      } catch (e) {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         // silencieux
-      }
+       }
     }, 500)
   );
 
@@ -227,8 +227,8 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
     });
     return () => {
       sub.unsubscribe();
-      try { usernameCheckRef.current.cancel(); } catch {}
-      try { emailCheckRef.current.cancel(); } catch {}
+      try { usernameCheckRef.current.cancel(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+      try { emailCheckRef.current.cancel(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     };
   }, [form, embedded]);
 
@@ -395,11 +395,11 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
       try {
         const token = (loginResponse as any)?.token;
         if (token) localStorage.setItem("token", token);
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
       // Rafraîchir le client de requête pour mettre à jour les informations d'authentification
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      try { await afterLoginRefreshAll(); } catch {}
+      try { await afterLoginRefreshAll(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
       // Nouveau flux public: rediriger directement vers /hunter,
       // l'étape 2 se fera dans le modal du tableau de bord chasseur
@@ -464,7 +464,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
 
   // Gérer la soumission du formulaire d'informations de chasseur
   const onSubmitHunterInfo = async (data: z.infer<typeof hunterInfoSchema>) => {
-    try { onSubmittingChange && onSubmittingChange(true); } catch {}
+    try { onSubmittingChange && onSubmittingChange(true); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     try {
       console.log(' DEBUG: Début de la création du compte chasseur');
       console.log(' DEBUG: Données de base du formulaire:', JSON.stringify(form.getValues(), null, 2));
@@ -576,7 +576,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
           data: hunterData,
         });
         console.log(' DEBUG: Réponse du serveur:', JSON.stringify(hunterResponse, null, 2));
-      } catch (apiError: any) {
+      } catch (apiError: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', apiError);
         const body = apiError?.body;
         const message = body?.message || (apiError instanceof Error ? apiError.message : undefined) || 'Erreur lors de la complétion du profil chasseur';
         // Mapper les erreurs Zod si présentes
@@ -592,7 +592,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
                 'profession', 'experience', 'category', 'tutorFirstName', 'tutorLastName',
                 'tutorIdNumber', 'tutorPhone', 'letterConfirmation'
               ].includes(path)) {
-                hunterForm.setError(path as any, { type: 'server', message: msg });
+                hunterForm.setError(path as any, { type: 'server', message: msg  });
               }
             }
           });
@@ -638,7 +638,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
       // Marquer le profil comme complété côté client pour lever le guard
       try {
         localStorage.setItem('profileCompleted', 'true');
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
       toast({
         title: "Succès",
@@ -646,7 +646,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
       });
 
       // Rafraîchir l'état d'auth puis soit fermer le modal (embedded), soit rediriger
-      try { await afterLoginRefreshAll(); } catch {}
+      try { await afterLoginRefreshAll(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       try {
         const me = await apiRequest<{ role: string; type?: string }>({ url: "/api/auth/me", method: "GET" });
         const home = getHomePage(me?.role, me?.type);
@@ -655,9 +655,9 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
         } else {
           navigate(home);
         }
-      } catch (e) {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         navigate("/");
-      }
+       }
 
     } catch (error: any) {
       console.error("Erreur lors de l'inscription:", error);
@@ -667,7 +667,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
         description: error.message || "Une erreur s'est produite lors de l'inscription. Veuillez vérifier vos informations et réessayer."
       });
     } finally {
-      try { onSubmittingChange && onSubmittingChange(false); } catch {}
+      try { onSubmittingChange && onSubmittingChange(false); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     }
   };
 
@@ -707,7 +707,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
     });
     if (!res.ok) {
       let backendMsg = '';
-      try { const errBody = await res.json(); backendMsg = errBody?.message || errBody?.error || ''; } catch {}
+      try { const errBody = await res.json(); backendMsg = errBody?.message || errBody?.error || ''; } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       throw new Error(`Erreur création chasseur: ${res.status}${backendMsg ? ` - ${backendMsg}` : ''}`);
     }
     return res.json();
@@ -957,7 +957,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
                                   if (err?.type === 'validate') hunterForm.clearErrors('dateOfBirth');
                                 }
                               }
-                            } catch {}
+                            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                             // Calcul d'âge existant
                             checkAge(v);
                           }}

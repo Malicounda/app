@@ -8,9 +8,9 @@ export const isCapacitorNative = (): boolean => {
       ? (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
       : undefined;
     return Boolean(cap?.isNativePlatform?.());
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     return false;
-  }
+   }
 };
 
 // Helper to check if running in Tauri WebView
@@ -39,7 +39,7 @@ export const isMobile = async (): Promise<boolean> => {
   try {
     const android = await isAndroid();
     if (android) return true;
-  } catch {}
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   return typeof navigator !== 'undefined' &&
     /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 };
@@ -54,9 +54,9 @@ export const getEnvironment = async (): Promise<'android' | 'desktop' | 'web'> =
     const { invoke } = await import('@tauri-apps/api/core');
     await invoke('plugin:sql|execute', { db: 'test', query: 'SELECT 1' });
     return 'desktop';
-  } catch (error) {
+  } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
     return 'web';
-  }
+   }
 };
 
 // Centralized robust dynamic API Base URL resolver

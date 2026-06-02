@@ -48,7 +48,7 @@ export default function ReboisementLogin() {
           variant: "destructive",
         });
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, []);
 
   const form = useForm<z.infer<typeof schema>>({
@@ -61,9 +61,9 @@ export default function ReboisementLogin() {
       localStorage.setItem("domain", "REBOISEMENT");
       await login(values.identifier, values.password);
       toast({ title: "Connexion réussie", description: "Bienvenue dans le module Reboisement." });
-    } catch (e) {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       // Échec affiché par AppErrorDialog (style Accès refusé)
-    }
+     }
   };
 
   return (

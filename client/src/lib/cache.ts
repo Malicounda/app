@@ -20,7 +20,7 @@ export function setCache<T>(key: string, value: T, opts?: CacheOptions) {
       value,
     };
     localStorage.setItem(nsKey(key, opts?.namespace), JSON.stringify(item));
-  } catch {}
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 }
 
 export function getCache<T>(key: string, opts?: CacheOptions): T | null {
@@ -36,17 +36,17 @@ export function getCache<T>(key: string, opts?: CacheOptions): T | null {
       return null;
     }
     return parsed.value as T;
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     return null;
-  }
+   }
 }
 
 export function removeCache(key: string, opts?: CacheOptions) {
-  try { localStorage.removeItem(nsKey(key, opts?.namespace)); } catch {}
+  try { localStorage.removeItem(nsKey(key, opts?.namespace)); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 }
 
 export function setBool(key: string, v: boolean, opts?: CacheOptions) {
-  try { localStorage.setItem(nsKey(key, opts?.namespace), v ? '1' : '0'); } catch {}
+  try { localStorage.setItem(nsKey(key, opts?.namespace), v ? '1' : '0'); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 }
 
 export function getBool(key: string, def = false, opts?: CacheOptions) {
@@ -55,5 +55,5 @@ export function getBool(key: string, def = false, opts?: CacheOptions) {
     if (val === '1') return true;
     if (val === '0') return false;
     return def;
-  } catch { return def; }
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return def;  }
 }

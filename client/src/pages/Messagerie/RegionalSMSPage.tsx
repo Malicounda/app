@@ -86,7 +86,7 @@ export default function RegionalSMSPage() {
         // Dédupliquer par value
         const unique = Array.from(new Map(opts.map((o) => [o.value, o])).values());
         if (!cancelled) setAdminOptions(unique);
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     })();
     return () => { cancelled = true; };
   }, [user]);
@@ -162,12 +162,12 @@ export default function RegionalSMSPage() {
       }
       toast({ title: "Message envoyé", description: "Le message a été transmis." });
       return true;
-    } catch (error: any) {
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Erreur",
         description: error?.message || "Impossible d'envoyer le message.",
         variant: "destructive",
-      });
+       });
       return false;
     }
   };
@@ -176,12 +176,12 @@ export default function RegionalSMSPage() {
     try {
       await deleteMessage(message);
       toast({ title: "Message supprimé", description: "Le message a été retiré." });
-    } catch (error: any) {
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Suppression impossible",
         description: error?.message || "Une erreur est survenue lors de la suppression.",
         variant: "destructive",
-      });
+       });
     }
   };
 
@@ -221,8 +221,8 @@ export default function RegionalSMSPage() {
                         await sendIndividual({ recipientIdentifier, content });
                         toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
                         return;
-                      } catch (e: any) {
-                        toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive' });
+                      } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                        toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });
                       }
                     }}
                   />

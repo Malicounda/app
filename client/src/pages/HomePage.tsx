@@ -61,7 +61,7 @@ export default function HomePage() {
     try {
       const params = new URLSearchParams(window.location.search);
       return params.get('showModules') === '1';
-    } catch { return false; }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return false;  }
   });
 
   const [themeCfg, setThemeCfg] = useState<ThemeConfig | null>(null);
@@ -70,9 +70,9 @@ export default function HomePage() {
     try {
       const raw = localStorage.getItem('theme:superadmin');
       setThemeCfg(raw ? JSON.parse(raw) : null);
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       setThemeCfg(null);
-    }
+     }
   }, []);
 
   useEffect(() => {
@@ -80,9 +80,9 @@ export default function HomePage() {
       try {
         const raw = localStorage.getItem('theme:superadmin');
         setThemeCfg(raw ? JSON.parse(raw) : null);
-      } catch {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         setThemeCfg(null);
-      }
+       }
     };
     window.addEventListener('theme:superadmin:updated', onThemeUpdated);
     return () => window.removeEventListener('theme:superadmin:updated', onThemeUpdated);
@@ -105,7 +105,7 @@ export default function HomePage() {
       } else if (t.includes('reboisement')) {
         localStorage.setItem('domain', 'REBOISEMENT');
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   };
 
   const resolveModuleMeta = (d: Domaine) => {
@@ -233,7 +233,7 @@ export default function HomePage() {
                       key={idx}
                       onClick={() => {
                         if (module.domainValue) {
-                          try { localStorage.setItem('domain', String(module.domainValue).toUpperCase()); } catch {}
+                          try { localStorage.setItem('domain', String(module.domainValue).toUpperCase()); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                         } else {
                           setDomainForModule(module.title);
                         }

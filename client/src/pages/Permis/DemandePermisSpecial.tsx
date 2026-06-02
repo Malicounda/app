@@ -80,9 +80,9 @@ export default function DemandePermisSpecial() {
       }
 
       navigate('/mes-demandes', { replace: true });
-    } catch (err) {
+    } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
       setError(err instanceof Error ? err.message : 'Une erreur est survenue');
-    } finally {
+     } finally {
       setIsSubmitting(false);
     }
   };

@@ -442,8 +442,8 @@ export default function Taxes() {
                   setShowDeleteConfirm(false);
                   setDeleteTaxId(null);
                   toast({ title: 'Supprimée', description: 'La taxe a été supprimée avec succès.' });
-                } catch (e: any) {
-                  toast({ title: 'Erreur', description: e?.message || "Impossible de supprimer la taxe.", variant: 'destructive' });
+                } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                  toast({ title: 'Erreur', description: e?.message || "Impossible de supprimer la taxe.", variant: 'destructive'  });
                 } finally {
                   setIsDeleting(false);
                 }

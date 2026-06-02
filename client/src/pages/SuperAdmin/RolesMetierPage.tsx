@@ -255,8 +255,8 @@ export default function RolesMetierPage() {
         }
       }
       toast({ title: "Tous les rôles sélectionnés" });
-    } catch (e: any) {
-      toast({ title: "Erreur", description: e?.message || "Sélection partielle", variant: "destructive" });
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: e?.message || "Sélection partielle", variant: "destructive"  });
     } finally {
       setBulkDefaultPending(false);
     }
@@ -271,8 +271,8 @@ export default function RolesMetierPage() {
         }
       }
       toast({ title: "Sélection par défaut effacée" });
-    } catch (e: any) {
-      toast({ title: "Erreur", description: e?.message || "Action partielle", variant: "destructive" });
+    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: e?.message || "Action partielle", variant: "destructive"  });
     } finally {
       setBulkDefaultPending(false);
     }

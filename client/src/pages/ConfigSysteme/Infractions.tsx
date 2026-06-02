@@ -287,9 +287,9 @@ export default function Infractions() {
             group_key: r.group_key || null,
           })));
         }
-      } catch (e) {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         // ignore, keep empty default
-      }
+       }
     })();
     return () => { mounted = false; };
   }, [loadObservationGroups]);
@@ -390,7 +390,7 @@ export default function Infractions() {
         const base = envBase.replace(/\/+$/, '');
         return base.endsWith('/api') ? base.slice(0, -4) : base;
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     try {
       const loc = typeof window !== 'undefined' ? window.location : undefined as any;
       if (loc && (loc.port === '5173' || loc.port === '5174')) {
@@ -399,7 +399,7 @@ export default function Infractions() {
       }
       // Same-origin fallback
       if (loc) return `${loc.protocol}//${loc.host}`;
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     return '';
   };
 
@@ -470,11 +470,11 @@ export default function Infractions() {
         try {
           const url = getCodeDocUrl(selectedCodeDocument);
           setSelectedCodeDocUrl(url);
-        } catch { setSelectedCodeDocUrl(''); }
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  setSelectedCodeDocUrl('');  }
       }
     };
     load();
-    return () => { if (revoked) { try { URL.revokeObjectURL(revoked); } catch {} } };
+    return () => { if (revoked) { try { URL.revokeObjectURL(revoked); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  } } };
   }, [selectedCodeDocument]);
 
   // Build a safe preview URL for code documents using the API endpoint
@@ -484,9 +484,9 @@ export default function Infractions() {
       const server = getServerBaseUrlForUploads();
       const base = server || '';
       return `${base}/api/infractions/codes/documents/${doc.id}/file`;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return '';
-    }
+     }
   };
 
   // Form states
@@ -560,9 +560,9 @@ export default function Infractions() {
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase();
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return String(value).trim().toLowerCase();
-    }
+     }
   }, []);
 
   const normalizedCurrentAssociationLabel = useMemo(
@@ -905,7 +905,7 @@ export default function Infractions() {
         const mere = typeof parsed.mere === 'string' ? parsed.mere : (typeof parsed.mother === 'string' ? parsed.mother : '');
         return { pere, mere };
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     const parts = value.split('|').map((p) => p.trim());
     return {
       pere: parts[0] || '',
@@ -964,9 +964,9 @@ export default function Infractions() {
     try {
       validateContrevenantForm({ requireUploads: !editingContrevenantId });
       return true;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return false;
-    }
+     }
   }, [formContrevenant, editingContrevenantId]);
 
   const agentFormIsValid = useMemo(() => {
@@ -1138,7 +1138,7 @@ export default function Infractions() {
           mere: typeof parsed.mere === 'string' ? parsed.mere : (typeof parsed.mother === 'string' ? parsed.mother : '')
         };
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     const parts = value.split('|').map((p) => p.trim());
     return {
       pere: parts[0] || '',
@@ -1160,9 +1160,9 @@ export default function Infractions() {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return String(value);
       return date.toLocaleString('fr-FR');
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return String(value);
-    }
+     }
   }, []);
 
   const formatCurrency = useCallback((value?: number | string | null) => {
@@ -1201,9 +1201,9 @@ export default function Infractions() {
         }
       }
       setSelectedContrevenantDetails(details);
-    } catch (error: any) {
+    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       setViewContrevenantError(error?.message || 'Chargement impossible');
-    } finally {
+     } finally {
       setViewContrevenantLoading(false);
     }
   }, []);
@@ -1221,8 +1221,8 @@ export default function Infractions() {
     try {
       const token = localStorage.getItem('token') || localStorage.getItem('access_token');
       return token ? { Authorization: `Bearer ${token}` } : {};
-    } catch {
-      return {};
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      return { };
     }
   }, []);
 
@@ -1232,9 +1232,9 @@ export default function Infractions() {
       if (!res.ok) return null;
       const blob = await res.blob();
       return URL.createObjectURL(blob);
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return null;
-    }
+     }
   }, [getAuthHeaders]);
 
   useEffect(() => {
@@ -1270,7 +1270,7 @@ export default function Infractions() {
             if (objUrl) current.piece = objUrl;
           }
           updates[String(c.id)] = current;
-        } catch {}
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       }
       if (!cancelled && Object.keys(updates).length > 0) {
         setContrevenantsMedia((prev) => ({ ...prev, ...updates }));
@@ -1319,7 +1319,7 @@ export default function Infractions() {
         if (m?.infraction && m.infraction.startsWith('blob:')) URL.revokeObjectURL(m.infraction);
         if (m?.quittance && m.quittance.startsWith('blob:')) URL.revokeObjectURL(m.quittance);
       });
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, [openViewPV]);
 
   const getContrevenantPhotoSrc = useCallback((c: any): string | null => {
@@ -1377,7 +1377,7 @@ export default function Infractions() {
         setZoomOpen(true);
         return;
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
     // 2) Fallback URL directe (même origine)
     setZoomMedia({ src: `/api/infractions/pv/${pvId}/file?mode=inline#zoom=80`, title: 'Procès-verbal signé' });
@@ -1476,9 +1476,9 @@ export default function Infractions() {
       const data = resp?.data;
       const name = data?.region?.nom ?? data?.region?.name;
       return data?.success && name ? String(name) : null;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return null;
-    }
+     }
   }, []);
 
   const findDepartementFromPoint = useCallback(async (lat: number, lon: number): Promise<string | null> => {
@@ -1487,9 +1487,9 @@ export default function Infractions() {
       const data = resp?.data;
       const name = data?.departement?.nom ?? data?.departement?.name;
       return data?.success && name ? String(name) : null;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return null;
-    }
+     }
   }, []);
 
   const onVerificationCsvChange = useCallback(async (file?: File | null) => {
@@ -2072,9 +2072,9 @@ export default function Infractions() {
       const id = Number(formInfraction.code_infraction_id);
       if (!Number.isFinite(id)) return null as any;
       return codes.find((c: any) => c.id === id) || null;
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return null as any;
-    }
+     }
   }, [codes, formInfraction.code_infraction_id]);
 
   // Load code items when a code is selected
@@ -2103,11 +2103,11 @@ export default function Infractions() {
 
         const def = arr.find(item => item.is_default) || arr[0];
         setSelectedCodeItemId(def ? String(def.id) : '');
-      } catch (e) {
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         setCodeItems([]);
         setSelectedCodeItemId('');
         setCodeSearchTerm('');
-      }
+       }
     };
     void loadItems();
   }, [formInfraction.code_infraction_id]);
@@ -2152,7 +2152,7 @@ export default function Infractions() {
             }
           }
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
       if (!hasSelection) return false;
     }
@@ -2169,9 +2169,9 @@ export default function Infractions() {
         String(item.nature || '').toLowerCase().includes(term) ||
         String(item.article_code || '').toLowerCase().includes(term)
       );
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return codeItems;
-    }
+     }
   }, [codeItems, codeSearchTerm]);
 
   // Auto-sélectionner le premier item filtré si aucun n'est sélectionné ou si l'item sélectionné n'est plus dans les résultats
@@ -2400,10 +2400,10 @@ const handleVerifyContrevenantNumber = useCallback(async () => {
     } else {
       setCheckContrevenantResult({ status: 'new', numero_piece: rawValue });
     }
-  } catch (error: any) {
+  } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
     setCheckContrevenantError(error?.message || 'Une erreur est survenue lors de la vérification.');
     setCheckContrevenantResult(null);
-  } finally {
+   } finally {
     setCheckContrevenantLoading(false);
   }
 }, [checkContrevenantNumber]);
@@ -4139,8 +4139,8 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                               setCodeDocuments(docs);
                               setSelectedCodeDocument(docs[0] || null);
                               setOpenViewCodeDocs(true);
-                            } catch (e) {
-                              toast({ title: 'Erreur', description: 'Impossible de charger les documents du code' });
+                            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                              toast({ title: 'Erreur', description: 'Impossible de charger les documents du code'  });
                             }
                           }}
                           className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50"
@@ -6402,7 +6402,7 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                       </TabsList>
                       <TabsContent value="csv" className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <input id="verification-csv-input" type="file" accept=".csv,text/csv" className="hidden" onChange={async (e) => { const f = e.currentTarget.files?.[0]; await onVerificationCsvChange(f); try { e.currentTarget.value = ''; } catch {} }} />
+                          <input id="verification-csv-input" type="file" accept=".csv,text/csv" className="hidden" onChange={async (e) => { const f = e.currentTarget.files?.[0]; await onVerificationCsvChange(f); try { e.currentTarget.value = ''; } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  } }} />
                           <Button type="button" variant="outline" onClick={() => document.getElementById('verification-csv-input')?.click()}>
                             <Upload className="h-4 w-4 mr-2" /> Sélectionner un fichier CSV
                           </Button>
@@ -6971,7 +6971,7 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                                             handleOpenZoom(tagged, title);
                                             return;
                                           }
-                                        } catch {}
+                                        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                                         handleOpenZoom(window.location.origin + `/api/infractions/contrevenants/${contrevenant.id}/photo`, title);
                                       }}
                                       className="w-24 h-24 rounded-lg overflow-hidden border-2 border-orange-300 hover:border-orange-500 transition-all cursor-pointer block"
@@ -7028,7 +7028,7 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                                             handleOpenZoom(tagged, title);
                                             return;
                                           }
-                                        } catch {}
+                                        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                                         handleOpenZoom(window.location.origin + `/api/infractions/contrevenants/${contrevenant.id}/piece-identite`, title);
                                       }}
                                       className="w-24 h-24 rounded-lg overflow-hidden border-2 border-green-300 hover:border-green-500 transition-all cursor-pointer block"
@@ -7121,7 +7121,7 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                                   handleOpenZoom(tagged, 'Photo de l\'infraction');
                                   return;
                                 }
-                              } catch {}
+                              } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                               handleOpenZoom(window.location.origin + url, 'Photo de l\'infraction');
                             }}
                             className="w-full h-28 sm:h-32 md:h-36 rounded-lg overflow-hidden border-2 border-purple-300 hover:border-purple-500 transition-all cursor-pointer bg-white"
@@ -7166,7 +7166,7 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                                   handleOpenZoom(tagged, 'Photo de la quittance');
                                   return;
                                 }
-                              } catch {}
+                              } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
                               handleOpenZoom(window.location.origin + url, 'Photo de la quittance');
                             }}
                             className="w-full h-28 sm:h-32 md:h-36 rounded-lg overflow-hidden border-2 border-green-300 hover:border-green-500 transition-all cursor-pointer bg-white"

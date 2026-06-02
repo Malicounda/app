@@ -201,12 +201,12 @@ export default function GestiondesAgents() {
         description: "Les données ont été rafraîchies",
         variant: "default"
       });
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Erreur",
         description: "Impossible de rafraîchir les données",
         variant: "destructive"
-      });
+       });
     }
   };
 

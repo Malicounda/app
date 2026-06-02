@@ -27,8 +27,8 @@ export default function ReforestLayout({ children }: { children: React.ReactNode
         const res = await authenticatedFetch('/api/messages/unread-count?domaineId=33');
         if (!res.ok) return { total: 0 };
         return await res.json();
-      } catch {
-        return { total: 0 };
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+        return { total: 0  };
       }
     },
     enabled: !!user,
@@ -45,12 +45,12 @@ export default function ReforestLayout({ children }: { children: React.ReactNode
         title: "Actualisation réussie",
         description: "Les données ont été mises à jour",
       });
-    } catch (error) {
+    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Erreur",
         description: "Impossible d'actualiser les données",
         variant: "destructive"
-      });
+       });
     } finally {
       if (btn) btn.classList.remove('animate-spin');
     }

@@ -51,9 +51,9 @@ const extractErrorMessage = async (response: Response) => {
   try {
     const data = await response.json();
     if (data?.message) return data.message as string;
-  } catch (err) {
+  } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
     // Ignore JSON parsing errors
-  }
+   }
   return `Erreur ${response.status}`;
 };
 
@@ -66,17 +66,17 @@ const loadFromCache = (type: "inbox" | "sent", domaineId?: number | "null"): Int
     const raw = localStorage.getItem(getCacheKey(type, domaineId));
     if (!raw) return [];
     return JSON.parse(raw) as InternalMessageRecord[];
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     return [];
-  }
+   }
 };
 
 const saveToCache = (type: "inbox" | "sent", domaineId: number | "null" | undefined, data: InternalMessageRecord[]) => {
   try {
     localStorage.setItem(getCacheKey(type, domaineId), JSON.stringify(data));
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     // Ignore quota errors
-  }
+   }
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -397,8 +397,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
 
       try {
         await apiRequest({ url: endpoint, method });
-      } catch (err: unknown) {
-        const e = err as { message?: string; status?: number };
+      } catch (err: unknown) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
+        const e = err as { message?: string; status?: number  };
         const msg = String(e?.message || '').toLowerCase();
         if (e?.status === 404 || msg.includes('non trouvé')) {
           purgeStaleMessage(id, isGroup);
@@ -427,8 +427,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       : `/api/messages/${messageId}/read`;
     try {
       await apiRequest({ url: endpoint, method: 'PATCH' });
-    } catch (err: unknown) {
-      const e = err as { message?: string; status?: number };
+    } catch (err: unknown) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
+      const e = err as { message?: string; status?: number  };
       const msg = String(e?.message || '').toLowerCase();
       if (e?.status === 404 || msg.includes('non trouvé')) {
         purgeStaleMessage(messageId, isGroup);

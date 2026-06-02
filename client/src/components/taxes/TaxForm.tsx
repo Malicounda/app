@@ -305,9 +305,9 @@ export default function TaxForm({ taxId, open, onClose }: TaxFormProps) {
           if (Array.isArray(permits) && permits.length > 0) {
             result.push(h);
           }
-        } catch (_) {
+        } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
           // ignorer les erreurs individuelles
-        }
+         }
       }
     }
 

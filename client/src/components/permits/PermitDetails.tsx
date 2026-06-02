@@ -52,7 +52,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
       if (typeof window === 'undefined') return false;
       const raw = localStorage.getItem(AGENT_PERMIT_ACCESS_LOCAL_KEY);
       return raw === 'true';
-    } catch (e) { return false; }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return false;  }
   };
   const agentPermitAccessEnabled = readLocalAgentPermitAccess();
 
@@ -203,9 +203,9 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
           if (resp?.ok && resp?.data) {
             foundPermit = resp.data as any as Permit;
           }
-        } catch (e) {
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
           // ignore and fallback to error below
-        }
+         }
       }
 
       if (!foundPermit) {
@@ -247,7 +247,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
             setHunter((resp as any).data as Hunter);
           }
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     })();
 
     // Charger la campagne pour borne de validité (et dérogations éventuelles)
@@ -259,9 +259,9 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
         } else {
           setCampaign(null);
         }
-      } catch (_) {
+      } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
         setCampaign(null);
-      }
+       }
     })();
 
     // Charger la table Catégories (Tarifs des Permis) pour utiliser la clé (key) et la validité par défaut
@@ -276,7 +276,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
         } else {
           setPermitCategories([]);
         }
-      } catch { setPermitCategories([]); }
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  setPermitCategories([]);  }
     })();
 
     // Charger les périodes de campagne (hunting_campaign_periods)
@@ -287,7 +287,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
           const resp = await apiRequest<any>('GET', url);
           if (resp?.ok && Array.isArray(resp?.data)) { setCampaignPeriods(resp.data); return; }
           if (resp?.ok && resp?.data?.data && Array.isArray(resp.data.data)) { setCampaignPeriods(resp.data.data); return; }
-        } catch { /* try next */ }
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  /* try next */  }
       }
       setCampaignPeriods([]);
     })();
@@ -303,9 +303,9 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
         } else {
           setHunterPhotoUrl(null);
         }
-      } catch (_) {
+      } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
         setHunterPhotoUrl(null);
-      }
+       }
     })();
     setError(null);
 
@@ -318,9 +318,9 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
         } else {
           setCampaign(null);
         }
-      } catch (_) {
+      } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
         setCampaign(null);
-      }
+       }
     })();
 
     // Generate QR code with permit number and key info
@@ -402,7 +402,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
         if (issue && expiry && !isNaN(issue.getTime()) && !isNaN(expiry.getTime())) {
           return diffDaysInclusive(issue, expiry);
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       return undefined;
     })();
 
@@ -472,10 +472,10 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
 
           const composedUrl = canvas.toDataURL('image/png');
           setQrCodeUrl(composedUrl);
-        } catch (composeErr) {
+        } catch (composeErr) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', composeErr);
           // En cas d'échec de la composition, on retombe sur le QR simple
           setQrCodeUrl(url);
-        }
+         }
       })
       .catch(err => {
         console.error("Error generating QR code:", err);
@@ -644,7 +644,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
           const endRaw = dero && deroEnabled ? (endDer || endStd) : endStd;
           const dt = endRaw ? new Date(endRaw) : null;
           return { end: dt && !isNaN(dt.getTime()) ? dt : null };
-        } catch { return { end: null }; }
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return { end: null  }; }
       };
 
       const periodEnd = findPeriodForGroup().end;
@@ -677,9 +677,9 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
         }
       }
       setValidityDaysComputed(undefined);
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       setValidityDaysComputed(undefined);
-    }
+     }
   }, [permit, campaign]);
 
   // Re-générer le QR si la date d'expiration/émission/statut ou la validité recalculée changent (ex: après renouvellement)
@@ -803,14 +803,14 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
             const logoY = Math.floor((size - logoH) / 2);
             ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
             setQrCodeUrl(canvas.toDataURL('image/png'));
-          } catch {
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
             // fallback simple
             // eslint-disable-next-line no-console
             setQrCodeUrl(prev => prev); // conserve l'ancien en cas d'échec
-          }
+           }
         })
         .catch(() => { /* ignore */ });
-    } catch { /* ignore */ }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  /* ignore */  }
   }, [
     permit?.expiryDate,
     permit?.issueDate,
@@ -837,10 +837,10 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
           setReactivationAllowed(false);
           setReactivationReason(resp.error || '');
         }
-      } catch (e: any) {
+      } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         setReactivationAllowed(false);
         setReactivationReason(String(e?.message || ''));
-      }
+       }
     };
     loadEligibility();
   }, [permit?.id, permit?.status, open]);
@@ -892,9 +892,9 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
             targetExpiry = end;
           }
         }
-      } catch (_) {
+      } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);
         // En cas d'échec, continuer avec +1 an
-      }
+       }
       // Construire la nouvelle metadata avec l'historique de renouvellement
       const currentMeta: any = permit.metadata && typeof permit.metadata === 'object' ? { ...permit.metadata } : {};
       const list: any[] = Array.isArray(currentMeta.renewals) ? [...currentMeta.renewals] : [];
@@ -952,7 +952,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
               status: 'active',
             };
           });
-        } catch (_) { /* noop */ }
+        } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);  /* noop */  }
       }
       // Also refresh local state quickly if modal remains open
       if (permit) {
@@ -1148,7 +1148,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
         if (issue && expiry && !isNaN(issue.getTime()) && !isNaN(expiry.getTime())) {
           return Math.max(0, Math.ceil((expiry.getTime() - issue.getTime()) / msPerDayLocal));
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       return undefined;
     })();
     // Footer service line like: "Service des Eaux et Forêts IREF/Kolda" ou "Service des Eaux et Forêts DEFCCS"
@@ -1230,7 +1230,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
                 var css = styleTag.innerHTML.replace(/@page\s*\{[^}]*\}/, '@page { size: ' + mm + 'mm auto; margin: 4mm; }');
                 styleTag.innerHTML = css;
               }
-            } catch(e) {}
+            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
           }
         <\/script>
       </body>
@@ -1239,7 +1239,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
     const url = URL.createObjectURL(blob);
     const w = window.open(url, '_blank', 'noopener,noreferrer');
     if (w) {
-      try { w.focus(); } catch(_) {}
+      try { w.focus(); } catch (_) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', _);  }
       // Revoke after some delay (the new document won't have access to parent URL.revokeObjectURL)
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     }
@@ -1264,9 +1264,9 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
         return diffDaysInclusive(issue, expiry);
       }
       return validityDaysComputed; // fallback si une des dates manque
-    } catch {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return validityDaysComputed;
-    }
+     }
   })();
 
   return (

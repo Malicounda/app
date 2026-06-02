@@ -553,7 +553,7 @@ export default function NationalStatistics() {
         const blob = new Blob([new Uint8Array(data.data)], { type: 'image/*' });
         return URL.createObjectURL(blob);
       }
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     return null;
   };
 

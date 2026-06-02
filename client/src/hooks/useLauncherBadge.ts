@@ -32,9 +32,9 @@ async function fetchTotalUnread(): Promise<number> {
     }
 
     return alertCount + msgCount;
-  } catch {
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     return 0;
-  }
+   }
 }
 
 // ──────────────────────────────────────────────────────────────────────

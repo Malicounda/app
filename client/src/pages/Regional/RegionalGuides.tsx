@@ -73,8 +73,8 @@ export default function RegionalGuidesPage() {
       await apiRequest({ url: `/api/guides/${id}/status`, method: "PATCH", data: { isActive: !isActive } });
       toast({ title: `Guide ${!isActive ? "activé" : "désactivé"}`, description: `Le guide a été ${!isActive ? "activé" : "désactivé"} avec succès.` });
       queryClient.invalidateQueries({ queryKey: ["/api/guides"] });
-    } catch (e:any) {
-      toast({ title: "Erreur", description: e?.body?.message || e?.message || "Impossible de modifier le statut", variant: "destructive" });
+    } catch (e:any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: e?.body?.message || e?.message || "Impossible de modifier le statut", variant: "destructive"  });
     } finally {
       setProcessing(prev => ({ ...prev, [id]: false }));
     }

@@ -564,7 +564,7 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
                 if (partial) deptValueForForm = partial.value;
               }
             }
-          } catch {}
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
           form.reset({
             lastName: hunterData.lastName || "",
@@ -598,7 +598,7 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
             const rk2 = keys2.find(k => normalizeStr(k) === normalizeStr(String(regionKey || ''))) || String(regionKey || '');
             const regionDeps = map[rk2] || [];
             setDepartements(regionDeps.map((d) => d.value));
-          } catch {}
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
           // Pré-charger marques/calibres si un type est présent
           const typeId = findWeaponTypeId(hunterData.weaponType);
           if (typeId) {
@@ -836,9 +836,9 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
           }
           try {
             await apiRequest<void>({ url: `/api/attachments/${targetHunterId}`, method: 'POST', data: fd });
-          } catch (err: any) {
+          } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
             const msg = err?.body?.message || err?.message || 'Erreur upload document';
-            throw new Error(msg || `Échec upload ${d.name}`);
+            throw new Error(msg || `Échec upload ${d.name }`);
           }
         });
 

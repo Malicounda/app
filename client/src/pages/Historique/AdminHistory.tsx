@@ -439,9 +439,9 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
     try {
       const parsed = JSON.parse(ev.details);
       if (parsed && parsed.actorName) return parsed.actorName;
-    } catch (e) {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       // ignore
-    }
+     }
     return ev.userId ? `ID: ${ev.userId}` : 'Système';
   };
 
@@ -450,9 +450,9 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
     if (!ev.details) return null;
     try {
       return JSON.parse(ev.details);
-    } catch (e) {
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return null;
-    }
+     }
   };
 
   // Extraire les informations pertinentes pour les revenus / taxes
@@ -473,8 +473,8 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
     if (Number.isNaN(num)) return String(value);
     try {
       return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'XOF' }).format(num);
-    } catch (e) {
-      return `${num.toLocaleString('fr-FR')} ${currency || 'XOF'}`;
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      return `${num.toLocaleString('fr-FR') } ${currency || 'XOF'}`;
     }
   };
 

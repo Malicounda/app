@@ -37,11 +37,11 @@ export default function HomePageWrapper() {
       // Écraser l'entrée précédente (ex: /register), puis pousser une sentinelle
       window.history.replaceState({ noBack: true }, '', window.location.pathname + window.location.search);
       window.history.pushState({ noBack: true }, '', window.location.pathname + window.location.search);
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     const onPop = (e: PopStateEvent) => {
       e.preventDefault?.();
-      try { window.history.forward(); } catch {}
-      try { window.history.replaceState({ noBack: true }, '', window.location.pathname + window.location.search); } catch {}
+      try { window.history.forward(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+      try { window.history.replaceState({ noBack: true }, '', window.location.pathname + window.location.search); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     };
     window.addEventListener('popstate', onPop);
     return () => {

@@ -174,8 +174,8 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
         const res = await authenticatedFetch(`/api/messages/unread-count?domaineId=${currentDomaineId}`);
         if (!res.ok) return { total: 0 };
         return await res.json();
-      } catch {
-        return { total: 0 };
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+        return { total: 0  };
       }
     },
     enabled: !!user,
@@ -221,7 +221,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
     const sp = new URLSearchParams(currentSearch);
     const tab = sp.get('tab');
     if (tab === 'list') currentPermitTab = 'list';
-  } catch {}
+  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
   const profileHref = (() => {
     if (subType === 'sous-secteur') return '/sous-secteur/profile';

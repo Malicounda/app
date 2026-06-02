@@ -47,10 +47,10 @@ export const usePermitRequests = () => {
       const data = await response.json();
       setRequests(data);
       setError(null);
-    } catch (err) {
+    } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
       setError(err instanceof Error ? err.message : 'Une erreur est survenue');
       toast.error('Erreur lors de la récupération des demandes');
-    } finally {
+     } finally {
       setLoading(false);
     }
   };
@@ -77,11 +77,11 @@ export const usePermitRequests = () => {
       
       toast.success(result.message);
       return result;
-    } catch (err) {
+    } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
       const message = err instanceof Error ? err.message : 'Une erreur est survenue';
       toast.error(message);
       throw err;
-    }
+     }
   };
 
   const downloadDocument = async (hunterId: number, documentType: string) => {
@@ -99,11 +99,11 @@ export const usePermitRequests = () => {
       const result = await response.json();
       toast.info(result.message);
       return result;
-    } catch (err) {
+    } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
       const message = err instanceof Error ? err.message : 'Une erreur est survenue';
       toast.error(message);
       throw err;
-    }
+     }
   };
 
   useEffect(() => {
@@ -147,11 +147,11 @@ export const useDocumentUpload = () => {
       const result = await response.json();
       toast.success(result.message);
       return result;
-    } catch (err) {
+    } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
       const message = err instanceof Error ? err.message : 'Une erreur est survenue';
       toast.error(message);
       throw err;
-    } finally {
+     } finally {
       setUploading(false);
     }
   };
@@ -173,11 +173,11 @@ export const useDocumentUpload = () => {
       const result = await response.json();
       toast.success(result.message);
       return result;
-    } catch (err) {
+    } catch (err) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
       const message = err instanceof Error ? err.message : 'Une erreur est survenue';
       toast.error(message);
       throw err;
-    }
+     }
   };
 
   return {

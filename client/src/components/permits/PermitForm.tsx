@@ -414,9 +414,9 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
           const generatedNumber = await generatePermitNumber(data.hunterId);
           form.setValue("permitNumber", generatedNumber);
           data.permitNumber = generatedNumber;
-        } catch (error) {
+        } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
           throw new Error("Impossible de générer le numéro de permis");
-        }
+         }
       }
 
       // Find the selected category

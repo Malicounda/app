@@ -126,7 +126,7 @@ export default function Hunters() {
         document.documentElement.style.overflow = '';
         document.body.removeAttribute('data-scroll-locked');
         document.documentElement.removeAttribute('data-scroll-locked');
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       toast({
         title: "Chasseur supprimé",
         description: "Le chasseur a été supprimé avec succès.",
@@ -155,7 +155,7 @@ export default function Hunters() {
         document.documentElement.style.overflow = '';
         document.body.removeAttribute('data-scroll-locked');
         document.documentElement.removeAttribute('data-scroll-locked');
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       const errorMessage = (error && (error.response?.data?.message || error.message)) || "Une erreur est survenue lors de la suppression.";
       toast({
         title: "Erreur de suppression",
@@ -401,7 +401,7 @@ export default function Hunters() {
         document.documentElement.style.overflow = '';
         document.body.removeAttribute('data-scroll-locked');
         document.documentElement.removeAttribute('data-scroll-locked');
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
       // RÃ©initialiser l'Ã©tat de la mutation pour Ã©viter les boutons bloquÃ©s
       deleteHunterMutation.reset();
     }
