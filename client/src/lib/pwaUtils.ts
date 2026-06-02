@@ -389,13 +389,43 @@ function applyIdempotentMigration(db: IDBDatabase, event: IDBVersionChangeEvent)
 
 export class DatabaseManager {
   private static dbPromise: Promise<IDBDatabase> | null = null;
+  private static dbInstance: IDBDatabase | null = null;
 
   static getDB(): Promise<IDBDatabase> {
+    // Si on a une instance en cache, vérifier qu'elle est encore ouverte
+    if (this.dbInstance) {
+      try {
+        // Tester si la connexion est encore vivante en accédant à une propriété
+        // Si la DB est fermée, objectStoreNames lèvera une exception
+        void this.dbInstance.objectStoreNames;
+        return Promise.resolve(this.dbInstance);
+      } catch (_) {
+        // La connexion est morte, on doit en ouvrir une nouvelle
+        console.warn('[DatabaseManager] Connexion IDB fermée détectée, réouverture...');
+        this.dbPromise = null;
+        this.dbInstance = null;
+      }
+    }
     if (!this.dbPromise) {
       console.log("[DB OPEN]");
-      this.dbPromise = openDatabase();
+      this.dbPromise = openDatabase().then(db => {
+        this.dbInstance = db;
+        // Si la connexion se ferme de manière inattendue, réinitialiser le cache
+        db.onclose = () => {
+          console.warn('[DatabaseManager] Connexion IDB fermée de manière inattendue');
+          this.dbPromise = null;
+          this.dbInstance = null;
+        };
+        return db;
+      });
     }
     return this.dbPromise;
+  }
+
+  /** Permet de réinitialiser manuellement la connexion si nécessaire */
+  static resetConnection(): void {
+    this.dbPromise = null;
+    this.dbInstance = null;
   }
 }
 
@@ -489,7 +519,7 @@ export async function storeData<T>(storeName: string, data: T): Promise<void> {
         };
 
         transaction.oncomplete = () => {
-          db.close();
+          // Ne PAS fermer la connexion ici : c'est un singleton partagé
         };
 
         transaction.onerror = (event) => {
@@ -517,7 +547,6 @@ export async function getData<T>(storeName: string, id: string | number): Promis
     // Si le store n'existe pas, retourner null au lieu de générer une erreur
     if (!db.objectStoreNames.contains(storeName)) {
       console.warn(`Le store ${storeName} n'existe pas.`);
-      db.close();
       return null;
     }
 
@@ -538,7 +567,7 @@ export async function getData<T>(storeName: string, id: string | number): Promis
         };
 
         transaction.oncomplete = () => {
-          db.close();
+          // Ne PAS fermer la connexion ici : c'est un singleton partagé
         };
 
         transaction.onerror = (event) => {
