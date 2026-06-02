@@ -1326,9 +1326,10 @@ function AlertsPage() {
           }
           toast({ title: 'Alerte envoyée', description: 'Votre alerte a été envoyée avec succès.' });
         } catch (e: any) {
-          const msg = String(e?.message || '');
+          const msg = String(e?.message || '').toLowerCase();
+          const isServerDown = e?.status === 502 || e?.status === 503 || e?.status === 504;
           // Si l'erreur ressemble à une perte de connexion, on bascule en Offline
-          if (msg.includes('fetch') || msg.includes('Network') || msg.includes('network') || msg.includes('survenue')) {
+          if (msg.includes('fetch') || msg.includes('network') || msg.includes('survenue') || msg.includes('serveur') || isServerDown) {
             await createOfflineAlert(alertData, 3, []);
             toast({
               title: "Réseau instable",

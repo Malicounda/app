@@ -225,8 +225,9 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
             }
             data = await response.json();
           } catch (err: any) {
-            const msg = String(err?.message || '');
-            if (msg.includes('fetch') || msg.includes('Network') || msg.includes('network') || msg.includes('survenue')) {
+            const msg = String(err?.message || '').toLowerCase();
+            const isServerDown = err?.status === 502 || err?.status === 503 || err?.status === 504;
+            if (msg.includes('fetch') || msg.includes('network') || msg.includes('survenue') || msg.includes('serveur') || isServerDown) {
               isOffline = true;
             } else {
               throw err;
@@ -351,8 +352,9 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
               }
               data = await response.json();
             } catch (err: any) {
-              const msg = String(err?.message || '');
-              if (msg.includes('fetch') || msg.includes('Network') || msg.includes('network') || msg.includes('survenue')) {
+              const msg = String(err?.message || '').toLowerCase();
+              const isServerDown = err?.status === 502 || err?.status === 503 || err?.status === 504;
+              if (msg.includes('fetch') || msg.includes('network') || msg.includes('survenue') || msg.includes('serveur') || isServerDown) {
                 isOffline = true;
               } else {
                 throw err;
