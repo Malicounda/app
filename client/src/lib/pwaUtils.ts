@@ -595,7 +595,6 @@ export async function getAllData<T>(storeName: string): Promise<T[]> {
     // Si le store n'existe pas, retourner un tableau vide au lieu de générer une erreur
     if (!db.objectStoreNames.contains(storeName)) {
       console.warn(`Le store ${storeName} n'existe pas.`);
-      db.close();
       return [];
     }
 
@@ -616,7 +615,7 @@ export async function getAllData<T>(storeName: string): Promise<T[]> {
         };
 
         transaction.oncomplete = () => {
-          db.close();
+          // Ne PAS fermer : connexion singleton partagée
         };
 
         transaction.onerror = (event) => {
@@ -1280,8 +1279,7 @@ async function cleanUpPendingRequests(): Promise<void> {
       };
 
       transaction.oncomplete = () => {
-        try { db.close(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
-        // La transaction est terminée
+        // Ne PAS fermer : connexion singleton partagée
       };
 
       transaction.onerror = (event) => {
@@ -1290,7 +1288,6 @@ async function cleanUpPendingRequests(): Promise<void> {
       };
     } catch (error) {
       console.error('Erreur lors du nettoyage des requêtes:', error);
-      try { db.close(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
       resolve();
     }
   });
@@ -1316,7 +1313,6 @@ async function cacheApiResponse(url: string, data: any): Promise<void> {
   try {
     const db = await ensureStoreExists('apiCache');
     if (!db.objectStoreNames.contains('apiCache')) {
-      db.close();
       return;
     }
 
@@ -1330,15 +1326,12 @@ async function cacheApiResponse(url: string, data: any): Promise<void> {
           cachedAt: Date.now()
         });
         transaction.oncomplete = () => {
-          db.close();
           resolve();
         };
         transaction.onerror = () => {
-          db.close();
           resolve();
         };
       } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-        db.close();
         resolve();
        }
     });
@@ -1352,7 +1345,6 @@ async function getCachedApiResponse(url: string): Promise<any | null> {
   try {
     const db = await ensureStoreExists('apiCache');
     if (!db.objectStoreNames.contains('apiCache')) {
-      db.close();
       return null;
     }
 
@@ -1376,8 +1368,8 @@ async function getCachedApiResponse(url: string): Promise<any | null> {
             try {
               const delTx = db.transaction('apiCache', 'readwrite');
               delTx.objectStore('apiCache').delete(url);
-              delTx.oncomplete = () => db.close();
-            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  db.close();  }
+              delTx.oncomplete = () => { /* singleton */ };
+            } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
             resolve(null);
             return;
           }
@@ -1386,9 +1378,8 @@ async function getCachedApiResponse(url: string): Promise<any | null> {
         };
 
         request.onerror = () => resolve(null);
-        transaction.oncomplete = () => db.close();
+        transaction.oncomplete = () => { /* singleton */ };
       } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-        db.close();
         resolve(null);
        }
     });
@@ -1402,7 +1393,6 @@ async function cleanExpiredCache(): Promise<void> {
   try {
     const db = await DatabaseManager.getDB();
     if (!db.objectStoreNames.contains('apiCache')) {
-      db.close();
       return;
     }
 
@@ -1430,15 +1420,12 @@ async function cleanExpiredCache(): Promise<void> {
         };
 
         transaction.oncomplete = () => {
-          db.close();
           resolve();
         };
         transaction.onerror = () => {
-          db.close();
           resolve();
         };
       } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-        db.close();
         resolve();
        }
     });
