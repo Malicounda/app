@@ -23,6 +23,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation as useWouterLocation } from "wouter";
 
 import { useNotifications, dismissSystemNotification, clearAllSystemNotifications } from "@/hooks/use-notifications";
+import { createOfflineAlert } from "@/lib/offlineCrud";
 
 // Type pour l'état de la permission
 type PermissionState = 'granted' | 'denied' | 'prompt';
@@ -1307,18 +1308,37 @@ function AlertsPage() {
 
       console.log('Envoi de l\'alerte:', alertData);
 
-      // Envoyer l'alerte via apiRequest (gère auth/cookies)
-      const responseData: any = await apiRequest({ url: '/api/alerts', method: 'POST', data: alertData });
-      if ((responseData as any)?.ok === false) {
-        console.error('Erreur API:', responseData);
-        throw new Error((responseData as any)?.error || (responseData as any)?.message || 'Échec de l\'envoi de l\'alerte');
+      // Gestion de l'envoi avec support Offline-First complet
+      if (!navigator.onLine) {
+        // Hors-ligne détecté immédiatement : on met en file d'attente locale
+        await createOfflineAlert(alertData, 3, []);
+        toast({
+          title: "Mode hors-ligne",
+          description: "Alerte mise en attente. Envoi automatique dès le retour du réseau.",
+        });
+      } else {
+        // Tentative en ligne
+        try {
+          const responseData: any = await apiRequest({ url: '/api/alerts', method: 'POST', data: alertData });
+          if ((responseData as any)?.ok === false) {
+            console.error('Erreur API:', responseData);
+            throw new Error((responseData as any)?.error || (responseData as any)?.message || 'Échec de l\'envoi de l\'alerte');
+          }
+          toast({ title: 'Alerte envoyée', description: 'Votre alerte a été envoyée avec succès.' });
+        } catch (e: any) {
+          const msg = String(e?.message || '');
+          // Si l'erreur ressemble à une perte de connexion, on bascule en Offline
+          if (msg.includes('fetch') || msg.includes('Network') || msg.includes('network') || msg.includes('survenue')) {
+            await createOfflineAlert(alertData, 3, []);
+            toast({
+              title: "Réseau instable",
+              description: "Alerte sauvegardée localement. Envoi dès le retour du réseau.",
+            });
+          } else {
+            throw e; // Lancer l'erreur pour la gestion des doublons (409) ou expiration de session (401)
+          }
+        }
       }
-
-      // Afficher un message de succès
-      toast({
-        title: 'Alerte envoyée',
-        description: 'Votre alerte a été envoyée avec succès.',
-      });
 
       // Réinitialiser le formulaire
       resetForm();

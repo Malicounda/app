@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { dismissSystemNotification } from "./use-notifications";
+import { createOfflineMessage } from "@/lib/offlineCrud";
 
 export interface InternalMessagingTarget {
   role: string;
@@ -210,18 +211,38 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           formData.append("domaineId", String(domaineId));
         }
 
-        const response = await authenticatedFetch("/api/messages/", {
-          method: "POST",
-          body: formData,
-        });
+        let isOffline = !navigator.onLine;
+        let data: any = null;
 
-        if (!response.ok) {
-          throw new Error(await extractErrorMessage(response));
+        if (!isOffline) {
+          try {
+            const response = await authenticatedFetch("/api/messages/", {
+              method: "POST",
+              body: formData,
+            });
+            if (!response.ok) {
+              throw new Error(await extractErrorMessage(response));
+            }
+            data = await response.json();
+          } catch (err: any) {
+            const msg = String(err?.message || '');
+            if (msg.includes('fetch') || msg.includes('Network') || msg.includes('network') || msg.includes('survenue')) {
+              isOffline = true;
+            } else {
+              throw err;
+            }
+          }
         }
 
-        const data = await response.json();
-        
         let created: InternalMessageRecord[];
+        if (isOffline) {
+          await createOfflineMessage(
+            { recipient: recipientIdentifier, subject, content, domaineId: domaineId ? String(domaineId) : undefined },
+            attachment ? [attachment] : []
+          );
+          data = { offlineQueued: true };
+        }
+
         if (data.offlineQueued) {
           const tempMsg: InternalMessageRecord = {
             id: Date.now() + Math.floor(Math.random() * 1000),
@@ -247,7 +268,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         });
         
         // Refresh depuis le serveur pour garantir la cohérence
-        setTimeout(() => fetchSent(), 500);
+        if (!isOffline) setTimeout(() => fetchSent(), 500);
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
         
@@ -316,14 +337,37 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
             formData.append("domaineId", String(domaineId));
           }
 
-          const response = await authenticatedFetch("/api/messages/group", {
-            method: "POST",
-            body: formData,
-          });
-          if (!response.ok) {
-            throw new Error(await extractErrorMessage(response));
+          let isOffline = !navigator.onLine;
+          let data: any = null;
+
+          if (!isOffline) {
+            try {
+              const response = await authenticatedFetch("/api/messages/group", {
+                method: "POST",
+                body: formData,
+              });
+              if (!response.ok) {
+                throw new Error(await extractErrorMessage(response));
+              }
+              data = await response.json();
+            } catch (err: any) {
+              const msg = String(err?.message || '');
+              if (msg.includes('fetch') || msg.includes('Network') || msg.includes('network') || msg.includes('survenue')) {
+                isOffline = true;
+              } else {
+                throw err;
+              }
+            }
           }
-          const data = await response.json();
+
+          if (isOffline) {
+            await createOfflineMessage(
+              { targetRole: target.role, targetRegion: target.region, subject, content, domaineId: domaineId ? String(domaineId) : undefined, isGroupMessage: true },
+              attachment ? [attachment] : []
+            );
+            data = { offlineQueued: true };
+          }
+
           if (data.offlineQueued) {
             return [{
               id: Date.now() + Math.floor(Math.random() * 1000),
@@ -352,7 +396,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         }
         
         // Refresh depuis le serveur pour garantir la cohérence
-        setTimeout(() => fetchSent(), 500);
+        if (navigator.onLine) setTimeout(() => fetchSent(), 500);
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
         queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
         

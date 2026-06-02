@@ -1063,7 +1063,8 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: n
           } else if (request.action === 'UPDATE_ALERT') {
             response = await fetch(`/api/alerts/${request.entityId}`, { method: 'PUT', headers, body: JSON.stringify(request.payload), credentials: 'include' });
           } else if (request.action === 'CREATE_MESSAGE') {
-            response = await fetch('/api/messages', { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
+            const endpoint = request.payload.isGroupMessage ? '/api/messages/group' : '/api/messages';
+            response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
           } else {
             // Fallback legacy
             response = await fetch(request.url || '', { method: requestMethod, headers, body: request.body, credentials: 'include' });
