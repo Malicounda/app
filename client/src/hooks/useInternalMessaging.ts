@@ -116,6 +116,10 @@ async function loadPendingMessagesFromDb(domaineId?: number | "null"): Promise<I
               isGroupMessage: payload.isGroupMessage === true || !!payload.targetRole,
               targetRole: payload.targetRole,
               targetRegion: payload.targetRegion,
+              attachmentPath: payload.offlineAttachment ? payload.offlineAttachment.attachId : undefined,
+              attachmentName: payload.offlineAttachment ? payload.offlineAttachment.fileName : undefined,
+              attachmentMime: payload.offlineAttachment ? payload.offlineAttachment.fileMime : undefined,
+              attachmentSize: payload.offlineAttachment ? payload.offlineAttachment.fileSize : undefined,
             } as any;
           }).filter(Boolean) as InternalMessageRecord[];
           resolve(records);
@@ -411,6 +415,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
             isPending: true, // Custom flag for offline queue
             recipientIdentifier,
             isGroupMessage: false,
+            attachmentPath: attachment ? 'pending_offline' : undefined,
             attachmentName: attachment ? attachment.name : undefined,
             attachmentMime: attachment ? attachment.type : undefined,
             attachmentSize: attachment ? attachment.size : undefined,
@@ -461,7 +466,10 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       setSent((prev) => {
         const updated = prev.map(m => {
           if (m.id === messageId) {
-            const rawObj = typeof m.rawMsgObj === 'object' && m.rawMsgObj !== null ? { ...m.rawMsgObj, content: newContent } : { content: newContent };
+            const nowStr = new Date().toISOString();
+            const rawObj = typeof m.rawMsgObj === 'object' && m.rawMsgObj !== null 
+              ? { ...m.rawMsgObj, content: newContent, updatedAt: nowStr } 
+              : { content: newContent, updatedAt: nowStr };
             return { ...m, content: newContent, rawMsgObj: rawObj };
           }
           return m;
@@ -544,6 +552,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
               targetRole: target.role,
               targetRegion: target.region,
               isGroupMessage: true,
+              attachmentPath: attachment ? 'pending_offline' : undefined,
               attachmentName: attachment ? attachment.name : undefined,
               attachmentMime: attachment ? attachment.type : undefined,
               attachmentSize: attachment ? attachment.size : undefined,

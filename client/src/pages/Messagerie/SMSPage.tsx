@@ -958,6 +958,16 @@ export default function SimpleSMSPage() {
                         <div className="flex items-center justify-end gap-1 mt-0.5 mr-1">
                           <span className="text-[9px] text-gray-400">
                             {m.time.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            {(() => {
+                              const mObj = m.rawMsgObj;
+                              if (!mObj?.updatedAt) return null;
+                              const createdTime = new Date(mObj.createdAt || mObj.created_at || mObj.createdAtLocal || 0).getTime();
+                              const updatedTime = new Date(mObj.updatedAt).getTime();
+                              if (Number.isFinite(createdTime) && Number.isFinite(updatedTime) && (updatedTime - createdTime > 2000)) {
+                                return ` (Modifié le ${new Date(mObj.updatedAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })})`;
+                              }
+                              return null;
+                            })()}
                           </span>
                           {m.rawMsgObj?.isPending ? (
                             <span title="En attente"><Clock className="h-3 w-3 text-gray-400" /></span>
@@ -988,6 +998,16 @@ export default function SimpleSMSPage() {
                         </div>
                         <span className="text-[9px] text-gray-400 mt-0.5 ml-1">
                           {m.time.toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {(() => {
+                            const mObj = m.rawMsgObj;
+                            if (!mObj?.updatedAt) return null;
+                            const createdTime = new Date(mObj.createdAt || mObj.created_at || mObj.createdAtLocal || 0).getTime();
+                            const updatedTime = new Date(mObj.updatedAt).getTime();
+                            if (Number.isFinite(createdTime) && Number.isFinite(updatedTime) && (updatedTime - createdTime > 2000)) {
+                              return ` (Modifié le ${new Date(mObj.updatedAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })})`;
+                            }
+                            return null;
+                          })()}
                         </span>
                       </div>
                     );
@@ -1359,20 +1379,31 @@ export default function SimpleSMSPage() {
 
               <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 divide-y divide-gray-100">
 
-                {activeActionMessage?.isSent && (
-                  <button
-                    onClick={() => {
-                      setEditingMessage(activeActionMessage);
-                      setDefaultMsg(activeActionMessage.content || '');
-                      setActiveActionMessage(null);
-                      if (defaultFileRef.current) defaultFileRef.current.value = '';
-                      setDefaultAttachment(null);
-                    }}
-                    className="w-full text-left px-5 py-4 text-sm font-semibold text-gray-700 hover:bg-gray-100 active:bg-gray-200 flex items-center gap-3 transition-colors"
-                  >
-                    <span className="text-lg">✏️</span> Modifier le message
-                  </button>
-                )}
+                {(() => {
+                  if (!activeActionMessage || !activeActionMessage.isSent) return null;
+                  const convMessages = selectedConversation?.messages || [];
+                  const isLastMsg = convMessages.length > 0 && convMessages[convMessages.length - 1].id === activeActionMessage.id;
+                  
+                  const msgTime = new Date(activeActionMessage.time).getTime();
+                  const isWithin12Hours = Date.now() - msgTime <= 12 * 60 * 60 * 1000;
+                  
+                  if (!isLastMsg || !isWithin12Hours) return null;
+
+                  return (
+                    <button
+                      onClick={() => {
+                        setEditingMessage(activeActionMessage);
+                        setDefaultMsg(activeActionMessage.content || '');
+                        setActiveActionMessage(null);
+                        if (defaultFileRef.current) defaultFileRef.current.value = '';
+                        setDefaultAttachment(null);
+                      }}
+                      className="w-full text-left px-5 py-4 text-sm font-semibold text-gray-700 hover:bg-gray-100 active:bg-gray-200 flex items-center gap-3 transition-colors"
+                    >
+                      <span className="text-lg">✏️</span> Modifier le message
+                    </button>
+                  );
+                })()}
 
                 <button
                   onClick={async () => {
@@ -1660,7 +1691,19 @@ export default function SimpleSMSPage() {
                               )}
                             </div>
                             <div className="flex items-center justify-end gap-1 mt-0.5 mr-1">
-                              <span className="text-[9px] text-gray-400">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span className="text-[9px] text-gray-400">
+                                {m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                {(() => {
+                                  const mObj = m.rawMsgObj;
+                                  if (!mObj?.updatedAt) return null;
+                                  const createdTime = new Date(mObj.createdAt || mObj.created_at || mObj.createdAtLocal || 0).getTime();
+                                  const updatedTime = new Date(mObj.updatedAt).getTime();
+                                  if (Number.isFinite(createdTime) && Number.isFinite(updatedTime) && (updatedTime - createdTime > 2000)) {
+                                    return ` (Modifié le ${new Date(mObj.updatedAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })})`;
+                                  }
+                                  return null;
+                                })()}
+                              </span>
                               {m.rawMsgObj?.isPending ? (
                                 <span title="En attente"><Clock className="h-3 w-3 text-gray-400" /></span>
                               ) : Array.isArray(m.rawMsgObj?.readers) && m.rawMsgObj.readers.length > 0 ? (
@@ -1682,13 +1725,25 @@ export default function SimpleSMSPage() {
                                   url={url}
                                   name={attachmentName}
                                   mime={attachmentMime}
-                                  size={m.rawMsgObj?.attachmentSize}
                                   variant="received"
+                                  size={m.rawMsgObj?.attachmentSize}
                                   onOpen={openAttachmentPreview}
                                 />
                               )}
                             </div>
-                            <span className="text-[9px] text-gray-400 mt-0.5 ml-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="text-[9px] text-gray-400 mt-0.5 ml-1">
+                              {m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                              {(() => {
+                                const mObj = m.rawMsgObj;
+                                if (!mObj?.updatedAt) return null;
+                                const createdTime = new Date(mObj.createdAt || mObj.created_at || mObj.createdAtLocal || 0).getTime();
+                                const updatedTime = new Date(mObj.updatedAt).getTime();
+                                if (Number.isFinite(createdTime) && Number.isFinite(updatedTime) && (updatedTime - createdTime > 2000)) {
+                                  return ` (Modifié le ${new Date(mObj.updatedAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })})`;
+                                }
+                                return null;
+                              })()}
+                            </span>
                           </div>
                         );
                       })}

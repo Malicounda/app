@@ -1100,33 +1100,38 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: n
             if (request.payload.offlineAttachment && request.payload.offlineAttachment.attachId) {
               // Mode Multipart avec pièce jointe
               const attachInfo = request.payload.offlineAttachment;
-              const formData = new FormData();
               
-              // Champs texte
-              formData.append('subject', request.payload.subject || 'Message');
-              formData.append('content', request.payload.content || '');
-              if (request.payload.isGroupMessage) {
-                if (request.payload.targetRole) formData.append('targetRole', request.payload.targetRole);
-                if (request.payload.targetRegion) formData.append('targetRegion', request.payload.targetRegion);
-              } else {
-                if (request.payload.recipient) formData.append('recipient', request.payload.recipient);
-              }
-              if (request.payload.domaineId) {
-                formData.append('domaineId', String(request.payload.domaineId));
-              }
-
               // Récupérer le blob depuis IndexedDB
               const attachmentRecord = await getData<AttachmentOffline>('attachments', attachInfo.attachId);
               if (attachmentRecord && attachmentRecord.blob) {
+                const formData = new FormData();
+                
+                // Champs texte
+                formData.append('subject', request.payload.subject || 'Message');
+                formData.append('content', request.payload.content || '');
+                if (request.payload.isGroupMessage) {
+                  if (request.payload.targetRole) formData.append('targetRole', request.payload.targetRole);
+                  if (request.payload.targetRegion) formData.append('targetRegion', request.payload.targetRegion);
+                } else {
+                  if (request.payload.recipient) formData.append('recipient', request.payload.recipient);
+                }
+                if (request.payload.domaineId) {
+                  formData.append('domaineId', String(request.payload.domaineId));
+                }
+
                 const blob = new Blob([attachmentRecord.blob], { type: attachInfo.fileMime });
                 formData.append('attachment', blob, attachInfo.fileName);
+
+                // Retirer le header Content-Type pour que fetch le génère correctement avec le boundary
+                const multipartHeaders = new Headers(headers);
+                multipartHeaders.delete('Content-Type');
+
+                response = await fetch(endpoint, { method: 'POST', headers: multipartHeaders, body: formData, credentials: 'include' });
+              } else {
+                // Le blob n'est plus là, ce qui veut dire que UPLOAD_ATTACHMENT a déjà envoyé et nettoyé le fichier.
+                // On envoie en JSON classique pour que le serveur récupère la pièce jointe déjà présente grâce à l'attachId.
+                response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
               }
-
-              // Retirer le header Content-Type pour que fetch le génère correctement avec le boundary
-              const multipartHeaders = new Headers(headers);
-              multipartHeaders.delete('Content-Type');
-
-              response = await fetch(endpoint, { method: 'POST', headers: multipartHeaders, body: formData, credentials: 'include' });
             } else {
               // Mode JSON classique
               response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });

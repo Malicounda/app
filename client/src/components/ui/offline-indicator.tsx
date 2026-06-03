@@ -87,7 +87,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
   }
 
   return (
-    <div className={`fixed top-20 right-4 z-[900] flex flex-col items-end pointer-events-none ${className}`}>
+    <div className={`fixed top-32 right-4 z-[900] flex flex-col items-end pointer-events-none ${className}`}>
       {showOffline ? (
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-600 border border-red-500/20 backdrop-blur-md shadow-sm pointer-events-auto">
           <WifiOff className="h-4 w-4" />

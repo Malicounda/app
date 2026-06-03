@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, sql, gt } from 'drizzle-orm';
 import { Request, Response, Router } from 'express';
 import multer from 'multer';
 import { agents, rolesMetier, superAdmins, userDomains, users, messages } from '../../shared/schema.js';
@@ -568,10 +568,12 @@ router.patch('/:id/content', isAuthenticated, async (req: Request, res: Response
       return res.status(400).json({ message: 'Le contenu ne peut pas être vide' });
     }
 
+    const messageId = Number(id);
+
     // Verify ownership
     const [messageToUpdate] = await db.select()
       .from(messages)
-      .where(eq(messages.id, Number(id)))
+      .where(eq(messages.id, messageId))
       .limit(1);
 
     if (!messageToUpdate) {
@@ -582,13 +584,39 @@ router.patch('/:id/content', isAuthenticated, async (req: Request, res: Response
       return res.status(403).json({ message: 'Non autorisé à modifier ce message' });
     }
 
+    // 1. Limite dans le temps : 12 heures maximum
+    const ageInMs = Date.now() - new Date(messageToUpdate.createdAt).getTime();
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+    if (ageInMs > TWELVE_HOURS_MS) {
+      return res.status(400).json({ message: 'Ce message a été envoyé il y a plus de 12 heures et ne peut plus être modifié' });
+    }
+
+    // 2. Dernier message envoyé dans la conversation : aucun message ne doit avoir été envoyé après
+    // (même si ce message suivant a été supprimé, d'où le fait qu'on vérifie en base sans filtrer par deletedAt)
+    const newerMessages = await db.select({ id: messages.id })
+      .from(messages)
+      .where(
+        and(
+          gt(messages.id, messageId),
+          or(
+            and(eq(messages.senderId, messageToUpdate.senderId), eq(messages.recipientId, messageToUpdate.recipientId)),
+            and(eq(messages.senderId, messageToUpdate.recipientId), eq(messages.recipientId, messageToUpdate.senderId))
+          )
+        )
+      )
+      .limit(1);
+
+    if (newerMessages.length > 0) {
+      return res.status(400).json({ message: 'Seul le dernier message envoyé dans la conversation peut être modifié' });
+    }
+
     // Update content
     const [updatedMessage] = await db.update(messages)
       .set({ 
         content: content.trim(),
         updatedAt: new Date()
       })
-      .where(eq(messages.id, Number(id)))
+      .where(eq(messages.id, messageId))
       .returning();
 
     return res.json(updatedMessage);
