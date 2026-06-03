@@ -18,12 +18,13 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Filter, Info, MapPin, MessageSquare, Phone, Search, Trash2, User, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Clock, Filter, Info, MapPin, MessageSquare, Phone, Search, Trash2, User, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation as useWouterLocation } from "wouter";
 
 import { useNotifications, dismissSystemNotification, clearAllSystemNotifications } from "@/hooks/use-notifications";
 import { createOfflineAlert } from "@/lib/offlineCrud";
+import { DatabaseManager } from "@/lib/pwaUtils";
 
 // Type pour l'état de la permission
 type PermissionState = 'granted' | 'denied' | 'prompt';
@@ -73,6 +74,7 @@ interface Alert {
     latitude: number;
     longitude: number;
   };
+  isPending?: boolean;
 }
 
 interface MessageBubbleProps {
@@ -157,13 +159,19 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   }
 
+  const isPending = (actualAlertData as any).isPending;
   return (
     <div
       className={`flex ${isSent ? "justify-end" : "justify-start"} mb-3 sm:mb-4`}
     >
       <div
-        className={`max-w-[80%] sm:max-w-[70%] md:max-w-[60%] p-3 sm:p-4 rounded-2xl shadow-md transition-all duration-300 ${isSent ? "bg-blue-100 text-gray-800" : "bg-gray-200 text-gray-800"
-          } ${senderRoleStyle}`}
+        className={`max-w-[80%] sm:max-w-[70%] md:max-w-[60%] p-3 sm:p-4 rounded-2xl shadow-md transition-all duration-300 ${
+          isPending
+            ? "bg-amber-50 border border-amber-200 text-amber-900 border-l-4 border-l-amber-500"
+            : isSent
+              ? "bg-blue-100 text-gray-800"
+              : "bg-gray-200 text-gray-800"
+          } ${!isPending ? senderRoleStyle : ""}`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -202,12 +210,19 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   })()}
                 </span>
               </div>
-              <div className="text-sm sm:text-base text-gray-500 font-medium">
+              <div className="text-sm sm:text-base text-gray-500 font-medium flex items-center gap-1.5 flex-wrap">
                 {isSent ? (
-                  <>
-                    <span>Envoyé {timeAgo}</span>
-                    <span className="ml-2">({formattedDateTime})</span>
-                  </>
+                  actualAlertData.isPending ? (
+                    <span title="En attente de synchronisation" className="flex items-center gap-1 text-amber-600 text-xs font-semibold">
+                      <Clock className="h-3.5 w-3.5 animate-pulse" />
+                      <span>En attente...</span>
+                    </span>
+                  ) : (
+                    <>
+                      <span>Envoyé {timeAgo}</span>
+                      <span className="ml-2">({formattedDateTime})</span>
+                    </>
+                  )
                 ) : (
                   <>
                     <span>{timeAgo}</span>
@@ -349,6 +364,63 @@ function getSenderRoleStyle(sender: any) {
       return "border-l-4 border-purple-500";
     default:
       return "border-l-4 border-gray-500";
+  }
+}
+
+async function loadPendingAlertsFromDb(): Promise<Alert[]> {
+  try {
+    const db = await DatabaseManager.getDB();
+    if (!db.objectStoreNames.contains('pendingSync')) return [];
+    
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction('pendingSync', 'readonly');
+        const store = tx.objectStore('pendingSync');
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const tasks = req.result || [];
+          const alertTasks = tasks.filter((t: any) => t.action === 'CREATE_ALERT');
+          const records = alertTasks.map((t: any) => {
+            const payload = t.payload || {};
+            let lat: number | null = null;
+            let lon: number | null = null;
+            if (payload.latitude != null && payload.longitude != null) {
+              lat = Number(payload.latitude);
+              lon = Number(payload.longitude);
+            } else if (typeof payload.zone === 'string' && payload.zone.includes(',')) {
+              const parts = payload.zone.split(',').map((p: string) => p.trim());
+              lat = parseFloat(parts[0]);
+              lon = parseFloat(parts[1]);
+            }
+            return {
+              id: -(t.entityId || t.id || Date.now()),
+              title: payload.title || 'Alerte',
+              message: payload.message || '',
+              type: payload.type || 'info',
+              nature: payload.nature || 'autre',
+              isRead: true,
+              createdAt: new Date(t.createdAt || Date.now()).toISOString(),
+              region: payload.region || undefined,
+              departement: payload.departement || undefined,
+              sender: {
+                username: 'moi',
+                firstName: '',
+                lastName: '',
+                role: 'agent',
+              },
+              location: lat !== null && lon !== null ? { latitude: lat, longitude: lon } : undefined,
+              isPending: true,
+            } as any;
+          }).filter(Boolean) as Alert[];
+          resolve(records);
+        };
+        req.onerror = () => resolve([]);
+      } catch (e) {
+        resolve([]);
+      }
+    });
+  } catch (e) {
+    return [];
   }
 }
 
@@ -702,15 +774,16 @@ function AlertsPage() {
     staleTime: 0,
   });
 
-  // Récupérer les alertes envoyées
   const { data: sentAlertsData = [], refetch: refetchSent, isLoading: isLoadingSent } = useQuery({
     queryKey: ["/api/alerts/sent", user?.id],
     queryFn: async () => {
       if (!user) return [];
+      
+      let list: Alert[] = [];
       try {
         const resp: any = await apiRequest({ url: `/api/alerts/sent/${user.id}`, method: 'GET' });
         const raw = Array.isArray(resp) ? resp : (resp?.data ?? resp);
-        const mapped: Alert[] = (raw || []).map((a: any) => {
+        list = (raw || []).map((a: any) => {
           const zone = a?.zone || null;
           let lat: number | null = null;
           let lon: number | null = null;
@@ -746,11 +819,25 @@ function AlertsPage() {
           };
           return alert;
         });
-        return mapped;
       } catch (error) {
         console.error('Erreur:', error);
-        return [] as Alert[];
+        list = [];
       }
+
+      // Charger les alertes en attente depuis IndexedDB et les fusionner
+      const pendingList = await loadPendingAlertsFromDb();
+      const uniquePending = pendingList.filter(p => {
+        const alreadySynced = list.some(m => 
+          String(m.message || '').trim() === String(p.message || '').trim() && 
+          m.nature === p.nature &&
+          m.location?.latitude === p.location?.latitude &&
+          m.location?.longitude === p.location?.longitude &&
+          Math.abs(new Date(m.createdAt).getTime() - new Date(p.createdAt).getTime()) < 60000
+        );
+        return !alreadySynced;
+      });
+
+      return [...uniquePending, ...list];
     },
     enabled: !!user,
     refetchOnWindowFocus: true,
@@ -777,6 +864,19 @@ function AlertsPage() {
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [refetch, refetchSent]);
+
+  useEffect(() => {
+    const handleSyncFinished = () => {
+      console.log("[AlertsPage] Sync finished, refetching alerts");
+      void refetch();
+      void refetchSent();
+    };
+
+    window.addEventListener('sync-finished', handleSyncFinished);
+    return () => {
+      window.removeEventListener('sync-finished', handleSyncFinished);
+    };
   }, [refetch, refetchSent]);
 
   const unreadCount = alerts.filter((alert: Alert) => !alert.isRead).length;

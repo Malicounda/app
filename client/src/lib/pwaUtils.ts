@@ -1200,6 +1200,13 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: n
   } finally {
     // === TOUJOURS libérer le verrou ===
     await releaseSyncLock();
+    try {
+      window.dispatchEvent(new CustomEvent('sync-finished', {
+        detail: { success: globalSuccessCount, failed: globalFailedCount }
+      }));
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Failed to dispatch sync-finished', e);
+    }
   }
 }
 

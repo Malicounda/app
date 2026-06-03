@@ -211,8 +211,29 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
 
       // Charger les messages en attente depuis IndexedDB et les fusionner
       const pendingList = await loadPendingMessagesFromDb(domaineId);
-      const syncedIds = new Set(list.map(m => m.id));
-      const uniquePending = pendingList.filter(p => !syncedIds.has(p.id));
+      const uniquePending = pendingList.filter(p => {
+        const alreadySynced = list.some(m => {
+          const sameContent = String(m.content || '').trim() === String(p.content || '').trim();
+          const sameIsGroup = Boolean(m.isGroupMessage) === Boolean(p.isGroupMessage);
+          
+          let sameRecipient = false;
+          if (sameIsGroup) {
+            sameRecipient = m.targetRole === p.targetRole && m.targetRegion === p.targetRegion;
+          } else {
+            sameRecipient = 
+              m.recipientIdentifier === p.recipientIdentifier || 
+              String((m.recipient as any)?.id) === String(p.recipientIdentifier) ||
+              String(m.recipientId) === String(p.recipientIdentifier);
+          }
+          
+          const timeA = new Date(m.createdAt || m.created_at || 0).getTime();
+          const timeB = new Date(p.createdAt || 0).getTime();
+          const timeDiff = Math.abs(timeA - timeB) < 60000; // 60 secondes de tolérance
+          
+          return sameContent && sameIsGroup && sameRecipient && timeDiff;
+        });
+        return !alreadySynced;
+      });
 
       const combined = [...uniquePending, ...list];
       const sorted = sortMessagesByDate(combined);
@@ -225,8 +246,29 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       try {
         const cached = loadFromCache("sent", domaineId);
         const pendingList = await loadPendingMessagesFromDb(domaineId);
-        const syncedIds = new Set(cached.map(m => m.id));
-        const uniquePending = pendingList.filter(p => !syncedIds.has(p.id));
+        const uniquePending = pendingList.filter(p => {
+          const alreadySynced = cached.some(m => {
+            const sameContent = String(m.content || '').trim() === String(p.content || '').trim();
+            const sameIsGroup = Boolean(m.isGroupMessage) === Boolean(p.isGroupMessage);
+            
+            let sameRecipient = false;
+            if (sameIsGroup) {
+              sameRecipient = m.targetRole === p.targetRole && m.targetRegion === p.targetRegion;
+            } else {
+              sameRecipient = 
+                m.recipientIdentifier === p.recipientIdentifier || 
+                String((m.recipient as any)?.id) === String(p.recipientIdentifier) ||
+                String(m.recipientId) === String(p.recipientIdentifier);
+            }
+            
+            const timeA = new Date(m.createdAt || m.created_at || 0).getTime();
+            const timeB = new Date(p.createdAt || 0).getTime();
+            const timeDiff = Math.abs(timeA - timeB) < 60000; // 60 secondes de tolérance
+            
+            return sameContent && sameIsGroup && sameRecipient && timeDiff;
+          });
+          return !alreadySynced;
+        });
         const combined = [...uniquePending, ...cached];
         const sorted = sortMessagesByDate(combined);
         setSent(sorted);
@@ -262,6 +304,18 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     window.addEventListener('messaging-refresh-all', handleRefreshAll);
     return () => {
       window.removeEventListener('messaging-refresh-all', handleRefreshAll);
+    };
+  }, [refreshAll]);
+
+  useEffect(() => {
+    const handleSyncFinished = () => {
+      console.log("[useInternalMessaging] Sync finished, refreshing message list");
+      void refreshAll();
+    };
+
+    window.addEventListener('sync-finished', handleSyncFinished);
+    return () => {
+      window.removeEventListener('sync-finished', handleSyncFinished);
     };
   }, [refreshAll]);
 
