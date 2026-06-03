@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Shield, Activity, MapPin, Search, Bell, MessageSquare, Trash2, Paperclip } from 'lucide-react';
 import { buildAttachmentUrl } from '@/lib/attachments';
+import MessageAttachmentViewer from '@/components/messaging/MessageAttachmentViewer';
 
 // ═══════════════ Types ═══════════════
 type AlertItem = {
@@ -265,6 +266,7 @@ function MessagesTab() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [previewPayload, setPreviewPayload] = useState<any | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["/api/superadmin/comms/messages"],
@@ -335,9 +337,21 @@ function MessagesTab() {
                   </TableCell>
                   <TableCell>
                     {m.attachment ? (
-                      <a href={buildAttachmentUrl(m.attachment.path) || '#'} target="_blank" rel="noreferrer" title={`${m.attachment.name} (${fmtSize(m.attachment.size)})`} className="text-blue-500 hover:text-blue-700">
+                      <button
+                        onClick={() => {
+                          setPreviewPayload({
+                            messageId: m.id,
+                            isGroup: m.type === 'group',
+                            name: m.attachment?.name,
+                            mime: m.attachment?.mime,
+                            size: m.attachment?.size,
+                          });
+                        }}
+                        title={m.attachment ? `${m.attachment.name} (${fmtSize(m.attachment.size)})` : undefined}
+                        className="text-blue-500 hover:text-blue-700 focus:outline-none"
+                      >
                         <Paperclip className="h-4 w-4" />
-                      </a>
+                      </button>
                     ) : null}
                   </TableCell>
                   <TableCell>
@@ -365,6 +379,7 @@ function MessagesTab() {
           </Table>
         </div>
       </CardContent>
+      <MessageAttachmentViewer payload={previewPayload} onClose={() => setPreviewPayload(null)} />
     </Card>
   );
 }
