@@ -133,9 +133,20 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
       const isAlertsEndpoint = typeof detail.url === 'string' && detail.url.includes('/api/alerts');
       const isDuplicateAlert = res.status === 409 && (body?.code === 'ALERT_DUPLICATE' || isAlertsEndpoint);
       const isMessagingEndpoint =
-        typeof detail.url === 'string' && detail.url.includes('/api/messages/');
+        typeof detail.url === 'string' && detail.url.includes('/api/messages');
       const isStaleMessaging404 = res.status === 404 && isMessagingEndpoint;
-      if (!isDuplicateAlert && !isStaleMessaging404) {
+
+      // Détecter si la requête a échoué en mode hors ligne ou à cause d'une erreur réseau
+      const isOfflineOrNetworkError =
+        !navigator.onLine ||
+        [502, 503, 504].includes(res.status) ||
+        (typeof baseMessage === 'string' && 
+          /network|fetch|unreachable|failed|503|502|504|connecter|connexion|unavailable|service|hors ligne|offline/i.test(baseMessage)
+        );
+
+      const isIgnoredOfflineEndpoint = isOfflineOrNetworkError && (isMessagingEndpoint || isAlertsEndpoint);
+
+      if (!isDuplicateAlert && !isStaleMessaging404 && !isIgnoredOfflineEndpoint) {
         window.dispatchEvent(new CustomEvent('apiRefusal', { detail }));
       }
     } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }

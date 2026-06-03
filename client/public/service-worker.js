@@ -244,7 +244,7 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-  
+
   // Requêtes de navigation (HTML) - Stratégie Network First
   if (event.request.mode === 'navigate') {
     event.respondWith(
@@ -264,7 +264,7 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-  
+
   // Autres ressources statiques - Stratégie Stale-While-Revalidate
   event.respondWith(
     caches.match(event.request)

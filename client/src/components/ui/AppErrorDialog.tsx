@@ -59,11 +59,23 @@ export default function AppErrorDialog() {
         (url.includes("/read") ||
           /\/api\/messages\/\d+/.test(url) ||
           url.includes("/delete"));
+
+      const isMessagingOrAlerts = url.includes("/api/messages") || url.includes("/api/alerts");
+      const isOfflineOrNetwork =
+        !navigator.onLine ||
+        [502, 503, 504].includes(Number(d.status)) ||
+        (typeof d.message === 'string' &&
+          /network|fetch|unreachable|failed|503|502|504|connecter|connexion|unavailable|service|hors ligne|offline/i.test(d.message)
+        );
+      const isIgnoredOffline = isMessagingOrAlerts && isOfflineOrNetwork;
+
       if (
         isAuthMe ||
+        isBackgroundPoll ||
         isDuplicateAlert ||
         isAgentProfileByMatricule ||
-        isStaleMessaging404
+        isStaleMessaging404 ||
+        isIgnoredOffline
       ) {
         return;
       }
