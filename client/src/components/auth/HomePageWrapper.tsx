@@ -13,6 +13,16 @@ export default function HomePageWrapper() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
+    const isAlerteApk =
+      typeof window !== 'undefined' &&
+      (window.location.search.includes('isApk=true') ||
+        navigator.userAgent.includes('AlerteAPK'));
+
+    if (isAlerteApk && !isAuthenticated && !isLoading) {
+      setLocation('/alerte-login');
+      return;
+    }
+
     // Si l'utilisateur est connecté, le rediriger vers son tableau de bord
     if (isAuthenticated && user && !isLoading) {
       // Nouveau flux: ne plus rediriger vers la route d'inscription forcée.

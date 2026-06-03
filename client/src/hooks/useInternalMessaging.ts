@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { dismissSystemNotification } from "./use-notifications";
-import { createOfflineMessage, queueOfflineDeleteMessage, queueOfflineMarkMessageRead } from "@/lib/offlineCrud";
+import { createOfflineMessage, queueOfflineDeleteMessage, queueOfflineMarkMessageRead, cancelPendingMessage } from "@/lib/offlineCrud";
 import { DatabaseManager } from "@/lib/pwaUtils";
 
 export interface InternalMessagingTarget {
@@ -134,7 +134,7 @@ async function loadPendingMessagesFromDb(domaineId?: number | "null"): Promise<I
   }
 }
 
-async function loadPendingDeletedMessageIds(): Promise<number[]> {
+async function loadPendingDeletedMessageIds(): Promise<(string | number)[]> {
   try {
     const db = await DatabaseManager.getDB();
     if (!db.objectStoreNames.contains('pendingSync')) return [];
@@ -147,7 +147,7 @@ async function loadPendingDeletedMessageIds(): Promise<number[]> {
         req.onsuccess = () => {
           const tasks = req.result || [];
           const deleteMsgTasks = tasks.filter((t: any) => t.action === 'DELETE_MESSAGE');
-          const ids = deleteMsgTasks.map((t: any) => Number(t.payload?.messageId || t.entityId)).filter(Boolean);
+          const ids = deleteMsgTasks.map((t: any) => t.payload?.messageId || t.entityId).filter(Boolean);
           resolve(ids);
         };
         req.onerror = () => resolve([]);
@@ -210,7 +210,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
 
       const merged: InternalMessageRecord[] = [...normalizeIndividual, ...normalizeGroup];
       const deletedIds = await loadPendingDeletedMessageIds();
-      const filtered = merged.filter(m => !deletedIds.includes(Number(m.id)));
+      const deletedIdsStr = deletedIds.map(String);
+      const filtered = merged.filter(m => !deletedIdsStr.includes(String(m.id)));
       const sorted = sortMessagesByDate(filtered);
       setInbox(sorted);
       // Persist to cache so the next mount shows data instantly
@@ -269,7 +270,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
 
       const combined = [...uniquePending, ...list];
       const deletedIds = await loadPendingDeletedMessageIds();
-      const filtered = combined.filter(m => !deletedIds.includes(Number(m.id)));
+      const deletedIdsStr = deletedIds.map(String);
+      const filtered = combined.filter(m => !deletedIdsStr.includes(String(m.id)));
       const sorted = sortMessagesByDate(filtered);
       setSent(sorted);
       // Persister dans le cache
@@ -305,7 +307,8 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         });
         const combined = [...uniquePending, ...cached];
         const deletedIds = await loadPendingDeletedMessageIds();
-        const filtered = combined.filter(m => !deletedIds.includes(Number(m.id)));
+        const deletedIdsStr = deletedIds.map(String);
+        const filtered = combined.filter(m => !deletedIdsStr.includes(String(m.id)));
         const sorted = sortMessagesByDate(filtered);
         setSent(sorted);
       } catch (cacheErr) {
@@ -614,6 +617,23 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       }
 
       const isGroup = Boolean(message.isGroupMessage);
+
+      // Tenter d'annuler s'il s'agit d'un message créé hors ligne et non encore synchronisé
+      try {
+        const cancelled = await cancelPendingMessage(id);
+        if (cancelled) {
+          console.log(`[deleteMessageRecord] Message temporaire hors ligne ${id} annulé et supprimé.`);
+          removeMessageFromState(id, isGroup);
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
+          queryClient.invalidateQueries({ queryKey: ['messages-unread-count-launcher-badge'] });
+          window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
+          return;
+        }
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('[deleteMessageRecord] Erreur lors de la tentative d\'annulation offline:', e);
+      }
+
       const endpoint = isGroup ? `/api/messages/group/${id}/delete` : `/api/messages/${id}`;
       const method = isGroup ? "PATCH" : "DELETE";
 

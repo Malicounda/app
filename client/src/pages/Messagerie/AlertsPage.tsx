@@ -23,7 +23,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation as useWouterLocation } from "wouter";
 
 import { useNotifications, dismissSystemNotification, clearAllSystemNotifications } from "@/hooks/use-notifications";
-import { createOfflineAlert, queueOfflineDeleteAlert, queueOfflineMarkAlertRead } from "@/lib/offlineCrud";
+import { createOfflineAlert, queueOfflineDeleteAlert, queueOfflineMarkAlertRead, cancelPendingAlert } from "@/lib/offlineCrud";
 import { DatabaseManager } from "@/lib/pwaUtils";
 
 // Type pour l'état de la permission
@@ -424,7 +424,7 @@ async function loadPendingAlertsFromDb(): Promise<Alert[]> {
   }
 }
 
-async function loadPendingDeletedAlertIds(): Promise<number[]> {
+async function loadPendingDeletedAlertIds(): Promise<(string | number)[]> {
   try {
     const db = await DatabaseManager.getDB();
     if (!db.objectStoreNames.contains('pendingSync')) return [];
@@ -437,7 +437,7 @@ async function loadPendingDeletedAlertIds(): Promise<number[]> {
         req.onsuccess = () => {
           const tasks = req.result || [];
           const deleteAlertTasks = tasks.filter((t: any) => t.action === 'DELETE_ALERT');
-          const ids = deleteAlertTasks.map((t: any) => Number(t.payload?.alertId || t.entityId)).filter(Boolean);
+          const ids = deleteAlertTasks.map((t: any) => t.payload?.alertId || t.entityId).filter(Boolean);
           resolve(ids);
         };
         req.onerror = () => resolve([]);
@@ -786,7 +786,8 @@ function AlertsPage() {
         console.log('[AlertsPage] Mapped alerts count:', mapped.length);
         console.log('[AlertsPage] Mapped alerts:', mapped);
         const deletedIds = await loadPendingDeletedAlertIds();
-        return mapped.filter(a => !deletedIds.includes(Number(a.id)));
+        const deletedIdsStr = deletedIds.map(String);
+        return mapped.filter(a => !deletedIdsStr.includes(String(a.id)));
       } catch (error: any) {
         console.error('[AlertsPage] Error fetching alerts:', error);
         if (String(error?.message || '').toLowerCase().includes('non authentifi') || String(error?.message || '').includes('401')) {
@@ -866,9 +867,10 @@ function AlertsPage() {
       });
 
       const combined = [...uniquePending, ...list];
-      const deletedIds = await loadPendingDeletedAlertIds();
-      return combined.filter(a => !deletedIds.includes(Number(a.id)));
-    },
+       const deletedIds = await loadPendingDeletedAlertIds();
+       const deletedIdsStr = deletedIds.map(String);
+       return combined.filter(a => !deletedIdsStr.includes(String(a.id)));
+     },
     enabled: !!user,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -1053,6 +1055,31 @@ function AlertsPage() {
     let deletedOnServer = false;
     let isNetworkErrorMode = false;
 
+    // Tenter d'annuler s'il s'agit d'une alerte créée hors ligne et non encore synchronisée
+    try {
+      const cancelled = await cancelPendingAlert(alertId);
+      if (cancelled) {
+        queryClient.setQueryData(["/api/alerts/received", user?.id], (old: any) => {
+          const arr = Array.isArray(old) ? old : [];
+          return arr.filter((a: any) => String(a?.id) !== String(alertId));
+        });
+        queryClient.setQueryData(["/api/alerts/sent", user?.id], (old: any) => {
+          const arr = Array.isArray(old) ? old : [];
+          return arr.filter((a: any) => String(a?.id) !== String(alertId));
+        });
+        queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
+        queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
+        window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
+        toast({
+          title: "Alerte annulée",
+          description: "L'alerte hors ligne non encore envoyée a été supprimée.",
+        });
+        return;
+      }
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[deleteAlert] Erreur lors de l\'annulation offline:', e);
+    }
+
     try {
       await apiRequest({ url: `/api/alerts/${alertId}`, method: 'DELETE' });
       deletedOnServer = true;
@@ -1082,11 +1109,11 @@ function AlertsPage() {
     // Mettre à jour les données locales (optimistic) - Toujours exécuté si succès serveur ou offline
     queryClient.setQueryData(["/api/alerts/received", user?.id], (old: any) => {
       const arr = Array.isArray(old) ? old : [];
-      return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
+      return arr.filter((a: any) => String(a?.id) !== String(alertId));
     });
     queryClient.setQueryData(["/api/alerts/sent", user?.id], (old: any) => {
       const arr = Array.isArray(old) ? old : [];
-      return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
+      return arr.filter((a: any) => String(a?.id) !== String(alertId));
     });
 
     // Invalider les compteurs de notifications pour mise à jour immédiate des badges

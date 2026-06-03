@@ -329,3 +329,133 @@ export async function queueOfflineMarkMessageRead(messageId: number, isGroupMess
     if (import.meta.env.DEV) console.warn('[offlineCrud] logAudit non-bloquant échoué:', e);
   });
 }
+
+/**
+ * Cancel a pending message sync task (and its attachments) if it was deleted before sync occurred.
+ * Returns true if the message was a pending offline message and was cancelled successfully.
+ */
+export async function cancelPendingMessage(messageId: number | string): Promise<boolean> {
+  try {
+    const db = await DatabaseManager.getDB();
+    const idStr = String(messageId);
+
+    return new Promise<boolean>((resolve, reject) => {
+      const transaction = db.transaction(['pendingSync', 'messages', 'attachments'], 'readwrite');
+      const syncStore = transaction.objectStore('pendingSync');
+      const msgStore = transaction.objectStore('messages');
+      const attachStore = transaction.objectStore('attachments');
+
+      const request = syncStore.getAll();
+
+      request.onsuccess = () => {
+        const tasks: SyncTask[] = request.result || [];
+        const createMsgTask = tasks.find(
+          (t) => t.action === 'CREATE_MESSAGE' && String(t.entityId) === idStr
+        );
+
+        if (createMsgTask) {
+          console.log(`[cancelPendingMessage] Found pending CREATE_MESSAGE task for messageId: ${idStr}. Cancelling...`);
+
+          // Delete the CREATE_MESSAGE task itself
+          syncStore.delete(createMsgTask.id);
+
+          // Delete any associated attachment upload tasks and local files
+          if (createMsgTask.dependencies && createMsgTask.dependencies.length > 0) {
+            for (const depId of createMsgTask.dependencies) {
+              const depTask = tasks.find((t) => t.id === depId);
+              if (depTask) {
+                syncStore.delete(depId);
+                if (depTask.entityId) {
+                  attachStore.delete(depTask.entityId);
+                }
+              }
+            }
+          }
+
+          // Delete the message from local 'messages' store
+          msgStore.delete(idStr);
+          const idNum = Number(idStr);
+          if (!isNaN(idNum)) {
+            msgStore.delete(idNum);
+          }
+
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      };
+
+      request.onerror = (e) => {
+        reject(e);
+      };
+    });
+  } catch (err) {
+    console.error('[cancelPendingMessage] error:', err);
+    return false;
+  }
+}
+
+/**
+ * Cancel a pending alert sync task (and its attachments) if it was deleted before sync occurred.
+ * Returns true if the alert was a pending offline alert and was cancelled successfully.
+ */
+export async function cancelPendingAlert(alertId: string | number): Promise<boolean> {
+  try {
+    const db = await DatabaseManager.getDB();
+    const idStr = String(alertId);
+
+    return new Promise<boolean>((resolve, reject) => {
+      const transaction = db.transaction(['pendingSync', 'alerts', 'attachments'], 'readwrite');
+      const syncStore = transaction.objectStore('pendingSync');
+      const alertStore = transaction.objectStore('alerts');
+      const attachStore = transaction.objectStore('attachments');
+
+      const request = syncStore.getAll();
+
+      request.onsuccess = () => {
+        const tasks: SyncTask[] = request.result || [];
+        const createAlertTask = tasks.find(
+          (t) => t.action === 'CREATE_ALERT' && String(t.entityId) === idStr
+        );
+
+        if (createAlertTask) {
+          console.log(`[cancelPendingAlert] Found pending CREATE_ALERT task for alertId: ${idStr}. Cancelling...`);
+
+          // Delete the CREATE_ALERT task
+          syncStore.delete(createAlertTask.id);
+
+          // Delete any associated attachment upload tasks and files
+          if (createAlertTask.dependencies && createAlertTask.dependencies.length > 0) {
+            for (const depId of createAlertTask.dependencies) {
+              const depTask = tasks.find((t) => t.id === depId);
+              if (depTask) {
+                syncStore.delete(depId);
+                if (depTask.entityId) {
+                  attachStore.delete(depTask.entityId);
+                }
+              }
+            }
+          }
+
+          // Delete the alert from local 'alerts' store
+          alertStore.delete(idStr);
+          const idNum = Number(idStr);
+          if (!isNaN(idNum)) {
+            alertStore.delete(idNum);
+          }
+
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      };
+
+      request.onerror = (e) => {
+        reject(e);
+      };
+    });
+  } catch (err) {
+    console.error('[cancelPendingAlert] error:', err);
+    return false;
+  }
+}
