@@ -537,6 +537,17 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={labelCls}>Thème</span>
             </Link>
 
+            <Link
+              href="/superadmin/communications"
+              onClick={handleLinkClick}
+              className={location === '/superadmin/communications' ? activeLinkStyle : linkStyle}
+            >
+              <span className={iconWrapCls}>
+                <MessagingIcon className={cn('text-slate-400', iconSize)} />
+              </span>
+              <span className={labelCls}>Communications</span>
+            </Link>
+
             {!collapsed && (
               <div className="mt-3 rounded-lg border border-[#3d4947] bg-[#171f33] p-2 shadow-sm">
                 <div className="text-xs font-semibold text-slate-400 mb-2">Super-Admin Tools</div>
