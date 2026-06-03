@@ -97,7 +97,6 @@ import DomainesPage from "@/pages/SuperAdmin/DomainesPage";
 import RolesMetierPage from "@/pages/SuperAdmin/RolesMetierPage";
 import ThemePage from "@/pages/SuperAdmin/ThemePage";
 import ApkHistoryPage from "@/pages/SuperAdmin/ApkHistoryPage";
-import CommunicationsPage from "@/pages/SuperAdmin/CommunicationsPage";
 import SupervisorPage from "@/pages/Supervisor/SupervisorPage";
 import Taxes from "@/pages/Taxes";
 import TriageDashboard from "@/pages/triage/TriageDashboard";
@@ -739,13 +738,6 @@ function Router() {
           <ChasseRoute>
             <ProtectedRoute adminOnly superAdminOnly>
               <ApkHistoryPage />
-            </ProtectedRoute>
-          </ChasseRoute>
-        </Route>
-        <Route path="/superadmin/communications">
-          <ChasseRoute>
-            <ProtectedRoute adminOnly superAdminOnly>
-              <CommunicationsPage />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
