@@ -391,18 +391,20 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           }
         }
 
+        const tempMsgId = Date.now() + Math.floor(Math.random() * 1000);
         let created: InternalMessageRecord[];
         if (isOffline) {
           await createOfflineMessage(
             { recipient: recipientIdentifier, subject, content: finalContent, domaineId: domaineId ? String(domaineId) : undefined },
-            attachment ? [attachment] : []
+            attachment ? [attachment] : [],
+            tempMsgId
           );
           data = { offlineQueued: true };
         }
 
         if (data.offlineQueued) {
           const tempMsg: InternalMessageRecord = {
-            id: Date.now() + Math.floor(Math.random() * 1000),
+            id: tempMsgId,
             content: finalContent,
             subject,
             createdAt: new Date().toISOString(),
@@ -522,17 +524,19 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
             }
           }
 
+          const tempMsgId = Date.now() + Math.floor(Math.random() * 1000);
           if (isOffline) {
             await createOfflineMessage(
               { targetRole: target.role, targetRegion: target.region, subject, content: finalContent, domaineId: domaineId ? String(domaineId) : undefined, isGroupMessage: true },
-              attachment ? [attachment] : []
+              attachment ? [attachment] : [],
+              tempMsgId
             );
             data = { offlineQueued: true };
           }
 
           if (data.offlineQueued) {
             return [{
-              id: Date.now() + Math.floor(Math.random() * 1000),
+              id: tempMsgId,
               content: finalContent,
               subject,
               createdAt: new Date().toISOString(),

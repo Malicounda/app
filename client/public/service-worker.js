@@ -40,6 +40,100 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Fonction d'aide pour récupérer les pièces jointes stockées hors ligne dans IndexedDB
+function getOfflineAttachment(messageId) {
+  return new Promise((resolve) => {
+    try {
+      const dbOpenRequest = indexedDB.open('permis-chasse-offline-db');
+      dbOpenRequest.onerror = () => resolve(null);
+      dbOpenRequest.onsuccess = (event) => {
+        try {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('messages') || !db.objectStoreNames.contains('attachments')) {
+            db.close();
+            resolve(null);
+            return;
+          }
+          const transaction = db.transaction(['messages', 'attachments'], 'readonly');
+          const messagesStore = transaction.objectStore('messages');
+          const attachmentsStore = transaction.objectStore('attachments');
+
+          const getMsgReq = messagesStore.get(messageId);
+          getMsgReq.onsuccess = () => {
+            try {
+              let msgRecord = getMsgReq.result;
+              if (!msgRecord && !isNaN(messageId)) {
+                const getMsgReqNum = messagesStore.get(Number(messageId));
+                getMsgReqNum.onsuccess = () => {
+                  try {
+                    handleMessageRecord(db, attachmentsStore, getMsgReqNum.result, resolve);
+                  } catch (e) {
+                    db.close();
+                    resolve(null);
+                  }
+                };
+                getMsgReqNum.onerror = () => {
+                  db.close();
+                  resolve(null);
+                };
+              } else {
+                handleMessageRecord(db, attachmentsStore, msgRecord, resolve);
+              }
+            } catch (e) {
+              db.close();
+              resolve(null);
+            }
+          };
+          getMsgReq.onerror = () => {
+            db.close();
+            resolve(null);
+          };
+        } catch (e) {
+          resolve(null);
+        }
+      };
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+function handleMessageRecord(db, attachmentsStore, msgRecord, resolve) {
+  if (!msgRecord || !msgRecord.payload || !msgRecord.payload.offlineAttachment) {
+    db.close();
+    resolve(null);
+    return;
+  }
+
+  const attachId = msgRecord.payload.offlineAttachment.attachId;
+  const fileName = msgRecord.payload.offlineAttachment.fileName || 'attachment';
+  const fileMime = msgRecord.payload.offlineAttachment.fileMime || 'application/octet-stream';
+
+  const getAttachReq = attachmentsStore.get(attachId);
+  getAttachReq.onsuccess = () => {
+    try {
+      const attachRecord = getAttachReq.result;
+      db.close();
+      if (attachRecord && attachRecord.blob) {
+        resolve({
+          blob: attachRecord.blob,
+          fileName: fileName,
+          mimeType: fileMime
+        });
+      } else {
+        resolve(null);
+      }
+    } catch (e) {
+      db.close();
+      resolve(null);
+    }
+  };
+  getAttachReq.onerror = () => {
+    db.close();
+    resolve(null);
+  };
+}
+
 // Stratégie de cache pour les requêtes API
 self.addEventListener('fetch', (event) => {
   const req = event.request;
@@ -63,6 +157,54 @@ self.addEventListener('fetch', (event) => {
 
   // Requêtes API
   if (event.request.url.includes('/api/')) {
+    // Si c'est une requête pour une pièce jointe d'un message
+    const match = event.request.url.match(/\/api\/messages\/(?:group\/)?([^/]+)\/attachment/);
+    if (match) {
+      const messageId = match[1];
+      event.respondWith(
+        fetch(event.request)
+          .then((response) => {
+            // Si la réponse réseau est valide, la retourner
+            if (response && response.ok) {
+              return response;
+            }
+            // Sinon (ex: 404 car message offline non synchro), tenter de récupérer la pièce jointe locale
+            return getOfflineAttachment(messageId).then((offlineData) => {
+              if (offlineData) {
+                return new Response(offlineData.blob, {
+                  headers: {
+                    'Content-Type': offlineData.mimeType,
+                    'Content-Disposition': `inline; filename="${encodeURIComponent(offlineData.fileName)}"`
+                  }
+                });
+              }
+              return response;
+            });
+          })
+          .catch((err) => {
+            // Si réseau en erreur (offline)
+            return getOfflineAttachment(messageId).then((offlineData) => {
+              if (offlineData) {
+                return new Response(offlineData.blob, {
+                  headers: {
+                    'Content-Type': offlineData.mimeType,
+                    'Content-Disposition': `inline; filename="${encodeURIComponent(offlineData.fileName)}"`
+                  }
+                });
+              }
+              // Sinon fallback 503
+              console.warn('Service Worker: API fetch failed:', event.request.url, err);
+              return new Response(JSON.stringify({ error: "Network error or Server unreachable" }), {
+                status: 503,
+                statusText: "Service Unavailable",
+                headers: { 'Content-Type': 'application/json' }
+              });
+            });
+          })
+      );
+      return;
+    }
+
     // Stratégie Network First pour les API
     event.respondWith(
       fetch(event.request)

@@ -150,8 +150,8 @@ export async function deleteOfflineAlert(alertId: string): Promise<void> {
   await logAudit('DELETE_ALERT', alertId, { status: 'DELETED' });
 }
 
-export async function createOfflineMessage(payload: any, attachments: File[] = []): Promise<string> {
-  const messageId = generateUUID();
+export async function createOfflineMessage(payload: any, attachments: File[] = [], customId?: string | number): Promise<string> {
+  const messageId = customId ? String(customId) : generateUUID();
   const attachmentTaskIds: string[] = [];
   let firstAttachId: string | undefined;
 
