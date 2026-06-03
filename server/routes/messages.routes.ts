@@ -1088,9 +1088,34 @@ router.get('/:id/attachment', isAuthenticated, async (req: Request, res: Respons
       return res.status(404).json({ message: 'Message non trouvé' });
     }
 
-    // Vérifier que l'utilisateur a accès au message (le SuperAdmin a un accès d'audit global)
+    // Vérifier que l'utilisateur a accès au message (les SuperAdmins ont un droit d'audit global)
     const isSuper = (req as any).user?.isSuperAdmin === true || (req as any).user?.role === 'superadmin';
-    if (!isSuper && message.senderId !== userId && message.recipientId !== userId) {
+    let isAuthorized = isSuper || message.senderId === userId || message.recipientId === userId;
+    if (!isAuthorized) {
+      const [userRow] = await db
+        .select({ isSuperAdmin: users.isSuperAdmin, role: users.role })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      
+      const isSuperInDb = userRow?.isSuperAdmin === true || 
+                          userRow?.role === 'superadmin' || 
+                          userRow?.role === 'super_admin';
+                          
+      if (isSuperInDb) {
+        isAuthorized = true;
+      } else {
+        const superAdminRow = await db
+          .select({ id: superAdmins.userId })
+          .from(superAdmins)
+          .where(eq(superAdmins.userId, userId))
+          .limit(1);
+        if (superAdminRow && superAdminRow.length > 0) {
+          isAuthorized = true;
+        }
+      }
+    }
+    if (!isAuthorized) {
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
