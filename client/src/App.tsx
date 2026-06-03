@@ -1047,14 +1047,49 @@ function applyTheme(cfg: any, user: any, location: string) {
   if (typeof window === 'undefined') return;
   const html = document.documentElement;
 
-  const isSuperAdminUser = (user as any)?.isSuperAdmin === true;
+  // Récupérer le user depuis la session localStorage de secours s'il n'est pas encore chargé dans React
+  let effectiveUser = user;
+  if (!effectiveUser) {
+    try {
+      const savedSessionStr = localStorage.getItem('scodi_session');
+      if (savedSessionStr) {
+        effectiveUser = JSON.parse(savedSessionStr);
+      }
+    } catch (e) {
+      effectiveUser = null;
+    }
+  }
+
+  const isSuperAdminUser = effectiveUser?.isSuperAdmin === true;
   const isSuperAdminSection = location.startsWith('/superadmin') || 
                               location.startsWith('/admin') || 
                               location === '/settings' || 
                               location === '/accounts';
   const shouldApplySuperAdminTheme = isSuperAdminUser || (isSuperAdminSection && isSuperAdminUser);
 
-  const domainKey = (localStorage.getItem('domain') || '').toUpperCase();
+  // Détection automatique du domaine par l'URL si non défini ou pour corriger le localStorage au démarrage
+  let domainKey = '';
+  try {
+    domainKey = (localStorage.getItem('domain') || '').toUpperCase();
+  } catch (e) {}
+
+  const lowerLoc = location.toLowerCase();
+  let pathDomain = '';
+  if (lowerLoc.startsWith('/reboisement') || lowerLoc.startsWith('/pepinieres') || lowerLoc.startsWith('/zones-reboisees') || lowerLoc.startsWith('/declarations')) {
+    pathDomain = 'REBOISEMENT';
+  } else if (lowerLoc.startsWith('/alerte') || lowerLoc.startsWith('/alertes')) {
+    pathDomain = 'ALERTE';
+  } else if (lowerLoc.startsWith('/chasse') || lowerLoc.startsWith('/permits') || lowerLoc.startsWith('/guides') || lowerLoc === '/login') {
+    pathDomain = 'CHASSE';
+  }
+
+  if (pathDomain && pathDomain !== domainKey) {
+    domainKey = pathDomain;
+    try {
+      localStorage.setItem('domain', pathDomain);
+    } catch (e) {}
+  }
+
   const domainTheme = cfg?.domains?.[domainKey] || {};
 
   html.classList.remove('superadmin-theme', 'domain-theme', 'dark-superadmin');

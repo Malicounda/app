@@ -47,6 +47,12 @@ export async function apiRequestBlob(
       contentLength: response.headers.get('content-length')
     });
 
+    if (response.status === 401) {
+      try {
+        window.dispatchEvent(new CustomEvent('sessionExpired'));
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e); }
+    }
+
     if (!response.ok) {
       // Essayer d'extraire un message d'erreur texte
       let msg = response.statusText;
@@ -146,6 +152,12 @@ export async function apiRequest<T>(
         data: parsed as T | undefined,
         status: response.status,
       };
+    }
+
+    if (response.status === 401) {
+      try {
+        window.dispatchEvent(new CustomEvent('sessionExpired'));
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e); }
     }
 
     // En erreur, essayer d'extraire un message des payloads communs

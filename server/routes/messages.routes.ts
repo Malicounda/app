@@ -120,14 +120,14 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
         );
 
       const norm = (s: any) => String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const regionFilter  = (req.query.region as string)?.trim() || null;
-      const deptFilter    = (req.query.departement as string)?.trim() || null;
+      const regionFilter = (req.query.region as string)?.trim() || null;
+      const deptFilter = (req.query.departement as string)?.trim() || null;
 
       const filteredSupervisors = (supervisorUsers as any[])
         .filter(u => Number(u.id) !== currentUserId)
         .filter(u => {
           const matchRegion = regionFilter ? norm(u.region) === norm(regionFilter) : true;
-          const matchDept   = deptFilter   ? norm(u.departement) === norm(deptFilter) : true;
+          const matchDept = deptFilter ? norm(u.departement) === norm(deptFilter) : true;
           return matchRegion && matchDept;
         });
 
@@ -151,45 +151,45 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
 
     const validUserRoles = ['admin', 'chasse', 'agent', 'sub-agent', 'super-admin', 'hunter', 'guide'];
     const safeRoleParam = validUserRoles.includes(roleParam) ? roleParam : 'agent';
-    
+
     const whereRole = roleParam === 'sector'
       ? inArray(users.role as any, ['sub-agent'] as any)
       : eq(users.role as any, safeRoleParam as any);
 
     const domainUsers = (isDefaultRoleUser || domaineId === null)
       ? await db
-          .select({
-            id: users.id,
-            username: users.username,
-            email: users.email,
-            matricule: users.matricule,
-            firstName: users.firstName,
-            lastName: users.lastName,
-            region: users.region,
-            departement: users.departement,
-            role: users.role,
-            grade: agents.grade,
-          })
-          .from(users)
-          .leftJoin(agents, eq(agents.userId as any, users.id as any))
-          .where(and(whereRole as any, eq(users.isActive as any, true as any)) as any)
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          matricule: users.matricule,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          region: users.region,
+          departement: users.departement,
+          role: users.role,
+          grade: agents.grade,
+        })
+        .from(users)
+        .leftJoin(agents, eq(agents.userId as any, users.id as any))
+        .where(and(whereRole as any, eq(users.isActive as any, true as any)) as any)
       : await db
-          .select({
-            id: users.id,
-            username: users.username,
-            email: users.email,
-            matricule: users.matricule,
-            firstName: users.firstName,
-            lastName: users.lastName,
-            region: users.region,
-            departement: users.departement,
-            role: users.role,
-            grade: agents.grade,
-          })
-          .from(users)
-          .innerJoin(userDomains, and(eq(userDomains.userId, users.id), eq(userDomains.active as any, true as any), eq(userDomains.domaineId as any, domaineId as any)))
-          .leftJoin(agents, eq(agents.userId as any, users.id as any))
-          .where(and(whereRole as any, eq(users.isActive as any, true as any)) as any);
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          matricule: users.matricule,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          region: users.region,
+          departement: users.departement,
+          role: users.role,
+          grade: agents.grade,
+        })
+        .from(users)
+        .innerJoin(userDomains, and(eq(userDomains.userId, users.id), eq(userDomains.active as any, true as any), eq(userDomains.domaineId as any, domaineId as any)))
+        .leftJoin(agents, eq(agents.userId as any, users.id as any))
+        .where(and(whereRole as any, eq(users.isActive as any, true as any)) as any);
 
     const systemAdminUsers = await db
       .select({
@@ -395,10 +395,10 @@ router.get('/inbox', isAuthenticated, async (req, res) => {
                   .limit(1);
                 roleMetierLabel = String(rmRows?.[0]?.labelFr || '').trim();
               }
-            } catch {}
+            } catch { }
             senderMap.set(Number(sid), { ...rows[0], grade, roleMetierLabel });
           }
-        } catch {}
+        } catch { }
       }
     }
 
@@ -450,7 +450,7 @@ router.get('/sent', isAuthenticated, async (req, res) => {
             role_metier_label: row.roleMetierLabel ?? null,
           });
         }
-      } catch {}
+      } catch { }
     }
 
     // Agréger aussi les lecteurs des messages transférés (enfants via parentMessageId)
@@ -491,7 +491,7 @@ router.get('/sent', isAuthenticated, async (req, res) => {
             });
           }
         }
-      } catch {}
+      } catch { }
       return {
         ...m,
         isGroupMessage: false,
@@ -513,34 +513,34 @@ router.get('/sent', isAuthenticated, async (req, res) => {
     // Enrichir les groupes avec les lecteurs réels
     const normalizedGroup = Array.isArray(group)
       ? await Promise.all(group.map(async (message: any) => {
-          const reads = await storage.getGroupReadsWithUsers(message.id);
-          const readers = (Array.isArray(reads) ? reads : [])
-            .filter((r: any) => r && r.isRead && !r.isDeleted)
-            .map((r: any) => ({
-              firstName: r.firstName ?? null,
-              lastName: r.lastName ?? null,
-              matricule: r.matricule ?? null,
-              name: [r.firstName, r.lastName].filter(Boolean).join(' ').trim() || 'Utilisateur',
-              role: r.role ?? null,
-              region: r.region ?? null,
-              departement: r.departement ?? null,
-              readAt: r.readAt ?? null,
-            }));
-          return {
-            ...message,
-            isGroupMessage: true,
-            recipientId: undefined,
-            recipientName: undefined,
-            targetRole: message.targetRole,
-            targetRegion: message.targetRegion,
-            attachmentPath: message.attachmentPath ?? undefined,
-            attachmentName: message.attachmentName ?? undefined,
-            attachmentMime: message.attachmentMime ?? undefined,
-            attachmentSize: message.attachmentSize ?? undefined,
-            readers,
-            readStatus: readers.length > 0 ? 'read' : 'unread',
-          };
-        }))
+        const reads = await storage.getGroupReadsWithUsers(message.id);
+        const readers = (Array.isArray(reads) ? reads : [])
+          .filter((r: any) => r && r.isRead && !r.isDeleted)
+          .map((r: any) => ({
+            firstName: r.firstName ?? null,
+            lastName: r.lastName ?? null,
+            matricule: r.matricule ?? null,
+            name: [r.firstName, r.lastName].filter(Boolean).join(' ').trim() || 'Utilisateur',
+            role: r.role ?? null,
+            region: r.region ?? null,
+            departement: r.departement ?? null,
+            readAt: r.readAt ?? null,
+          }));
+        return {
+          ...message,
+          isGroupMessage: true,
+          recipientId: undefined,
+          recipientName: undefined,
+          targetRole: message.targetRole,
+          targetRegion: message.targetRegion,
+          attachmentPath: message.attachmentPath ?? undefined,
+          attachmentName: message.attachmentName ?? undefined,
+          attachmentMime: message.attachmentMime ?? undefined,
+          attachmentSize: message.attachmentSize ?? undefined,
+          readers,
+          readStatus: readers.length > 0 ? 'read' : 'unread',
+        };
+      }))
       : [];
 
     const combined = [...enrichedIndividual, ...normalizedGroup];
@@ -612,7 +612,7 @@ router.patch('/:id/content', isAuthenticated, async (req: Request, res: Response
 
     // Update content
     const [updatedMessage] = await db.update(messages)
-      .set({ 
+      .set({
         content: content.trim(),
         updatedAt: new Date()
       })
@@ -843,11 +843,11 @@ router.post('/group', isAuthenticated, upload.single('attachment'), async (req, 
         if (targetRegion) {
           queryConditions.push(eq(users.region, targetRegion as any));
         }
-        
+
         let targetUsersQuery = db
           .select({ id: users.id })
           .from(users);
-          
+
         if (domaineId) {
           targetUsersQuery = targetUsersQuery.innerJoin(
             userDomains,
@@ -858,10 +858,10 @@ router.post('/group', isAuthenticated, upload.single('attachment'), async (req, 
             )
           ) as any;
         }
-        
+
         const targetUsers = await targetUsersQuery.where(and(...queryConditions));
         const recipientIds = targetUsers.map(u => u.id).filter(id => id !== senderId);
-        
+
         if (recipientIds.length > 0) {
           await notificationService.broadcastToUsers(recipientIds, {
             title: "Nouveau message de groupe",
@@ -872,7 +872,7 @@ router.post('/group', isAuthenticated, upload.single('attachment'), async (req, 
       } catch (err) {
         console.error('[POST /api/messages/group] Notification broadcast failed', err);
       }
-      
+
       // Notifier également l'expéditeur pour mettre à jour son UI
       notificationService.sendToUser(senderId, {
         title: "Message de groupe envoyé",
@@ -1097,11 +1097,11 @@ router.get('/:id/attachment', isAuthenticated, async (req: Request, res: Respons
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
-      
-      const isSuperInDb = userRow?.isSuperAdmin === true || 
-                          userRow?.role === 'superadmin' || 
-                          userRow?.role === 'super_admin';
-                          
+
+      const isSuperInDb = userRow?.isSuperAdmin === true ||
+        userRow?.role === 'superadmin' ||
+        userRow?.role === 'super_admin';
+
       if (isSuperInDb) {
         isAuthorized = true;
       } else {
