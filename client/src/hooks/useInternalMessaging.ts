@@ -604,13 +604,17 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       const endpoint = isGroup ? `/api/messages/group/${id}/delete` : `/api/messages/${id}`;
       const method = isGroup ? "PATCH" : "DELETE";
 
+      let deletedOnServer = false;
+
       try {
         await apiRequest({ url: endpoint, method });
+        deletedOnServer = true;
       } catch (err: unknown) {
         if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
         const e = err as { message?: string; status?: number };
         const msg = String(e?.message || '').toLowerCase();
         if (e?.status === 404 || msg.includes('non trouvé')) {
+          // Déjà supprimé côté serveur — purger et retourner
           purgeStaleMessage(id, isGroup);
           queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
           queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
@@ -626,20 +630,22 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') || 
           msg.includes('service') || msg.includes('hors ligne') || msg.includes('offline');
         if (isNetworkError) {
+          // Mettre en file d'attente pour synchronisation ultérieure
+          // L'échec du queue ne doit JAMAIS empêcher la mise à jour UI optimiste
           try {
             await queueOfflineDeleteMessage(id, isGroup);
           } catch (queueErr) {
-            if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Queue error', queueErr);
-            throw err;
+            if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Queue error (non-bloquant):', queueErr);
           }
-          // Continue: retirer de l'UI de manière optimiste
+          // Continue: retirer de l'UI de manière optimiste (ci-dessous)
         } else {
           throw err;
         }
       }
 
+      // Toujours retirer le message de l'UI (succès serveur OU mis en queue offline)
       removeMessageFromState(id, isGroup);
-      if (navigator.onLine) await refreshAll();
+      if (deletedOnServer) await refreshAll();
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count-launcher-badge'] });
@@ -647,6 +653,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     },
     [removeMessageFromState, purgeStaleMessage, refreshAll, queryClient]
   );
+
 
   const markMessageAsRead = useCallback(async (messageId: number, isGroup?: boolean) => {
     const endpoint = isGroup

@@ -1050,8 +1050,12 @@ function AlertsPage() {
   };
 
   const deleteAlert = async (alertId: number) => {
+    let deletedOnServer = false;
+    let isNetworkErrorMode = false;
+
     try {
       await apiRequest({ url: `/api/alerts/${alertId}`, method: 'DELETE' });
+      deletedOnServer = true;
     } catch (error: any) {
       const msg = String(error?.message || '').toLowerCase();
       const isNetworkError = !navigator.onLine || 
@@ -1061,17 +1065,12 @@ function AlertsPage() {
         msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') || 
         msg.includes('service') || msg.includes('hors ligne') || msg.includes('offline');
       if (isNetworkError) {
+        isNetworkErrorMode = true;
         // Queue pour synchronisation ultérieure
         try {
           await queueOfflineDeleteAlert(alertId);
-          toast({
-            title: "Mode hors ligne",
-            description: "L'alerte sera supprimée lors de la reconnexion.",
-          });
         } catch (e) {
-          if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-          toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre en file d'attente." });
-          return;
+          if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Queue error (non-bloquant):', e);
         }
       } else {
         if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
@@ -1080,7 +1079,7 @@ function AlertsPage() {
       }
     }
 
-    // Mettre à jour les données locales (optimistic)
+    // Mettre à jour les données locales (optimistic) - Toujours exécuté si succès serveur ou offline
     queryClient.setQueryData(["/api/alerts/received", user?.id], (old: any) => {
       const arr = Array.isArray(old) ? old : [];
       return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
@@ -1096,10 +1095,17 @@ function AlertsPage() {
     queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
     window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
 
-    toast({
-      title: "Alerte supprimée",
-      description: navigator.onLine ? "L'alerte a été supprimée définitivement." : "L'alerte sera supprimée lors de la reconnexion.",
-    });
+    if (isNetworkErrorMode) {
+        toast({
+            title: "Mode hors ligne",
+            description: "L'alerte sera supprimée lors de la reconnexion.",
+        });
+    } else {
+        toast({
+            title: "Alerte supprimée",
+            description: "L'alerte a été supprimée définitivement.",
+        });
+    }
   };
 
   const getAlertTypeStyles = (type: string) => {

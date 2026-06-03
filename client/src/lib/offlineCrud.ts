@@ -255,7 +255,10 @@ export async function queueOfflineDeleteAlert(alertId: number): Promise<void> {
     idempotencyKey: `DELETE-ALERT-${alertId}`
   };
   await storeData('pendingSync', task);
-  await logAudit('QUEUE_DELETE_ALERT', String(alertId), { offline: true });
+  // Fire-and-forget: l'audit ne doit jamais bloquer une opération de queue critique
+  logAudit('QUEUE_DELETE_ALERT', String(alertId), { offline: true }).catch((e) => {
+    if (import.meta.env.DEV) console.warn('[offlineCrud] logAudit non-bloquant échoué:', e);
+  });
 }
 
 /**
@@ -275,7 +278,10 @@ export async function queueOfflineDeleteMessage(messageId: number, isGroupMessag
     idempotencyKey: `DELETE-MSG-${messageId}`
   };
   await storeData('pendingSync', task);
-  await logAudit('QUEUE_DELETE_MESSAGE', String(messageId), { offline: true, isGroupMessage });
+  // Fire-and-forget: l'audit ne doit jamais bloquer une opération de queue critique
+  logAudit('QUEUE_DELETE_MESSAGE', String(messageId), { offline: true, isGroupMessage }).catch((e) => {
+    if (import.meta.env.DEV) console.warn('[offlineCrud] logAudit non-bloquant échoué:', e);
+  });
 }
 
 /**
@@ -295,7 +301,10 @@ export async function queueOfflineMarkAlertRead(alertId: number): Promise<void> 
     idempotencyKey: `READ-ALERT-${alertId}`
   };
   await storeData('pendingSync', task);
-  await logAudit('QUEUE_MARK_ALERT_READ', String(alertId), { offline: true });
+  // Fire-and-forget: l'audit ne doit jamais bloquer une opération de queue critique
+  logAudit('QUEUE_MARK_ALERT_READ', String(alertId), { offline: true }).catch((e) => {
+    if (import.meta.env.DEV) console.warn('[offlineCrud] logAudit non-bloquant échoué:', e);
+  });
 }
 
 /**
@@ -315,5 +324,8 @@ export async function queueOfflineMarkMessageRead(messageId: number, isGroupMess
     idempotencyKey: `READ-MSG-${messageId}`
   };
   await storeData('pendingSync', task);
-  await logAudit('QUEUE_MARK_MESSAGE_READ', String(messageId), { offline: true, isGroupMessage });
+  // Fire-and-forget: l'audit ne doit jamais bloquer une opération de queue critique
+  logAudit('QUEUE_MARK_MESSAGE_READ', String(messageId), { offline: true, isGroupMessage }).catch((e) => {
+    if (import.meta.env.DEV) console.warn('[offlineCrud] logAudit non-bloquant échoué:', e);
+  });
 }
