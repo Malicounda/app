@@ -1043,6 +1043,59 @@ function Router() {
   );
 }
 
+function applyTheme(cfg: any, user: any, location: string) {
+  if (typeof window === 'undefined') return;
+  const html = document.documentElement;
+
+  const isSuperAdminUser = (user as any)?.isSuperAdmin === true;
+  const isSuperAdminSection = location.startsWith('/superadmin') || 
+                              location.startsWith('/admin') || 
+                              location === '/settings' || 
+                              location === '/accounts';
+  const shouldApplySuperAdminTheme = isSuperAdminUser || (isSuperAdminSection && isSuperAdminUser);
+
+  const domainKey = (localStorage.getItem('domain') || '').toUpperCase();
+  const domainTheme = cfg?.domains?.[domainKey] || {};
+
+  html.classList.remove('superadmin-theme', 'domain-theme', 'dark-superadmin');
+
+  let activeTheme: any = {};
+  
+  if (shouldApplySuperAdminTheme) {
+    activeTheme = cfg?.superAdmin || {};
+    html.classList.add('superadmin-theme');
+    if (cfg?.superAdmin?.useLegacyDark === true) {
+      html.classList.add('dark-superadmin');
+    }
+  } else if (domainTheme.bg || domainTheme.sidebarBg || domainTheme.headerBg) {
+    activeTheme = domainTheme;
+    html.classList.add('domain-theme');
+  }
+
+  const vars: Record<string, string | undefined> = {
+    '--sa-bg': activeTheme.bg,
+    '--sa-text': activeTheme.text,
+    '--sa-sidebar-bg': activeTheme.sidebarBg,
+    '--sa-header-bg': activeTheme.headerBg,
+    '--sa-surface': activeTheme.surface,
+    '--sa-border': activeTheme.border,
+    '--sa-accent': activeTheme.accent,
+    '--sa-input-bg': activeTheme.inputBg,
+    '--superadmin-bg': activeTheme.bg,
+    '--superadmin-text': activeTheme.text,
+    '--superadmin-sidebar-bg': activeTheme.sidebarBg,
+    '--superadmin-header-bg': activeTheme.headerBg,
+    '--superadmin-surface': activeTheme.surface,
+    '--superadmin-border': activeTheme.border,
+    '--superadmin-accent': activeTheme.accent,
+  };
+
+  for (const [k, v] of Object.entries(vars)) {
+    if (v) html.style.setProperty(k, v);
+    else html.style.removeProperty(k);
+  }
+}
+
 function GlobalThemeLoader() {
   const { user } = useAuth();
   const [location] = useLocation();
@@ -1054,56 +1107,19 @@ function GlobalThemeLoader() {
     return () => window.removeEventListener('theme:superadmin:updated', onThemeUpdated);
   }, []);
 
-  useEffect(() => {
-    const html = document.documentElement;
+  // Lire les configurations de localStorage de manière synchrone pendant le rendu
+  let cfg: any = null;
+  try {
+    const raw = localStorage.getItem('theme:superadmin');
+    cfg = raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    cfg = null;
+  }
 
-    let cfg: any = null;
-    try {
-      const raw = localStorage.getItem('theme:superadmin');
-      cfg = raw ? JSON.parse(raw) : null;
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-      cfg = null;
-     }
+  // Appliquer le thème directement lors du rendu pour éviter les flashs/FOUC au démarrage du système
+  applyTheme(cfg, user, location);
 
-    const isSuperAdminUser = (user as any)?.isSuperAdmin === true;
-    const isSuperAdminSection = location.startsWith('/superadmin');
-    const shouldApplySuperAdminTheme = isSuperAdminUser && isSuperAdminSection;
-    
-    const domainKey = (localStorage.getItem('domain') || '').toUpperCase();
-    const domainTheme = cfg?.domains?.[domainKey] || {};
-
-    html.classList.remove('superadmin-theme', 'domain-theme', 'dark-superadmin');
-
-    let activeTheme: any = {};
-    
-    if (shouldApplySuperAdminTheme) {
-      activeTheme = cfg?.superAdmin || {};
-      html.classList.add('superadmin-theme');
-      if (cfg?.superAdmin?.useLegacyDark === true) {
-        html.classList.add('dark-superadmin');
-      }
-    } else if (domainTheme.bg || domainTheme.sidebarBg || domainTheme.headerBg) {
-      activeTheme = domainTheme;
-      html.classList.add('domain-theme');
-    }
-
-    const vars: Record<string, string | undefined> = {
-      '--sa-bg': activeTheme.bg,
-      '--sa-text': activeTheme.text,
-      '--sa-sidebar-bg': activeTheme.sidebarBg,
-      '--sa-header-bg': activeTheme.headerBg,
-      '--sa-surface': activeTheme.surface,
-      '--sa-border': activeTheme.border,
-      '--sa-accent': activeTheme.accent,
-      '--sa-input-bg': activeTheme.inputBg,
-    };
-
-    for (const [k, v] of Object.entries(vars)) {
-      if (v) html.style.setProperty(k, v);
-      else html.style.removeProperty(k);
-    }
-  }, [themeVersion, user, location]);
-
+  // Mettre à jour depuis la base de données de manière asynchrone
   useEffect(() => {
     (async () => {
       try {
