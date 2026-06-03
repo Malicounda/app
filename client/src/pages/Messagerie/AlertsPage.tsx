@@ -333,15 +333,22 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   Localiser
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => deleteAlert(actualAlertData.id)}
-                className="border-red-300 text-red-600 hover:bg-red-50 transition-colors rounded-lg text-xs sm:text-sm"
-              >
-                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                Supprimer
-              </Button>
+              {(() => {
+                const isExpired = Boolean(isSent && actualAlertData.createdAt && (new Date().getTime() - new Date(actualAlertData.createdAt).getTime()) / 60000 > 2);
+                return (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => deleteAlert(actualAlertData.id)}
+                    disabled={isExpired}
+                    title={isExpired ? "Délai de 2 minutes dépassé" : "Supprimer"}
+                    className="border-red-300 text-red-600 hover:bg-red-50 disabled:hover:bg-transparent disabled:opacity-50 transition-colors rounded-lg text-xs sm:text-sm"
+                  >
+                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    Supprimer
+                  </Button>
+                );
+              })()}
             </div>
           </>
         )}

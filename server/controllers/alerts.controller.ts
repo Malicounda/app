@@ -1601,16 +1601,6 @@ export const deleteAlert = async (req: Request, res: Response, next: NextFunctio
         alertObject: alert
     });
 
-    if (isSender && !isAdmin) {
-        const now = new Date();
-        const alertCreatedAt = new Date(alert.createdAt);
-        const diffInMinutes = (now.getTime() - alertCreatedAt.getTime()) / (1000 * 60);
-
-        if (diffInMinutes > 2) {
-            return res.status(403).json({ message: "Le délai de 2 minutes pour supprimer cette alerte est écoulé." });
-        }
-    }
-
     if (isSender || isAdmin) {
         console.log(`[Alerts Controller] deleteAlert: Suppression globale par user ${authenticatedUser.id} (sender/admin) pour alerte ${numericAlertId}`);
         await db.delete(notifications as any).where(eq(notifications.alertId as any, numericAlertId));
