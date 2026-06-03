@@ -1088,8 +1088,9 @@ router.get('/:id/attachment', isAuthenticated, async (req: Request, res: Respons
       return res.status(404).json({ message: 'Message non trouvé' });
     }
 
-    // Vérifier que l'utilisateur a accès au message
-    if (message.senderId !== userId && message.recipientId !== userId) {
+    // Vérifier que l'utilisateur a accès au message (le SuperAdmin a un accès d'audit global)
+    const isSuper = (req as any).user?.isSuperAdmin === true || (req as any).user?.role === 'superadmin';
+    if (!isSuper && message.senderId !== userId && message.recipientId !== userId) {
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
