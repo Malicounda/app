@@ -1565,7 +1565,8 @@ export const deleteAlert = async (req: Request, res: Response, next: NextFunctio
 
         const alertColumnsForDelete = {
           id: alerts.id as any,
-          senderId: alerts.senderId as any
+          senderId: alerts.senderId as any,
+          createdAt: alerts.createdAt as any
         };
 
         const alertResults = await db.select(alertColumnsForDelete as any).from(alerts as any).where(eq(alerts.id as any, numericAlertId)).limit(1);
@@ -1589,7 +1590,6 @@ export const deleteAlert = async (req: Request, res: Response, next: NextFunctio
       : String(rawRoleVal).toLowerCase().replace(/-/g, '_');
     const isAdmin = roleNormalized === 'admin';
 
-    // Logs détaillés pour diagnostic
     console.log(`[Alerts Controller] deleteAlert DEBUG:`, {
         alertId: numericAlertId,
         alertSenderId: senderId,
@@ -1600,6 +1600,16 @@ export const deleteAlert = async (req: Request, res: Response, next: NextFunctio
         willDoGlobalDelete: isSender || isAdmin,
         alertObject: alert
     });
+
+    if (isSender && !isAdmin) {
+        const now = new Date();
+        const alertCreatedAt = new Date(alert.createdAt);
+        const diffInMinutes = (now.getTime() - alertCreatedAt.getTime()) / (1000 * 60);
+
+        if (diffInMinutes > 2) {
+            return res.status(403).json({ message: "Le délai de 2 minutes pour supprimer cette alerte est écoulé." });
+        }
+    }
 
     if (isSender || isAdmin) {
         console.log(`[Alerts Controller] deleteAlert: Suppression globale par user ${authenticatedUser.id} (sender/admin) pour alerte ${numericAlertId}`);
