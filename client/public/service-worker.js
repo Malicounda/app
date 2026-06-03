@@ -271,8 +271,10 @@ self.addEventListener('fetch', (event) => {
       .then((cachedResponse) => {
         const fetchPromise = fetch(event.request)
           .then((networkResponse) => {
+            const validStatus = networkResponse.status === 200 || networkResponse.status === 0;
+            const validType = networkResponse.type === 'basic' || networkResponse.type === 'cors' || networkResponse.type === 'opaque';
             // Ne pas mettre en cache les réponses d'erreur
-            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+            if (!networkResponse || !validStatus || !validType) {
               return networkResponse;
             }
 

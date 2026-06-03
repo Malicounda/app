@@ -1172,6 +1172,40 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: n
               } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  passSuccessCount++; resolve();  }
             });
 
+            // Cleanup local messages and attachments to remove them from UI
+            if (request.action === 'CREATE_MESSAGE' && request.entityId) {
+              try {
+                const cleanupTx = db.transaction('messages', 'readwrite');
+                const store = cleanupTx.objectStore('messages');
+                store.delete(request.entityId);
+                if (!isNaN(Number(request.entityId))) {
+                  store.delete(Number(request.entityId));
+                }
+                store.delete(String(request.entityId));
+              } catch (e) { }
+            } else if (request.action === 'UPLOAD_ATTACHMENT' && request.payload?.attachId) {
+              try {
+                const cleanupTx = db.transaction('attachments', 'readwrite');
+                const store = cleanupTx.objectStore('attachments');
+                store.delete(request.payload.attachId);
+                if (!isNaN(Number(request.payload.attachId))) {
+                  store.delete(Number(request.payload.attachId));
+                }
+                store.delete(String(request.payload.attachId));
+              } catch (e) { }
+            } else if (request.action === 'DELETE_MESSAGE' && request.payload?.messageId) {
+              try {
+                const cleanupTx = db.transaction('messages', 'readwrite');
+                const store = cleanupTx.objectStore('messages');
+                store.delete(request.payload.messageId);
+                if (!isNaN(Number(request.payload.messageId))) {
+                  store.delete(Number(request.payload.messageId));
+                }
+                store.delete(String(request.payload.messageId));
+              } catch (e) { }
+            }
+
+
           } else {
             console.error(`[${requestId}] Erreur HTTP ${response.status}: ${response.statusText}`);
 

@@ -87,26 +87,20 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
   }
 
   return (
-    <div className={`fixed top-20 md:top-24 right-4 md:right-8 z-[900] ${className}`}>
+    <div className={`fixed top-20 right-4 z-[900] flex flex-col items-end pointer-events-none ${className}`}>
       {showOffline ? (
-        <Alert variant="destructive" className="w-64 shadow-lg bg-red-50 border-red-200 text-red-900 [&>svg]:text-red-600">
-          <div className="flex items-center gap-2">
-            <WifiOff className="h-4 w-4 text-red-600 shrink-0" />
-            <span className="font-bold text-sm">Hors ligne</span>
-          </div>
-        </Alert>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-600 border border-red-500/20 backdrop-blur-md shadow-sm pointer-events-auto">
+          <WifiOff className="h-4 w-4" />
+          <span className="font-bold text-xs">Hors ligne</span>
+        </div>
       ) : (
-        <Alert className="w-64 shadow-lg border-blue-200 bg-blue-50 text-blue-900 [&>svg]:text-blue-600">
-          <div className="flex items-start gap-2">
-            <Hourglass className="h-4 w-4 mt-1 text-blue-600 animate-spin shrink-0" />
-            <div className="flex-grow">
-              <AlertTitle className="font-bold text-sm">Connecté</AlertTitle>
-              <AlertDescription className="text-xs text-blue-700 font-medium">
-                Synchronisation en cours...
-              </AlertDescription>
-            </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20 backdrop-blur-md shadow-sm pointer-events-auto">
+          <Hourglass className="h-4 w-4 animate-spin" />
+          <div className="flex flex-col">
+            <span className="font-bold text-xs leading-none">Connecté</span>
+            <span className="text-[10px] leading-none mt-0.5 opacity-90">Synchronisation en cours...</span>
           </div>
-        </Alert>
+        </div>
       )}
     </div>
   );
