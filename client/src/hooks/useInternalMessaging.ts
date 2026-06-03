@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { dismissSystemNotification } from "./use-notifications";
 import { createOfflineMessage } from "@/lib/offlineCrud";
+import { DatabaseManager } from "@/lib/pwaUtils";
 
 export interface InternalMessagingTarget {
   role: string;
@@ -83,6 +84,52 @@ const saveToCache = (type: "inbox" | "sent", domaineId: number | "null" | undefi
   }
 };
 // ─────────────────────────────────────────────────────────────────────────────
+async function loadPendingMessagesFromDb(domaineId?: number | "null"): Promise<InternalMessageRecord[]> {
+  try {
+    const db = await DatabaseManager.getDB();
+    if (!db.objectStoreNames.contains('pendingSync')) return [];
+    
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction('pendingSync', 'readonly');
+        const store = tx.objectStore('pendingSync');
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const tasks = req.result || [];
+          const messageTasks = tasks.filter((t: any) => t.action === 'CREATE_MESSAGE');
+          const records = messageTasks.map((t: any) => {
+            const payload = t.payload || {};
+            // Filtrer par domaineId
+            if (domaineId !== undefined) {
+              const taskDomaine = payload.domaineId;
+              if (String(taskDomaine) !== String(domaineId)) {
+                return null;
+              }
+            }
+            return {
+              id: t.entityId || t.id,
+              content: payload.content || '',
+              subject: payload.subject || 'Message',
+              createdAt: new Date(t.createdAt).toISOString(),
+              isPending: true,
+              recipientIdentifier: payload.recipient,
+              isGroupMessage: payload.isGroupMessage === true || !!payload.targetRole,
+              targetRole: payload.targetRole,
+              targetRegion: payload.targetRegion,
+            } as any;
+          }).filter(Boolean) as InternalMessageRecord[];
+          resolve(records);
+        };
+        req.onerror = () => resolve([]);
+      } catch (e) {
+        resolve([]);
+      }
+    });
+  } catch (e) {
+    return [];
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function useInternalMessaging(options: UseInternalMessagingOptions = {}) {
   const { autoLoad = true, domaineId } = options;
@@ -151,22 +198,41 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     try {
       const queryParams = domaineId ? `?domaineId=${domaineId}` : "";
       const response = await authenticatedFetch(`/api/messages/sent${queryParams}`);
-      if (!response.ok) {
-        throw new Error(await extractErrorMessage(response));
+      let list: InternalMessageRecord[] = [];
+      if (response.ok) {
+        const data = await response.json();
+        list = (Array.isArray(data) ? data : []).map((message) => ({
+          ...message,
+          isGroupMessage: message?.isGroupMessage === true,
+        }));
+      } else {
+        list = loadFromCache("sent", domaineId);
       }
-      const data = await response.json();
-      const list: InternalMessageRecord[] = (Array.isArray(data) ? data : []).map((message) => ({
-        ...message,
-        isGroupMessage: message?.isGroupMessage === true,
-      }));
-      const sorted = sortMessagesByDate(list);
+
+      // Charger les messages en attente depuis IndexedDB et les fusionner
+      const pendingList = await loadPendingMessagesFromDb(domaineId);
+      const syncedIds = new Set(list.map(m => m.id));
+      const uniquePending = pendingList.filter(p => !syncedIds.has(p.id));
+
+      const combined = [...uniquePending, ...list];
+      const sorted = sortMessagesByDate(combined);
       setSent(sorted);
-      // Persist to cache
+      // Persister dans le cache
       saveToCache("sent", domaineId, sorted);
-      return list;
+      return sorted;
     } catch (err) {
-      // Network failure — keep existing cached state
       console.warn("[useInternalMessaging] fetchSent failed, keeping cached data:", err);
+      try {
+        const cached = loadFromCache("sent", domaineId);
+        const pendingList = await loadPendingMessagesFromDb(domaineId);
+        const syncedIds = new Set(cached.map(m => m.id));
+        const uniquePending = pendingList.filter(p => !syncedIds.has(p.id));
+        const combined = [...uniquePending, ...cached];
+        const sorted = sortMessagesByDate(combined);
+        setSent(sorted);
+      } catch (cacheErr) {
+        if (import.meta.env.DEV) console.warn('[useInternalMessaging] failed to merge cache with pending', cacheErr);
+      }
       throw err;
     } finally {
       setLoadingSent(false);

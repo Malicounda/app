@@ -10,7 +10,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { InternalMessageRecord } from "@/hooks/useInternalMessaging";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2, Check, CheckCheck } from "lucide-react";
+import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2, Check, CheckCheck, Clock } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { repairAttachmentFileName } from "@/lib/attachmentMime";
@@ -477,9 +477,11 @@ export default function InternalMessageList({
                 <article
                   key={key}
                   className={`rounded-lg border p-4 shadow-sm ${
-                    isUnread
-                      ? 'border-gray-200 bg-white border-l-4 border-l-green-600'
-                      : 'border-gray-100 bg-gray-50/80 text-gray-500'
+                    message.isPending
+                      ? 'border-amber-200 bg-amber-50/50 border-l-4 border-l-amber-500'
+                      : isUnread
+                        ? 'border-gray-200 bg-white border-l-4 border-l-green-600'
+                        : 'border-gray-100 bg-gray-50/80 text-gray-500'
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -502,7 +504,12 @@ export default function InternalMessageList({
                               <span className="rounded-full bg-green-100 text-green-800 text-[11px] px-2 py-0.5">Nouveau</span>
                             )}
                             {context === 'sent' ? (
-                              Array.isArray((message as any).readers) && (message as any).readers.length > 0 ? (
+                              message.isPending ? (
+                                <span title="En attente de synchronisation" className="flex items-center gap-1 text-amber-600 text-xs font-semibold">
+                                  <Clock className="h-3.5 w-3.5 animate-pulse" />
+                                  <span>En attente...</span>
+                                </span>
+                              ) : Array.isArray((message as any).readers) && (message as any).readers.length > 0 ? (
                                 <span title="Lu"><CheckCheck className="h-4 w-4 text-blue-500" /></span>
                               ) : (
                                 <span title="Non lu"><Check className="h-4 w-4 text-gray-400" /></span>
