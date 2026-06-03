@@ -689,7 +689,20 @@ router.post('/', isAuthenticated, upload.single('attachment'), async (req: Reque
     const domaineId = await MessagingService.getAuthorizedContext(senderId, req.body.domaineId, res);
     if (domaineId === false) return;
 
-    const savedAttachment = await resolveUploadedAttachment(req);
+    let savedAttachment = await resolveUploadedAttachment(req);
+    if (!savedAttachment && req.body?.offlineAttachment) {
+      const { attachId, fileName, fileSize, fileMime } = req.body.offlineAttachment;
+      const fileData = await readMessageAttachment(attachId);
+      if (fileData) {
+        savedAttachment = {
+          key: attachId,
+          name: fileName,
+          mime: fileMime,
+          size: Number(fileSize) || fileData.size,
+        };
+      }
+    }
+
     const createdMessages = [] as any[];
     const basePayload = {
       senderId,
@@ -765,7 +778,19 @@ router.post('/group', isAuthenticated, upload.single('attachment'), async (req, 
     const domaineId = await MessagingService.getAuthorizedContext(senderId, req.body.domaineId, res);
     if (domaineId === false) return;
 
-    const savedAttachment = await resolveUploadedAttachment(req);
+    let savedAttachment = await resolveUploadedAttachment(req);
+    if (!savedAttachment && req.body?.offlineAttachment) {
+      const { attachId, fileName, fileSize, fileMime } = req.body.offlineAttachment;
+      const fileData = await readMessageAttachment(attachId);
+      if (fileData) {
+        savedAttachment = {
+          key: attachId,
+          name: fileName,
+          mime: fileMime,
+          size: Number(fileSize) || fileData.size,
+        };
+      }
+    }
 
     const groupMessage = await storage.createGroupMessage({
       senderId,

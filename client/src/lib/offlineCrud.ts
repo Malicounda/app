@@ -153,9 +153,11 @@ export async function deleteOfflineAlert(alertId: string): Promise<void> {
 export async function createOfflineMessage(payload: any, attachments: File[] = []): Promise<string> {
   const messageId = generateUUID();
   const attachmentTaskIds: string[] = [];
+  let firstAttachId: string | undefined;
 
   for (const file of attachments) {
     const attachId = generateUUID();
+    if (!firstAttachId) firstAttachId = attachId;
     const arrayBuffer = await file.arrayBuffer();
     
     // Calcul du hash SHA-256 pour la vérification d'intégrité
@@ -194,11 +196,21 @@ export async function createOfflineMessage(payload: any, attachments: File[] = [
   }
 
   // Stocker Message (on simule le store 'messages' qui devra être créé si absent, bien qu'on ait utilisé 'alerts' jusqu'ici)
+  const messagePayload = {
+    ...payload,
+    offlineAttachment: attachments.length > 0 && firstAttachId ? {
+      attachId: firstAttachId,
+      fileName: attachments[0].name,
+      fileSize: attachments[0].size,
+      fileMime: attachments[0].type
+    } : undefined
+  };
+
   const messageRecord = {
     id: messageId,
     version: 1,
     createdAtLocal: Date.now(),
-    payload,
+    payload: messagePayload,
     status: 'DRAFT'
   };
 
@@ -208,14 +220,14 @@ export async function createOfflineMessage(payload: any, attachments: File[] = [
     id: generateUUID(),
     action: 'CREATE_MESSAGE',
     priority: 3,
-    payload,
+    payload: messagePayload,
     entityId: messageId,
     createdAt: Date.now(),
     attempts: 0,
     lastAttempt: undefined,
     status: 'PENDING',
     dependencies: attachmentTaskIds,
-    idempotencyKey: `${messageId}-${await calculateHash(JSON.stringify(payload))}`
+    idempotencyKey: `${messageId}-${await calculateHash(JSON.stringify(messagePayload))}`
   };
 
   await storeData('pendingSync', messageTask);

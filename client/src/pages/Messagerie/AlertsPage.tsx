@@ -424,6 +424,33 @@ async function loadPendingAlertsFromDb(): Promise<Alert[]> {
   }
 }
 
+async function loadPendingDeletedAlertIds(): Promise<number[]> {
+  try {
+    const db = await DatabaseManager.getDB();
+    if (!db.objectStoreNames.contains('pendingSync')) return [];
+    
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction('pendingSync', 'readonly');
+        const store = tx.objectStore('pendingSync');
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const tasks = req.result || [];
+          const deleteAlertTasks = tasks.filter((t: any) => t.action === 'DELETE_ALERT');
+          const ids = deleteAlertTasks.map((t: any) => Number(t.payload?.alertId || t.entityId)).filter(Boolean);
+          resolve(ids);
+        };
+        req.onerror = () => resolve([]);
+      } catch (e) {
+        resolve([]);
+      }
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
+
 function AlertsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -758,7 +785,8 @@ function AlertsPage() {
           });
         console.log('[AlertsPage] Mapped alerts count:', mapped.length);
         console.log('[AlertsPage] Mapped alerts:', mapped);
-        return mapped;
+        const deletedIds = await loadPendingDeletedAlertIds();
+        return mapped.filter(a => !deletedIds.includes(Number(a.id)));
       } catch (error: any) {
         console.error('[AlertsPage] Error fetching alerts:', error);
         if (String(error?.message || '').toLowerCase().includes('non authentifi') || String(error?.message || '').includes('401')) {
@@ -837,7 +865,9 @@ function AlertsPage() {
         return !alreadySynced;
       });
 
-      return [...uniquePending, ...list];
+      const combined = [...uniquePending, ...list];
+      const deletedIds = await loadPendingDeletedAlertIds();
+      return combined.filter(a => !deletedIds.includes(Number(a.id)));
     },
     enabled: !!user,
     refetchOnWindowFocus: true,

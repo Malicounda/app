@@ -165,10 +165,11 @@ export async function persistMessageAttachment(opts: {
   buffer: Buffer;
   originalName: string;
   mimeType?: string;
+  storageKey?: string;
 }): Promise<PersistedAttachment> {
   const name = normalizeOriginalFilename(opts.originalName);
   const mime = guessMimeFromFilename(name, opts.mimeType);
-  const key = buildSafeAttachmentKey(name);
+  const key = opts.storageKey || buildSafeAttachmentKey(name);
   const uploadsDir = getUploadsDir();
   const localPath = path.join(uploadsDir, key);
   try {

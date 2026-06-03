@@ -129,6 +129,32 @@ async function loadPendingMessagesFromDb(domaineId?: number | "null"): Promise<I
     return [];
   }
 }
+
+async function loadPendingDeletedMessageIds(): Promise<number[]> {
+  try {
+    const db = await DatabaseManager.getDB();
+    if (!db.objectStoreNames.contains('pendingSync')) return [];
+    
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction('pendingSync', 'readonly');
+        const store = tx.objectStore('pendingSync');
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const tasks = req.result || [];
+          const deleteMsgTasks = tasks.filter((t: any) => t.action === 'DELETE_MESSAGE');
+          const ids = deleteMsgTasks.map((t: any) => Number(t.payload?.messageId || t.entityId)).filter(Boolean);
+          resolve(ids);
+        };
+        req.onerror = () => resolve([]);
+      } catch (e) {
+        resolve([]);
+      }
+    });
+  } catch (e) {
+    return [];
+  }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function useInternalMessaging(options: UseInternalMessagingOptions = {}) {
@@ -179,11 +205,13 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       })) as InternalMessageRecord[];
 
       const merged: InternalMessageRecord[] = [...normalizeIndividual, ...normalizeGroup];
-      const sorted = sortMessagesByDate(merged);
+      const deletedIds = await loadPendingDeletedMessageIds();
+      const filtered = merged.filter(m => !deletedIds.includes(Number(m.id)));
+      const sorted = sortMessagesByDate(filtered);
       setInbox(sorted);
       // Persist to cache so the next mount shows data instantly
       saveToCache("inbox", domaineId, sorted);
-      return merged;
+      return filtered;
     } catch (err) {
       // Network failure — keep existing cached state, don't wipe the inbox
       console.warn("[useInternalMessaging] fetchInbox failed, keeping cached data:", err);
@@ -236,7 +264,9 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       });
 
       const combined = [...uniquePending, ...list];
-      const sorted = sortMessagesByDate(combined);
+      const deletedIds = await loadPendingDeletedMessageIds();
+      const filtered = combined.filter(m => !deletedIds.includes(Number(m.id)));
+      const sorted = sortMessagesByDate(filtered);
       setSent(sorted);
       // Persister dans le cache
       saveToCache("sent", domaineId, sorted);
@@ -270,7 +300,9 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           return !alreadySynced;
         });
         const combined = [...uniquePending, ...cached];
-        const sorted = sortMessagesByDate(combined);
+        const deletedIds = await loadPendingDeletedMessageIds();
+        const filtered = combined.filter(m => !deletedIds.includes(Number(m.id)));
+        const sorted = sortMessagesByDate(filtered);
         setSent(sorted);
       } catch (cacheErr) {
         if (import.meta.env.DEV) console.warn('[useInternalMessaging] failed to merge cache with pending', cacheErr);
