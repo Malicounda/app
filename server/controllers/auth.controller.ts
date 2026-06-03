@@ -185,24 +185,29 @@ export const login = async (req: Request, res: Response) => {
 
         // currentDomain is already defined above
 
-        if (currentDomain && !isSuperAdmin && !skipPassword && !isDefaultRole && !isSupervisorRole) {
+        if (currentDomain && !isSuperAdmin) {
             const normalized = currentDomain.toUpperCase().trim();
-            try {
-                const domains = await storage.getUserDomainsByUserId(user.id);
-                const match = Array.isArray(domains) ? domains.find((d: any) => String(d?.domain || '').toUpperCase() === normalized) : undefined;
-                if (!match) {
-                    return res.status(403).json({ message: `Accès refusé pour le domaine ${normalized}` });
-                }
-                if ((match as any).active === false) {
-                    return res.status(403).json({ message: `Domaine ${normalized} inactif` });
-                }
+            const isAlerteLogin = normalized === 'ALERTE';
+            const canBypass = isAlerteLogin && (isDefaultRole || isSupervisorRole || skipPassword);
+            
+            if (!canBypass) {
+                try {
+                    const domains = await storage.getUserDomainsByUserId(user.id);
+                    const match = Array.isArray(domains) ? domains.find((d: any) => String(d?.domain || '').toUpperCase() === normalized) : undefined;
+                    if (!match) {
+                        return res.status(403).json({ message: `Accès refusé. Domaine ${normalized} non attribué à l'utilisateur.` });
+                    }
+                    if ((match as any).active === false) {
+                        return res.status(403).json({ message: `Accès refusé. Domaine ${normalized} inactif pour l'utilisateur.` });
+                    }
 
-                // Si un rôle spécifique est défini pour ce domaine, on l'utilise
-                if ((match as any).role) {
-                    (user as any).role = (match as any).role;
+                    // Si un rôle spécifique est défini pour ce domaine, on l'utilise
+                    if ((match as any).role) {
+                        (user as any).role = (match as any).role;
+                    }
+                } catch (e) {
+                    return res.status(500).json({ message: "Erreur serveur lors de la vérification du domaine" });
                 }
-            } catch (e) {
-                return res.status(500).json({ message: "Erreur serveur lors de la vérification du domaine" });
             }
         }
 
