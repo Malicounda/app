@@ -56,7 +56,8 @@ export async function uploadAttachmentChunked(
     const chunkHeaders = { ...headers };
     delete chunkHeaders['Content-Type']; // fetch génère le boundary multipart/form-data
 
-    const response = await fetch('/api/attachments/chunk', {
+    const apiBaseUrl = (await import('@/utils/environment')).getApiBaseUrl();
+    const response = await fetch(`${apiBaseUrl}/api/attachments/chunk`, {
       method: 'POST',
       headers: chunkHeaders,
       body: formData

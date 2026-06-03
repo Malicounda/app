@@ -26,8 +26,8 @@ export async function logAudit(action: string, entityId: string, details: any = 
       const lastLog = await new Promise<{hash: string, seq: number}>((resolve) => {
         const tx = db.transaction('auditLogs', 'readonly');
         const store = tx.objectStore('auditLogs');
-        
-        const request = store.openCursor(null, 'prev');
+        const index = store.index('sequenceNumber');
+        const request = index.openCursor(null, 'prev');
         
         request.onsuccess = (event) => {
           const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;

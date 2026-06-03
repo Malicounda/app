@@ -355,10 +355,11 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
     async ({ recipientIdentifier, content, subject = "Message", attachment }: SendInternalMessageParams) => {
       setSending(true);
       try {
+        const finalContent = content.trim() || (attachment ? "[Pièce jointe]" : "");
         const formData = new FormData();
         formData.append("recipient", recipientIdentifier);
         formData.append("subject", subject);
-        formData.append("content", content);
+        formData.append("content", finalContent);
         if (attachment) {
           formData.append("attachment", attachment, attachment.name);
         }
@@ -393,7 +394,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         let created: InternalMessageRecord[];
         if (isOffline) {
           await createOfflineMessage(
-            { recipient: recipientIdentifier, subject, content, domaineId: domaineId ? String(domaineId) : undefined },
+            { recipient: recipientIdentifier, subject, content: finalContent, domaineId: domaineId ? String(domaineId) : undefined },
             attachment ? [attachment] : []
           );
           data = { offlineQueued: true };
@@ -402,12 +403,15 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         if (data.offlineQueued) {
           const tempMsg: InternalMessageRecord = {
             id: Date.now() + Math.floor(Math.random() * 1000),
-            content,
+            content: finalContent,
             subject,
             createdAt: new Date().toISOString(),
             isPending: true, // Custom flag for offline queue
             recipientIdentifier,
             isGroupMessage: false,
+            attachmentName: attachment ? attachment.name : undefined,
+            attachmentMime: attachment ? attachment.type : undefined,
+            attachmentSize: attachment ? attachment.size : undefined,
           };
           created = [tempMsg];
         } else {
@@ -478,10 +482,11 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
       }
       setSending(true);
       try {
+        const finalContent = content.trim() || (attachment ? "[Pièce jointe]" : "");
         const promises = targets.map(async (target) => {
           const formData = new FormData();
           formData.append("subject", subject);
-          formData.append("content", content);
+          formData.append("content", finalContent);
           formData.append("targetRole", target.role);
           if (target.region) {
             formData.append("targetRegion", target.region);
@@ -519,7 +524,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
 
           if (isOffline) {
             await createOfflineMessage(
-              { targetRole: target.role, targetRegion: target.region, subject, content, domaineId: domaineId ? String(domaineId) : undefined, isGroupMessage: true },
+              { targetRole: target.role, targetRegion: target.region, subject, content: finalContent, domaineId: domaineId ? String(domaineId) : undefined, isGroupMessage: true },
               attachment ? [attachment] : []
             );
             data = { offlineQueued: true };
@@ -528,13 +533,16 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           if (data.offlineQueued) {
             return [{
               id: Date.now() + Math.floor(Math.random() * 1000),
-              content,
+              content: finalContent,
               subject,
               createdAt: new Date().toISOString(),
               isPending: true,
               targetRole: target.role,
               targetRegion: target.region,
               isGroupMessage: true,
+              attachmentName: attachment ? attachment.name : undefined,
+              attachmentMime: attachment ? attachment.type : undefined,
+              attachmentSize: attachment ? attachment.size : undefined,
             }] as InternalMessageRecord[];
           }
           return (Array.isArray(data) ? data : [data]).map((message) => ({
@@ -611,7 +619,12 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           return;
         }
         // Détecter les erreurs réseau pour fonctionner hors ligne
-        const isNetworkError = !navigator.onLine || msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || msg.includes('failed');
+        const isNetworkError = !navigator.onLine || 
+          (e?.status !== undefined && [500, 502, 503, 504, 0].includes(e.status)) ||
+          msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || 
+          msg.includes('failed') || msg.includes('503') || msg.includes('502') || msg.includes('504') || 
+          msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') || 
+          msg.includes('service') || msg.includes('hors ligne') || msg.includes('offline');
         if (isNetworkError) {
           try {
             await queueOfflineDeleteMessage(id, isGroup);
@@ -650,7 +663,12 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         return;
       }
       // Détecter les erreurs réseau pour fonctionner hors ligne
-      const isNetworkError = !navigator.onLine || msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || msg.includes('failed');
+      const isNetworkError = !navigator.onLine || 
+        (e?.status !== undefined && [500, 502, 503, 504, 0].includes(e.status)) ||
+        msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || 
+        msg.includes('failed') || msg.includes('503') || msg.includes('502') || msg.includes('504') || 
+        msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') || 
+        msg.includes('service') || msg.includes('hors ligne') || msg.includes('offline');
       if (isNetworkError) {
         try {
           await queueOfflineMarkMessageRead(messageId, Boolean(isGroup));

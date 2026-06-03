@@ -598,7 +598,7 @@ export default function SimpleSMSPage() {
   }, [phoneView, selectedConversation?.messages?.length]);
 
   const handleSendToContact = async (contactIdentifier: string) => {
-    if (!defaultMsg.trim()) return;
+    if (!defaultMsg.trim() && !defaultAttachment) return;
     setDefaultSending(true);
     try {
       if (editingMessage) {
@@ -1615,38 +1615,50 @@ export default function SimpleSMSPage() {
                       {selectedConversation.messages.length === 0 && (
                         <div className="flex items-center justify-center h-full"><p className="text-xs text-gray-400">Aucun message</p></div>
                       )}
-                      {selectedConversation.messages.map((m: any, i: number) => (
-                        m.isSent ? (
+                      {selectedConversation.messages.map((m: any, i: number) => {
+                        const hasAttachment = Boolean(m.rawMsgObj?.attachmentPath || m.rawMsgObj?.attachmentName);
+                        const attachmentName = repairAttachmentFileName(m.rawMsgObj?.attachmentName) || 'Fichier joint';
+                        const attachmentMime = guessAttachmentMime(
+                          attachmentName,
+                          m.rawMsgObj?.attachmentMime
+                        );
+                        const isGroupMsg = Boolean(
+                          m.rawMsgObj?.isGroupMessage ||
+                            selectedConversation.contactKey.startsWith('group_')
+                        );
+                        const url = m.rawMsgObj?.id
+                          ? buildMessageAttachmentUrl(Number(m.rawMsgObj.id), { isGroup: isGroupMsg })
+                          : '';
+
+                        const openAttachmentPreview = () => {
+                          if (!m.rawMsgObj?.id) return;
+                          setPreview({
+                            messageId: Number(m.rawMsgObj.id),
+                            isGroup: isGroupMsg,
+                            name: attachmentName,
+                            mime: attachmentMime,
+                            size: m.rawMsgObj?.attachmentSize,
+                          });
+                        };
+
+                        return m.isSent ? (
                           <div key={i} className="flex flex-col items-end max-w-[80%] ml-auto">
-                            {m.rawMsgObj?.attachments && m.rawMsgObj.attachments.length > 0 && (
-                              <div className="mb-1 w-full max-w-[200px]">
-                                {m.rawMsgObj.attachments.map((att: any, idx: number) => (
-                                   <ChatAttachmentBlock
-                                     key={idx}
-                                     url={att.url}
-                                     name={att.name || 'Fichier'}
-                                     mime={att.mime}
-                                     size={att.size}
-                                     variant="sent"
-                                     onOpen={() => setPreview({
-                                       messageId: m.id,
-                                       url: att.url,
-                                       name: att.name || 'Fichier',
-                                       mime: att.mime,
-                                       size: att.size
-                                     } as any)}
-                                   />
-                                ))}
-                              </div>
-                            )}
-                            {m.content && (
-                              <div
-                                onClick={() => setActiveActionMessage(m)}
-                                className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-green-700 active:scale-95 transition-all"
-                              >
-                                {m.content}
-                              </div>
-                            )}
+                            <div
+                              onClick={() => setActiveActionMessage(m)}
+                              className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-green-700 active:scale-95 transition-all flex flex-col gap-1.5"
+                            >
+                              {m.content && <span>{m.content}</span>}
+                              {hasAttachment && url && (
+                                <ChatAttachmentBlock
+                                  url={url}
+                                  name={attachmentName}
+                                  mime={attachmentMime}
+                                  size={m.rawMsgObj?.attachmentSize}
+                                  variant="sent"
+                                  onOpen={openAttachmentPreview}
+                                />
+                              )}
+                            </div>
                             <div className="flex items-center justify-end gap-1 mt-0.5 mr-1">
                               <span className="text-[9px] text-gray-400">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                               {m.rawMsgObj?.isPending ? (
@@ -1660,39 +1672,26 @@ export default function SimpleSMSPage() {
                           </div>
                         ) : (
                           <div key={i} className="flex flex-col items-start max-w-[80%]">
-                            {m.rawMsgObj?.attachments && m.rawMsgObj.attachments.length > 0 && (
-                              <div className="mb-1 w-full max-w-[200px]">
-                                {m.rawMsgObj.attachments.map((att: any, idx: number) => (
-                                   <ChatAttachmentBlock
-                                     key={idx}
-                                     url={att.url}
-                                     name={att.name || 'Fichier'}
-                                     mime={att.mime}
-                                     size={att.size}
-                                     variant="received"
-                                     onOpen={() => setPreview({
-                                       messageId: m.id,
-                                       url: att.url,
-                                       name: att.name || 'Fichier',
-                                       mime: att.mime,
-                                       size: att.size
-                                     } as any)}
-                                   />
-                                ))}
-                              </div>
-                            )}
-                            {m.content && (
-                              <div
-                                onClick={() => setActiveActionMessage(m)}
-                                className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all"
-                              >
-                                {m.content}
-                              </div>
-                            )}
+                            <div
+                              onClick={() => setActiveActionMessage(m)}
+                              className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all flex flex-col gap-1.5"
+                            >
+                              {m.content && <span>{m.content}</span>}
+                              {hasAttachment && url && (
+                                <ChatAttachmentBlock
+                                  url={url}
+                                  name={attachmentName}
+                                  mime={attachmentMime}
+                                  size={m.rawMsgObj?.attachmentSize}
+                                  variant="received"
+                                  onOpen={openAttachmentPreview}
+                                />
+                              )}
+                            </div>
                             <span className="text-[9px] text-gray-400 mt-0.5 ml-1">{m.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
-                        )
-                      ))}
+                        );
+                      })}
                       {defaultSending && (
                         <div className="flex flex-col items-end max-w-[80%] ml-auto opacity-70">
                           {defaultAttachment && (

@@ -978,7 +978,12 @@ function AlertsPage() {
       await apiRequest({ url: `/api/alerts/${alertId}/read`, method: 'PATCH', data: { isRead: true } });
     } catch (error: any) {
       const msg = String(error?.message || '').toLowerCase();
-      const isNetworkError = !navigator.onLine || msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || msg.includes('failed');
+      const isNetworkError = !navigator.onLine || 
+        [500, 502, 503, 504, 0].includes(error?.status) ||
+        msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || 
+        msg.includes('failed') || msg.includes('503') || msg.includes('502') || msg.includes('504') || 
+        msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') || 
+        msg.includes('service') || msg.includes('hors ligne') || msg.includes('offline');
       if (isNetworkError) {
         // Queue pour synchronisation ultérieure
         try {
@@ -1049,7 +1054,12 @@ function AlertsPage() {
       await apiRequest({ url: `/api/alerts/${alertId}`, method: 'DELETE' });
     } catch (error: any) {
       const msg = String(error?.message || '').toLowerCase();
-      const isNetworkError = !navigator.onLine || msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || msg.includes('failed');
+      const isNetworkError = !navigator.onLine || 
+        [500, 502, 503, 504, 0].includes(error?.status) ||
+        msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || 
+        msg.includes('failed') || msg.includes('503') || msg.includes('502') || msg.includes('504') || 
+        msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') || 
+        msg.includes('service') || msg.includes('hors ligne') || msg.includes('offline');
       if (isNetworkError) {
         // Queue pour synchronisation ultérieure
         try {
