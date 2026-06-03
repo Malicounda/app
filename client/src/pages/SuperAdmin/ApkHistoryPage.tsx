@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Shield, Activity, MapPin, Search, Bell, MessageSquare, Trash2, Paperclip } from 'lucide-react';
+import { buildAttachmentUrl } from '@/lib/attachments';
 
 // ═══════════════ Types ═══════════════
 type AlertItem = {
@@ -334,7 +335,7 @@ function MessagesTab() {
                   </TableCell>
                   <TableCell>
                     {m.attachment ? (
-                      <a href={`/uploads/${m.attachment.path}`} target="_blank" rel="noreferrer" title={`${m.attachment.name} (${fmtSize(m.attachment.size)})`} className="text-blue-500 hover:text-blue-700">
+                      <a href={buildAttachmentUrl(m.attachment.path) || '#'} target="_blank" rel="noreferrer" title={`${m.attachment.name} (${fmtSize(m.attachment.size)})`} className="text-blue-500 hover:text-blue-700">
                         <Paperclip className="h-4 w-4" />
                       </a>
                     ) : null}
