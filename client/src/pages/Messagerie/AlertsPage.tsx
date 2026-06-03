@@ -23,7 +23,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation as useWouterLocation } from "wouter";
 
 import { useNotifications, dismissSystemNotification, clearAllSystemNotifications } from "@/hooks/use-notifications";
-import { createOfflineAlert } from "@/lib/offlineCrud";
+import { createOfflineAlert, queueOfflineDeleteAlert, queueOfflineMarkAlertRead } from "@/lib/offlineCrud";
 import { DatabaseManager } from "@/lib/pwaUtils";
 
 // Type pour l'état de la permission
@@ -946,36 +946,51 @@ function AlertsPage() {
   const markAsRead = async (alertId: number) => {
     try {
       await apiRequest({ url: `/api/alerts/${alertId}/read`, method: 'PATCH', data: { isRead: true } });
-
-      toast({
-        title: "Alerte marquée comme lue",
-        description: "L'alerte a été marquée comme lue avec succès.",
-      });
-
-      // Retirer immédiatement l'alerte de la boîte de réception
-      queryClient.setQueryData(["/api/alerts/received", user?.id], (old: any) => {
-        const arr = Array.isArray(old) ? old : [];
-        return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
-      });
-
-      // Invalider les compteurs de notifications pour mise à jour immédiate des badges
-      queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
-      queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
-      queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
-      window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
-
-      // Supprimer la notification système Android correspondante
-      void dismissSystemNotification('ALERT', alertId);
-
-      // Rafraîchir les données depuis le serveur
-      refetch();
-    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Une erreur s'est produite. Veuillez réessayer.",
-       });
+    } catch (error: any) {
+      const msg = String(error?.message || '').toLowerCase();
+      const isNetworkError = !navigator.onLine || msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || msg.includes('failed');
+      if (isNetworkError) {
+        // Queue pour synchronisation ultérieure
+        try {
+          await queueOfflineMarkAlertRead(alertId);
+          toast({
+            title: "Mode hors ligne",
+            description: "L'alerte sera marquée comme lue lors de la reconnexion.",
+          });
+        } catch (e) {
+          if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+          toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre en file d'attente." });
+          return;
+        }
+      } else {
+        if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
+        toast({ variant: "destructive", title: "Erreur", description: "Une erreur s'est produite. Veuillez réessayer." });
+        return;
+      }
     }
+
+    toast({
+      title: "Alerte marquée comme lue",
+      description: "L'alerte a été marquée comme lue avec succès.",
+    });
+
+    // Retirer immédiatement l'alerte de la boîte de réception
+    queryClient.setQueryData(["/api/alerts/received", user?.id], (old: any) => {
+      const arr = Array.isArray(old) ? old : [];
+      return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
+    });
+
+    // Invalider les compteurs de notifications pour mise à jour immédiate des badges
+    queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
+    queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
+    queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
+    window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
+
+    // Supprimer la notification système Android correspondante
+    void dismissSystemNotification('ALERT', alertId);
+
+    // Rafraîchir les données depuis le serveur
+    if (navigator.onLine) refetch();
   };
 
   const markAllAsRead = async () => {
@@ -1002,34 +1017,49 @@ function AlertsPage() {
   const deleteAlert = async (alertId: number) => {
     try {
       await apiRequest({ url: `/api/alerts/${alertId}`, method: 'DELETE' });
-
-      // Mettre à jour les données locales
-      queryClient.setQueryData(["/api/alerts/received", user?.id], (old: any) => {
-        const arr = Array.isArray(old) ? old : [];
-        return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
-      });
-      queryClient.setQueryData(["/api/alerts/sent", user?.id], (old: any) => {
-        const arr = Array.isArray(old) ? old : [];
-        return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
-      });
-
-      // Invalider les compteurs de notifications pour mise à jour immédiate des badges
-      queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
-      queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
-      queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
-      window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
-
-      toast({
-        title: "Alerte supprimée",
-        description: "L'alerte a été supprimée définitivement.",
-      });
-    } catch (error) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Une erreur s'est produite lors de la suppression.",
-       });
+    } catch (error: any) {
+      const msg = String(error?.message || '').toLowerCase();
+      const isNetworkError = !navigator.onLine || msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || msg.includes('failed');
+      if (isNetworkError) {
+        // Queue pour synchronisation ultérieure
+        try {
+          await queueOfflineDeleteAlert(alertId);
+          toast({
+            title: "Mode hors ligne",
+            description: "L'alerte sera supprimée lors de la reconnexion.",
+          });
+        } catch (e) {
+          if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+          toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre en file d'attente." });
+          return;
+        }
+      } else {
+        if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
+        toast({ variant: "destructive", title: "Erreur", description: "Une erreur s'est produite lors de la suppression." });
+        return;
+      }
     }
+
+    // Mettre à jour les données locales (optimistic)
+    queryClient.setQueryData(["/api/alerts/received", user?.id], (old: any) => {
+      const arr = Array.isArray(old) ? old : [];
+      return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
+    });
+    queryClient.setQueryData(["/api/alerts/sent", user?.id], (old: any) => {
+      const arr = Array.isArray(old) ? old : [];
+      return arr.filter((a: any) => Number(a?.id) !== Number(alertId));
+    });
+
+    // Invalider les compteurs de notifications pour mise à jour immédiate des badges
+    queryClient.invalidateQueries({ queryKey: ["unread-notifications-count"] });
+    queryClient.invalidateQueries({ queryKey: ["supervisor-recent-notifs"] });
+    queryClient.invalidateQueries({ queryKey: ["unread-alerts-count"] });
+    window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
+
+    toast({
+      title: "Alerte supprimée",
+      description: navigator.onLine ? "L'alerte a été supprimée définitivement." : "L'alerte sera supprimée lors de la reconnexion.",
+    });
   };
 
   const getAlertTypeStyles = (type: string) => {

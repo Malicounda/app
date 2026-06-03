@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { dismissSystemNotification } from "./use-notifications";
-import { createOfflineMessage } from "@/lib/offlineCrud";
+import { createOfflineMessage, queueOfflineDeleteMessage, queueOfflineMarkMessageRead } from "@/lib/offlineCrud";
 import { DatabaseManager } from "@/lib/pwaUtils";
 
 export interface InternalMessagingTarget {
@@ -578,11 +578,23 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
           window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
           return;
         }
-        throw err;
+        // Détecter les erreurs réseau pour fonctionner hors ligne
+        const isNetworkError = !navigator.onLine || msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || msg.includes('failed');
+        if (isNetworkError) {
+          try {
+            await queueOfflineDeleteMessage(id, isGroup);
+          } catch (queueErr) {
+            if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Queue error', queueErr);
+            throw err;
+          }
+          // Continue: retirer de l'UI de manière optimiste
+        } else {
+          throw err;
+        }
       }
 
       removeMessageFromState(id, isGroup);
-      await refreshAll();
+      if (navigator.onLine) await refreshAll();
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count'] });
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count-supervisor-home'] });
       queryClient.invalidateQueries({ queryKey: ['messages-unread-count-launcher-badge'] });
@@ -605,7 +617,19 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
         purgeStaleMessage(messageId, isGroup);
         return;
       }
-      throw err;
+      // Détecter les erreurs réseau pour fonctionner hors ligne
+      const isNetworkError = !navigator.onLine || msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || msg.includes('failed');
+      if (isNetworkError) {
+        try {
+          await queueOfflineMarkMessageRead(messageId, Boolean(isGroup));
+        } catch (queueErr) {
+          if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Queue error', queueErr);
+          throw err;
+        }
+        // Continue: mettre à jour l'UI de manière optimiste
+      } else {
+        throw err;
+      }
     }
     // Supprimer la notification système Android correspondante
     void dismissSystemNotification('MESSAGE', messageId);

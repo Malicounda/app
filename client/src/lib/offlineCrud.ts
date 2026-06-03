@@ -223,3 +223,85 @@ export async function createOfflineMessage(payload: any, attachments: File[] = [
 
   return messageId;
 }
+
+// ── Offline Deletion & Mark-as-Read Queuing ─────────────────────────────────
+
+/**
+ * Queue an alert deletion for background sync when offline.
+ */
+export async function queueOfflineDeleteAlert(alertId: number): Promise<void> {
+  const taskId = generateUUID();
+  const task: SyncTask = {
+    id: taskId,
+    action: 'DELETE_ALERT',
+    priority: 3,
+    payload: { alertId },
+    entityId: String(alertId),
+    createdAt: Date.now(),
+    attempts: 0,
+    status: 'PENDING',
+    idempotencyKey: `DELETE-ALERT-${alertId}`
+  };
+  await storeData('pendingSync', task);
+  await logAudit('QUEUE_DELETE_ALERT', String(alertId), { offline: true });
+}
+
+/**
+ * Queue a message deletion for background sync when offline.
+ */
+export async function queueOfflineDeleteMessage(messageId: number, isGroupMessage: boolean): Promise<void> {
+  const taskId = generateUUID();
+  const task: SyncTask = {
+    id: taskId,
+    action: 'DELETE_MESSAGE',
+    priority: 3,
+    payload: { messageId, isGroupMessage },
+    entityId: String(messageId),
+    createdAt: Date.now(),
+    attempts: 0,
+    status: 'PENDING',
+    idempotencyKey: `DELETE-MSG-${messageId}`
+  };
+  await storeData('pendingSync', task);
+  await logAudit('QUEUE_DELETE_MESSAGE', String(messageId), { offline: true, isGroupMessage });
+}
+
+/**
+ * Queue marking an alert as read for background sync when offline.
+ */
+export async function queueOfflineMarkAlertRead(alertId: number): Promise<void> {
+  const taskId = generateUUID();
+  const task: SyncTask = {
+    id: taskId,
+    action: 'MARK_ALERT_READ',
+    priority: 3,
+    payload: { alertId },
+    entityId: String(alertId),
+    createdAt: Date.now(),
+    attempts: 0,
+    status: 'PENDING',
+    idempotencyKey: `READ-ALERT-${alertId}`
+  };
+  await storeData('pendingSync', task);
+  await logAudit('QUEUE_MARK_ALERT_READ', String(alertId), { offline: true });
+}
+
+/**
+ * Queue marking a message as read for background sync when offline.
+ */
+export async function queueOfflineMarkMessageRead(messageId: number, isGroupMessage: boolean): Promise<void> {
+  const taskId = generateUUID();
+  const task: SyncTask = {
+    id: taskId,
+    action: 'MARK_MESSAGE_READ',
+    priority: 3,
+    payload: { messageId, isGroupMessage },
+    entityId: String(messageId),
+    createdAt: Date.now(),
+    attempts: 0,
+    status: 'PENDING',
+    idempotencyKey: `READ-MSG-${messageId}`
+  };
+  await storeData('pendingSync', task);
+  await logAudit('QUEUE_MARK_MESSAGE_READ', String(messageId), { offline: true, isGroupMessage });
+}

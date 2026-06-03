@@ -253,7 +253,7 @@ export interface AttachmentOffline extends OfflineEntity {
   uploadedChunks?: number[];
 }
 
-export type SyncAction = 'UPLOAD_ATTACHMENT' | 'CREATE_ALERT' | 'UPDATE_ALERT' | 'CREATE_MESSAGE' | 'UPDATE_PERMIT_STATUS' | 'GENERIC_POST' | 'GENERIC_PUT' | 'GENERIC_DELETE';
+export type SyncAction = 'UPLOAD_ATTACHMENT' | 'CREATE_ALERT' | 'UPDATE_ALERT' | 'DELETE_ALERT' | 'CREATE_MESSAGE' | 'DELETE_MESSAGE' | 'MARK_ALERT_READ' | 'MARK_MESSAGE_READ' | 'UPDATE_PERMIT_STATUS' | 'GENERIC_POST' | 'GENERIC_PUT' | 'GENERIC_DELETE';
 export type SyncQueueStatus = 'PENDING' | 'IN_PROGRESS' | 'RETRY_WAIT';
 
 export interface SyncTask {
@@ -1090,9 +1090,24 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: n
             response = await fetch(resolveApiUrl('/api/alerts'), { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
           } else if (request.action === 'UPDATE_ALERT') {
             response = await fetch(resolveApiUrl(`/api/alerts/${request.entityId}`), { method: 'PUT', headers, body: JSON.stringify(request.payload), credentials: 'include' });
+          } else if (request.action === 'DELETE_ALERT') {
+            response = await fetch(resolveApiUrl(`/api/alerts/${request.payload.alertId}`), { method: 'DELETE', headers, credentials: 'include' });
+          } else if (request.action === 'MARK_ALERT_READ') {
+            response = await fetch(resolveApiUrl(`/api/alerts/${request.payload.alertId}/read`), { method: 'PATCH', headers, body: JSON.stringify({ isRead: true }), credentials: 'include' });
           } else if (request.action === 'CREATE_MESSAGE') {
             const endpoint = resolveApiUrl(request.payload.isGroupMessage ? '/api/messages/group' : '/api/messages');
             response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(request.payload), credentials: 'include' });
+          } else if (request.action === 'DELETE_MESSAGE') {
+            const isGroup = request.payload.isGroupMessage;
+            const msgId = request.payload.messageId;
+            const endpoint = isGroup ? `/api/messages/group/${msgId}/delete` : `/api/messages/${msgId}`;
+            const method = isGroup ? 'PATCH' : 'DELETE';
+            response = await fetch(resolveApiUrl(endpoint), { method, headers, credentials: 'include' });
+          } else if (request.action === 'MARK_MESSAGE_READ') {
+            const isGroup = request.payload.isGroupMessage;
+            const msgId = request.payload.messageId;
+            const endpoint = isGroup ? `/api/messages/group/${msgId}/read` : `/api/messages/${msgId}/read`;
+            response = await fetch(resolveApiUrl(endpoint), { method: 'PATCH', headers, credentials: 'include' });
           } else {
             // Fallback legacy
             response = await fetch(resolveApiUrl(request.url || ''), { method: requestMethod, headers, body: request.body, credentials: 'include' });
