@@ -5,6 +5,7 @@ import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { dismissSystemNotification } from "./use-notifications";
 import { createOfflineMessage, queueOfflineDeleteMessage, queueOfflineMarkMessageRead, cancelPendingMessage } from "@/lib/offlineCrud";
 import { DatabaseManager } from "@/lib/pwaUtils";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface InternalMessagingTarget {
   role: string;
@@ -164,6 +165,7 @@ async function loadPendingDeletedMessageIds(): Promise<(string | number)[]> {
 export function useInternalMessaging(options: UseInternalMessagingOptions = {}) {
   const { autoLoad = true, domaineId } = options;
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
 
   // Initialize state from localStorage cache immediately so data is visible
   // on first render even before the network request completes.
@@ -178,6 +180,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
   const [sending, setSending] = useState(false);
 
   const fetchInbox = useCallback(async () => {
+    if (!isAuthenticated) return [];
     setLoadingInbox(true);
     try {
       const queryParams = domaineId ? `?domaineId=${domaineId}` : "";
@@ -227,6 +230,7 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
   }, [domaineId]);
 
   const fetchSent = useCallback(async () => {
+    if (!isAuthenticated) return [];
     setLoadingSent(true);
     try {
       const queryParams = domaineId ? `?domaineId=${domaineId}` : "";
@@ -325,14 +329,14 @@ export function useInternalMessaging(options: UseInternalMessagingOptions = {}) 
   }, [fetchInbox, fetchSent]);
 
   useEffect(() => {
-    if (autoLoad) {
+    if (autoLoad && isAuthenticated) {
       void refreshAll();
       const interval = setInterval(() => {
         void refreshAll();
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [autoLoad, refreshAll]);
+  }, [autoLoad, refreshAll, isAuthenticated]);
 
   useEffect(() => {
     const handleRefreshAll = () => {

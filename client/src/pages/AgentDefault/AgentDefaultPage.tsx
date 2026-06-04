@@ -87,8 +87,9 @@ export default function AgentDefaultPage() {
   }, []);
 
   const { data: unreadMsgCount } = useQuery({
-    queryKey: ["messages-unread-count-main"],
+    queryKey: ["messages-unread-count-main", user?.id],
     queryFn: async () => {
+      if (!user) return { total: 0 };
       try {
         const res = await authenticatedFetch(`/api/messages/unread-count?${getMessagingDomaineQueryParam()}`);
         if (!res.ok) return { total: 0 };
@@ -97,7 +98,8 @@ export default function AgentDefaultPage() {
         return { total: 0  };
       }
     },
-    refetchInterval: 3000,
+    enabled: !!user,
+    refetchInterval: user ? 3000 : false,
   });
 
   const msgUnread = unreadMsgCount?.total || 0;

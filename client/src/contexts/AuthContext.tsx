@@ -280,6 +280,9 @@ export function AuthProvider({
     isLoggingOutRef.current = true;
 
     try {
+      setUser(null);
+      setIsAuthenticated(false);
+
       try {
         await apiRequest({
           url: "/api/auth/logout",
@@ -293,9 +296,6 @@ export function AuthProvider({
 
       await clearSession();
       await afterLogoutClearAll();
-
-      setUser(null);
-      setIsAuthenticated(false);
 
       setLocation(getLoginRoute(), { replace: true });
     } finally {

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UnreadMessagesCounts {
   individual: number;
@@ -9,9 +10,10 @@ interface UnreadMessagesCounts {
 
 export function useUnreadMessagesCount() {
   const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+  const { isAuthenticated } = useAuth();
 
   return useQuery<UnreadMessagesCounts, Error>({
-    queryKey: ["unread-messages-count"],
+    queryKey: ["unread-messages-count", isAuthenticated],
     queryFn: async () => {
       const response = await apiRequest<UnreadMessagesCounts>("GET", "/messages/unread-count");
       if (!response.ok || !response.data) {
@@ -19,10 +21,10 @@ export function useUnreadMessagesCount() {
       }
       return response.data;
     },
-    enabled: isOnline,
+    enabled: isOnline && isAuthenticated,
     retry: false,
-    refetchInterval: isOnline ? 15000 : false,
-    refetchOnWindowFocus: isOnline,
+    refetchInterval: isOnline && isAuthenticated ? 15000 : false,
+    refetchOnWindowFocus: isOnline && isAuthenticated,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
   });

@@ -987,8 +987,9 @@ function AlertsPage() {
   const unreadCount = alerts.filter((alert: Alert) => !alert.isRead).length;
 
   const { data: unreadMsgCount } = useQuery({
-    queryKey: ["/api/messages/unread-count"],
+    queryKey: ["/api/messages/unread-count", user?.id],
     queryFn: async () => {
+      if (!user) return { total: 0 };
       try {
         const _domain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
         const domaineParam = _domain ? `domaine=${_domain}` : '';
@@ -1002,7 +1003,8 @@ function AlertsPage() {
         return { total: 0 };
       }
     },
-    refetchInterval: 15000,
+    enabled: !!user,
+    refetchInterval: user ? 15000 : false,
   });
 
   const msgUnread = unreadMsgCount?.total || 0;
