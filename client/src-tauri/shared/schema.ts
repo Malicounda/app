@@ -528,6 +528,9 @@ export const alerts = pgTable("alerts", {
   // Nouvelles colonnes GPS dédiées
   lat: doublePrecision("lat"),
   lon: doublePrecision("lon"),
+  arrondissement: text("arrondissement"),
+  commune: text("commune"),
+  localite: text("localite"),
   departement: text("departement"),
   senderId: integer("sender_id").notNull(),
   isRead: boolean("is_read").notNull().default(false),

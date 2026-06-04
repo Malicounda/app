@@ -215,6 +215,7 @@ export const getMapAlerts = async (req: Request, res: Response, next: NextFuncti
               a.departement,
               a.arrondissement,
               a.commune,
+              a.localite,
               a.created_at,
               a.sender_id,
               u.first_name, u.last_name, u.phone, u.role, u.region AS user_region, u.departement AS user_departement
@@ -254,6 +255,7 @@ export const getMapAlerts = async (req: Request, res: Response, next: NextFuncti
                     departement: a.departement ?? null,
                     arrondissement: a.arrondissement ?? null,
                     commune: a.commune ?? null,
+                    localite: a.localite ?? null,
                     lat: latVal as number,
                     lon: lonVal as number,
                     created_at: a.created_at,
@@ -797,6 +799,7 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
             region: regionName || alertRegion,
             arrondissement: alertArrondissement,
             commune: alertCommune,
+            localite: alertLocalite,
             departement: alertDepartement || null,
             zone: zoneFromCoords,
             lat: lat!,
