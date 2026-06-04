@@ -1534,7 +1534,7 @@ function AlertsPage() {
 
   // Gestion de l'envoi d'une alerte
   const handleSendAlert = async () => {
-    if (!selectedAlertType || !location) return;
+    if (!selectedAlertType) return;
     // Pour chasseurs/guides: exiger une description
     if ((isHunter || isGuide) && (!messageText || !messageText.trim())) {
       toast({
@@ -1548,10 +1548,24 @@ function AlertsPage() {
     try {
       setIsSendingAlert(true);
 
+      // Récupérer en temps réel la position la plus fraîche possible avant l'envoi
+      const freshLocation = await handleGetLocation();
+      const targetLocation = freshLocation || location;
+
+      if (!targetLocation) {
+        toast({
+          variant: "destructive",
+          title: "Position GPS requise",
+          description: "Impossible d'envoyer l'alerte sans coordonnées GPS valides.",
+        });
+        setIsSendingAlert(false);
+        return;
+      }
+
       // Créer l'objet alerte selon le format attendu par l'API
       // Préparer et corriger les coordonnées si inversées (heuristique Sénégal)
-      const rawLat = Number(location.latitude);
-      const rawLon = Number(location.longitude);
+      const rawLat = Number(targetLocation.latitude);
+      const rawLon = Number(targetLocation.longitude);
       let lat = rawLat;
       let lon = rawLon;
       // Sénégal ~ lat [12,17], lon [-18,-12]. Si on voit lat très négatif et lon positif, on inverse.
@@ -1636,7 +1650,7 @@ function AlertsPage() {
             role: user?.role || 'agent',
             region: user?.region || undefined,
           },
-          location: location ? { latitude: location.latitude, longitude: location.longitude } : undefined,
+          location: { latitude: alertData.latitude, longitude: alertData.longitude },
         };
         queryClient.setQueryData(["/api/alerts/sent", user?.id], (old: any) => {
           const arr = Array.isArray(old) ? old : [];
