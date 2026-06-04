@@ -241,7 +241,7 @@ export async function createOfflineMessage(payload: any, attachments: File[] = [
 /**
  * Queue an alert deletion for background sync when offline.
  */
-export async function queueOfflineDeleteAlert(alertId: number): Promise<void> {
+export async function queueOfflineDeleteAlert(alertId: number | string): Promise<void> {
   const taskId = generateUUID();
   const task: SyncTask = {
     id: taskId,
@@ -287,7 +287,7 @@ export async function queueOfflineDeleteMessage(messageId: number, isGroupMessag
 /**
  * Queue marking an alert as read for background sync when offline.
  */
-export async function queueOfflineMarkAlertRead(alertId: number): Promise<void> {
+export async function queueOfflineMarkAlertRead(alertId: number | string): Promise<void> {
   const taskId = generateUUID();
   const task: SyncTask = {
     id: taskId,

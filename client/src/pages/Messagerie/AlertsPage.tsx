@@ -46,7 +46,7 @@ function formatAlertLocation(alert: {
 }
 
 interface Alert {
-  id: number;
+  id: number | string;
   title: string;
   message: string;
   type: "info" | "success" | "warning" | "error";
@@ -83,11 +83,11 @@ interface MessageBubbleProps {
   alert: Alert;
   isExpanded: boolean;
   onLocate?: (lat: number, lon: number, title?: string) => void;
-  toggleExpand: (id: number) => void;
-  markAsRead: (id: number) => Promise<void>;
-  deleteAlert: (id: number) => Promise<void>;
+  toggleExpand: (id: number | string) => void;
+  markAsRead: (id: number | string) => Promise<void>;
+  deleteAlert: (id: number | string) => Promise<void>;
   getAlertTypeStyles: (type: string) => { bg: string; border: string; badge: string; icon: JSX.Element };
-  getUrgencyTag: (type: string, nature?: "braconnage" | "trafic-bois" | "feux_de_brousse" | "autre") => JSX.Element;
+  getUrgencyTag: (type: string, nature?: "braconnage" | "trafic-bois" | "feux_de_brousse" | "autre", isPending?: boolean) => JSX.Element;
   getSenderRoleStyle: (sender: any) => string;
   getProvenanceLabel: (role: string) => string;
   isSent: boolean;
@@ -182,7 +182,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-sm sm:text-lg">{actualAlertData.title}</h3>
-                {getUrgencyTag(actualAlertData.type, actualAlertData.nature)}
+                {getUrgencyTag(actualAlertData.type, actualAlertData.nature, isPending)}
               </div>
               <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
                 <User className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -378,7 +378,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 const isAdmin = user?.role === 'admin';
                 if (!isSent && !isAdmin) return null;
 
-                const isExpired = Boolean(isSent && !isAdmin && actualAlertData.createdAt && (new Date().getTime() - new Date(actualAlertData.createdAt).getTime()) / 60000 > 2);
+                const isPending = actualAlertData.isPending;
+                const isExpired = Boolean(!isPending && isSent && !isAdmin && actualAlertData.createdAt && (new Date().getTime() - new Date(actualAlertData.createdAt).getTime()) / 60000 > 2);
                 return (
                   <Button
                     variant="outline"
@@ -444,7 +445,7 @@ async function loadPendingAlertsFromDb(): Promise<Alert[]> {
               lon = parseFloat(parts[1]);
             }
             return {
-              id: -(t.entityId || t.id || Date.now()),
+              id: t.entityId || t.id || String(Date.now()),
               title: payload.title || 'Alerte',
               message: payload.message || '',
               type: payload.type || 'info',
@@ -555,7 +556,7 @@ function AlertsPage() {
   const [selectedAlertType, setSelectedAlertType] = useState<"braconnage" | "trafic-bois" | "feux_de_brousse" | "autre" | null>(null);
   const [messageText, setMessageText] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"inbox" | "outbox">("inbox");
-  const [expandedAlerts, setExpandedAlerts] = useState<number[]>([]);
+  const [expandedAlerts, setExpandedAlerts] = useState<(number | string)[]>([]);
   // Modal pour doublon d'alerte
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [duplicateModalInfo, setDuplicateModalInfo] = useState<{
@@ -1021,13 +1022,14 @@ function AlertsPage() {
     document.title = "Alertes | SCoDiPP - Systeme de Control";
   }, []);
 
-  const toggleExpand = (alertId: number) => {
+  const toggleExpand = (alertId: number | string) => {
     setExpandedAlerts((prev) =>
       prev.includes(alertId) ? prev.filter((id) => id !== alertId) : [...prev, alertId]
     );
   };
 
-  const markAsRead = async (alertId: number) => {
+  const markAsRead = async (alertId: number | string) => {
+    if (typeof alertId === 'string') return;
     try {
       await apiRequest({ url: `/api/alerts/${alertId}/read`, method: 'PATCH', data: { isRead: true } });
     } catch (error: any) {
@@ -1103,7 +1105,7 @@ function AlertsPage() {
     }
   };
 
-  const deleteAlert = async (alertId: number) => {
+  const deleteAlert = async (alertId: number | string) => {
     let deletedOnServer = false;
     let isNetworkErrorMode = false;
 
@@ -1220,8 +1222,15 @@ function AlertsPage() {
     }
   };
 
-  const getUrgencyTag = (type: string, nature?: "braconnage" | "trafic-bois" | "feux_de_brousse" | "autre") => {
-    console.log(`[getUrgencyTag] Received type: ${type}, nature: ${nature}`);
+  const getUrgencyTag = (type: string, nature?: "braconnage" | "trafic-bois" | "feux_de_brousse" | "autre", isPending?: boolean) => {
+    console.log(`[getUrgencyTag] Received type: ${type}, nature: ${nature}, isPending: ${isPending}`);
+    if (isPending) {
+      return (
+        <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs px-2 py-0.5 rounded-md flex items-center justify-center">
+          <Clock className="h-3.5 w-3.5 animate-pulse" />
+        </Badge>
+      );
+    }
     let styles = getAlertTypeStyles(type);
     const badgeText = type === "error" ? "Urgent" : type === "warning" ? "Important" : type === "success" ? "Succès" : "Info";
 
@@ -2108,7 +2117,7 @@ function AlertsPage() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <div className="font-semibold text-gray-900 truncate">{alert.title}</div>
-                                {getUrgencyTag(alert.type, alert.nature)}
+                                {getUrgencyTag(alert.type, alert.nature, alert.isPending)}
                                 {!alert.isRead && (
                                   <Badge variant="secondary" className="bg-blue-100 text-blue-800">Non lu</Badge>
                                 )}
@@ -2245,7 +2254,7 @@ function AlertsPage() {
                 </DialogHeader>
                 <div className="mt-2 flex items-center gap-2 flex-wrap">
                   <span className="font-semibold">{detailsAlert.title}</span>
-                  {getUrgencyTag(detailsAlert.type, detailsAlert.nature)}
+                  {getUrgencyTag(detailsAlert.type, detailsAlert.nature, detailsAlert.isPending)}
                 </div>
               </div>
 

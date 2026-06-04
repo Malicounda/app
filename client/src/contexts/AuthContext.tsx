@@ -184,6 +184,11 @@ export function AuthProvider({
         setUser(response);
         setIsAuthenticated(true);
         await saveSession(response);
+        import("@/lib/pwaUtils").then(({ syncPendingRequests }) => {
+          syncPendingRequests().catch(err => {
+            if (import.meta.env.DEV) console.warn('[AuthContext] syncPendingRequests background run error:', err);
+          });
+        }).catch(() => {});
       }
     } catch (e) {
       if (import.meta.env.DEV) console.warn("[AuthContext] Erreur lors du refreshUser (ex: token expiré)", e);
@@ -227,6 +232,12 @@ export function AuthProvider({
       setAuthInitialized(true);
 
       await saveSession(response.user);
+
+      import("@/lib/pwaUtils").then(({ syncPendingRequests }) => {
+        syncPendingRequests().catch(err => {
+          if (import.meta.env.DEV) console.warn('[AuthContext] syncPendingRequests background run error:', err);
+        });
+      }).catch(() => {});
 
       // S'abonner aux notifications push silencieusement
       subscribePush().catch(err => console.warn('Erreur push auth:', err));

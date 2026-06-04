@@ -1215,14 +1215,53 @@ export async function syncPendingRequests(maxAttempts = 3): Promise<{ success: n
             console.error(`[${requestId}] Erreur HTTP ${response.status}: ${response.statusText}`);
 
             if (response.status === 401 || response.status === 403) {
-              await moveToDeadLetters(db, updatedRequest, `Auth error ${response.status}`);
-              continue;
+              console.warn(`[SyncEngine] Auth error ${response.status} on task ${request.id}. Resetting and stopping sync.`);
+              const resetRequest = {
+                ...request,
+                status: 'PENDING' as SyncQueueStatus,
+                attempts: request.attempts
+              };
+              await new Promise<void>((resolve) => {
+                try {
+                  const tx = db.transaction('pendingSync', 'readwrite');
+                  tx.objectStore('pendingSync').put(resetRequest);
+                  tx.oncomplete = () => resolve();
+                  tx.onerror = () => resolve();
+                } catch (e) { resolve(); }
+              });
+              hasMoreToProcess = false;
+              break;
             }
 
             // === 409 CONFLIT → CONFLICT STORE ===
             if (response.status === 409) {
-              let serverPayload: unknown = null;
+              let serverPayload: any = null;
               try { serverPayload = await response.json(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
+              
+              if (request.action === 'CREATE_ALERT' && serverPayload?.self === true) {
+                console.log(`[${requestId}] ✓ Already exists on server (409 self conflict), treating as success`);
+                const { logAudit } = await import('./auditLogger');
+                await logAudit('SYNC_SUCCESS', request.id, {
+                  action: request.action,
+                  entityId: request.entityId,
+                  serverAckAt: Date.now(),
+                  duplicateSelf: true
+                });
+                
+                await new Promise<void>((resolve) => {
+                  try {
+                    const deleteTransaction = db.transaction('pendingSync', 'readwrite');
+                    deleteTransaction.oncomplete = () => {
+                      passSuccessCount++;
+                      resolve();
+                    };
+                    deleteTransaction.onerror = () => { passSuccessCount++; resolve(); };
+                    deleteTransaction.objectStore('pendingSync').delete(request.id);
+                  } catch (e) { passSuccessCount++; resolve(); }
+                });
+                continue;
+              }
+
               await moveToConflicts(db, updatedRequest, serverPayload);
               passFailedCount++;
               continue;
