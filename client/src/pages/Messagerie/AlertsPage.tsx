@@ -1981,7 +1981,7 @@ function AlertsPage() {
                           {typeFilter === "all" ? "Filtrer" : 
                            typeFilter === "braconnage" ? "Braconnage" :
                            typeFilter === "trafic-bois" ? "Trafic de bois" :
-                           typeFilter === "feux_de_brousse" ? "Feux de brousse" : "Autre"}
+                           typeFilter === "feux_de_brousse" ? "Feux de brousse" : "Autre / Information"}
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -1998,7 +1998,9 @@ function AlertsPage() {
                         <DropdownMenuItem onClick={() => setTypeFilter("feux_de_brousse")}>
                           Feux de brousse
                         </DropdownMenuItem>
-
+                        <DropdownMenuItem onClick={() => setTypeFilter("autre")}>
+                          Autre / Information
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                     <Button

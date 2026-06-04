@@ -40,7 +40,7 @@ type MessageItem = {
 };
 
 // ═══════════════ Helpers ═══════════════
-const natureLabels: Record<string, string> = { braconnage: "Braconnage", feux_de_brousse: "Feux de brousse", "trafic-bois": "Trafic de bois", trafic_bois: "Trafic de bois", autre: "Autre" };
+const natureLabels: Record<string, string> = { braconnage: "Braconnage", feux_de_brousse: "Feux de brousse", "trafic-bois": "Trafic de bois", trafic_bois: "Trafic de bois", autre: "Autre / Information" };
 const natureColors: Record<string, string> = { braconnage: "bg-red-100 text-red-700", feux_de_brousse: "bg-orange-100 text-orange-700", "trafic-bois": "bg-amber-100 text-amber-800", trafic_bois: "bg-amber-100 text-amber-800", autre: "bg-gray-100 text-gray-700" };
 
 function agentName(s: any) {
@@ -328,8 +328,12 @@ function AlertesTab() {
       }
 
       // Nature filter
-      if (natureFilter !== "all" && a.nature !== natureFilter) {
-        return false;
+      if (natureFilter !== "all") {
+        if (natureFilter === "trafic_bois") {
+          if (a.nature !== "trafic_bois" && a.nature !== "trafic-bois") return false;
+        } else if (a.nature !== natureFilter) {
+          return false;
+        }
       }
 
       // Region filter
@@ -423,9 +427,10 @@ function AlertesTab() {
               className="h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="all">Toutes natures</option>
-              {Object.entries(natureLabels).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
+              <option value="braconnage">Braconnage</option>
+              <option value="feux_de_brousse">Feux de brousse</option>
+              <option value="trafic_bois">Trafic de bois</option>
+              <option value="autre">Autre / Information</option>
             </select>
           </div>
           <div className="w-full sm:w-48">
