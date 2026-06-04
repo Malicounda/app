@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Clock, Filter, Info, MapPin, MessageSquare, Phone, RefreshCw, Search, Trash2, User, X } from "lucide-react";
@@ -180,8 +180,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       className={`flex ${isSent ? "justify-end" : "justify-start"} mb-3 sm:mb-4`}
     >
       <div
-        className={`max-w-[80%] sm:max-w-[70%] md:max-w-[60%] p-3 sm:p-4 rounded-2xl shadow-md transition-all duration-300 ${
-          isPending
+        className={`max-w-[80%] sm:max-w-[70%] md:max-w-[60%] p-3 sm:p-4 rounded-2xl shadow-md transition-all duration-300 ${isPending
             ? "bg-amber-50 border border-amber-200 text-amber-900 border-l-4 border-l-amber-500"
             : isSent
               ? "bg-blue-100 text-gray-800"
@@ -349,7 +348,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                             </div>
                           </div>
                         ) : null}
-                        
+
                         <div>
                           <h4 className="font-semibold text-gray-800 mb-1 border-b pb-1">Destinataires ayant lu</h4>
                           <div className="max-h-32 overflow-y-auto mt-1 space-y-1.5 pr-1">
@@ -443,7 +442,7 @@ async function loadPendingAlertsFromDb(): Promise<Alert[]> {
   try {
     const db = await DatabaseManager.getDB();
     if (!db.objectStoreNames.contains('pendingSync')) return [];
-    
+
     return new Promise((resolve) => {
       try {
         const tx = db.transaction('pendingSync', 'readonly');
@@ -500,7 +499,7 @@ async function loadPendingDeletedAlertIds(): Promise<(string | number)[]> {
   try {
     const db = await DatabaseManager.getDB();
     if (!db.objectStoreNames.contains('pendingSync')) return [];
-    
+
     return new Promise((resolve) => {
       try {
         const tx = db.transaction('pendingSync', 'readonly');
@@ -601,18 +600,20 @@ function AlertsPage() {
   const [alertTypeHintDismissed, setAlertTypeHintDismissed] = useState(() => {
     try {
       return localStorage.getItem("scodi:alerts-select-type-hint-dismissed") === "1";
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return false;
-     }
+    }
   });
 
   const dismissAlertTypeHint = () => {
     setAlertTypeHintDismissed(true);
     try {
       localStorage.setItem("scodi:alerts-select-type-hint-dismissed", "1");
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       /* ignore */
-     }
+    }
   };
 
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -873,14 +874,15 @@ function AlertsPage() {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     refetchInterval: 10000, // 10s polling to auto-refresh inbox
-    staleTime: 0,
+    staleTime: 5000, // Éviter les refetch trop fréquents qui causent du clignotement
+    placeholderData: keepPreviousData, // Garder les anciennes données pendant le refetch pour éviter le flash
   });
 
   const { data: sentAlertsData = [], refetch: refetchSent, isLoading: isLoadingSent } = useQuery({
     queryKey: ["/api/alerts/sent", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
+
       let list: Alert[] = [];
       try {
         const resp: any = await apiRequest({ url: `/api/alerts/sent/${user.id}`, method: 'GET' });
@@ -933,8 +935,8 @@ function AlertsPage() {
       // Charger les alertes en attente depuis IndexedDB et les fusionner
       const pendingList = await loadPendingAlertsFromDb();
       const uniquePending = pendingList.filter(p => {
-        const alreadySynced = list.some(m => 
-          String(m.message || '').trim() === String(p.message || '').trim() && 
+        const alreadySynced = list.some(m =>
+          String(m.message || '').trim() === String(p.message || '').trim() &&
           m.nature === p.nature &&
           m.location?.latitude === p.location?.latitude &&
           m.location?.longitude === p.location?.longitude &&
@@ -944,15 +946,16 @@ function AlertsPage() {
       });
 
       const combined = [...uniquePending, ...list];
-       const deletedIds = await loadPendingDeletedAlertIds();
-       const deletedIdsStr = deletedIds.map(String);
-       return combined.filter(a => !deletedIdsStr.includes(String(a.id)));
-     },
+      const deletedIds = await loadPendingDeletedAlertIds();
+      const deletedIdsStr = deletedIds.map(String);
+      return combined.filter(a => !deletedIdsStr.includes(String(a.id)));
+    },
     enabled: !!user,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     refetchInterval: 10000, // 10s polling to auto-refresh outbox
-    staleTime: 0,
+    staleTime: 5000, // Éviter les refetch trop fréquents qui causent du clignotement
+    placeholderData: keepPreviousData, // Garder les anciennes données pendant le refetch pour éviter le flash
   });
 
   // Now safe to reference refetch/refetchSent
@@ -997,9 +1000,9 @@ function AlertsPage() {
       try {
         const _domain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
         const domaineParam = _domain ? `domaine=${_domain}` : '';
-        const resp: any = await apiRequest({ 
-          url: `/api/messages/unread-count${domaineParam ? `?${domaineParam}` : ''}`, 
-          method: 'GET' 
+        const resp: any = await apiRequest({
+          url: `/api/messages/unread-count${domaineParam ? `?${domaineParam}` : ''}`,
+          method: 'GET'
         });
         return resp;
       } catch (error) {
@@ -1060,11 +1063,11 @@ function AlertsPage() {
       await apiRequest({ url: `/api/alerts/${alertId}/read`, method: 'PATCH', data: { isRead: true } });
     } catch (error: any) {
       const msg = String(error?.message || '').toLowerCase();
-      const isNetworkError = !navigator.onLine || 
+      const isNetworkError = !navigator.onLine ||
         [500, 502, 503, 504, 0].includes(error?.status) ||
-        msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || 
-        msg.includes('failed') || msg.includes('503') || msg.includes('502') || msg.includes('504') || 
-        msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') || 
+        msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') ||
+        msg.includes('failed') || msg.includes('503') || msg.includes('502') || msg.includes('504') ||
+        msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') ||
         msg.includes('service') || msg.includes('hors ligne') || msg.includes('offline');
       if (isNetworkError) {
         // Queue pour synchronisation ultérieure
@@ -1126,8 +1129,9 @@ function AlertsPage() {
       refetch();
 
       toast({ title: "Toutes les alertes marquées comme lues" });
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible de marquer toutes les alertes comme lues."  });
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible de marquer toutes les alertes comme lues." });
     }
   };
 
@@ -1175,11 +1179,11 @@ function AlertsPage() {
         queryClient.invalidateQueries({ queryKey: ["/api/alerts/sent", user?.id] });
         return;
       }
-      const isNetworkError = !navigator.onLine || 
+      const isNetworkError = !navigator.onLine ||
         [500, 502, 503, 504, 0].includes(error?.status) ||
-        msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || 
-        msg.includes('failed') || msg.includes('503') || msg.includes('502') || msg.includes('504') || 
-        msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') || 
+        msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') ||
+        msg.includes('failed') || msg.includes('503') || msg.includes('502') || msg.includes('504') ||
+        msg.includes('connecter') || msg.includes('connexion') || msg.includes('unavailable') ||
         msg.includes('service') || msg.includes('hors ligne') || msg.includes('offline');
       if (isNetworkError) {
         isNetworkErrorMode = true;
@@ -1213,15 +1217,15 @@ function AlertsPage() {
     window.dispatchEvent(new CustomEvent('launcher-badge-refresh'));
 
     if (isNetworkErrorMode) {
-        toast({
-            title: "Mode hors ligne",
-            description: "L'alerte sera supprimée lors de la reconnexion.",
-        });
+      toast({
+        title: "Mode hors ligne",
+        description: "L'alerte sera supprimée lors de la reconnexion.",
+      });
     } else {
-        toast({
-            title: "Alerte supprimée",
-            description: "L'alerte a été supprimée définitivement.",
-        });
+      toast({
+        title: "Alerte supprimée",
+        description: "L'alerte a été supprimée définitivement.",
+      });
     }
   };
 
@@ -1383,7 +1387,7 @@ function AlertsPage() {
           });
         }
       }
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e); }
 
     // Demander explicitement la permission avant de continuer
     const hasPermission = await requestGeolocationPermission();
@@ -1795,7 +1799,7 @@ function AlertsPage() {
               <ArrowLeft className="h-4 w-4" />
               <span className="font-medium">Retour</span>
             </Button>
-             <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
               {(isDefaultRole || isSupervisorRole) && (
                 <Button
                   onClick={() => {
@@ -2043,21 +2047,19 @@ function AlertsPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setActiveTab('inbox')}
-                      className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${
-                        activeTab === 'inbox'
+                      className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'inbox'
                           ? 'bg-green-600 border-green-600 text-white shadow-sm'
                           : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       Alertes reçues
                     </button>
                     <button
                       onClick={() => setActiveTab('outbox')}
-                      className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${
-                        activeTab === 'outbox'
+                      className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'outbox'
                           ? 'bg-green-600 border-green-600 text-white shadow-sm'
                           : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       Alertes envoyées
                     </button>
@@ -2085,10 +2087,10 @@ function AlertsPage() {
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="gap-2">
                           <Filter className="h-4 w-4" />
-                          {typeFilter === "all" ? "Filtrer" : 
-                           typeFilter === "braconnage" ? "Braconnage" :
-                           typeFilter === "trafic-bois" ? "Trafic de bois" :
-                           typeFilter === "feux_de_brousse" ? "Feux de brousse" : "Autre / Information"}
+                          {typeFilter === "all" ? "Filtrer" :
+                            typeFilter === "braconnage" ? "Braconnage" :
+                              typeFilter === "trafic-bois" ? "Trafic de bois" :
+                                typeFilter === "feux_de_brousse" ? "Feux de brousse" : "Autre / Information"}
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -2123,160 +2125,160 @@ function AlertsPage() {
               )}
 
               <div className={`flex-1 min-h-0 overflow-y-auto no-scrollbar ${listScrollPadding}`}>
-              {activeTab === "inbox" ? (
-                isLoadingAlerts ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : filteredInbox.length === 0 ? (
-                  (isHunter || isGuide)
-                    ? null
-                    : (
-                      <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
-                        <CardContent className="flex flex-col items-center justify-center py-8">
-                          <Bell className="h-10 w-10 text-gray-400 mb-2" />
-                          <p className="text-gray-500 text-center">Aucune alerte reçue pour le moment.</p>
-                        </CardContent>
-                      </Card>
-                    )
-                ) : (
-                  <>
-                    <div className="px-4 py-3 border-b bg-slate-50">
-                      <div className="font-semibold text-gray-800">Liste des Alertes</div>
+                {activeTab === "inbox" ? (
+                  (isLoadingAlerts && alerts.length === 0) ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
-                    {/* Grille responsive pour les cartes d'alerte */}
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:gap-3 xl:p-3">
-                      {filteredInbox.map((alert: Alert) => {
-                        const styles = getAlertTypeStyles(alert.type);
-                        const senderStrip = getSenderRoleStyle(alert.sender);
-                        const createdAtDate = alert.createdAt ? new Date(alert.createdAt) : null;
-                        const timeAgo = createdAtDate && !isNaN(createdAtDate.getTime())
-                          ? formatDistanceToNow(createdAtDate, { addSuffix: true, locale: fr })
-                          : '';
-                        const formatted = createdAtDate && !isNaN(createdAtDate.getTime())
-                          ? format(createdAtDate, "dd/MM/yyyy à HH:mm", { locale: fr })
-                          : '';
+                  ) : filteredInbox.length === 0 ? (
+                    (isHunter || isGuide)
+                      ? null
+                      : (
+                        <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
+                          <CardContent className="flex flex-col items-center justify-center py-8">
+                            <Bell className="h-10 w-10 text-gray-400 mb-2" />
+                            <p className="text-gray-500 text-center">Aucune alerte reçue pour le moment.</p>
+                          </CardContent>
+                        </Card>
+                      )
+                  ) : (
+                    <>
+                      <div className="px-4 py-3 border-b bg-slate-50">
+                        <div className="font-semibold text-gray-800">Liste des Alertes</div>
+                      </div>
+                      {/* Grille responsive pour les cartes d'alerte */}
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:gap-3 xl:p-3">
+                        {filteredInbox.map((alert: Alert) => {
+                          const styles = getAlertTypeStyles(alert.type);
+                          const senderStrip = getSenderRoleStyle(alert.sender);
+                          const createdAtDate = alert.createdAt ? new Date(alert.createdAt) : null;
+                          const timeAgo = createdAtDate && !isNaN(createdAtDate.getTime())
+                            ? formatDistanceToNow(createdAtDate, { addSuffix: true, locale: fr })
+                            : '';
+                          const formatted = createdAtDate && !isNaN(createdAtDate.getTime())
+                            ? format(createdAtDate, "dd/MM/yyyy à HH:mm", { locale: fr })
+                            : '';
 
-                        return (
-                          <div key={alert.id} className={"flex gap-3 px-4 py-3 xl:rounded-xl xl:border xl:border-gray-100 xl:shadow-sm xl:bg-white hover:bg-slate-50 transition-colors cursor-pointer " + senderStrip}
-                            onClick={() => {
-                              setDetailsAlert(alert);
-                              setDetailsOpen(true);
-                              if (!alert.isRead) markAsRead(alert.id);
-                            }}
-                          >
-                            <div className="shrink-0 flex items-center justify-center">
-                              <div className={"h-9 w-9 rounded-full flex items-center justify-center border " + styles.border + " " + styles.bg}>
-                                {alert.nature ? <NatureIcon nature={alert.nature} size={18} /> : styles.icon}
-                              </div>
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <div className="font-semibold text-gray-900 truncate">{alert.title}</div>
-                                {getUrgencyTag(alert.type, alert.nature, alert.isPending)}
-                                {!alert.isRead && (
-                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">Non lu</Badge>
-                                )}
-                              </div>
-
-                              <div className="mt-0.5 text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
-                                <div className="flex items-center gap-1">
-                                  <User className="h-4 w-4 text-gray-500" />
-                                  <span>
-                                    {alert.sender?.firstName ?? alert.sender?.username ?? 'Utilisateur'}
-                                    {alert.sender?.lastName ? ` ${alert.sender.lastName}` : ''}
-                                    {' '}({getProvenanceLabel(alert.sender?.role ?? 'unknown')})
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <MapPin className="h-4 w-4 text-gray-500" />
-                                  <span>{formatAlertLocation(alert)}</span>
+                          return (
+                            <div key={alert.id} className={"flex gap-3 px-4 py-3 xl:rounded-xl xl:border xl:border-gray-100 xl:shadow-sm xl:bg-white hover:bg-slate-50 transition-colors cursor-pointer " + senderStrip}
+                              onClick={() => {
+                                setDetailsAlert(alert);
+                                setDetailsOpen(true);
+                                if (!alert.isRead) markAsRead(alert.id);
+                              }}
+                            >
+                              <div className="shrink-0 flex items-center justify-center">
+                                <div className={"h-9 w-9 rounded-full flex items-center justify-center border " + styles.border + " " + styles.bg}>
+                                  {alert.nature ? <NatureIcon nature={alert.nature} size={18} /> : styles.icon}
                                 </div>
                               </div>
 
-                              <div className="mt-0.5 text-sm text-gray-500">
-                                {timeAgo ? (
-                                  <>
-                                    <span>{timeAgo}</span>
-                                    <span className="ml-2">({formatted})</span>
-                                  </>
-                                ) : (
-                                  <span>-</span>
-                                )}
-                              </div>
-                            </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="font-semibold text-gray-900 truncate">{alert.title}</div>
+                                  {getUrgencyTag(alert.type, alert.nature, alert.isPending)}
+                                  {!alert.isRead && (
+                                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">Non lu</Badge>
+                                  )}
+                                </div>
 
-                            <div className="shrink-0 flex flex-col sm:flex-row items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => {
-                                  const lat = alert.location?.latitude;
-                                  const lon = alert.location?.longitude;
-                                  if (lat && lon) {
-                                    markAsRead(alert.id).finally(() => {
-                                      handleLocate(lat, lon, alert.title);
-                                    });
-                                  }
-                                }}
-                                disabled={!alert.location}
-                                title="Localiser"
-                              >
-                                <MapPin className="h-4 w-4" />
-                              </Button>
-                              {user?.role === 'admin' && (
+                                <div className="mt-0.5 text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
+                                  <div className="flex items-center gap-1">
+                                    <User className="h-4 w-4 text-gray-500" />
+                                    <span>
+                                      {alert.sender?.firstName ?? alert.sender?.username ?? 'Utilisateur'}
+                                      {alert.sender?.lastName ? ` ${alert.sender.lastName}` : ''}
+                                      {' '}({getProvenanceLabel(alert.sender?.role ?? 'unknown')})
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <MapPin className="h-4 w-4 text-gray-500" />
+                                    <span>{formatAlertLocation(alert)}</span>
+                                  </div>
+                                </div>
+
+                                <div className="mt-0.5 text-sm text-gray-500">
+                                  {timeAgo ? (
+                                    <>
+                                      <span>{timeAgo}</span>
+                                      <span className="ml-2">({formatted})</span>
+                                    </>
+                                  ) : (
+                                    <span>-</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 flex flex-col sm:flex-row items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                 <Button
                                   variant="outline"
                                   size="icon"
                                   className="h-8 w-8"
-                                  onClick={() => deleteAlert(alert.id)}
-                                  title="Supprimer"
+                                  onClick={() => {
+                                    const lat = alert.location?.latitude;
+                                    const lon = alert.location?.longitude;
+                                    if (lat && lon) {
+                                      markAsRead(alert.id).finally(() => {
+                                        handleLocate(lat, lon, alert.title);
+                                      });
+                                    }
+                                  }}
+                                  disabled={!alert.location}
+                                  title="Localiser"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <MapPin className="h-4 w-4" />
                                 </Button>
-                              )}
+                                {user?.role === 'admin' && (
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => deleteAlert(alert.id)}
+                                    title="Supprimer"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )
-              ) : (
-                isLoadingSent ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : sentAlertsData.length === 0 ? (
-                  <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
-                    <CardContent className="flex flex-col items-center justify-center py-8">
-                      <Bell className="h-10 w-10 text-gray-400 mb-2" />
-                      <p className="text-gray-500 text-center">Aucune alerte envoyée pour le moment.</p>
-                    </CardContent>
-                  </Card>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )
                 ) : (
-                  <>
-                    {sentAlertsData.map((alert: Alert) => (
-                      <MessageBubble
-                        key={alert.id}
-                        alert={alert}
-                        isExpanded={expandedAlerts.includes(alert.id)}
-                        onLocate={handleLocate}
-                        toggleExpand={toggleExpand}
-                        markAsRead={markAsRead}
-                        deleteAlert={deleteAlert}
-                        getAlertTypeStyles={getAlertTypeStyles}
-                        getUrgencyTag={getUrgencyTag}
-                        getSenderRoleStyle={getSenderRoleStyle}
-                        getProvenanceLabel={getProvenanceLabel}
-                        isSent={true}
-                      />
-                    ))}
-                  </>
-                )
-              )}
+                  (isLoadingSent && sentAlertsData.length === 0) ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : sentAlertsData.length === 0 ? (
+                    <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
+                      <CardContent className="flex flex-col items-center justify-center py-8">
+                        <Bell className="h-10 w-10 text-gray-400 mb-2" />
+                        <p className="text-gray-500 text-center">Aucune alerte envoyée pour le moment.</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <>
+                      {sentAlertsData.map((alert: Alert) => (
+                        <MessageBubble
+                          key={alert.id}
+                          alert={alert}
+                          isExpanded={expandedAlerts.includes(alert.id)}
+                          onLocate={handleLocate}
+                          toggleExpand={toggleExpand}
+                          markAsRead={markAsRead}
+                          deleteAlert={deleteAlert}
+                          getAlertTypeStyles={getAlertTypeStyles}
+                          getUrgencyTag={getUrgencyTag}
+                          getSenderRoleStyle={getSenderRoleStyle}
+                          getProvenanceLabel={getProvenanceLabel}
+                          isSent={true}
+                        />
+                      ))}
+                    </>
+                  )
+                )}
               </div>
 
               {showInboxTotalFooter && (
