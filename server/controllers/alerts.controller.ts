@@ -1429,9 +1429,10 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
 
             // Lire les accusés de lecture (notifications lues) pour cette alerte
             let readByRoles: string[] = [];
+            let readByDetails: { name: string, role: string }[] = [];
             try {
                 const readers: any[] = await db.execute(sql`
-                    SELECT u.role
+                    SELECT u.role, u.first_name, u.last_name
                     FROM notifications n
                     JOIN users u ON n.user_id = u.id
                     WHERE n.alert_id = ${alertData.id} AND n.is_read = true
@@ -1440,9 +1441,15 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                 for (const r of readers) {
                     const raw = (r as any)?.role;
                     const norm = typeof raw === 'string' ? raw.toLowerCase().replace(/-/g, '_') : String(raw).toLowerCase().replace(/-/g, '_');
-                    if (norm === 'agent') roleSet.add('IREF');
-                    else if (norm === 'sub_agent') roleSet.add('Secteur');
-                    else if (norm === 'admin') roleSet.add('Admin');
+                    
+                    let displayRole = 'Inconnu';
+                    if (norm === 'agent') { roleSet.add('IREF'); displayRole = 'IREF'; }
+                    else if (norm === 'sub_agent') { roleSet.add('Secteur'); displayRole = 'Secteur'; }
+                    else if (norm === 'admin') { roleSet.add('Admin'); displayRole = 'Admin'; }
+                    else { roleSet.add(raw); displayRole = raw; }
+                    
+                    const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Agent inconnu';
+                    readByDetails.push({ name: fullName, role: displayRole });
                 }
                 // Ordonner: IREF, Secteur, Admin
                 const order = ['IREF', 'Secteur', 'Admin'];
@@ -1465,6 +1472,7 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                 updated_at: alertData.updated_at,
                 sender_id: alertData.sender_id,
                 read_by_roles: readByRoles,
+                read_by_details: readByDetails,
                 sender: alertData.users ? {
                     id: alertData.users.id,
                     username: alertData.users.username,

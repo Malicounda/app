@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -59,6 +60,7 @@ interface Alert {
   commune?: string | null;
   // Accusés de lecture (rôles) côté expéditeur
   readByRoles?: string[];
+  readByDetails?: { name: string; role: string }[];
   isDeletionRequest?: boolean;
   concernedHunters?: { id: number; name: string }[];
   sender: {
@@ -313,8 +315,46 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </Button>
               )}
               {isSent && Array.isArray(actualAlertData.readByRoles) && actualAlertData.readByRoles.length > 0 && (
-                <div className="ml-auto mr-2 text-xs text-gray-600 self-center">
-                  Message lu ({actualAlertData.readByRoles.join('; ')})
+                <div className="ml-auto mr-2 flex items-center gap-1.5 self-center">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="text-orange-500 hover:text-orange-600 focus:outline-none transition-colors" title="Détails de lecture">
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-3 z-50 text-sm shadow-xl" align="end" side="top">
+                      <div className="space-y-3">
+                        {actualAlertData.region || actualAlertData.departement ? (
+                          <div>
+                            <h4 className="font-semibold text-gray-800 mb-1 border-b pb-1">Lieu précis de l'alerte</h4>
+                            <div className="text-gray-600 text-xs space-y-0.5 mt-1">
+                              {actualAlertData.region && <p><span className="font-medium text-gray-700">Région:</span> {actualAlertData.region}</p>}
+                              {actualAlertData.departement && <p><span className="font-medium text-gray-700">Département:</span> {actualAlertData.departement}</p>}
+                              {actualAlertData.arrondissement && <p><span className="font-medium text-gray-700">Arrondissement:</span> {actualAlertData.arrondissement}</p>}
+                              {actualAlertData.commune && <p><span className="font-medium text-gray-700">Commune:</span> {actualAlertData.commune}</p>}
+                            </div>
+                          </div>
+                        ) : null}
+                        
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-1 border-b pb-1">Destinataires ayant lu</h4>
+                          <div className="max-h-32 overflow-y-auto mt-1 space-y-1.5 pr-1">
+                            {actualAlertData.readByDetails && actualAlertData.readByDetails.length > 0 ? (
+                              actualAlertData.readByDetails.map((reader, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-xs">
+                                  <span className="text-gray-700 truncate mr-2">{reader.name}</span>
+                                  <Badge variant="secondary" className="text-[10px] py-0 px-1 border-gray-200">{reader.role}</Badge>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-gray-500">Seuls les rôles sont disponibles : {actualAlertData.readByRoles.join(', ')}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-xs text-gray-600">Message lu</span>
                 </div>
               )}
               {actualAlertData.isRead && !isSent && actualAlertData.location && (
@@ -845,6 +885,7 @@ function AlertsPage() {
             region: a.region || undefined,
             departement: a.departement || undefined,
             readByRoles: Array.isArray(a.read_by_roles) ? a.read_by_roles : undefined,
+            readByDetails: Array.isArray(a.read_by_details) ? a.read_by_details : undefined,
             sender: {
               username: s.username || user.username || 'moi',
               firstName: s.first_name || user.firstName || '',
