@@ -1462,8 +1462,8 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                     else { roleSet.add(raw); displayRole = raw; }
                     
                     let displayName = '';
-                    if (r.grade || r.role_metier_label) {
-                        displayName = [r.grade, r.role_metier_label].filter(Boolean).join(' - ');
+                    if (r.role_metier_label) {
+                        displayName = r.role_metier_label;
                     } else {
                         displayName = [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Agent inconnu';
                     }

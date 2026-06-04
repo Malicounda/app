@@ -330,21 +330,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                             <div className="text-gray-600 text-xs space-y-0.5 mt-1">
                               {actualAlertData.region && <p><span className="font-medium text-gray-700">Région:</span> {actualAlertData.region}</p>}
                               {actualAlertData.departement && <p><span className="font-medium text-gray-700">Département:</span> {actualAlertData.departement}</p>}
-                              {(actualAlertData.arrondissement || actualAlertData.commune) && (
-                                <p>
-                                  {actualAlertData.arrondissement && (
-                                    <span>
-                                      <span className="font-medium text-gray-700">Arrondissement:</span> {actualAlertData.arrondissement}
-                                    </span>
-                                  )}
-                                  {actualAlertData.arrondissement && actualAlertData.commune && <span className="mx-1.5 text-gray-300">|</span>}
-                                  {actualAlertData.commune && (
-                                    <span>
-                                      <span className="font-medium text-gray-700">Commune:</span> {actualAlertData.commune}
-                                    </span>
-                                  )}
-                                </p>
-                              )}
+                              <p>
+                                <span className="font-medium text-gray-700">Localité:</span>{' '}
+                                {[actualAlertData.arrondissement, actualAlertData.commune].filter(Boolean).join(' / ') || 'Non définie'}
+                              </p>
                             </div>
                           </div>
                         ) : null}
@@ -1625,6 +1614,9 @@ function AlertsPage() {
       resetForm();
       setMessageText("");
 
+      // Relancer la géolocalisation automatiquement pour la prochaine alerte
+      handleGetLocation();
+
       if (wasQueuedOffline) {
         // Injection optimiste : ajouter l'alerte en attente dans le cache local
         const pendingAlert: Alert = {
@@ -1857,18 +1849,6 @@ function AlertsPage() {
                         <RefreshCw className="h-4 w-4" />
                       </Button>
                     </div>
-                    <button 
-                      type="button" 
-                      onClick={handleGetLocation}
-                      disabled={isLoadingLocation}
-                      className="text-[10px] font-medium text-emerald-700 underline self-end px-1 hover:text-emerald-900 flex items-center gap-1"
-                    >
-                      {isLoadingLocation ? (
-                        <>Actualisation...</>
-                      ) : (
-                        <>Re-capturer ma position</>
-                      )}
-                    </button>
                   </div>
                 )}
 
