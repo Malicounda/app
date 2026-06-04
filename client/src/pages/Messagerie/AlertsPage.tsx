@@ -53,6 +53,7 @@ interface Alert {
   nature?: "braconnage" | "trafic-bois" | "feux_de_brousse" | "autre";
   isRead: boolean;
   createdAt: string;
+  isPending?: boolean;
   // Localisation dérivée des coordonnées (provenant du backend)
   region?: string | null;
   departement?: string | null;
@@ -76,7 +77,6 @@ interface Alert {
     latitude: number;
     longitude: number;
   };
-  isPending?: boolean;
 }
 
 interface MessageBubbleProps {
@@ -453,6 +453,7 @@ async function loadPendingAlertsFromDb(): Promise<Alert[]> {
               isRead: true,
               createdAt: new Date(t.createdAt || Date.now()).toISOString(),
               region: payload.region || undefined,
+              isPending: true,
               departement: payload.departement || undefined,
               sender: {
                 username: 'moi',
@@ -461,7 +462,6 @@ async function loadPendingAlertsFromDb(): Promise<Alert[]> {
                 role: 'agent',
               },
               location: lat !== null && lon !== null ? { latitude: lat, longitude: lon } : undefined,
-              isPending: true,
             } as any;
           }).filter(Boolean) as Alert[];
           resolve(records);
@@ -1615,12 +1615,13 @@ function AlertsPage() {
       if (wasQueuedOffline) {
         // Injection optimiste : ajouter l'alerte en attente dans le cache local
         const pendingAlert: Alert = {
-          id: -(Date.now()),  // ID temporaire négatif pour éviter les conflits
+          id: String(Date.now()),  // ID temporaire sous forme de chaîne de caractères
           title: alertData.title,
           message: alertData.message,
           type: alertData.type as any,
           nature: alertData.nature as any,
           isRead: true,
+          isPending: true,
           createdAt: new Date().toISOString(),
           region: alertData.region || undefined,
           sender: {
