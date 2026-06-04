@@ -146,7 +146,9 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
 
       const isIgnoredOfflineEndpoint = isOfflineOrNetworkError && (isMessagingEndpoint || isAlertsEndpoint);
 
-      if (!isDuplicateAlert && !isStaleMessaging404 && !isIgnoredOfflineEndpoint) {
+      const isAlertsDeleteTimeout = res.status === 403 && isAlertsEndpoint && ctx?.method === 'DELETE';
+
+      if (!isDuplicateAlert && !isStaleMessaging404 && !isIgnoredOfflineEndpoint && !isAlertsDeleteTimeout) {
         window.dispatchEvent(new CustomEvent('apiRefusal', { detail }));
       }
     } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }

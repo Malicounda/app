@@ -110,6 +110,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   // L'alerte est passée directement, pas imbriquée
   const actualAlertData = alertData;
 
+  // Actualisation toutes les 5 secondes pour rafraîchir les calculs de durée (isExpired, timeAgo)
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick(t => t + 1);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   if (!actualAlertData) {
     // Gérer le cas où les données de l'alerte réelle sont manquantes
     // Cela peut arriver si notification.alert est undefined
@@ -314,7 +323,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   Marquer comme lu
                 </Button>
               )}
-              {isSent && Array.isArray(actualAlertData.readByRoles) && actualAlertData.readByRoles.length > 0 && (
+              {isSent && (
                 <div className="ml-auto mr-2 flex items-center gap-1.5 self-center">
                   <Popover>
                     <PopoverTrigger asChild>
@@ -324,7 +333,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </PopoverTrigger>
                     <PopoverContent className="w-72 p-3 z-50 text-sm shadow-xl" align="end" side="top">
                       <div className="space-y-3">
-                        {actualAlertData.region || actualAlertData.departement ? (
+                        {actualAlertData.region || actualAlertData.departement || actualAlertData.location || actualAlertData.arrondissement || actualAlertData.commune ? (
                           <div>
                             <h4 className="font-semibold text-gray-800 mb-1 border-b pb-1">Lieu précis de l'alerte</h4>
                             <div className="text-gray-600 text-xs space-y-0.5 mt-1">
@@ -341,22 +350,28 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                         <div>
                           <h4 className="font-semibold text-gray-800 mb-1 border-b pb-1">Destinataires ayant lu</h4>
                           <div className="max-h-32 overflow-y-auto mt-1 space-y-1.5 pr-1">
-                            {actualAlertData.readByDetails && actualAlertData.readByDetails.length > 0 ? (
-                              actualAlertData.readByDetails.map((reader, idx) => (
-                                <div key={idx} className="flex justify-between items-center text-xs">
-                                  <span className="text-gray-700 truncate mr-2">{reader.name}</span>
-                                  <Badge variant="secondary" className="text-[10px] py-0 px-1 border-gray-200">{reader.role}</Badge>
-                                </div>
-                              ))
+                            {Array.isArray(actualAlertData.readByRoles) && actualAlertData.readByRoles.length > 0 ? (
+                              actualAlertData.readByDetails && actualAlertData.readByDetails.length > 0 ? (
+                                actualAlertData.readByDetails.map((reader, idx) => (
+                                  <div key={idx} className="flex justify-between items-center text-xs">
+                                    <span className="text-gray-700 truncate mr-2">{reader.name}</span>
+                                    <Badge variant="secondary" className="text-[10px] py-0 px-1 border-gray-200">{reader.role}</Badge>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-xs text-gray-500">Seuls les rôles sont disponibles : {actualAlertData.readByRoles.join(', ')}</p>
+                              )
                             ) : (
-                              <p className="text-xs text-gray-500">Seuls les rôles sont disponibles : {actualAlertData.readByRoles.join(', ')}</p>
+                              <p className="text-xs text-gray-500">Aucun destinataire n'a encore lu ce message.</p>
                             )}
                           </div>
                         </div>
                       </div>
                     </PopoverContent>
                   </Popover>
-                  <span className="text-xs text-gray-600">Message lu</span>
+                  <span className="text-xs text-gray-600">
+                    {Array.isArray(actualAlertData.readByRoles) && actualAlertData.readByRoles.length > 0 ? "Message lu" : "Message non lu"}
+                  </span>
                 </div>
               )}
               {actualAlertData.isRead && !isSent && actualAlertData.location && (
@@ -381,14 +396,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 if (!isSent && !isAdmin) return null;
 
                 const isPending = actualAlertData.isPending;
-                const isExpired = Boolean(!isPending && isSent && !isAdmin && actualAlertData.createdAt && (new Date().getTime() - new Date(actualAlertData.createdAt).getTime()) / 60000 > 2);
+                const isExpired = Boolean(!isPending && isSent && !isAdmin && actualAlertData.createdAt && (new Date().getTime() - new Date(actualAlertData.createdAt).getTime()) / 60000 > 1.5);
                 return (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => deleteAlert(actualAlertData.id)}
                     disabled={isExpired}
-                    title={isExpired ? "Délai de 2 minutes dépassé" : "Supprimer"}
+                    title={isExpired ? "Délai de suppression dépassé" : "Supprimer"}
                     className="border-red-300 text-red-600 hover:bg-red-50 disabled:hover:bg-transparent disabled:opacity-50 transition-colors rounded-lg text-xs sm:text-sm"
                   >
                     <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -1141,6 +1156,16 @@ function AlertsPage() {
       deletedOnServer = true;
     } catch (error: any) {
       const msg = String(error?.message || '').toLowerCase();
+      if (error?.status === 403 && (msg.includes('délai') || msg.includes('dépassé') || msg.includes('minutes'))) {
+        toast({
+          variant: "destructive",
+          title: "Délai de suppression dépassé",
+          description: "Le délai de 2 minutes pour supprimer cette alerte est dépassé.",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/alerts/received", user?.id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/alerts/sent", user?.id] });
+        return;
+      }
       const isNetworkError = !navigator.onLine || 
         [500, 502, 503, 504, 0].includes(error?.status) ||
         msg.includes('network') || msg.includes('fetch') || msg.includes('unreachable') || 
