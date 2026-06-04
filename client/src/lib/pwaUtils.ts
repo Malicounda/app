@@ -1689,8 +1689,8 @@ export async function resetDatabase(): Promise<boolean> {
   });
 }
 
-// Timeout pour les requêtes API (60 secondes) - adapté pour Render qui peut être en sleep
-const API_TIMEOUT_MS = 60_000;
+// Timeout pour les requêtes API (90 secondes) - adapté pour Render qui peut être en sleep
+const API_TIMEOUT_MS = 90_000;
 
 // Fonction pour créer un wrapper fetch pour le mode hors ligne
 export function createOfflineFetch() {
@@ -1707,11 +1707,13 @@ export function createOfflineFetch() {
 
     const method = init?.method || 'GET';
     const isApiRequest = url.includes('/api/');
+    const isAuthRequest = url.includes('/api/auth/');
 
     try {
       // Ajouter un timeout pour les requêtes API (évite l'attente infinie quand Render est en sleep)
+      // Exclure les requêtes d'authentification pour éviter les AbortError lors du réveil du serveur
       let response: Response;
-      if (isApiRequest && !init?.signal) {
+      if (isApiRequest && !init?.signal && !isAuthRequest) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
