@@ -1184,7 +1184,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
             SELECT
                 n.id, n.user_id, n.alert_id, n.message, n.type, n.status, n.is_read, n.created_at,
                 a.id as alert_id_full, a.title, a.message as alert_message, a.nature, a.region, a.zone,
-                a.lat, a.lon, a.departement, a.commune, a.arrondissement, a.sender_id, a.created_at as alert_created_at, a.updated_at as alert_updated_at,
+                a.lat, a.lon, a.departement, a.commune, a.arrondissement, a.localite, a.sender_id, a.created_at as alert_created_at, a.updated_at as alert_updated_at,
                 u.id as sender_id_full, u.username, u.first_name, u.last_name, u.phone as sender_phone, u.role, u.region as sender_region, u.departement as sender_departement,
                 ag.grade as sender_grade
             FROM notifications n
@@ -1219,6 +1219,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                 departement: n.departement,
                 commune: n.commune ?? null,
                 arrondissement: n.arrondissement ?? null,
+                localite: n.localite ?? null,
                 sender_id: n.sender_id,
                 created_at: n.alert_created_at,
                 updated_at: n.alert_updated_at,

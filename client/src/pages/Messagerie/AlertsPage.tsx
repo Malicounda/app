@@ -842,6 +842,7 @@ function AlertsPage() {
               departement: a.departement || undefined,
               arrondissement: a.arrondissement || undefined,
               commune: a.commune || undefined,
+              localite: a.localite || undefined,
               sender: {
                 username: s.username || 'inconnu',
                 firstName: s.first_name || '',
@@ -905,6 +906,9 @@ function AlertsPage() {
             createdAt: a.created_at,
             region: a.region || undefined,
             departement: a.departement || undefined,
+            arrondissement: a.arrondissement || undefined,
+            commune: a.commune || undefined,
+            localite: a.localite || undefined,
             readByRoles: Array.isArray(a.read_by_roles) ? a.read_by_roles : undefined,
             readByDetails: Array.isArray(a.read_by_details) ? a.read_by_details : undefined,
             sender: {
