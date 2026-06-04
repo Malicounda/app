@@ -1432,9 +1432,11 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
             let readByDetails: { name: string, role: string }[] = [];
             try {
                 const readers: any[] = await db.execute(sql`
-                    SELECT u.role, u.first_name, u.last_name
+                    SELECT u.role, u.first_name, u.last_name, a.grade, rm.label_fr AS role_metier_label
                     FROM notifications n
                     JOIN users u ON n.user_id = u.id
+                    LEFT JOIN agents a ON u.id = a.user_id
+                    LEFT JOIN roles_metier rm ON a.role_metier_id = rm.id
                     WHERE n.alert_id = ${alertData.id} AND n.is_read = true
                 ` as any);
                 const roleSet = new Set<string>();
@@ -1448,8 +1450,13 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                     else if (norm === 'admin') { roleSet.add('Admin'); displayRole = 'Admin'; }
                     else { roleSet.add(raw); displayRole = raw; }
                     
-                    const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Agent inconnu';
-                    readByDetails.push({ name: fullName, role: displayRole });
+                    let displayName = '';
+                    if (r.grade || r.role_metier_label) {
+                        displayName = [r.grade, r.role_metier_label].filter(Boolean).join(' - ');
+                    } else {
+                        displayName = [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Agent inconnu';
+                    }
+                    readByDetails.push({ name: displayName, role: displayRole });
                 }
                 // Ordonner: IREF, Secteur, Admin
                 const order = ['IREF', 'Secteur', 'Admin'];
