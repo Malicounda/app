@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { AlertTriangle, CalendarIcon, CheckCircle2, Edit, FileText, Info, Loader2, MapPin, Plus, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, CalendarIcon, CheckCircle2, Edit, FileText, Info, Loader2, MapPin, Plus, Trash2, Upload, Search, Filter } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaGlobeEurope, FaLeaf, FaMapMarkedAlt, FaTree } from "react-icons/fa";
@@ -2561,6 +2561,235 @@ export default function Settings() {
     }
   };
 
+  // -----------------------------
+  // Gestion des Localités de Référence
+  // -----------------------------
+  const [localitesList, setLocalitesList] = useState<any[]>([]);
+  const [localitesTotal, setLocalitesTotal] = useState<number>(0);
+  const [localitesPage, setLocalitesPage] = useState<number>(1);
+  const [localitesLimit] = useState<number>(10);
+  const [localitesSearch, setLocalitesSearch] = useState<string>('');
+  const [localitesLoading, setLocalitesLoading] = useState<boolean>(false);
+
+  // Filtres actifs
+  const [locFilterRegion, setLocFilterRegion] = useState<string>('all');
+  const [locFilterDept, setLocFilterDept] = useState<string>('all');
+  const [locFilterCommune, setLocFilterCommune] = useState<string>('all');
+  const [locFilterArr, setLocFilterArr] = useState<string>('all');
+
+  // Listes distinctes pour filtres (chargées dynamiquement)
+  const [localitesDistinctFilters, setLocalitesDistinctFilters] = useState<{
+    regions: string[];
+    departements: string[];
+    communes: string[];
+    arrondissements: string[];
+  }>({ regions: [], departements: [], communes: [], arrondissements: [] });
+
+  // Dialog Add/Edit
+  const [localiteFormOpen, setLocaliteFormOpen] = useState<boolean>(false);
+  const [localiteFormMode, setLocaliteFormMode] = useState<'create' | 'edit'>('create');
+  const [currentLocalite, setCurrentLocalite] = useState<{
+    id?: number;
+    nom: string;
+    latitude: string;
+    longitude: string;
+  }>({ nom: '', latitude: '', longitude: '' });
+
+  // Dialog Import
+  const [localitesImportOpen, setLocalitesImportOpen] = useState<boolean>(false);
+  const [importShpFile, setImportShpFile] = useState<File | null>(null);
+  const [importShxFile, setImportShxFile] = useState<File | null>(null);
+  const [importDbfFile, setImportDbfFile] = useState<File | null>(null);
+  const [importPrjFile, setImportPrjFile] = useState<File | null>(null);
+  const [importCsvGeojFile, setImportCsvGeojFile] = useState<File | null>(null);
+  const [importModeSelected, setImportModeSelected] = useState<'shp' | 'file'>('shp');
+  const [localitesImporting, setLocalitesImporting] = useState<boolean>(false);
+
+  // Réinitialiser les fichiers quand le modal ferme
+  useEffect(() => {
+    if (!localitesImportOpen) {
+      setImportShpFile(null);
+      setImportShxFile(null);
+      setImportDbfFile(null);
+      setImportPrjFile(null);
+      setImportCsvGeojFile(null);
+    }
+  }, [localitesImportOpen]);
+
+  // Charger les filtres distincts
+  const loadLocalitesFilters = useCallback(async () => {
+    try {
+      const resp = await apiRequest<any>('GET', '/api/admin/localites/filters');
+      if (resp.ok && resp.data?.data) {
+        setLocalitesDistinctFilters(resp.data.data);
+      }
+    } catch (e) {
+      console.error('Error loading localites filters:', e);
+    }
+  }, []);
+
+  // Charger les localités avec pagination & filtres
+  const loadLocalitesList = useCallback(async () => {
+    setLocalitesLoading(true);
+    try {
+      let query = `?page=${localitesPage}&limit=${localitesLimit}`;
+      if (localitesSearch.trim()) {
+        query += `&search=${encodeURIComponent(localitesSearch.trim())}`;
+      }
+      if (locFilterRegion && locFilterRegion !== 'all') {
+        query += `&region=${encodeURIComponent(locFilterRegion)}`;
+      }
+      if (locFilterDept && locFilterDept !== 'all') {
+        query += `&departement=${encodeURIComponent(locFilterDept)}`;
+      }
+      if (locFilterCommune && locFilterCommune !== 'all') {
+        query += `&commune=${encodeURIComponent(locFilterCommune)}`;
+      }
+      if (locFilterArr && locFilterArr !== 'all') {
+        query += `&arrondissement=${encodeURIComponent(locFilterArr)}`;
+      }
+
+      const resp = await apiRequest<any>('GET', `/api/admin/localites${query}`);
+      if (resp.ok && resp.data) {
+        setLocalitesList(resp.data.data || []);
+        setLocalitesTotal(resp.data.total || 0);
+      } else {
+        throw new Error(resp.error || 'Erreur API');
+      }
+    } catch (e: any) {
+      console.error('Error loading localites:', e);
+      toast({
+        title: 'Erreur',
+        description: e.message || 'Impossible de charger la liste des localités',
+        variant: 'destructive'
+      });
+    } finally {
+      setLocalitesLoading(false);
+    }
+  }, [localitesPage, localitesLimit, localitesSearch, locFilterRegion, locFilterDept, locFilterCommune, locFilterArr, toast]);
+
+  // Déclencher le chargement automatique lorsque l'onglet est actif
+  useEffect(() => {
+    if (activeTab === 'localites') {
+      void loadLocalitesList();
+      void loadLocalitesFilters();
+    }
+  }, [activeTab, loadLocalitesList, loadLocalitesFilters]);
+
+  // Ajouter / Éditer une localité
+  const handleSaveLocalite = async () => {
+    if (!currentLocalite.nom.trim()) {
+      toast({ title: 'Erreur', description: 'Le nom de la localité est requis', variant: 'destructive' });
+      return;
+    }
+    const lat = parseFloat(currentLocalite.latitude);
+    const lon = parseFloat(currentLocalite.longitude);
+    if (isNaN(lat) || isNaN(lon)) {
+      toast({ title: 'Erreur', description: 'Coordonnées de latitude et longitude invalides', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      let resp;
+      if (localiteFormMode === 'create') {
+        resp = await apiRequest<any>('POST', '/api/admin/localites', {
+          nom: currentLocalite.nom.trim(),
+          latitude: lat,
+          longitude: lon
+        });
+      } else {
+        resp = await apiRequest<any>('PUT', `/api/admin/localites/${currentLocalite.id}`, {
+          nom: currentLocalite.nom.trim(),
+          latitude: lat,
+          longitude: lon
+        });
+      }
+
+      if (resp.ok) {
+        toast({
+          title: 'Succès',
+          description: localiteFormMode === 'create' ? 'Localité créée avec succès' : 'Localité modifiée avec succès'
+        });
+        setLocaliteFormOpen(false);
+        void loadLocalitesList();
+        void loadLocalitesFilters();
+      } else {
+        throw new Error(resp.error || 'Erreur lors de l\'enregistrement');
+      }
+    } catch (e: any) {
+      toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  // Supprimer une localité
+  const handleDeleteLocalite = async (id: number) => {
+    try {
+      const resp = await apiRequest<any>('DELETE', `/api/admin/localites/${id}`);
+      if (resp.ok) {
+        toast({ title: 'Succès', description: 'Localité supprimée avec succès' });
+        void loadLocalitesList();
+        void loadLocalitesFilters();
+      } else {
+        throw new Error(resp.error || 'Suppression impossible');
+      }
+    } catch (e: any) {
+      toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  // Importer un fichier (CSV/GeoJSON ou Shapefile)
+  const handleImportLocalites = async () => {
+    setLocalitesImporting(true);
+    try {
+      const fd = new FormData();
+      if (importModeSelected === 'shp') {
+        if (!importShpFile || !importDbfFile) {
+          toast({ title: 'Erreur', description: 'Les fichiers .shp et .dbf sont obligatoires pour un shapefile', variant: 'destructive' });
+          setLocalitesImporting(false);
+          return;
+        }
+        fd.append('shp', importShpFile);
+        fd.append('dbf', importDbfFile);
+        if (importShxFile) fd.append('shx', importShxFile);
+        if (importPrjFile) fd.append('prj', importPrjFile);
+      } else {
+        if (!importCsvGeojFile) {
+          toast({ title: 'Erreur', description: 'Veuillez sélectionner un fichier .csv ou .geojson', variant: 'destructive' });
+          setLocalitesImporting(false);
+          return;
+        }
+        fd.append('file', importCsvGeojFile);
+      }
+
+      const resp = await apiRequest<any>('POST', '/api/admin/localites/import', fd);
+      if (resp.ok && resp.data) {
+        const stats = resp.data.stats || { inserted: 0, duplicates: 0, errors: 0 };
+        toast({
+          title: 'Importation réussie',
+          description: `Insérées: ${stats.inserted}, Doublons ignorés: ${stats.duplicates}, Erreurs: ${stats.errors}`,
+          variant: 'default'
+        });
+        setLocalitesImportOpen(false);
+        // Reset files
+        setImportShpFile(null);
+        setImportShxFile(null);
+        setImportDbfFile(null);
+        setImportPrjFile(null);
+        setImportCsvGeojFile(null);
+        // Refresh
+        setLocalitesPage(1);
+        void loadLocalitesList();
+        void loadLocalitesFilters();
+      } else {
+        throw new Error(resp.error || 'Erreur lors de l\'importation');
+      }
+    } catch (e: any) {
+      toast({ title: 'Erreur d\'importation', description: e.message, variant: 'destructive' });
+    } finally {
+      setLocalitesImporting(false);
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 bg-white px-3 sm:px-6 pt-4 sm:pt-2 pb-2">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -2581,6 +2810,7 @@ export default function Settings() {
             <TabsTrigger value="zones-config" className="px-2 sm:px-3">Types Zones</TabsTrigger>
             <TabsTrigger value="regions-zones" className="px-2 sm:px-3">Régions et Shp</TabsTrigger>
             <TabsTrigger value="codes-infractions" className="px-2 sm:px-3">Codes Infractions</TabsTrigger>
+            <TabsTrigger value="localites" className="px-2 sm:px-3">Localités</TabsTrigger>
           </TabsList>
 
           <Dialog open={campaignInfoModal.open} onOpenChange={(o) => setCampaignInfoModal(prev => ({ ...prev, open: o }))}>
@@ -6362,6 +6592,486 @@ export default function Settings() {
             </DialogContent>
           </Dialog>
         </TabsContent>
+
+        {/* Onglet Localités - Gestion des localités de référence */}
+        <TabsContent value="localites">
+          <Card className="bg-green-50 border-green-200">
+            <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-xl font-bold text-green-800 flex items-center gap-2">
+                  <MapPin className="h-6 w-6 text-green-700" />
+                  Gestion des Localités de Référence
+                </CardTitle>
+                <CardDescription>
+                  Consultez, modifiez ou importez de nouvelles localités de référence pour le Sénégal. L'attribution administrative est gérée spatialement à la volée.
+                </CardDescription>
+              </div>
+              <div className="flex gap-2 w-full md:w-auto">
+                <Button variant="outline" className="w-full md:w-auto flex items-center gap-2" onClick={() => {
+                  setImportShpFile(null);
+                  setImportShxFile(null);
+                  setImportDbfFile(null);
+                  setImportPrjFile(null);
+                  setImportCsvGeojFile(null);
+                  setLocalitesImportOpen(true);
+                }}>
+                  <Upload className="h-4 w-4" /> Importation de masse
+                </Button>
+                <Button className="w-full md:w-auto flex items-center gap-2 bg-green-700 hover:bg-green-800" onClick={() => {
+                  setLocaliteFormMode('create');
+                  setCurrentLocalite({ nom: '', latitude: '', longitude: '' });
+                  setLocaliteFormOpen(true);
+                }}>
+                  <Plus className="h-4 w-4" /> Nouvelle localité
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Barre de Recherche et de Filtrage */}
+              <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-green-100 shadow-sm space-y-3">
+                <div className="flex flex-col md:flex-row items-center gap-3">
+                  <div className="relative w-full md:flex-1">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Rechercher une localité par son nom..."
+                      className="pl-9"
+                      value={localitesSearch}
+                      onChange={(e) => {
+                        setLocalitesSearch(e.target.value);
+                        setLocalitesPage(1);
+                      }}
+                    />
+                  </div>
+                  <Button variant="secondary" onClick={() => {
+                    setLocalitesSearch('');
+                    setLocFilterRegion('all');
+                    setLocFilterDept('all');
+                    setLocFilterCommune('all');
+                    setLocFilterArr('all');
+                    setLocalitesPage(1);
+                  }}>
+                    Réinitialiser les filtres
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Région</Label>
+                    <Select value={locFilterRegion} onValueChange={(val) => { setLocFilterRegion(val); setLocalitesPage(1); }}>
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Toutes" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Toutes</SelectItem>
+                        {localitesDistinctFilters.regions?.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Département</Label>
+                    <Select value={locFilterDept} onValueChange={(val) => { setLocFilterDept(val); setLocalitesPage(1); }}>
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Tous" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous</SelectItem>
+                        {localitesDistinctFilters.departements?.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Arrondissement</Label>
+                    <Select value={locFilterArr} onValueChange={(val) => { setLocFilterArr(val); setLocalitesPage(1); }}>
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Tous" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous</SelectItem>
+                        {localitesDistinctFilters.arrondissements?.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Commune</Label>
+                    <Select value={locFilterCommune} onValueChange={(val) => { setLocFilterCommune(val); setLocalitesPage(1); }}>
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Toutes" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Toutes</SelectItem>
+                        {localitesDistinctFilters.communes?.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tableau principal des localités */}
+              <div className="bg-white rounded-xl border border-green-100 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-green-600/10">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-green-900 uppercase tracking-wider">Localité</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-green-900 uppercase tracking-wider">Région</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-green-900 uppercase tracking-wider">Département</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-green-900 uppercase tracking-wider">Arrondissement</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-green-900 uppercase tracking-wider">Commune</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-green-900 uppercase tracking-wider">Coordonnées</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-green-900 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                      {localitesLoading ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-green-700" />
+                            Chargement des localités en cours...
+                          </td>
+                        </tr>
+                      ) : localitesList.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                            Aucune localité trouvée correspondant aux critères de recherche.
+                          </td>
+                        </tr>
+                      ) : (
+                        localitesList.map((row) => (
+                          <tr key={row.id} className="hover:bg-green-50/30 transition-colors">
+                            <td className="px-4 py-3 font-medium text-gray-900">{row.nom}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{row.region || <span className="text-gray-400 italic">Non détecté</span>}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{row.departement || <span className="text-gray-400 italic">Non détecté</span>}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{row.arrondissement || <span className="text-gray-400 italic">Non détecté</span>}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{row.commune || <span className="text-gray-400 italic">Non détecté</span>}</td>
+                            <td className="px-4 py-3 text-xs font-mono text-gray-500">{row.latitude}, {row.longitude}</td>
+                            <td className="px-4 py-3 text-right text-sm">
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50" onClick={() => {
+                                  setLocaliteFormMode('edit');
+                                  setCurrentLocalite({
+                                    id: row.id,
+                                    nom: row.nom,
+                                    latitude: String(row.latitude),
+                                    longitude: String(row.longitude)
+                                  });
+                                  setLocaliteFormOpen(true);
+                                }}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Êtes-vous sûr de vouloir supprimer la localité « {row.nom} » ? Cette action est irréversible.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                      <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => handleDeleteLocalite(row.id)}>Supprimer</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {localitesTotal > localitesLimit && (
+                  <div className="bg-green-50/10 px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                      Affichage de <span className="font-semibold">{Math.min((localitesPage - 1) * localitesLimit + 1, localitesTotal)}</span> à <span className="font-semibold">{Math.min(localitesPage * localitesLimit, localitesTotal)}</span> sur <span className="font-semibold">{localitesTotal}</span> localités
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={localitesPage <= 1 || localitesLoading}
+                        onClick={() => setLocalitesPage(prev => prev - 1)}
+                      >
+                        Précédent
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={localitesPage * localitesLimit >= localitesTotal || localitesLoading}
+                        onClick={() => setLocalitesPage(prev => prev + 1)}
+                      >
+                        Suivant
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          
+        {/* Dialog Ajout/Édition Localité */}
+        <Dialog open={localiteFormOpen} onOpenChange={setLocaliteFormOpen}>
+          <DialogContent className="sm:max-w-[450px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-green-700" />
+                {localiteFormMode === 'create' ? 'Nouvelle Localité' : 'Modifier la Localité'}
+              </DialogTitle>
+              <DialogDescription>
+                Renseignez le nom et les coordonnées géographiques (GPS) de la localité. Le système affectera automatiquement les échelons administratifs correspondants.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="loc-nom">Nom de la localité *</Label>
+                <Input
+                  id="loc-nom"
+                  placeholder="Ex: Bambylor, Diourbel, etc."
+                  value={currentLocalite.nom}
+                  onChange={(e) => setCurrentLocalite(prev => ({ ...prev, nom: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="loc-lat">Latitude (GPS) *</Label>
+                  <Input
+                    id="loc-lat"
+                    type="number"
+                    step="0.000001"
+                    placeholder="Ex: 14.7562"
+                    value={currentLocalite.latitude}
+                    onChange={(e) => setCurrentLocalite(prev => ({ ...prev, latitude: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="loc-lon">Longitude (GPS) *</Label>
+                  <Input
+                    id="loc-lon"
+                    type="number"
+                    step="0.000001"
+                    placeholder="Ex: -17.2038"
+                    value={currentLocalite.longitude}
+                    onChange={(e) => setCurrentLocalite(prev => ({ ...prev, longitude: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setLocaliteFormOpen(false)}>Annuler</Button>
+              <Button className="bg-green-700 hover:bg-green-800 text-white" onClick={handleSaveLocalite}>Enregistrer</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Importation de Masse */}
+        <Dialog open={localitesImportOpen} onOpenChange={setLocalitesImportOpen}>
+          <DialogContent className="sm:max-w-[550px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5 text-green-700" />
+                Importation de Localités
+              </DialogTitle>
+              <DialogDescription>
+                Sélectionnez le format de fichier que vous souhaitez importer. L'importateur valide et filtre automatiquement les doublons spatiaux.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-3">
+              <div className="flex justify-center border-b pb-2">
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+                    <input
+                      type="radio"
+                      name="import-mode"
+                      checked={importModeSelected === 'shp'}
+                      onChange={() => setImportModeSelected('shp')}
+                    />
+                    Shapefile (.shp, .dbf, .shx, .prj)
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+                    <input
+                      type="radio"
+                      name="import-mode"
+                      checked={importModeSelected === 'file'}
+                      onChange={() => setImportModeSelected('file')}
+                    />
+                    Fichier unique (CSV ou GeoJSON)
+                  </label>
+                </div>
+              </div>
+
+              {importModeSelected === 'shp' ? (
+                <div className="space-y-4">
+                  {/* Upload du fichier shapefile */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Fichiers Shapefile</Label>
+                    <div 
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-5 hover:border-green-600 hover:bg-green-50/5 transition-colors cursor-pointer"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const files = e.dataTransfer.files;
+                        if (files) {
+                          Array.from(files).forEach(file => {
+                            const ext = file.name.split('.').pop()?.toLowerCase();
+                            if (ext === 'shp') setImportShpFile(file);
+                            else if (ext === 'shx') setImportShxFile(file);
+                            else if (ext === 'dbf') setImportDbfFile(file);
+                            else if (ext === 'prj') setImportPrjFile(file);
+                          });
+                        }
+                      }}
+                      onClick={() => document.getElementById('localites-shp-upload')?.click()}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="p-2.5 bg-green-50 rounded-full">
+                          <Upload className="h-5 w-5 text-green-700" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs font-medium text-gray-700">
+                            Glissez-déposez vos fichiers shapefile ici
+                          </p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            ou cliquez pour parcourir
+                          </p>
+                        </div>
+                        <Input
+                          type="file"
+                          accept=".shp,.shx,.dbf,.prj"
+                          multiple
+                          className="hidden"
+                          id="localites-shp-upload"
+                          onChange={(e) => {
+                            const files = e.target.files;
+                            if (files) {
+                              Array.from(files).forEach(file => {
+                                const ext = file.name.split('.').pop()?.toLowerCase();
+                                if (ext === 'shp') setImportShpFile(file);
+                                else if (ext === 'shx') setImportShxFile(file);
+                                else if (ext === 'dbf') setImportDbfFile(file);
+                                else if (ext === 'prj') setImportPrjFile(file);
+                              });
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Checklist des fichiers */}
+                  <div className="bg-gray-50 border border-gray-150 rounded-lg p-3 space-y-2">
+                    <p className="text-xs font-semibold text-gray-700 mb-1">📋 Fichiers détectés :</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {/* Fichier .shp */}
+                      <div className="flex items-center gap-2">
+                        {importShpFile ? (
+                          <div className="flex items-center gap-1.5 text-green-600 font-medium">
+                            <span className="text-xs font-bold">✓</span>
+                            <span>.shp</span>
+                            <span className="text-[10px] text-gray-500 truncate max-w-[120px]">({importShpFile.name})</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-red-600 font-medium">
+                            <span className="text-xs font-bold">✗</span>
+                            <span>.shp (requis)</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Fichier .dbf */}
+                      <div className="flex items-center gap-2">
+                        {importDbfFile ? (
+                          <div className="flex items-center gap-1.5 text-green-600 font-medium">
+                            <span className="text-xs font-bold">✓</span>
+                            <span>.dbf</span>
+                            <span className="text-[10px] text-gray-500 truncate max-w-[120px]">({importDbfFile.name})</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-red-600 font-medium">
+                            <span className="text-xs font-bold">✗</span>
+                            <span>.dbf (requis)</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Fichier .shx */}
+                      <div className="flex items-center gap-2">
+                        {importShxFile ? (
+                          <div className="flex items-center gap-1.5 text-green-600 font-medium">
+                            <span className="text-xs font-bold">✓</span>
+                            <span>.shx</span>
+                            <span className="text-[10px] text-gray-500 truncate max-w-[120px]">({importShxFile.name})</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-yellow-600 font-medium">
+                            <span className="text-xs font-bold">○</span>
+                            <span>.shx (optionnel)</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Fichier .prj */}
+                      <div className="flex items-center gap-2">
+                        {importPrjFile ? (
+                          <div className="flex items-center gap-1.5 text-green-600 font-medium">
+                            <span className="text-xs font-bold">✓</span>
+                            <span>.prj</span>
+                            <span className="text-[10px] text-gray-500 truncate max-w-[120px]">({importPrjFile.name})</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-yellow-600 font-medium">
+                            <span className="text-xs font-bold">○</span>
+                            <span>.prj (optionnel)</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Note: Les shapefiles de points UTM Zone 28N ou WGS 84 sont automatiquement projetés et convertis.
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fichier CSV ou GeoJSON *</Label>
+                    <Input
+                      type="file"
+                      accept=".csv,.geojson,.json"
+                      onChange={(e) => setImportCsvGeojFile(e.target.files?.[0] || null)}
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>• Le fichier CSV doit contenir les en-têtes: <strong>nom</strong>, <strong>latitude</strong>, <strong>longitude</strong>.</p>
+                    <p>• Le GeoJSON doit être une <strong>FeatureCollection</strong> valide avec des géométries de points ou de polygones.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" disabled={localitesImporting} onClick={() => setLocalitesImportOpen(false)}>Annuler</Button>
+              <Button
+                className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2"
+                disabled={localitesImporting}
+                onClick={handleImportLocalites}
+              >
+                {localitesImporting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Importation...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" /> Démarrer l'importation
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </TabsContent>
 
         </Tabs>
     </div>

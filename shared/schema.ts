@@ -1816,6 +1816,19 @@ export const lieux = pgTable("lieux", {
 	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const localites = pgTable("localites", {
+	id: serial("id").primaryKey().notNull(),
+	nom: varchar("nom", { length: 255 }).notNull(),
+	region: varchar("region", { length: 100 }),
+	departement: varchar("departement", { length: 100 }),
+	commune: varchar("commune", { length: 100 }),
+	arrondissement: varchar("arrondissement", { length: 100 }),
+	latitude: numeric("latitude", { precision: 9, scale: 6 }),
+	longitude: numeric("longitude", { precision: 9, scale: 6 }),
+	geom: geometry("geom"),
+	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const mappingArrDept = pgTable("mapping_arr_dept", {
 	arrondissementNom: text("arrondissement_nom").primaryKey().notNull(),
 	departementNom: text("departement_nom").notNull(),

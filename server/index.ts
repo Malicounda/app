@@ -26,6 +26,7 @@ import permitValidationRoutes from './routes/permit-validation.routes.js'; // Ro
 import protectedZonesRoutes from './routes/protectedZones.routes.js';
 import settingsRoutes from './routes/settings.routes.js'; // Ajout de l'import
 import shapefileRoutes from './routes/shapefile.routes.js'; // Routes pour l'upload de shapefile
+import localitesRoutes from './routes/localites.routes.js'; // Routes pour les localités de référence
 import zonesRoutes from './routes/zones.routes.js'; // Nouvelles routes pour la table zones
 import { storage } from './storage.js';
 import { ensureAttachmentBlobsTable, logAttachmentStorageStatus } from './lib/messageAttachmentStorage.js';
@@ -322,6 +323,10 @@ app.use('/api/protected-zones', protectedZonesRoutes);
 // Enregistrer les routes pour l'upload de shapefile
 app.use('/api/shapefile', shapefileRoutes);
 console.log('✅ Route shapefile enregistrée : POST /api/shapefile/upload');
+
+// Enregistrer les routes pour les localités de référence (administration)
+app.use('/api/admin/localites', localitesRoutes);
+console.log('✅ Route localites enregistrée : /api/admin/localites');
 
 // Enregistrer les routes pour les demandes de permis
 app.use('/api/permit-requests', permitRequestsRoutes);
