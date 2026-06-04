@@ -116,9 +116,12 @@ export function ProtectedRoute({
           !!(user as any)?.isDefaultRole, 
           !!(user as any)?.isSupervisorRole
         );
-        // Préfixer avec public_id si disponible
+        // Préfixer avec public_id si disponible (seulement s'il n'est pas déjà présent dans l'URL)
         if ((user as any).publicId) {
-          homePath = `/${(user as any).publicId}${homePath}`;
+          const isUUIDInUrl = window.location.pathname.split('/')[1]?.length === 36;
+          if (!isUUIDInUrl) {
+            homePath = `/${(user as any).publicId}${homePath}`;
+          }
         }
         setLocation(homePath);
       }

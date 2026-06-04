@@ -117,10 +117,13 @@ export default function DashboardRedirector() {
       }
     }
 
-    // Préfixer avec le public_id si disponible
+    // Préfixer avec le public_id si disponible (seulement s'il n'est pas déjà présent dans l'URL)
     if ((user as any).publicId) {
-      const pubId = (user as any).publicId;
-      target = `/${pubId}${target}`;
+      const isUUIDInUrl = window.location.pathname.split('/')[1]?.length === 36;
+      if (!isUUIDInUrl) {
+        const pubId = (user as any).publicId;
+        target = `/${pubId}${target}`;
+      }
     }
 
     console.log(`[DashboardRedirector] → ${target} (role=${user.role}, domain=${domain}, superAdmin=${isSuperAdmin})`);

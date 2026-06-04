@@ -40,9 +40,8 @@ export default function Navbar() {
     await logout();
   };
 
-  // Différentes listes de navigation en fonction du rôle de l'utilisateur
   const adminNavItems = [
-    { path: "/dashboard", label: "Tableau de Bord", icon: <Home className="h-6 w-6 mr-1" /> },
+    { path: "/admin", label: "Tableau de Bord", icon: <Home className="h-6 w-6 mr-1" /> },
     { path: "/hunters", label: "Chasseurs", icon: <Users className="h-6 w-6 mr-1" /> },
     { path: "/permits", label: "Permis", icon: <FileText className="h-6 w-6 mr-1" /> },
     { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
