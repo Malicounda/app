@@ -19,7 +19,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Clock, Filter, Info, MapPin, MessageSquare, Phone, Search, Trash2, User, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Clock, Filter, Info, MapPin, MessageSquare, Phone, RefreshCw, Search, Trash2, User, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation as useWouterLocation } from "wouter";
 
@@ -330,8 +330,21 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                             <div className="text-gray-600 text-xs space-y-0.5 mt-1">
                               {actualAlertData.region && <p><span className="font-medium text-gray-700">Région:</span> {actualAlertData.region}</p>}
                               {actualAlertData.departement && <p><span className="font-medium text-gray-700">Département:</span> {actualAlertData.departement}</p>}
-                              {actualAlertData.arrondissement && <p><span className="font-medium text-gray-700">Arrondissement:</span> {actualAlertData.arrondissement}</p>}
-                              {actualAlertData.commune && <p><span className="font-medium text-gray-700">Commune:</span> {actualAlertData.commune}</p>}
+                              {(actualAlertData.arrondissement || actualAlertData.commune) && (
+                                <p>
+                                  {actualAlertData.arrondissement && (
+                                    <span>
+                                      <span className="font-medium text-gray-700">Arrondissement:</span> {actualAlertData.arrondissement}
+                                    </span>
+                                  )}
+                                  {actualAlertData.arrondissement && actualAlertData.commune && <span className="mx-1.5 text-gray-300">|</span>}
+                                  {actualAlertData.commune && (
+                                    <span>
+                                      <span className="font-medium text-gray-700">Commune:</span> {actualAlertData.commune}
+                                    </span>
+                                  )}
+                                </p>
+                              )}
                             </div>
                           </div>
                         ) : null}
@@ -1824,10 +1837,25 @@ function AlertsPage() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 mb-3">
-                    <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                      <MapPin className="h-4 w-4 text-emerald-600" />
-                      <span className="text-sm text-emerald-800 font-medium">Position enregistrée</span>
-                      <span className="text-xs text-emerald-600 ml-auto">{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}</span>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 text-emerald-600 mt-0.5" />
+                        <div className="flex flex-col">
+                          <span className="text-sm text-emerald-800 font-medium">Position enregistrée</span>
+                          <span className="text-xs text-emerald-600 mt-0.5">{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}</span>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleGetLocation}
+                        disabled={isLoadingLocation}
+                        className={`h-8 w-8 rounded-lg bg-emerald-100/80 hover:bg-emerald-200 border border-emerald-300 text-emerald-700 hover:text-emerald-950 transition-colors ${isLoadingLocation ? 'animate-spin' : ''}`}
+                        title="Re-capturer ma position"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
                     </div>
                     <button 
                       type="button" 

@@ -1406,6 +1406,8 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
             // TOUJOURS recalculer depuis coords (ignorer valeurs stockées)
             let computedRegion: string | null = null;
             let computedDept: string | null = null;
+            let computedArrondissement: string | null = null;
+            let computedCommune: string | null = null;
             let latNum: number | null = (typeof alertData.lat === 'number' && isFinite(alertData.lat)) ? alertData.lat : null;
             let lonNum: number | null = (typeof alertData.lon === 'number' && isFinite(alertData.lon)) ? alertData.lon : null;
 
@@ -1422,9 +1424,18 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
 
             // Recalcul depuis coordonnées
             if (latNum != null && lonNum != null) {
-                const resolved = await resolveRegionDeptFromCoords(latNum, lonNum);
-                computedRegion = resolved.region;
-                computedDept = resolved.departement;
+                try {
+                    const resolved = await resolveAdministrativeAreas(latNum, lonNum);
+                    computedRegion = resolved.region;
+                    computedDept = resolved.departement;
+                    computedArrondissement = resolved.arrondissement;
+                    computedCommune = resolved.commune;
+                } catch (e) {
+                    console.warn('[getSentAlerts] resolveAdministrativeAreas failed:', e);
+                    const resolved = await resolveRegionDeptFromCoords(latNum, lonNum);
+                    computedRegion = resolved.region;
+                    computedDept = resolved.departement;
+                }
             }
 
             // Lire les accusés de lecture (notifications lues) pour cette alerte
@@ -1474,6 +1485,8 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                 region: computedRegion,
                 zone: alertData.zone,
                 departement: computedDept,
+                arrondissement: computedArrondissement,
+                commune: computedCommune,
                 is_read: true,
                 created_at: alertData.created_at,
                 updated_at: alertData.updated_at,
