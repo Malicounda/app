@@ -104,6 +104,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   getProvenanceLabel,
   isSent,
 }) => {
+  const { user } = useAuth();
   // L'alerte est passée directement, pas imbriquée
   const actualAlertData = alertData;
 
@@ -334,7 +335,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </Button>
               )}
               {(() => {
-                const isExpired = Boolean(isSent && actualAlertData.createdAt && (new Date().getTime() - new Date(actualAlertData.createdAt).getTime()) / 60000 > 2);
+                const isAdmin = user?.role === 'admin';
+                if (!isSent && !isAdmin) return null;
+
+                const isExpired = Boolean(isSent && !isAdmin && actualAlertData.createdAt && (new Date().getTime() - new Date(actualAlertData.createdAt).getTime()) / 60000 > 2);
                 return (
                   <Button
                     variant="outline"
@@ -968,9 +972,9 @@ function AlertsPage() {
     return filtered.sort((a, b) => {
       const at = new Date(a.createdAt || 0).getTime();
       const bt = new Date(b.createdAt || 0).getTime();
-      return sortNewestFirst ? bt - at : at - bt;
+      return bt - at; // Toujours le plus récent en haut
     });
-  }, [alerts, searchQuery, typeFilter, sortNewestFirst]);
+  }, [alerts, searchQuery, typeFilter]);
 
   useEffect(() => {
     document.title = "Alertes | SCoDiPP - Systeme de Control";
@@ -2113,15 +2117,17 @@ function AlertsPage() {
                               >
                                 <MapPin className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => deleteAlert(alert.id)}
-                                title="Supprimer"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {user?.role === 'admin' && (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => deleteAlert(alert.id)}
+                                  title="Supprimer"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                         );
@@ -2255,17 +2261,19 @@ function AlertsPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-1 border-t border-slate-100">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 border-red-200 hover:bg-red-50"
-                    onClick={() => { deleteAlert(detailsAlert.id); setDetailsOpen(false); }}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1.5" />
-                    Supprimer
-                  </Button>
-                </div>
+                {user?.role === 'admin' && (
+                  <div className="flex justify-end pt-1 border-t border-slate-100">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => { deleteAlert(detailsAlert.id); setDetailsOpen(false); }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1.5" />
+                      Supprimer
+                    </Button>
+                  </div>
+                )}
               </div>
             </>
           )}

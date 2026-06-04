@@ -1602,27 +1602,26 @@ export const deleteAlert = async (req: Request, res: Response, next: NextFunctio
     });
 
     if (isSender || isAdmin) {
+        // Validation de la limite de 2 minutes pour l'émetteur s'il n'est pas admin
+        if (isSender && !isAdmin) {
+            const createdAt = new Date((alert as any).createdAt);
+            const now = new Date();
+            const diffMinutes = (now.getTime() - createdAt.getTime()) / 60000;
+            if (diffMinutes > 2) {
+                console.log(`[Alerts Controller] deleteAlert: Tentative de suppression hors délai de 2 min par l'émetteur ${authenticatedUser.id} pour l'alerte ${numericAlertId}`);
+                return res.status(403).json({ message: "Le délai de 2 minutes pour supprimer cette alerte est dépassé." });
+            }
+        }
+
         console.log(`[Alerts Controller] deleteAlert: Suppression globale par user ${authenticatedUser.id} (sender/admin) pour alerte ${numericAlertId}`);
         await db.delete(notifications as any).where(eq(notifications.alertId as any, numericAlertId));
         await db.delete(alerts as any).where(eq(alerts.id as any, numericAlertId));
         return res.status(200).json({ message: "Alerte et notifications associées supprimées avec succès." });
     }
 
-    // Suppression locale: retirer uniquement la notification de l'utilisateur courant
-    console.log(`[Alerts Controller] deleteAlert: Suppression locale de la notification pour user ${authenticatedUser.id} et alerte ${numericAlertId}`);
-    const deleted = await db
-        .delete(notifications as any)
-        .where(and(
-            eq(notifications.alertId as any, numericAlertId),
-            eq(notifications.userId as any, authenticatedUser.id)
-        ))
-        .returning({ id: notifications.id as any });
-
-    // Si aucune notification supprimée, retourner 404 pour clarté
-    if (!deleted || deleted.length === 0) {
-        return res.status(404).json({ message: "Notification non trouvée pour cet utilisateur et cette alerte." });
-    }
-    return res.status(200).json({ message: "Notification supprimée pour cet utilisateur." });
+    // Si l'utilisateur n'est ni l'émetteur ni admin, il ne peut pas supprimer l'alerte
+    console.log(`[Alerts Controller] deleteAlert: Accès refusé pour la suppression par user ${authenticatedUser.id} (destinataire) pour l'alerte ${numericAlertId}`);
+    return res.status(403).json({ message: "Vous n'êtes pas autorisé à supprimer cette alerte." });
   } catch (error) {
     console.error("[Alerts Controller] Erreur dans deleteAlert:", error);
     next(error);
