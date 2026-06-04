@@ -1689,8 +1689,8 @@ export async function resetDatabase(): Promise<boolean> {
   });
 }
 
-// Timeout pour les requêtes API (10 secondes) - adapté pour Render qui peut être en sleep
-const API_TIMEOUT_MS = 10_000;
+// Timeout pour les requêtes API (60 secondes) - adapté pour Render qui peut être en sleep
+const API_TIMEOUT_MS = 60_000;
 
 // Fonction pour créer un wrapper fetch pour le mode hors ligne
 export function createOfflineFetch() {
