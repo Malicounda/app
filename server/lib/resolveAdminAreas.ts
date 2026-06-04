@@ -6,6 +6,7 @@ export type AdminAreas = {
   commune: string | null;
   departement: string | null;
   region: string | null;
+  localite: string | null;
 };
 
 // Déduit les zones administratives depuis lat/lon en s'appuyant d'abord sur l'arrondissement (polygone),
@@ -124,11 +125,29 @@ export async function resolveAdministrativeAreas(lat: number, lon: number): Prom
     // communes.geom peut ne pas exister selon l'import
   }
 
+  // 4) Trouver la localité la plus proche
+  let localite: string | null = null;
+  try {
+    const locRows: any[] = await db.execute(sql`
+      SELECT l.nom AS localite
+      FROM public.localites l
+      WHERE l.geom IS NOT NULL
+      ORDER BY ST_Distance(l.geom, ${point4326}) ASC
+      LIMIT 1
+    ` as any);
+    if (locRows && locRows[0]) {
+      localite = locRows[0].localite || null;
+    }
+  } catch (err) {
+    if (DEBUG) console.error('[resolveAdministrativeAreas] Erreur recherche localite:', err);
+  }
+
   return {
     arrondissement,
     commune,
     departement: departementName,
     region: regionName,
+    localite,
   };
 }
 

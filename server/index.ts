@@ -32,6 +32,7 @@ import { storage } from './storage.js';
 import { ensureAttachmentBlobsTable, logAttachmentStorageStatus } from './lib/messageAttachmentStorage.js';
 import { getUploadsDir, migrateLegacyUploadsToCanonical } from './lib/uploadsPath.js';
 import { log } from './utils/logger.js';
+import { CustomPGStore } from './utils/sessionStore.js';
 
 // Configuration des chemins de fichiers pour les modules ES
 const __filename = fileURLToPath(import.meta.url);
@@ -61,6 +62,7 @@ if (usedEnvPath) {
 
 // Initialiser l'application Express
 const app: Express = express();
+app.set('trust proxy', 1);
 
 
 // Configuration CORS
@@ -173,10 +175,7 @@ const sessionConfig: session.SessionOptions = {
   store: process.env.REDIS_URL
     ? new (require('connect-redis')(session))({ url: process.env.REDIS_URL })
     : process.env.DATABASE_URL
-      ? new (require('connect-pg-simple')(session))({
-          conObject: { connectionString: process.env.DATABASE_URL },
-          createTableIfMissing: true
-        })
+      ? new CustomPGStore()
       : new session.MemoryStore()
 };
 

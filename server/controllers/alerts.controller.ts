@@ -333,6 +333,7 @@ export interface AlertResponse {
     departement: string | null;
     commune?: string | null;
     arrondissement?: string | null;
+    localite?: string | null;
     is_read: boolean | null; // Pertinent surtout pour les notifications d'alertes reçues
     created_at: Date | null;
     updated_at: Date | null;
@@ -768,12 +769,14 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
 
         let alertArrondissement: string | null = null;
         let alertCommune: string | null = null;
+        let alertLocalite: string | null = null;
         try {
             if (lat !== null && lon !== null) {
                 const areas = await resolveAdministrativeAreas(lat, lon);
                 console.log('[createAlert] Administrative areas resolved', { lat, lon, areas });
                 alertArrondissement = areas.arrondissement ?? null;
                 alertCommune = areas.commune ?? null;
+                alertLocalite = areas.localite ?? null;
                 if (!alertDepartement && areas.departement) {
                     alertDepartement = areas.departement;
                 }
@@ -1003,6 +1006,9 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
             region: newAlert.region,
             zone: newAlert.zone,
             departement: newAlert.departement ?? null,
+            commune: newAlert.commune ?? alertCommune ?? null,
+            arrondissement: newAlert.arrondissement ?? alertArrondissement ?? null,
+            localite: alertLocalite,
             is_read: newAlert.isRead ?? false,
             created_at: newAlert.createdAt,
             updated_at: newAlert.updatedAt,
@@ -1239,6 +1245,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                 let computedDept: string | null = (notif.alert as any).departement ?? null;
                 let computedCommune: string | null = (notif.alert as any).commune ?? null;
                 let computedArrondissement: string | null = (notif.alert as any).arrondissement ?? null;
+                let computedLocalite: string | null = null;
                 const latVal = (notif.alert as any).lat as number | null | undefined;
                 const lonVal = (notif.alert as any).lon as number | null | undefined;
                 let latNum: number | null = (typeof latVal === 'number' && isFinite(latVal)) ? latVal : null;
@@ -1263,6 +1270,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                         computedDept = areas.departement ?? computedDept;
                         computedCommune = areas.commune ?? computedCommune;
                         computedArrondissement = areas.arrondissement ?? computedArrondissement;
+                        computedLocalite = areas.localite ?? null;
                     } catch (e) {
                         console.warn('[getReceivedAlerts] resolveAdministrativeAreas failed:', e);
                         const resolved = await resolveRegionDeptFromCoords(latNum, lonNum);
@@ -1282,6 +1290,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                     departement: computedDept,
                     commune: computedCommune,
                     arrondissement: computedArrondissement,
+                    localite: computedLocalite,
                     is_read: !!notif.is_read,
                     created_at: (notif.alert as any).created_at,
                     updated_at: (notif.alert as any).updated_at,
@@ -1408,6 +1417,7 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
             let computedDept: string | null = null;
             let computedArrondissement: string | null = null;
             let computedCommune: string | null = null;
+            let computedLocalite: string | null = null;
             let latNum: number | null = (typeof alertData.lat === 'number' && isFinite(alertData.lat)) ? alertData.lat : null;
             let lonNum: number | null = (typeof alertData.lon === 'number' && isFinite(alertData.lon)) ? alertData.lon : null;
 
@@ -1430,6 +1440,7 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                     computedDept = resolved.departement;
                     computedArrondissement = resolved.arrondissement;
                     computedCommune = resolved.commune;
+                    computedLocalite = resolved.localite;
                 } catch (e) {
                     console.warn('[getSentAlerts] resolveAdministrativeAreas failed:', e);
                     const resolved = await resolveRegionDeptFromCoords(latNum, lonNum);
@@ -1487,6 +1498,7 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                 departement: computedDept,
                 arrondissement: computedArrondissement,
                 commune: computedCommune,
+                localite: computedLocalite,
                 is_read: true,
                 created_at: alertData.created_at,
                 updated_at: alertData.updated_at,

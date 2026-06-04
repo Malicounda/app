@@ -35,13 +35,15 @@ function formatAlertLocation(alert: {
   region?: string | null;
   arrondissement?: string | null;
   commune?: string | null;
+  localite?: string | null;
 }): string {
   const dep = alert.departement ? String(alert.departement).trim().toUpperCase() : '';
   const reg = alert.region ? String(alert.region).trim() : '';
   const arr = alert.arrondissement ? String(alert.arrondissement).trim() : '';
   const com = alert.commune ? String(alert.commune).trim() : '';
+  const loc = alert.localite ? String(alert.localite).trim() : '';
   const base = dep || reg ? [dep || 'NON DÉFINI', reg].filter(Boolean).join('/') : 'NON DÉFINI';
-  const extras = [arr, com].filter(Boolean);
+  const extras = [arr, com, loc].filter(Boolean);
   return extras.length ? `${base} · ${extras.join(' · ')}` : base;
 }
 
@@ -59,6 +61,7 @@ interface Alert {
   departement?: string | null;
   arrondissement?: string | null;
   commune?: string | null;
+  localite?: string | null;
   // Accusés de lecture (rôles) côté expéditeur
   readByRoles?: string[];
   readByDetails?: { name: string; role: string }[];
@@ -333,7 +336,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </PopoverTrigger>
                     <PopoverContent className="w-72 p-3 z-50 text-sm shadow-xl" align="end" side="top">
                       <div className="space-y-3">
-                        {actualAlertData.region || actualAlertData.departement || actualAlertData.location || actualAlertData.arrondissement || actualAlertData.commune ? (
+                        {actualAlertData.region || actualAlertData.departement || actualAlertData.location || actualAlertData.arrondissement || actualAlertData.commune || actualAlertData.localite ? (
                           <div>
                             <h4 className="font-semibold text-gray-800 mb-1 border-b pb-1">Lieu précis de l'alerte</h4>
                             <div className="text-gray-600 text-xs space-y-0.5 mt-1">
@@ -341,7 +344,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                               {actualAlertData.departement && <p><span className="font-medium text-gray-700">Département:</span> {actualAlertData.departement}</p>}
                               <p>
                                 <span className="font-medium text-gray-700">Localité:</span>{' '}
-                                {[actualAlertData.arrondissement, actualAlertData.commune].filter(Boolean).join(' / ') || 'Non définie'}
+                                {[actualAlertData.arrondissement, actualAlertData.commune, actualAlertData.localite].filter(Boolean).join(' / ') || 'Non définie'}
                               </p>
                             </div>
                           </div>
