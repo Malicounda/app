@@ -1879,9 +1879,17 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       };
 
       data.forEach(a => {
+        if (a.lat === null || a.lat === undefined || a.lon === null || a.lon === undefined) {
+          return;
+        }
+        const lat = Number(a.lat);
+        const lon = Number(a.lon);
+        if (isNaN(lat) || isNaN(lon) || !isFinite(lat) || !isFinite(lon) || (lat === 0 && lon === 0)) {
+          return;
+        }
         const isOld = (now - new Date(a.created_at).getTime()) >= twentyFourH;
         // Place alert markers into the dedicated alerts pane (z-index élevé, prioritaire au-dessus des régions)
-        const m = L.marker([a.lat, a.lon], {
+        const m = L.marker([lat, lon], {
           icon: getAlertIcon(a.nature, isOld),
           pane: 'alertsPane',
           zIndexOffset: 2000,
