@@ -614,18 +614,20 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       if (baseOfflineOsm && map.hasLayer(baseOfflineOsm)) map.removeLayer(baseOfflineOsm);
       if (baseOfflineSatellite && map.hasLayer(baseOfflineSatellite)) map.removeLayer(baseOfflineSatellite);
 
-      if (!isOnlineMap) {
-        if (useSatellite && baseOfflineSatellite) {
-          baseOfflineSatellite.addTo(map);
-          console.log('[MapComponent] Mode hors ligne : Tuiles Satellite activées');
-        } else if (baseOfflineOsm) {
-          baseOfflineOsm.addTo(map);
-          console.log('[MapComponent] Mode hors ligne : Tuiles OSM activées');
+      // Toujours charger la couche hors ligne en arrière-plan (instantané et infaillible)
+      if (useSatellite && baseOfflineSatellite) {
+        baseOfflineSatellite.addTo(map);
+      } else if (baseOfflineOsm) {
+        baseOfflineOsm.addTo(map);
+      }
+
+      // Si nous sommes connectés, charger la vraie carte par-dessus
+      if (isOnlineMap) {
+        if (useSatellite) {
+          baseSatellite.addTo(map);
+        } else {
+          baseOsm.addTo(map);
         }
-      } else if (useSatellite) {
-        baseSatellite.addTo(map);
-      } else {
-        baseOsm.addTo(map);
       }
     }, [useSatellite, isOnlineMap]);
 
@@ -729,17 +731,26 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         layersRef.current.alerts.addTo(map);
       }
 
-      const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" style="text-decoration:none">OpenStreetMap/contributors_A.S.P.CH.S</a>',
-        minZoom: 7,
-        crossOrigin: true
-      });
+      // Couche en ligne OSM
+      const osmLayer = L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+          minZoom: 5,
+          maxZoom: 18,
+          attribution: '© OpenStreetMap contributors',
+          zIndex: 2,
+          crossOrigin: true
+        }
+      );
 
+      // Couche en ligne Satellite
       const satelliteLayer = L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         {
-          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-          minZoom: 7,
+          minZoom: 5,
+          maxZoom: 18,
+          attribution: '© Esri',
+          zIndex: 2,
           crossOrigin: true
         }
       );
@@ -752,7 +763,8 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         minZoom: 5,
         maxNativeZoom: 9,
         maxZoom: 18,
-        crossOrigin: true
+        zIndex: 1
+        // PAS de crossOrigin: true pour les fichiers locaux !
       });
       layersRef.current.baseOfflineOsm = offlineOsmLayer;
 
@@ -761,22 +773,23 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         minZoom: 5,
         maxNativeZoom: 9,
         maxZoom: 18,
-        crossOrigin: true
+        zIndex: 1
       });
       layersRef.current.baseOfflineSatellite = offlineSatelliteLayer;
 
-      // Choix initial du fond de carte selon la connectivité
-      if (!navigator.onLine) {
-        if (useSatellite) {
-          offlineSatelliteLayer.addTo(map);
-        } else {
-          offlineOsmLayer.addTo(map);
-        }
-        console.log('[MapComponent] Démarrage hors ligne : Tuiles locales activées');
-      } else if (useSatellite) {
-        satelliteLayer.addTo(map);
+      // Choix initial du fond de carte
+      if (useSatellite) {
+        offlineSatelliteLayer.addTo(map);
       } else {
-        osmLayer.addTo(map);
+        offlineOsmLayer.addTo(map);
+      }
+      
+      if (navigator.onLine) {
+        if (useSatellite) {
+          satelliteLayer.addTo(map);
+        } else {
+          osmLayer.addTo(map);
+        }
       }
 
       // Pane pour les zones protégées
