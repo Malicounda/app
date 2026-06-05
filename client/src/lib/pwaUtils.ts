@@ -46,9 +46,10 @@ const isElectron = typeof window !== 'undefined' && (
 
 // Fonction pour enregistrer le service worker
 export function registerServiceWorker() {
-  // En environnement Electron (file://), ne pas enregistrer de service worker
-  if (isElectron) {
-    console.log('PWA: exécution Electron détectée, pas d\'enregistrement de Service Worker');
+  const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+  // En environnement Electron ou Capacitor, ne pas enregistrer de service worker
+  if (isElectron || isCapacitor) {
+    console.log('PWA: exécution native détectée, pas d\'enregistrement de Service Worker');
     return;
   }
 

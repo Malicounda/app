@@ -686,6 +686,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         maxBounds: bounds,
         maxBoundsViscosity: 0.8,
         minZoom: 7,
+        maxZoom: 18,
         zoom: 7,
         center: [14.5, -14.45],
         // Options de contrôle

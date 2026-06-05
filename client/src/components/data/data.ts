@@ -552,8 +552,10 @@ function deleteZone(name: string): boolean {
 // Fonction pour charger les zones écogéographiques sur la carte
 export async function loadEcoZones() {
   try {
+    // Importer dynamiquement pour éviter les problèmes de cycle
+    const { resolveApiUrl } = await import('@/utils/environment');
     // Charger les données depuis l'API
-    const response = await fetch('/api/eco-zones', {
+    const response = await fetch(resolveApiUrl('/api/eco-zones'), {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

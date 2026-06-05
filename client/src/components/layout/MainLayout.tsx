@@ -76,6 +76,13 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       return;
     }
 
+    // Déconnexion automatique si accès restreint (rôle invalide pour Alerte)
+    if (chromeless && !(user as any)?.isDefaultRole && !(user as any)?.isSupervisorRole && location !== '/profile') {
+      console.log('[MainLayout] Rôle non autorisé détecté sur le domaine Alerte, déconnexion...');
+      logout();
+      return;
+    }
+
     // Si l'utilisateur est sur la page login ou racine mais qu'il est déjà authentifié
     if (isAuthenticated && (location === '/login' || location === '/')) {
       setLocation(getHomePage(user?.role, user?.type, (user as any)?.isSuperAdmin, !!(user as any)?.isDefaultRole, !!(user as any)?.isSupervisorRole));
@@ -87,7 +94,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       setIsSidebarOpen(false);
       document.body.style.overflow = ''; // Réactiver le défilement
     }
-  }, [isAuthenticated, location, user]);
+  }, [isAuthenticated, location, user, chromeless]);
 
   // État pour gérer la visibilité du menu latéral sur mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -199,14 +206,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   // - <main>: flex-1 overflow-y-auto (the only scrollable element)
   // No wheel handler needed anymore.
 
-  const showRestrictedAccess =
-    authInitialized &&
-    !serverUnavailable &&
-    chromeless &&
-    !!user &&
-    !(user as any)?.isDefaultRole &&
-    !(user as any)?.isSupervisorRole &&
-    location !== '/profile';
+  const showRestrictedAccess = false;
 
   const restrictedContent = (
     <div className="w-full min-h-[75vh] flex flex-col items-center justify-center px-4 bg-[#f8fafc]">

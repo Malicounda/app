@@ -4,13 +4,29 @@
 /** Capacitor APK / app native (WebView embarquée). */
 export const isCapacitorNative = (): boolean => {
   try {
-    const cap = typeof window !== 'undefined'
-      ? (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-      : undefined;
-    return Boolean(cap?.isNativePlatform?.());
-  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-    return false;
-   }
+    if (typeof window === 'undefined') return false;
+    
+    // 1. Détection par l'User Agent personnalisé injecté dans la config Capacitor
+    if (window.navigator.userAgent && window.navigator.userAgent.includes('AlerteAPK')) {
+      return true;
+    }
+    
+    // 2. Détection par l'objet global Capacitor
+    const cap = (window as any).Capacitor;
+    if (cap?.isNativePlatform?.()) {
+      return true;
+    }
+    
+    // 3. Détection par l'URL de chargement locale (localhost sans port en natif)
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && !port) {
+      return true;
+    }
+  } catch (e) {
+    if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error in isCapacitorNative', e);
+  }
+  return false;
 };
 
 // Helper to check if running in Tauri WebView

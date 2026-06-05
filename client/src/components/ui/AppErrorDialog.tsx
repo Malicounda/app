@@ -61,13 +61,14 @@ export default function AppErrorDialog() {
           url.includes("/delete"));
 
       const isMessagingOrAlerts = url.includes("/api/messages") || url.includes("/api/alerts");
+      const isMapData = url.includes("eco-zone") || url.includes(".geojson") || url.includes("region") || url.includes("departement") || url.includes("carte") || url.includes("zone");
       const isOfflineOrNetwork =
         !navigator.onLine ||
         [502, 503, 504].includes(Number(d.status)) ||
         (typeof d.message === 'string' &&
           /network|fetch|unreachable|failed|503|502|504|connecter|connexion|unavailable|service|hors ligne|offline/i.test(d.message)
         );
-      const isIgnoredOffline = isMessagingOrAlerts && isOfflineOrNetwork;
+      const isIgnoredOffline = (isMessagingOrAlerts || isMapData) && isOfflineOrNetwork;
 
       if (
         isAuthMe ||
