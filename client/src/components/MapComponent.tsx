@@ -278,7 +278,8 @@ interface LayersRef {
   protectedZonesVectorTiles?: any;
   baseOsm?: L.TileLayer;
   baseSatellite?: L.TileLayer;
-  baseOffline?: L.ImageOverlay;
+  baseOfflineOsm?: L.TileLayer;
+  baseOfflineSatellite?: L.TileLayer;
 }
 
 const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
@@ -603,22 +604,23 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       const map = mapRef.current;
       const baseOsm = layersRef.current.baseOsm;
       const baseSatellite = layersRef.current.baseSatellite;
-      const baseOffline = layersRef.current.baseOffline;
+      const baseOfflineOsm = layersRef.current.baseOfflineOsm;
+      const baseOfflineSatellite = layersRef.current.baseOfflineSatellite;
       if (!map || !baseOsm || !baseSatellite) return;
 
       // Retirer toutes les couches de fond existantes
       if (map.hasLayer(baseOsm)) map.removeLayer(baseOsm);
       if (map.hasLayer(baseSatellite)) map.removeLayer(baseSatellite);
-      if (baseOffline && map.hasLayer(baseOffline)) map.removeLayer(baseOffline);
+      if (baseOfflineOsm && map.hasLayer(baseOfflineOsm)) map.removeLayer(baseOfflineOsm);
+      if (baseOfflineSatellite && map.hasLayer(baseOfflineSatellite)) map.removeLayer(baseOfflineSatellite);
 
       if (!isOnlineMap) {
-        // Mode hors ligne : afficher l'image géoréférencée
-        if (baseOffline) {
-          baseOffline.addTo(map);
-          console.log('[MapComponent] Mode hors ligne : image géoréférencée activée');
-        } else {
-          // Fallback: aucune couche de fond si pas d'image offline
-          console.warn('[MapComponent] Mode hors ligne mais pas d\'image offline disponible');
+        if (useSatellite && baseOfflineSatellite) {
+          baseOfflineSatellite.addTo(map);
+          console.log('[MapComponent] Mode hors ligne : Tuiles Satellite activées');
+        } else if (baseOfflineOsm) {
+          baseOfflineOsm.addTo(map);
+          console.log('[MapComponent] Mode hors ligne : Tuiles OSM activées');
         }
       } else if (useSatellite) {
         baseSatellite.addTo(map);
@@ -745,23 +747,32 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       layersRef.current.baseOsm = osmLayer;
       layersRef.current.baseSatellite = satelliteLayer;
 
-      // Couche hors ligne : image géoréférencée du Sénégal
-      // Bounds calculées à partir du GeoJSON des régions (EPSG:4326)
-      const offlineBounds: L.LatLngBoundsExpression = [
-        [12.114834, -19.119430],  // Sud-Ouest (lat, lon)
-        [17.298173, -9.979405]     // Nord-Est (lat, lon)
-      ];
-      const offlineLayer = L.imageOverlay('/carte_Offline.png', offlineBounds, {
-        opacity: 1,
-        interactive: false,
-        zIndex: 0
+      // Couche hors ligne : Tuiles OSM
+      const offlineOsmLayer = L.tileLayer('/tiles/osm/{z}/{x}/{y}.png', {
+        minZoom: 5,
+        maxNativeZoom: 9,
+        maxZoom: 18,
+        crossOrigin: true
       });
-      layersRef.current.baseOffline = offlineLayer;
+      layersRef.current.baseOfflineOsm = offlineOsmLayer;
+
+      // Couche hors ligne : Tuiles Satellite
+      const offlineSatelliteLayer = L.tileLayer('/tiles/satellite/{z}/{x}/{y}.png', {
+        minZoom: 5,
+        maxNativeZoom: 9,
+        maxZoom: 18,
+        crossOrigin: true
+      });
+      layersRef.current.baseOfflineSatellite = offlineSatelliteLayer;
 
       // Choix initial du fond de carte selon la connectivité
       if (!navigator.onLine) {
-        offlineLayer.addTo(map);
-        console.log('[MapComponent] Démarrage hors ligne : image géoréférencée activée');
+        if (useSatellite) {
+          offlineSatelliteLayer.addTo(map);
+        } else {
+          offlineOsmLayer.addTo(map);
+        }
+        console.log('[MapComponent] Démarrage hors ligne : Tuiles locales activées');
       } else if (useSatellite) {
         satelliteLayer.addTo(map);
       } else {
