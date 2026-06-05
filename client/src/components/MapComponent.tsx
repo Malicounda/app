@@ -406,6 +406,46 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
     const selectedCommuneLayerRef = useRef<L.Layer | null>(null);
     const selectedArrondissementLayerRef = useRef<L.Layer | null>(null);
 
+    // Enregistrer la fonction globale de copie dans le presse-papier
+    useEffect(() => {
+      (window as any).copyToClipboard = (text: string, btnId: string) => {
+        const showCopied = () => {
+          const btn = document.getElementById(btnId);
+          if (btn) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span style="color:#10b981;font-weight:bold;font-size:10px;">Copié !</span>';
+            setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+          }
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text)
+            .then(showCopied)
+            .catch(() => {
+              try {
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                showCopied();
+              } catch (_) {}
+            });
+        } else {
+          try {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showCopied();
+          } catch (_) {}
+        }
+      };
+    }, []);
+
     // Nettoyer la sélection si le contrôle statut s'active
     useEffect(() => {
       if (props.colorizeRegionsByStatus) {
@@ -1928,19 +1968,68 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         }
         const latStr = typeof a.lat === 'number' ? a.lat.toFixed(5) : String(a.lat);
         const lonStr = typeof a.lon === 'number' ? a.lon.toFixed(5) : String(a.lon);
-        const senderLine = senderName || roleLabel ? `Envoyé par : ${[senderName, roleLabel ? `(${roleLabel}${s?.region ? `, ${s.region}` : ''})` : ''].filter(Boolean).join(' ')}` : '';
-        m.bindPopup(`
-          <div class="custom-popup">
-            <h3>${title}</h3>
-            ${a.nature ? `<div><b>Nature:</b> ${a.nature}</div>` : ''}
-            <div><b>Région:</b> ${region}${departement ? `, <b>Département:</b> ${departement}` : ''}</div>
-            <div><b>Date/Heure:</b> ${when}</div>
-            <div><b>Coordonnées:</b> ${latStr}, ${lonStr}</div>
-            ${senderLine ? `<div><b>${senderLine}</b></div>` : ''}
-            ${senderPhone ? `<div><b>Téléphone:</b> ${senderPhone}</div>` : ''}
-            ${msg ? `<p style="margin-top:6px;">${msg}</p>` : ''}
+        const senderLine = senderName || roleLabel ? `${senderName} ${roleLabel ? `(${roleLabel}${s?.region ? `, ${s.region}` : ''})` : ''}` : '';
+        const html = `
+          <div class="custom-alert-popup-content">
+            <div class="popup-header">
+              <span class="popup-title">${title}</span>
+            </div>
+            <div class="popup-body">
+              ${a.nature ? `
+              <div class="popup-row">
+                <span class="popup-icon">⚠️</span>
+                <span class="popup-label">Nature :</span>
+                <span class="popup-value">${a.nature}</span>
+              </div>
+              ` : ''}
+              <div class="popup-row">
+                <span class="popup-icon">📍</span>
+                <span class="popup-label">Lieu :</span>
+                <span class="popup-value">${region}${departement ? `, ${departement}` : ''}</span>
+              </div>
+              <div class="popup-row">
+                <span class="popup-icon">📅</span>
+                <span class="popup-label">Date :</span>
+                <span class="popup-value">${when}</span>
+              </div>
+              <div class="popup-row highlight-coords">
+                <div style="display:flex; align-items:center;">
+                  <span class="popup-icon">🌐</span>
+                  <span class="popup-label">Coords :</span>
+                  <span class="popup-value" style="font-family:monospace; font-size:10px;">${latStr}, ${lonStr}</span>
+                </div>
+                <button id="copy-btn-${a.id}" class="popup-copy-btn" onclick="window.copyToClipboard('${latStr}, ${lonStr}', 'copy-btn-${a.id}')" title="Copier les coordonnées">
+                  📋
+                </button>
+              </div>
+              ${senderLine ? `
+              <div class="popup-row sender-info">
+                <span class="popup-icon">👤</span>
+                <span class="popup-label">Auteur :</span>
+                <span class="popup-value">${senderLine}</span>
+              </div>
+              ` : ''}
+              ${senderPhone ? `
+              <div class="popup-row phone-info">
+                <span class="popup-icon">📞</span>
+                <span class="popup-label">Tél :</span>
+                <span class="popup-value"><a href="tel:${senderPhone}" class="popup-phone-link">${senderPhone}</a></span>
+              </div>
+              ` : ''}
+              ${msg ? `
+              <div class="popup-message">
+                ${msg}
+              </div>
+              ` : ''}
+            </div>
           </div>
-        `);
+        `;
+
+        m.bindPopup(html, {
+          maxWidth: 250,
+          minWidth: 200,
+          className: 'custom-alert-popup'
+        });
         // Ajouter le marqueur au cluster de sa région
         const alertRegion = (a.region || 'Inconnu').trim();
         if (!alertsClustersRef.current.has(alertRegion)) {

@@ -190,3 +190,125 @@
   pointer-events: none;
   z-index: 1000;
 }
+
+/* Custom Alerts Popup Style */
+.custom-alert-popup .leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.custom-alert-popup .leaflet-popup-content {
+  margin: 0 !important;
+  width: 250px !important;
+}
+
+.custom-alert-popup-content .popup-header {
+  background: #f8fafc;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.custom-alert-popup-content .popup-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.custom-alert-popup-content .popup-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.custom-alert-popup-content .popup-row {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #475569;
+}
+
+.custom-alert-popup-content .popup-icon {
+  margin-right: 6px;
+  font-size: 12px;
+  width: 14px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.custom-alert-popup-content .popup-label {
+  font-weight: 600;
+  color: #64748b;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.custom-alert-popup-content .popup-value {
+  color: #1e293b;
+  word-break: break-word;
+}
+
+.custom-alert-popup-content .sender-role {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.custom-alert-popup-content .popup-phone-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.custom-alert-popup-content .popup-phone-link:hover {
+  text-decoration: underline;
+}
+
+.custom-alert-popup-content .highlight-coords {
+  background: #f1f5f9;
+  padding: 4px 6px;
+  border-radius: 4px;
+  margin-top: 2px;
+  justify-content: space-between;
+  border: 1px solid #e2e8f0;
+}
+
+.custom-alert-popup-content .popup-copy-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease;
+  border-radius: 3px;
+}
+
+.custom-alert-popup-content .popup-copy-btn:hover {
+  transform: scale(1.15);
+  background: #e2e8f0;
+}
+
+.custom-alert-popup-content .popup-copy-btn:active {
+  transform: scale(0.95);
+}
+
+.custom-alert-popup-content .popup-message {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+  font-size: 11px;
+  font-style: italic;
+  color: #334155;
+  line-height: 1.35;
+}
