@@ -1,5 +1,5 @@
 // Service Worker pour la PWA de Gestion des Permis de Chasse
-const CACHE_NAME = 'permis-chasse-cache-v4';
+const CACHE_NAME = 'permis-chasse-cache-v5';
 const OFFLINE_URL = '/offline.html';
 
 // Liste des ressources à mettre en cache immédiatement
@@ -136,6 +136,15 @@ function handleMessageRecord(db, attachmentsStore, msgRecord, resolve) {
 
 // Stratégie de cache pour les requêtes API
 self.addEventListener('fetch', (event) => {
+  // Ne jamais intercepter les requêtes si on est dans l'APK Android (Capacitor)
+  // Cela permet à l'APK de gérer ses requêtes nativement sans conflits CORS du SW.
+  const isCapacitor = self.navigator && self.navigator.userAgent && 
+    (self.navigator.userAgent.includes('Capacitor') || self.navigator.userAgent.includes('AlerteAPK'));
+  
+  if (isCapacitor) {
+    return; // Laisse le navigateur/Webview gérer la requête nativement
+  }
+
   const req = event.request;
 
   // Ne jamais tenter de mettre en cache les requêtes non-GET (POST/PUT/DELETE/...) 
