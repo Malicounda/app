@@ -1444,20 +1444,22 @@ const MapPage: React.FC = () => {
               {departementsExpanded && (
                 <div
                   style={{
-                    position: 'absolute',
-                    right: '100%',
+                    position: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'relative' : 'absolute',
+                    right: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'auto' : '100%',
                     left: 'auto',
-                    top: 0,
-                    marginRight: '8px',
+                    top: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'auto' : 0,
+                    marginRight: (typeof window !== 'undefined' && window.innerWidth < 768) ? 0 : '8px',
+                    marginTop: (typeof window !== 'undefined' && window.innerWidth < 768) ? '4px' : 0,
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '4px',
-                    backgroundColor: 'white',
+                    backgroundColor: (typeof window !== 'undefined' && window.innerWidth < 768) ? '#f9fafb' : 'white',
                     padding: '8px',
                     borderRadius: '8px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    boxShadow: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'none' : '0 2px 8px rgba(0,0,0,0.15)',
+                    border: (typeof window !== 'undefined' && window.innerWidth < 768) ? '1px solid #e5e7eb' : 'none',
                     zIndex: 1000,
-                    minWidth: '200px'
+                    minWidth: (typeof window !== 'undefined' && window.innerWidth < 768) ? '100%' : '200px'
                   }}
                 >
                   <button
@@ -1548,23 +1550,25 @@ const MapPage: React.FC = () => {
               {/* Sous-panneaux dépliables HORIZONTALEMENT VERS LA GAUCHE */}
               {protectedZonesExpanded && (
                 <div style={{
-                  position: 'absolute',
-                  right: '100%',
-                  top: 0,
-                  marginRight: '8px',
+                  position: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'relative' : 'absolute',
+                  right: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'auto' : '100%',
+                  top: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'auto' : 0,
+                  marginRight: (typeof window !== 'undefined' && window.innerWidth < 768) ? 0 : '8px',
+                  marginTop: (typeof window !== 'undefined' && window.innerWidth < 768) ? '4px' : 0,
                   display: 'flex',
                   flexDirection: 'column',
                   flexWrap: 'nowrap',
                   gap: '4px',
-                  backgroundColor: 'white',
+                  backgroundColor: (typeof window !== 'undefined' && window.innerWidth < 768) ? '#f9fafb' : 'white',
                   padding: '8px',
                   borderRadius: '8px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  boxShadow: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'none' : '0 2px 8px rgba(0,0,0,0.15)',
+                  border: (typeof window !== 'undefined' && window.innerWidth < 768) ? '1px solid #e5e7eb' : 'none',
                   zIndex: 1000,
-                  width: 'auto',
-                  minWidth: '140px',
-                  maxWidth: '220px',
-                  maxHeight: 'calc(100vh - 120px)',
+                  width: (typeof window !== 'undefined' && window.innerWidth < 768) ? '100%' : 'auto',
+                  minWidth: (typeof window !== 'undefined' && window.innerWidth < 768) ? '100%' : '140px',
+                  maxWidth: (typeof window !== 'undefined' && window.innerWidth < 768) ? '100%' : '220px',
+                  maxHeight: (typeof window !== 'undefined' && window.innerWidth < 768) ? '220px' : 'calc(100vh - 120px)',
                   overflowY: 'auto'
                 }}>
                   {/* Forêt classée */}
@@ -2055,7 +2059,7 @@ const MapPage: React.FC = () => {
         />
 
         {infractionsPanel && (
-          <div style={{ position: 'absolute', left: 16, bottom: 16, zIndex: 9999, maxWidth: 360 }}>
+          <div style={{ position: 'absolute', left: 16, bottom: (typeof window !== 'undefined' && window.innerWidth < 768) ? 80 : 16, zIndex: 9999, maxWidth: 'calc(100% - 32px)' }}>
             <div style={{ background: 'white', borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.18)', padding: 12, border: '1px solid #e5e7eb' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div style={{ fontWeight: 700 }}>Infractions – {infractionsPanel.region}</div>

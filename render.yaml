@@ -16,9 +16,9 @@ services:
       # Ajouter dans le dashboard Render (secret) pour sauvegarder les PJ dans Supabase Storage :
       # SUPABASE_SERVICE_ROLE_KEY — Supabase → Project Settings → API → service_role
       - key: DATABASE_URL
-        value: postgresql://postgres.botmsymjatdnizqtneoi:jesuisN0ir%4014@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+        value: postgresql://postgres.botmsymjatdnizqtneoi:jesuisN0ir%4014@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
       - key: SHADOW_DATABASE_URL
-        value: postgresql://postgres.botmsymjatdnizqtneoi:jesuisN0ir%4014@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+        value: postgresql://postgres.botmsymjatdnizqtneoi:jesuisN0ir%4014@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
       - key: FRONTEND_URL
         value: https://votre-domaine-cloudflare.pages.dev # À MODIFIER : Remplacer par l'URL de votre app Cloudflare
       - key: CORS_ORIGIN

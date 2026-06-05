@@ -16,7 +16,8 @@ export default function HomePageWrapper() {
     const isAlerteApk =
       typeof window !== 'undefined' &&
       (window.location.search.includes('isApk=true') ||
-        navigator.userAgent.includes('AlerteAPK'));
+        navigator.userAgent.includes('AlerteAPK') ||
+        (typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNativePlatform?.()));
 
     if (isAlerteApk && !isAuthenticated && !isLoading) {
       setLocation('/alerte-login');
@@ -73,7 +74,8 @@ export default function HomePageWrapper() {
     const isAlerteApk =
       typeof window !== 'undefined' &&
       (window.location.search.includes('isApk=true') ||
-        navigator.userAgent.includes('AlerteAPK'));
+        navigator.userAgent.includes('AlerteAPK') ||
+        (typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNativePlatform?.()));
     
     // Éviter de flasher la page d'accueil si on va être redirigé
     if (isAlerteApk) {

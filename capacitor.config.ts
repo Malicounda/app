@@ -7,8 +7,8 @@ const config: CapacitorConfig = {
   server: {
     // Comme la sauvegarde Alerte.apk : WebView → login Alerte uniquement (pas le bundle local complet)
     // url: 'https://eforets.pages.dev/alerte-login?isApk=true',
-    androidScheme: 'http',
-    cleartext: true,
+    androidScheme: 'https',
+    cleartext: false,
     allowNavigation: ['eforets.pages.dev', 'malicounda-api.onrender.com'],
   },
   android: {

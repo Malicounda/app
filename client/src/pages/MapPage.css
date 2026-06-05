@@ -532,8 +532,16 @@ html, body, #root {
 
 /* 5. Style spécifique pour la légende */
 .info.legend {
-  padding: 0 10px; /* Plus compact */
-  font-size: 12px; /* Légèrement plus petit */
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  font-weight: 500;
+  color: #1f2937;
+  max-width: 220px;
 }
 
 /* Le contenu interne généré en flex peut bénéficier d'un espacement horizontal */
@@ -754,7 +762,8 @@ html, body, #root {
   .map-controls-container {
     left: 8px;
     right: auto;
-    top: calc(80px - 2cm); /* Monté de 2cm vers le haut */
+    top: 10px; /* Positionné tout en haut sous la barre de statut */
+    max-height: calc(100dvh - 140px); /* Hauteur max pour ne pas chevaucher la barre de navigation */
   }
 
   /* Masquer l'attribution OpenStreetMap en mode mobile */

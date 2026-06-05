@@ -4310,7 +4310,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         })()}
 
         {(showLegendStatuses || showLegendZics || showLegendAmodiees || showLegendParcVisite || showLegendRegulation) && (
-          <div style={{ position: 'absolute', zIndex: 1200, ...(legendPos ? { left: legendPos.left, top: legendPos.top } : { left: 20, bottom: 20 }) }}>
+          <div style={{ position: 'absolute', zIndex: 1200, ...(legendPos ? { left: legendPos.left, top: legendPos.top } : { left: 16, bottom: (typeof window !== 'undefined' && window.innerWidth < 768) ? 80 : 20 }) }}>
             <Legend
               showStatuses={showLegendStatuses}
               showZics={showLegendZics}

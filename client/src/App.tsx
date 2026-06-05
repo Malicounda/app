@@ -1193,6 +1193,21 @@ function AppContent() {
 
   // Masquer le splashscreen HTML une fois que React est chargé
   useEffect(() => {
+    // Si on est sur l'APK Alerte, on force le domaine ALERTE dans le localStorage
+    const isAlerteApk =
+      typeof window !== 'undefined' &&
+      (window.location.search.includes('isApk=true') ||
+        navigator.userAgent.includes('AlerteAPK') ||
+        (typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNativePlatform?.()));
+        
+    if (isAlerteApk) {
+      try {
+        localStorage.setItem('domain', 'ALERTE');
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('[AppContent] Failed to set domain in localStorage', e);
+      }
+    }
+
     // Attendre que l'application soit complètement montée
     const timer = setTimeout(() => {
       if (typeof window.hideSplashScreen === 'function') {
