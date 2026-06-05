@@ -70,6 +70,20 @@ export default function HomePageWrapper() {
 
   // Si l'utilisateur n'est pas connecté, afficher la page d'accueil
   if (!isAuthenticated) {
+    const isAlerteApk =
+      typeof window !== 'undefined' &&
+      (window.location.search.includes('isApk=true') ||
+        navigator.userAgent.includes('AlerteAPK'));
+    
+    // Éviter de flasher la page d'accueil si on va être redirigé
+    if (isAlerteApk) {
+      return (
+        <div className="min-h-screen bg-emerald-900 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent" />
+        </div>
+      );
+    }
+
     return (
       <div className="fixed inset-0 z-[100] bg-white overflow-auto">
         <HomePage />
