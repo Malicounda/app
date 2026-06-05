@@ -77,6 +77,9 @@ const corsOptions: cors.CorsOptions = {
     const allowedOrigins = [
       // ── Production frontends ──────────────────────────────────────────
       'https://eforets.pages.dev',             // Cloudflare Pages (production)
+      // ── Capacitor Android/iOS WebView ─────────────────────────────────
+      'http://localhost',                      // Capacitor Android
+      'capacitor://localhost',                 // Capacitor iOS
       // ── Développement local ───────────────────────────────────────────
       'http://localhost:5173',
       'http://127.0.0.1:5173',
