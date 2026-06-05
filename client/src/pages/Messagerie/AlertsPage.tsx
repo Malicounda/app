@@ -181,10 +181,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     >
       <div
         className={`max-w-[80%] sm:max-w-[70%] md:max-w-[60%] p-3 sm:p-4 rounded-2xl shadow-md transition-all duration-300 ${isPending
-            ? "bg-amber-50 border border-amber-200 text-amber-900 border-l-4 border-l-amber-500"
-            : isSent
-              ? "bg-blue-100 text-gray-800"
-              : "bg-gray-200 text-gray-800"
+          ? "bg-amber-50 border border-amber-200 text-amber-900 border-l-4 border-l-amber-500"
+          : isSent
+            ? "bg-blue-100 text-gray-800"
+            : "bg-gray-200 text-gray-800"
           } ${!isPending ? senderRoleStyle : ""}`}
       >
         <div className="flex items-center justify-between">
@@ -2048,8 +2048,8 @@ function AlertsPage() {
                     <button
                       onClick={() => setActiveTab('inbox')}
                       className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'inbox'
-                          ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                        ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                         }`}
                     >
                       Alertes reçues
@@ -2057,8 +2057,8 @@ function AlertsPage() {
                     <button
                       onClick={() => setActiveTab('outbox')}
                       className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'outbox'
-                          ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                        ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                         }`}
                     >
                       Alertes envoyées

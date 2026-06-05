@@ -278,6 +278,7 @@ interface LayersRef {
   protectedZonesVectorTiles?: any;
   baseOsm?: L.TileLayer;
   baseSatellite?: L.TileLayer;
+  baseOffline?: L.ImageOverlay;
 }
 
 const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
@@ -396,6 +397,8 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
     // États pour le contrôle de rayon
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     const [radiusCircle, setRadiusCircle] = useState<L.Circle | null>(null);
+    // État de connectivité pour basculer le fond de carte hors ligne
+    const [isOnlineMap, setIsOnlineMap] = useState<boolean>(navigator.onLine);
     // Couches sélectionnées pour surlignage (quand contrôle statut OFF)
     const selectedRegionLayerRef = useRef<L.Layer | null>(null);
     const selectedDepartementLayerRef = useRef<L.Layer | null>(null);
@@ -583,21 +586,46 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Basemap switcher when toggle changes
+    // Détection de la connectivité internet pour la carte hors ligne
+    useEffect(() => {
+      const goOnline = () => setIsOnlineMap(true);
+      const goOffline = () => setIsOnlineMap(false);
+      window.addEventListener('online', goOnline);
+      window.addEventListener('offline', goOffline);
+      return () => {
+        window.removeEventListener('online', goOnline);
+        window.removeEventListener('offline', goOffline);
+      };
+    }, []);
+
+    // Basemap switcher when toggle changes OR connectivity changes
     useEffect(() => {
       const map = mapRef.current;
       const baseOsm = layersRef.current.baseOsm;
       const baseSatellite = layersRef.current.baseSatellite;
+      const baseOffline = layersRef.current.baseOffline;
       if (!map || !baseOsm || !baseSatellite) return;
 
-      if (useSatellite) {
-        if (map.hasLayer(baseOsm)) map.removeLayer(baseOsm);
-        if (!map.hasLayer(baseSatellite)) baseSatellite.addTo(map);
+      // Retirer toutes les couches de fond existantes
+      if (map.hasLayer(baseOsm)) map.removeLayer(baseOsm);
+      if (map.hasLayer(baseSatellite)) map.removeLayer(baseSatellite);
+      if (baseOffline && map.hasLayer(baseOffline)) map.removeLayer(baseOffline);
+
+      if (!isOnlineMap) {
+        // Mode hors ligne : afficher l'image géoréférencée
+        if (baseOffline) {
+          baseOffline.addTo(map);
+          console.log('[MapComponent] Mode hors ligne : image géoréférencée activée');
+        } else {
+          // Fallback: aucune couche de fond si pas d'image offline
+          console.warn('[MapComponent] Mode hors ligne mais pas d\'image offline disponible');
+        }
+      } else if (useSatellite) {
+        baseSatellite.addTo(map);
       } else {
-        if (map.hasLayer(baseSatellite)) map.removeLayer(baseSatellite);
-        if (!map.hasLayer(baseOsm)) baseOsm.addTo(map);
+        baseOsm.addTo(map);
       }
-    }, [useSatellite]);
+    }, [useSatellite, isOnlineMap]);
 
     useImperativeHandle(ref, () => ({
       getMapCenter: () => {
@@ -716,7 +744,24 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       layersRef.current.baseOsm = osmLayer;
       layersRef.current.baseSatellite = satelliteLayer;
 
-      if (useSatellite) {
+      // Couche hors ligne : image géoréférencée du Sénégal
+      // Bounds calculées à partir du GeoJSON des régions (EPSG:4326)
+      const offlineBounds: L.LatLngBoundsExpression = [
+        [12.114834, -19.119430],  // Sud-Ouest (lat, lon)
+        [17.298173, -9.979405]     // Nord-Est (lat, lon)
+      ];
+      const offlineLayer = L.imageOverlay('/carte_Offline.png', offlineBounds, {
+        opacity: 1,
+        interactive: false,
+        zIndex: 0
+      });
+      layersRef.current.baseOffline = offlineLayer;
+
+      // Choix initial du fond de carte selon la connectivité
+      if (!navigator.onLine) {
+        offlineLayer.addTo(map);
+        console.log('[MapComponent] Démarrage hors ligne : image géoréférencée activée');
+      } else if (useSatellite) {
         satelliteLayer.addTo(map);
       } else {
         osmLayer.addTo(map);
