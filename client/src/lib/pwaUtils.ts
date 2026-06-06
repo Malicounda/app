@@ -1810,10 +1810,26 @@ export function createOfflineFetch() {
         });
       }
 
+      // EXCLUSION : Les requêtes d'authentification ne peuvent pas fonctionner hors-ligne
+      // Retourner une réponse 503 claire au lieu de laisser l'erreur se propager
+      const isAuthRequestForQueue = url.includes('/auth/login') || url.includes('/auth/logout') || url.includes('/auth/register');
+      if (isAuthRequestForQueue && isApiRequest) {
+        console.warn(`[Offline] Requête auth impossible hors-ligne: ${method} ${url}`);
+        return new Response(JSON.stringify({
+          message: 'Pas de connexion Internet. Impossible de se connecter hors-ligne.',
+          offline: true
+        }), {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Offline': 'true'
+          }
+        });
+      }
+
       // Pour les requêtes de modification, les enregistrer pour synchronisation ultérieure
-      // EXCLUSION : Ne jamais mettre en file d'attente offline les requêtes d'authentification
-      const isAuthRequest = url.includes('/auth/login') || url.includes('/auth/logout');
-      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && isApiRequest && !isAuthRequest) {
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && isApiRequest) {
         console.log(`[Offline] Mise en queue: ${method} ${url}`);
 
         let body: Record<string, any> | null = null;

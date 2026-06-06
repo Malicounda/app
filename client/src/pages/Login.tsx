@@ -80,15 +80,33 @@ export default function Login() {
 
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     try {
+      if (!navigator.onLine) {
+        toast({
+          title: "Pas de connexion",
+          description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       await login(values.identifier, values.password || '');
       // La redirection est gérée par l'effet ci-dessus qui surveille isAuthenticated et user
       toast({
         title: "Connexion réussie",
         description: "Vous êtes maintenant connecté.",
       });
-    } catch (error) {
-      console.error("Erreur d'authentification:", error);
-      // Échec affiché par AppErrorDialog (style Accès refusé)
+    } catch (e: any) {
+      const msg = String(e?.message || '').toLowerCase();
+      if (msg.includes('connexion internet') || msg.includes('offline') || msg.includes('failed to fetch')) {
+        toast({
+          title: "Pas de connexion",
+          description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
+          variant: "destructive",
+        });
+      } else {
+        console.error("Erreur d'authentification:", e);
+        // Échec affiché par AppErrorDialog (style Accès refusé)
+      }
     }
   };
 

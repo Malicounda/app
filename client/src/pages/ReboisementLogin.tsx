@@ -58,12 +58,31 @@ export default function ReboisementLogin() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
+      if (!navigator.onLine) {
+        toast({
+          title: "Pas de connexion",
+          description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       localStorage.setItem("domain", "REBOISEMENT");
       await login(values.identifier, values.password);
       toast({ title: "Connexion réussie", description: "Bienvenue dans le module Reboisement." });
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-      // Échec affiché par AppErrorDialog (style Accès refusé)
-     }
+    } catch (e: any) {
+      const msg = String(e?.message || '').toLowerCase();
+      if (msg.includes('connexion internet') || msg.includes('offline') || msg.includes('failed to fetch')) {
+        toast({
+          title: "Pas de connexion",
+          description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
+          variant: "destructive",
+        });
+      } else {
+        if (import.meta.env.DEV) console.warn('[ReboisementLogin] Erreur login:', e);
+        // Échec affiché par AppErrorDialog (style Accès refusé)
+      }
+    }
   };
 
   return (

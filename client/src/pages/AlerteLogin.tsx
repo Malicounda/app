@@ -99,6 +99,16 @@ export default function AlerteLogin() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
+      // Vérifier la connexion Internet avant de tenter le login
+      if (!navigator.onLine) {
+        toast({
+          title: "Pas de connexion",
+          description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       localStorage.setItem("domain", "ALERTE");
 
       // ❌ GPS SUPPRIMÉ POUR STABILITÉ APK + BUILD WEB
@@ -108,9 +118,25 @@ export default function AlerteLogin() {
         title: "Connexion réussie",
         description: "Bienvenue dans le module Alerte.",
       });
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-      // géré globalement
-     }
+    } catch (e: any) {
+      // Gérer spécifiquement l'erreur hors-ligne (503 du createOfflineFetch)
+      const msg = String(e?.message || '').toLowerCase();
+      if (msg.includes('connexion internet') || msg.includes('offline') || msg.includes('503') || msg.includes('failed to fetch')) {
+        toast({
+          title: "Pas de connexion",
+          description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
+          variant: "destructive",
+        });
+      } else if (msg.includes('invalide') || msg.includes('incorrect')) {
+        toast({
+          title: "Échec de connexion",
+          description: "Matricule ou code secret incorrect.",
+          variant: "destructive",
+        });
+      } else {
+        if (import.meta.env.DEV) console.warn('[AlerteLogin] Erreur login:', e);
+      }
+    }
   };
 
   if (isAuthenticated) return null;
