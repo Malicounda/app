@@ -593,6 +593,13 @@ function Router() {
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
+        <Route path="/hunter/:tab">
+          <ChasseRoute>
+            <ProtectedRoute allowedRoles={["hunter"]}>
+              <HunterDashboard />
+            </ProtectedRoute>
+          </ChasseRoute>
+        </Route>
         <Route path="/demande-permis-special">
           <ChasseRoute>
             <ProtectedRoute allowedRoles={["hunter"]}>
@@ -615,6 +622,13 @@ function Router() {
           </ChasseRoute>
         </Route>
         <Route path="/guide">
+          <ChasseRoute>
+            <ProtectedRoute allowedRoles={["hunting-guide"]}>
+              <GuideDashboard />
+            </ProtectedRoute>
+          </ChasseRoute>
+        </Route>
+        <Route path="/guide/:tab">
           <ChasseRoute>
             <ProtectedRoute allowedRoles={["hunting-guide"]}>
               <GuideDashboard />

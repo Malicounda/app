@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { MdDescription, MdGroup, MdNotificationImportant, MdReceipt, MdMessage } from 'react-icons/md';
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Bell, MessageSquare, Map, User, LogOut, Home } from "lucide-react";
+import { Bell, MessageSquare, Map, User, LogOut, Home, CreditCard, FolderOpen, Users, ClipboardList, FilePlus2 } from "lucide-react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
@@ -43,10 +43,11 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   const unreadMsg = unreadMsgCount?.total ?? 0;
 
   const isSuperAdmin = (user as any)?.isSuperAdmin === true;
+  const isHunterOrGuide = user?.role === 'hunter' || user?.role === 'hunting-guide';
   const isAlerteAgent = (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE') ||
     ((() => { const d = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase(); return d !== 'CHASSE' && d !== 'REBOISEMENT'; })() &&
       ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
-  const chromeless = isAlerteAgent && !isSuperAdmin;
+  const chromeless = (isAlerteAgent || isHunterOrGuide) && !isSuperAdmin;
 
   const normalizedRole = (user?.role || '')
     .toLowerCase()
@@ -77,7 +78,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     }
 
     // Déconnexion automatique si accès restreint (rôle invalide pour Alerte)
-    if (chromeless && !(user as any)?.isDefaultRole && !(user as any)?.isSupervisorRole && location !== '/profile') {
+    if (chromeless && !(user as any)?.isDefaultRole && !(user as any)?.isSupervisorRole && !isHunterOrGuide && location !== '/profile') {
       console.log('[MainLayout] Rôle non autorisé détecté sur le domaine Alerte, déconnexion...');
       logout();
       return;
@@ -284,7 +285,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         className={chromeless ? `flex flex-1 overflow-hidden ${location === '/sms' ? 'pb-[56px] md:pb-0' : ''}` : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
         style={{ 
           ...(!chromeless ? { height: 'calc(100vh - var(--fixed-top))' } : {}),
-          paddingTop: chromeless && location !== '/sms' ? 'calc(52px + env(safe-area-inset-top, 0px))' : undefined
+          paddingTop: chromeless && (location !== '/sms' || isHunterOrGuide) ? 'calc(52px + env(safe-area-inset-top, 0px))' : undefined
         }}
       >
         {/* Sidebar desktop: FIXED pour une scrollbar toujours visible au-dessus du contenu - MASQUÉ SUR MOBILE */}
@@ -412,7 +413,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
             ) : chromeless ? (
               <div 
                 ref={(el) => { if (el) el.scrollTop = 0; }} 
-                className={`w-full ${location && (location.includes('sms') || location === '/alerts' || location === '/profile') ? 'h-full overflow-hidden' : 'min-h-full'} ${location !== '/sms' && location !== '/alerts' ? 'pb-20' : ''}`}
+                className={`w-full ${location && (location.includes('sms') || location === '/alerts' || (location === '/profile' && !isHunterOrGuide)) ? 'h-full overflow-hidden' : 'min-h-full'} ${location !== '/sms' && location !== '/alerts' ? 'pb-20' : ''}`}
                 style={chromeless && location !== '/sms' && location !== '/alerts' && location !== '/profile' ? { paddingTop: '1.5rem' } : undefined}
               >
                 {showRestrictedAccess ? restrictedContent : children}
@@ -430,7 +431,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       </div>
 
       {/* Navigation mobile unifiée pour agents (chromeless) */}
-      {chromeless && (
+      {chromeless && !isHunterOrGuide && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around py-2 z-[250] md:hidden">
           <button
             onClick={() => setLocation((user as any)?.isSupervisorRole ? "/supervisor" : "/default-home")}
@@ -463,6 +464,88 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
             <User className={`h-5 w-5 ${location === '/profile' ? 'text-green-700' : 'text-gray-500'}`} />
             <span className={`text-[9px] font-medium ${location === '/profile' ? 'text-green-700' : 'text-gray-500'}`}>Profil</span>
           </button>
+        </div>
+      )}
+
+      {/* Navigation mobile unifiée pour Chasseurs et Guides */}
+      {/* Reflète exactement les items de la Navbar latérale originale pour cohérence */}
+      {chromeless && isHunterOrGuide && (
+        <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-2 pb-safe z-[250] md:hidden">
+          {user?.role === 'hunter' ? (
+            <>
+              {/* Chasseur: Accueil | Demande Permis | Messagerie | Profil */}
+              <button 
+                onClick={() => setLocation('/hunter')} 
+                className={`flex flex-col items-center justify-center w-full h-full ${location === '/hunter' || location.startsWith('/hunter/') || location === '/hunting-reports' || location === '/hunting-activities' ? 'text-green-600' : 'text-slate-400'}`}
+              >
+                <Home className="w-5 h-5 mb-1" />
+                <span className="text-[10px] font-bold">Accueil</span>
+              </button>
+              <button 
+                onClick={() => setLocation('/demande-permis-special')} 
+                className={`flex flex-col items-center justify-center w-full h-full ${location === '/demande-permis-special' || location === '/permit-request' ? 'text-green-600' : 'text-slate-400'}`}
+              >
+                <FilePlus2 className="w-5 h-5 mb-1" />
+                <span className="text-[10px] font-bold">Permis</span>
+              </button>
+              <button 
+                onClick={() => setLocation('/sms')} 
+                className={`flex flex-col items-center justify-center w-full h-full relative ${location === '/sms' ? 'text-green-600' : 'text-slate-400'}`}
+              >
+                <div className="relative">
+                  <MessageSquare className="w-5 h-5 mb-1" />
+                  {unreadMsg > 0 && (
+                    <span className="absolute -top-1 -right-2 bg-emerald-500 text-white text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
+                  )}
+                </div>
+                <span className="text-[10px] font-bold">Messagerie</span>
+              </button>
+              <button 
+                onClick={() => setLocation('/profile')} 
+                className={`flex flex-col items-center justify-center w-full h-full ${location === '/profile' ? 'text-green-600' : 'text-slate-400'}`}
+              >
+                <User className="w-5 h-5 mb-1" />
+                <span className="text-[10px] font-bold">Profil</span>
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Guide: Accueil | Messagerie | Alertes | Profil */}
+              <button 
+                onClick={() => setLocation('/guide')} 
+                className={`flex flex-col items-center justify-center w-full h-full ${location === '/guide' || location.startsWith('/guide/') || location.startsWith('/guides/') || location === '/hunting-reports' || location === '/hunting-activities' ? 'text-green-600' : 'text-slate-400'}`}
+              >
+                <Home className="w-5 h-5 mb-1" />
+                <span className="text-[10px] font-bold">Accueil</span>
+              </button>
+              <button 
+                onClick={() => setLocation('/sms')} 
+                className={`flex flex-col items-center justify-center w-full h-full relative ${location === '/sms' ? 'text-green-600' : 'text-slate-400'}`}
+              >
+                <div className="relative">
+                  <MessageSquare className="w-5 h-5 mb-1" />
+                  {unreadMsg > 0 && (
+                    <span className="absolute -top-1 -right-2 bg-emerald-500 text-white text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
+                  )}
+                </div>
+                <span className="text-[10px] font-bold">Messagerie</span>
+              </button>
+              <button 
+                onClick={() => setLocation('/alerts')} 
+                className={`flex flex-col items-center justify-center w-full h-full ${location === '/alerts' ? 'text-green-600' : 'text-slate-400'}`}
+              >
+                <Bell className="w-5 h-5 mb-1" />
+                <span className="text-[10px] font-bold">Alertes</span>
+              </button>
+              <button 
+                onClick={() => setLocation('/profile')} 
+                className={`flex flex-col items-center justify-center w-full h-full ${location === '/profile' ? 'text-green-600' : 'text-slate-400'}`}
+              >
+                <User className="w-5 h-5 mb-1" />
+                <span className="text-[10px] font-bold">Profil</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

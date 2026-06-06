@@ -122,24 +122,34 @@ export default function ProfilePage() {
 
   if (user.role === "hunter") {
     return (
-      <Suspense fallback={
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-green-600"></div>
+      <div className="fixed inset-0 flex flex-col bg-slate-50">
+        <AgentTopHeader />
+        <div className="flex-1 overflow-y-auto overscroll-contain pb-20">
+          <Suspense fallback={
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-green-600"></div>
+            </div>
+          }>
+            <HunterProfilePage />
+          </Suspense>
         </div>
-      }>
-        <HunterProfilePage />
-      </Suspense>
+      </div>
     );
   } else if (user.role === "hunting-guide") {
     // Rediriger vers le profil des guides de chasse
     return (
-      <Suspense fallback={
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-green-600"></div>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-slate-50">
+        <AgentTopHeader />
+        <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain">
+          <Suspense fallback={
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-green-600"></div>
+            </div>
+          }>
+            <GuideProfilePage />
+          </Suspense>
         </div>
-      }>
-        <GuideProfilePage />
-      </Suspense>
+      </div>
     );
   } else {
     // Page de profil pour les administrateurs et les agents

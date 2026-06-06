@@ -1,4 +1,4 @@
-  import MapComponent from '@/components/MapComponent';
+import MapComponent from '@/components/MapComponent';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -118,7 +118,7 @@ export default function HuntingReports() {
   console.log('[HuntingReports] hasActivePermits:', hasActivePermits, 'Total permis:', hunterPermits.length);
 
 
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(typeof window !== 'undefined' && window.location.search.includes('new=true'));
   const [activeTab, setActiveTab] = useState('information');
 
   const [formData, setFormData] = useState({
@@ -181,7 +181,7 @@ export default function HuntingReports() {
         const path = url.startsWith('/') ? url : `/${url}`;
         return `${window.location.origin}${path}`; // URL relative -> absolue
       }
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e); }
     return undefined; // pas d'image
   };
 
@@ -190,7 +190,7 @@ export default function HuntingReports() {
     (async () => {
       try {
         setLoadingSpecies(true);
-        const resp = await apiRequest<{ok: boolean, data: DBSpecies[]}>('GET', '/api/settings/species/huntable');
+        const resp = await apiRequest<{ ok: boolean, data: DBSpecies[] }>('GET', '/api/settings/species/huntable');
         console.log('[HuntingReports] Réponse API espèces chassables:', resp);
 
         if (resp.ok && resp.data) {
@@ -336,7 +336,7 @@ export default function HuntingReports() {
         try {
           const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
           setCapturedDataUrl(dataUrl);
-        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e); }
         // On éteint la caméra après capture pour économiser la batterie
         stopCamera();
       }
@@ -425,9 +425,10 @@ export default function HuntingReports() {
             const res: any = await apiRequest('GET', `/api/permits/hunter/${a.hunterId}`);
             const list = Array.isArray(res) ? res : (res?.data ?? []);
             return [a.hunterId, list] as const;
-          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+          } catch (e) {
+            if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
             return [a.hunterId, []] as const;
-           }
+          }
         })
       );
       return Object.fromEntries(entries);
@@ -950,8 +951,8 @@ export default function HuntingReports() {
   const StatsView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
       <Card className="p-2 sm:p-3"><CardHeader className="pb-1 sm:pb-2 p-2 sm:p-4"><CardTitle className="text-xs sm:text-sm font-medium">Total prélèvements</CardTitle></CardHeader><CardContent className="p-2 sm:p-4 pt-0"><div className="text-lg sm:text-xl md:text-2xl font-bold">{stats.total}</div></CardContent></Card>
-      <Card className="p-2 sm:p-3"><CardHeader className="pb-1 sm:pb-2 p-2 sm:p-4"><CardTitle className="text-xs sm:text-sm font-medium">Espèce la plus chassée</CardTitle></CardHeader><CardContent className="p-2 sm:p-4 pt-0"><div className="text-sm sm:text-base md:text-xl font-bold break-words">{Object.keys(stats.bySpecies).length > 0 ? availableSpecies.find(s => s.id === Object.keys(stats.bySpecies).sort((a,b) => stats.bySpecies[b] - stats.bySpecies[a])[0])?.name : 'Aucune'}</div></CardContent></Card>
-      <Card className="p-2 sm:p-3 sm:col-span-2 md:col-span-1"><CardHeader className="pb-1 sm:pb-2 p-2 sm:p-4"><CardTitle className="text-xs sm:text-sm font-medium">Mois le plus actif</CardTitle></CardHeader><CardContent className="p-2 sm:p-4 pt-0"><div className="text-lg sm:text-xl md:text-2xl font-bold">{Object.keys(stats.byMonth).length > 0 ? Object.keys(stats.byMonth).sort((a,b) => stats.byMonth[b] - stats.byMonth[a])[0] : 'Aucun'}</div></CardContent></Card>
+      <Card className="p-2 sm:p-3"><CardHeader className="pb-1 sm:pb-2 p-2 sm:p-4"><CardTitle className="text-xs sm:text-sm font-medium">Espèce la plus chassée</CardTitle></CardHeader><CardContent className="p-2 sm:p-4 pt-0"><div className="text-sm sm:text-base md:text-xl font-bold break-words">{Object.keys(stats.bySpecies).length > 0 ? availableSpecies.find(s => s.id === Object.keys(stats.bySpecies).sort((a, b) => stats.bySpecies[b] - stats.bySpecies[a])[0])?.name : 'Aucune'}</div></CardContent></Card>
+      <Card className="p-2 sm:p-3 sm:col-span-2 md:col-span-1"><CardHeader className="pb-1 sm:pb-2 p-2 sm:p-4"><CardTitle className="text-xs sm:text-sm font-medium">Mois le plus actif</CardTitle></CardHeader><CardContent className="p-2 sm:p-4 pt-0"><div className="text-lg sm:text-xl md:text-2xl font-bold">{Object.keys(stats.byMonth).length > 0 ? Object.keys(stats.byMonth).sort((a, b) => stats.byMonth[b] - stats.byMonth[a])[0] : 'Aucun'}</div></CardContent></Card>
     </div>
   );
 
@@ -981,9 +982,9 @@ export default function HuntingReports() {
                   </Button>
                 </div>
                 <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-emerald-100 mb-2 font-serif" style={{ textShadow: '2px 2px 4px rgba(1, 124, 57, 0.36)' }}>CARNET DE CHASSE</h1>
-                                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mx-auto mb-3 sm:mb-6 bg-emerald-100 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
-                                  <img src="/images/logo_carnet.jpg" alt="Logo carnet" className="max-w-full h-auto object-contain" />
-                                </div>
+                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mx-auto mb-3 sm:mb-6 bg-emerald-100 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
+                  <img src="/images/logo_carnet.jpg" alt="Logo carnet" className="max-w-full h-auto object-contain" />
+                </div>
                 <div className="text-emerald-200 text-sm sm:text-base md:text-lg font-serif mb-3 sm:mb-6"><p>{isGuide ? 'Guide de Chasse' : 'Chasseur'}: <span className="font-bold text-emerald-100">{user ? `${user.firstName} ${user.lastName}` : 'Non identifié'}</span></p></div>
                 <Button onClick={() => setShowForm(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 sm:py-3 sm:px-8 md:py-4 md:px-10 text-sm sm:text-base md:text-lg rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105">📝 Nouveau prélèvement</Button>
               </div>
@@ -991,89 +992,35 @@ export default function HuntingReports() {
             <div className="bg-emerald-50/70 rounded-lg shadow-xl p-2 sm:p-4 md:p-6 relative overflow-hidden mt-4">
               <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-6 md:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner"><div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1 h-1 sm:w-1.5 sm:h-1.5 md:w-2 md:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div></div>
               <div className="ml-5 sm:ml-8 md:ml-12">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 bg-amber-200/50 text-xs sm:text-sm">
-                    <TabsTrigger value="information" className="px-1 sm:px-3">Information</TabsTrigger>
-                    <TabsTrigger value="list" className="px-1 sm:px-3">Liste</TabsTrigger>
-                    <TabsTrigger value="map" className="px-1 sm:px-3">Carte</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="list" className="space-y-4 sm:space-y-6 md:space-y-8">
-                    <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-2 sm:p-3 md:p-4 shadow-md max-h-96 overflow-y-auto">
-                      <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-amber-900 font-serif mb-2 sm:mb-3 border-b-2 border-amber-300 pb-2">📈 Statistiques</h2>
-                      <div className="scale-75 sm:scale-90 -mt-2 sm:-mt-4 -mb-2 sm:-mb-4">
-                        <StatsView />
+                <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg shadow-md mt-4">
+                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-amber-900 mb-3 sm:mb-4">Informations importantes</h2>
+                  <div className="space-y-3 sm:space-y-4">
+                    <div className="p-2 sm:p-3 md:p-4 bg-amber-50 border-l-4 border-amber-500 rounded">
+                      <h3 className="text-sm sm:text-base font-semibold text-amber-800">Règles de chasse</h3>
+                      <p className="text-xs sm:text-sm text-amber-700 mt-1">
+                        Consultez les réglementations en vigueur dans votre région avant toute activité de chasse.
+                        Les périodes d'ouverture et les quotas sont stricts.
+                      </p>
+                    </div>
+
+                    <div className="p-2 sm:p-3 md:p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+                      <h3 className="text-sm sm:text-base font-semibold text-blue-800">Sécurité</h3>
+                      <ul className="list-disc pl-4 sm:pl-5 text-xs sm:text-sm text-blue-700 space-y-1 mt-1">
+                        <li>Portez un gilet de chasse haute visibilité</li>
+                        <li>Vérifiez toujours votre matériel</li>
+                        <li>Respectez les zones d'exclusion</li>
+                      </ul>
+                    </div>
+
+                    <div className="p-2 sm:p-3 md:p-4 bg-green-50 border-l-4 border-green-500 rounded">
+                      <h3 className="text-sm sm:text-base font-semibold text-green-800">Contacts utiles</h3>
+                      <div className="text-xs sm:text-sm text-green-700 mt-1 space-y-2">
+                        <p className="break-words">Service des Eaux et Forêts : <span className="font-medium">+221 33 831 01 01</span> / BP: 1831 Dakar-Hann</p>
+                        <p className="break-words">Urgences : <span className="font-medium">18</span> (Sapeurs-Pompiers)</p>
                       </div>
                     </div>
-              </TabsContent>
-
-                  <TabsContent value="map">
-                    <div className="bg-amber-50 border-2 border-amber-200 rounded-lg overflow-hidden w-full shadow-md" style={{
-                      height: '400px',
-                      maxHeight: '96vh'
-                    }}>
-                      <MapComponent
-                        regionsGeoJSON={regionsGeoJSON}
-                        departementsGeoJSON={null}
-                        ecoZonesGeoJSON={null}
-                        protectedZonesGeoJSON={null}
-                        regionStatuses={regionStatuses || {}}
-                        showRegions={true}
-                        showZics={false}
-                        showAmodiees={false}
-                        showEcoZones={false}
-                        showProtectedZones={false}
-                        showRegionalAgents={false}
-                        showDepartements={false}
-                        colorizeRegionsByStatus={true}
-                        selectedMarkerType={null}
-                        onMarkerPlaced={() => {}}
-                        onMarkerTypeSelected={() => {}}
-                        alerts={alertsForMap}
-                        minimal={false}
-                        compactControls={true}
-                        hideLegendForHunterGuide={true}
-                        showHuntingReports={true}
-                        huntingReports={[]}
-                        userRole={user?.role || null}
-                        userRegion={(user as any)?.region || null}
-                        userDepartement={(user as any)?.departement || (user as any)?.zone || null}
-                        enableHuntingReportsToggle={!!user && (user.role !== 'hunter')}
-                      />
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="information">
-                    <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg shadow-md">
-                      <h2 className="text-base sm:text-lg md:text-xl font-bold text-amber-900 mb-3 sm:mb-4">Informations importantes</h2>
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="p-2 sm:p-3 md:p-4 bg-amber-50 border-l-4 border-amber-500 rounded">
-                          <h3 className="text-sm sm:text-base font-semibold text-amber-800">Règles de chasse</h3>
-                          <p className="text-xs sm:text-sm text-amber-700 mt-1">
-                            Consultez les réglementations en vigueur dans votre région avant toute activité de chasse.
-                            Les périodes d'ouverture et les quotas sont stricts.
-                          </p>
-                        </div>
-
-                        <div className="p-2 sm:p-3 md:p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
-                          <h3 className="text-sm sm:text-base font-semibold text-blue-800">Sécurité</h3>
-                          <ul className="list-disc pl-4 sm:pl-5 text-xs sm:text-sm text-blue-700 space-y-1 mt-1">
-                            <li>Portez un gilet de chasse haute visibilité</li>
-                            <li>Vérifiez toujours votre matériel</li>
-                            <li>Respectez les zones d'exclusion</li>
-                          </ul>
-                        </div>
-
-                        <div className="p-2 sm:p-3 md:p-4 bg-green-50 border-l-4 border-green-500 rounded">
-                          <h3 className="text-sm sm:text-base font-semibold text-green-800">Contacts utiles</h3>
-                          <div className="text-xs sm:text-sm text-green-700 mt-1 space-y-2">
-                            <p className="break-words">Service des Eaux et Forêts : <span className="font-medium">+221 33 831 01 01</span> / BP: 1831 Dakar-Hann</p>
-                            <p className="break-words">Urgences : <span className="font-medium">18</span> (Sapeurs-Pompiers)</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1153,11 +1100,10 @@ export default function HuntingReports() {
                       </div>
                     ) : (
                       <Tabs value={selectedCategory} onValueChange={(v) => setSelectedCategory(v as any)} className="w-full">
-                        <TabsList className={`grid w-full bg-amber-200/50 text-xs sm:text-sm ${
-                          allowedCategories.length === 1 ? 'grid-cols-1' :
+                        <TabsList className={`grid w-full bg-amber-200/50 text-xs sm:text-sm ${allowedCategories.length === 1 ? 'grid-cols-1' :
                           allowedCategories.length === 2 ? 'grid-cols-2' :
-                          'grid-cols-3'
-                        }`}>
+                            'grid-cols-3'
+                          }`}>
                           {allowedCategories.includes('water') && <TabsTrigger value="water" className="px-1 sm:px-3">Gibier d'eau</TabsTrigger>}
                           {allowedCategories.includes('small') && <TabsTrigger value="small" className="px-1 sm:px-3">Petite chasse</TabsTrigger>}
                           {allowedCategories.includes('large') && <TabsTrigger value="large" className="px-1 sm:px-3">Grande chasse</TabsTrigger>}
@@ -1165,65 +1111,66 @@ export default function HuntingReports() {
                         {['water', 'small', 'large']
                           .filter(cat => allowedCategories.includes(cat as 'water' | 'small' | 'large'))
                           .map(cat => (
-                          <TabsContent key={cat} value={cat}>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-                              {availableSpecies
-                                .filter(s => s.category === cat)
-                                .filter(s => {
-                                  const isChassable = (s as any).chassable !== false;
-                                  if (!isChassable) return false;
-                                  // Afficher toutes les espèces chassables (taxables ou non)
-                                  return true;
-                                })
-                                .map(s => {
-                                const remaining = remainingBySpeciesId[s.id] ?? undefined;
-                                const isChassable = (s as any).chassable !== false;
-                                const isTaxable = (s as any).taxable !== false;
-                                // Désactiver seulement si: non chassable OU (taxable ET taxes épuisées)
-                                const disabled = !isChassable || (isTaxable && paidBySpeciesId[s.id] && remaining !== undefined && remaining <= 0);
-                                return (
-                                <Card key={s.id} className={`cursor-pointer transition-shadow duration-200 flex flex-col items-center text-center p-1.5 sm:p-2 ${disabled ? 'bg-gray-100 border-gray-200 opacity-60' : 'bg-amber-50 border-amber-200 hover:shadow-lg hover:border-amber-400'}`}
-                                  onClick={() => {
-                                    if (disabled) {
-                                      // Message contextuel: non chassable ou taxes épuisées
-                                      if (!isChassable) {
-                                        toast({ title: "Espèce non chassable", description: "Cette espèce n'est pas autorisée à la chasse.", variant: 'destructive' });
-                                      } else if (paidBySpeciesId[s.id] && remaining !== undefined && remaining <= 0) {
-                                        toast({ title: "Taxes épuisées", description: "Le quota de cette espèce pour ce permis est épuisé.", variant: 'destructive' });
-                                      }
-                                      return;
-                                    }
-                                    handleSpeciesSelect(s);
-                                  }}
-                                >
-                                  <img
-                                    src={s.image || '/images/logo_carnet.jpg'}
-                                    alt={s.name}
-                                    loading="lazy"
-                                    decoding="async"
-                                    onError={(e) => {
-                                      const img = e.currentTarget as HTMLImageElement;
-                                      img.onerror = null;
-                                      img.src = '/images/logo_carnet.jpg';
-                                    }}
-                                    className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-cover rounded-md mb-1 sm:mb-2"
-                                  />
-                                  <CardTitle className="text-xs sm:text-sm font-semibold text-amber-900 break-words">{s.name}</CardTitle>
-                                  {paidBySpeciesId[s.id] && remaining !== undefined && (
-                                    <div className={`mt-1 text-[10px] px-2 py-0.5 rounded-full ${remaining > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-700'}`}>
-                                      {`Taxes restantes: ${remaining}`}
-                                    </div>
-                                  )}
+                            <TabsContent key={cat} value={cat}>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+                                {availableSpecies
+                                  .filter(s => s.category === cat)
+                                  .filter(s => {
+                                    const isChassable = (s as any).chassable !== false;
+                                    if (!isChassable) return false;
+                                    // Afficher toutes les espèces chassables (taxables ou non)
+                                    return true;
+                                  })
+                                  .map(s => {
+                                    const remaining = remainingBySpeciesId[s.id] ?? undefined;
+                                    const isChassable = (s as any).chassable !== false;
+                                    const isTaxable = (s as any).taxable !== false;
+                                    // Désactiver seulement si: non chassable OU (taxable ET taxes épuisées)
+                                    const disabled = !isChassable || (isTaxable && paidBySpeciesId[s.id] && remaining !== undefined && remaining <= 0);
+                                    return (
+                                      <Card key={s.id} className={`cursor-pointer transition-shadow duration-200 flex flex-col items-center text-center p-1.5 sm:p-2 ${disabled ? 'bg-gray-100 border-gray-200 opacity-60' : 'bg-amber-50 border-amber-200 hover:shadow-lg hover:border-amber-400'}`}
+                                        onClick={() => {
+                                          if (disabled) {
+                                            // Message contextuel: non chassable ou taxes épuisées
+                                            if (!isChassable) {
+                                              toast({ title: "Espèce non chassable", description: "Cette espèce n'est pas autorisée à la chasse.", variant: 'destructive' });
+                                            } else if (paidBySpeciesId[s.id] && remaining !== undefined && remaining <= 0) {
+                                              toast({ title: "Taxes épuisées", description: "Le quota de cette espèce pour ce permis est épuisé.", variant: 'destructive' });
+                                            }
+                                            return;
+                                          }
+                                          handleSpeciesSelect(s);
+                                        }}
+                                      >
+                                        <img
+                                          src={s.image || '/images/logo_carnet.jpg'}
+                                          alt={s.name}
+                                          loading="lazy"
+                                          decoding="async"
+                                          onError={(e) => {
+                                            const img = e.currentTarget as HTMLImageElement;
+                                            img.onerror = null;
+                                            img.src = '/images/logo_carnet.jpg';
+                                          }}
+                                          className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-cover rounded-md mb-1 sm:mb-2"
+                                        />
+                                        <CardTitle className="text-xs sm:text-sm font-semibold text-amber-900 break-words">{s.name}</CardTitle>
+                                        {paidBySpeciesId[s.id] && remaining !== undefined && (
+                                          <div className={`mt-1 text-[10px] px-2 py-0.5 rounded-full ${remaining > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-700'}`}>
+                                            {`Taxes restantes: ${remaining}`}
+                                          </div>
+                                        )}
+                                      </Card>
+                                    );
+                                  })}
+                                {/* Carte pour ajouter une espèce non présente */}
+                                <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 flex flex-col items-center text-center p-1.5 sm:p-2 bg-white border-dashed border-2 border-amber-300 hover:border-amber-500" onClick={() => { setIsCustomSpecies(true); setSelectedSpecies({ id: 'custom', name: 'Espèce non listée', category: cat as any, emoji: '🦌' }); setDialogGpsCoords(null); setGeolocationStatus('idle'); getDialogGeolocation(); }}>
+                                  <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 flex items-center justify-center rounded-md mb-1 sm:mb-2 bg-amber-50 text-xl sm:text-2xl md:text-3xl">➕</div>
+                                  <CardTitle className="text-xs sm:text-sm font-semibold text-amber-900 break-words">Ajouter une espèce non listée</CardTitle>
                                 </Card>
-                              );})}
-                              {/* Carte pour ajouter une espèce non présente */}
-                              <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 flex flex-col items-center text-center p-1.5 sm:p-2 bg-white border-dashed border-2 border-amber-300 hover:border-amber-500" onClick={() => { setIsCustomSpecies(true); setSelectedSpecies({ id: 'custom', name: 'Espèce non listée', category: cat as any, emoji: '🦌' }); setDialogGpsCoords(null); setGeolocationStatus('idle'); getDialogGeolocation(); }}>
-                                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 flex items-center justify-center rounded-md mb-1 sm:mb-2 bg-amber-50 text-xl sm:text-2xl md:text-3xl">➕</div>
-                                <CardTitle className="text-xs sm:text-sm font-semibold text-amber-900 break-words">Ajouter une espèce non listée</CardTitle>
-                              </Card>
-                            </div>
-                          </TabsContent>
-                        ))}
+                              </div>
+                            </TabsContent>
+                          ))}
                       </Tabs>
                     )}
                   </div>
@@ -1414,7 +1361,7 @@ export default function HuntingReports() {
                   )}
                   <div>
                     <Label className="text-xs sm:text-sm">Sexe de l'animal</Label>
-                    <RadioGroup defaultValue="Mâle" className="flex flex-col sm:flex-row gap-2 sm:gap-4" onValueChange={(v) => setFormData({...formData, sex: v as any})}>
+                    <RadioGroup defaultValue="Mâle" className="flex flex-col sm:flex-row gap-2 sm:gap-4" onValueChange={(v) => setFormData({ ...formData, sex: v as any })}>
                       <div className="flex items-center space-x-2"><RadioGroupItem value="Mâle" id="sex-male" /><Label htmlFor="sex-male" className="text-xs sm:text-sm">Mâle</Label></div>
                       <div className="flex items-center space-x-2"><RadioGroupItem value="Femelle" id="sex-female" /><Label htmlFor="sex-female" className="text-xs sm:text-sm">Femelle</Label></div>
                       <div className="flex items-center space-x-2"><RadioGroupItem value="Inconnu" id="sex-unknown" /><Label htmlFor="sex-unknown" className="text-xs sm:text-sm">Inconnu</Label></div>

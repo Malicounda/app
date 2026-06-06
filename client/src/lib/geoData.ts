@@ -60,20 +60,9 @@ export interface GeoJSONFeatureCollection<P = GeoJSONProperties> {
   };
 }
 
-// Fonction pour charger les données GeoJSON des régions
 export async function loadRegionsGeoJSON(): Promise<GeoJSONFeatureCollection<RegionProperties>> {
-  try {
-    const response = await fetch(REGIONS_GEOJSON_URL);
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status}`);
-    }
-    const data: GeoJSONFeatureCollection<RegionProperties> = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Erreur lors du chargement des données GeoJSON:', error);
-    // Retourner une collection vide en cas d'erreur
-    return { type: 'FeatureCollection', features: [] };
-  }
+  // Le dépôt laye1991/Regions_Departements ayant été supprimé, nous retournons directement une collection vide
+  return { type: 'FeatureCollection', features: [] };
 }
 
 // Fonction pour ajouter les données GeoJSON à la carte Leaflet

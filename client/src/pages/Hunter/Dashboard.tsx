@@ -1,5 +1,8 @@
 import RegisterForm from '@/components/auth/RegisterForm';
 import HunterLayout, { Badge, EmptyState, ErrorState, LoadingState, StatCard } from '@/components/layout/HunterLayout';
+import AgentTopHeader from '@/components/layout/AgentTopHeader';
+import AlerteDomainActionCard from '@/components/alerte/AlerteDomainActionCard';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +11,7 @@ import { apiRequest } from '@/lib/api';
 import { getApiBaseUrl } from '@/utils/environment';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import {
@@ -16,7 +19,15 @@ import {
   Download,
   Eye,
   FileText,
-  ShieldCheck
+  ShieldCheck,
+  Home,
+  CreditCard,
+  FolderOpen,
+  User,
+  Plus,
+  X,
+  Target,
+  BookOpen
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
@@ -280,6 +291,7 @@ const getDocumentViewUrl = (doc: HunterDocument): string => {
 
 export default function HunterDashboard() {
   const { user, logout } = useAuth();
+  const [location, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selectedDocument, setSelectedDocument] = useState<HunterDocument | null>(null);
@@ -289,6 +301,19 @@ export default function HunterDashboard() {
   const [hunterPhotoUrl, setHunterPhotoUrl] = useState<string | null>(null);
   const [showCompletionModal, setShowCompletionModal] = useState<boolean>(false);
   const [completionStatusLoading, setCompletionStatusLoading] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<'home' | 'permits' | 'documents'>('home');
+  const [showFabMenu, setShowFabMenu] = useState(false);
+
+  // Sync activeTab with URL path
+  useEffect(() => {
+    if (location === '/hunter/permits') {
+      setActiveTab('permits');
+    } else if (location === '/hunter/documents') {
+      setActiveTab('documents');
+    } else if (location === '/hunter' || location === '/hunter/home') {
+      setActiveTab('home');
+    }
+  }, [location]);
 
   // Cleanup function for photo URL to prevent memory leaks
   useEffect(() => {
@@ -606,18 +631,126 @@ export default function HunterDashboard() {
 
   if (permitsLoading || documentsLoading || completionStatusLoading) {
     return (
-      <HunterLayout>
-        <LoadingState message="Chargement de votre espace chasseur..." />
-      </HunterLayout>
+      <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
+        <AgentTopHeader />
+        <div className="flex-1 flex items-center justify-center">
+          <LoadingState message="Chargement de votre espace chasseur..." />
+        </div>
+      </div>
     );
   }
 
   return (
-    <HunterLayout
-      title="Mon Espace Chasseur"
-      subtitle="Gérez vos permis et documents en un coup d'œil"
-      showToolbar={false}
-    >
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
+      <AgentTopHeader />
+      
+      <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 pb-24 pt-4">
+        
+        {activeTab === 'home' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            {/* Logo and Title */}
+            <div className="flex flex-col items-center gap-3 pb-2 pt-2">
+              <img
+                src="/assets/logoprojets/Sans fond_Scodi/android-chrome-512x512.png"
+                alt="ScoDi"
+                className="h-16 object-contain"
+              />
+              <p className="max-w-xs text-center text-[11px] font-bold leading-tight text-gray-700">
+                Système de Contrôle et de Digitalisation
+              </p>
+            </div>
+
+            {/* Action Cards Grid */}
+            <div className="relative z-10 mx-auto w-full max-w-md pt-2">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {/* Demande de permis */}
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setLocation('/demande-permis-special')}
+                  className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-green-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-emerald-500/10 hover:border-emerald-200 active:bg-emerald-100"
+                >
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/25 group-hover:shadow-emerald-500/40 transition-shadow">
+                    <ShieldCheck className="h-6 w-6 text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <span className="block text-xs font-bold text-slate-800 leading-tight">Demande</span>
+                    <span className="block text-[10px] font-medium text-slate-500 mt-0.5">de permis</span>
+                  </div>
+                </motion.button>
+
+                {/* Nouveau prélèvement */}
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setLocation('/hunting-reports')}
+                  className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-amber-500/10 hover:border-amber-200 active:bg-amber-100"
+                >
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25 group-hover:shadow-amber-500/40 transition-shadow">
+                    <Target className="h-6 w-6 text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <span className="block text-xs font-bold text-slate-800 leading-tight">Prélèvement</span>
+                    <span className="block text-[10px] font-medium text-slate-500 mt-0.5">nouveau rapport</span>
+                  </div>
+                </motion.button>
+
+                {/* Mes permis */}
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => { setActiveTab('permits'); setLocation('/hunter/permits'); }}
+                  className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-blue-500/10 hover:border-blue-200 active:bg-blue-100"
+                >
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:shadow-blue-500/40 transition-shadow">
+                    <CreditCard className="h-6 w-6 text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <span className="block text-xs font-bold text-slate-800 leading-tight">Mes permis</span>
+                    <span className="block text-[10px] font-medium text-slate-500 mt-0.5">{activePermits.length} actif{activePermits.length !== 1 ? 's' : ''}</span>
+                  </div>
+                </motion.button>
+
+                {/* Mes documents */}
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => { setActiveTab('documents'); setLocation('/hunter/documents'); }}
+                  className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 to-purple-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-200 active:bg-violet-100"
+                >
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25 group-hover:shadow-violet-500/40 transition-shadow">
+                    <BookOpen className="h-6 w-6 text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <span className="block text-xs font-bold text-slate-800 leading-tight">Documents</span>
+                    <span className="block text-[10px] font-medium text-slate-500 mt-0.5">pièces jointes</span>
+                  </div>
+                </motion.button>
+              </div>
+            </div>
+
+
+
+            {/* Aperçu des permis imminents/actifs (Optionnel, on met une liste courte) */}
+            {activePermits.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-bold text-slate-800 mb-2">Permis récents</h3>
+                <div className="grid grid-cols-1 gap-3">
+                  {activePermits.slice(0, 2).map((permit: HunterPermit) => (
+                    <PermitCard key={permit.id} item={permit} onViewDetails={handleViewPermitDetails} user={user} />
+                  ))}
+                </div>
+                {activePermits.length > 2 && (
+                  <Button variant="ghost" className="w-full mt-2 text-green-700" onClick={() => setLocation('/hunter/permits')}>
+                    Voir tous les permis
+                  </Button>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'permits' && (
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-green-600" /> Mes Permis
+            </h2>
       {/* Contenu principal du compte chasseur (sans wrapper fixe) */}
       {/* Blocage: forcer la complétion de l'étape 2 si nécessaire */}
       {showCompletionModal && (
@@ -676,17 +809,9 @@ export default function HunterDashboard() {
       )}
 
 
-      {/* Cartes de stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatCard icon={ShieldCheck} label="Permis actifs" value={activePermits.length} />
-        <StatCard icon={FileText} label="Documents" value={documentsArr.length} />
-      </div>
 
-      {/* Mes Permis */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Mes Permis</h2>
-        </div>
+
+
 
         {permitsError ? (
           <ErrorState
@@ -755,13 +880,14 @@ export default function HunterDashboard() {
             ))}
           </div>
         )}
-      </section>
+          </motion.div>
+        )}
 
-      {/* Mes Documents */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Mes Documents</h2>
-        </div>
+        {activeTab === 'documents' && (
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-green-600" /> Mes Documents
+            </h2>
 
         {documentsError ? (
           <ErrorState
@@ -781,7 +907,8 @@ export default function HunterDashboard() {
             ))}
           </div>
         )}
-      </section>
+          </motion.div>
+        )}
 
       {/* Modal de visualisation des documents */}
       <Dialog open={!!selectedDocument} onOpenChange={() => setSelectedDocument(null)}>
@@ -841,17 +968,22 @@ export default function HunterDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de détails du permis */}
+      {/* Modal de détails du permis - Modifié en Bottom Sheet style (plein écran ou drawer) */}
       <Dialog open={!!selectedPermit} onOpenChange={() => setSelectedPermit(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-          <DialogHeader className="flex flex-row items-center justify-between">
-            <DialogTitle>Détails du Permis</DialogTitle>
-            <DialogDescription>
-              Consultez les informations détaillées du permis de chasse
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-full m-0 p-0 h-[95vh] rounded-t-2xl sm:rounded-2xl sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col fixed bottom-0 left-0 right-0 sm:relative translate-y-0 data-[state=closed]:translate-y-full transition-transform duration-300">
+          <div className="bg-slate-50 flex-1 overflow-y-auto no-scrollbar">
+            <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">Quitus du Permis</h2>
+                <p className="text-xs text-slate-500">Détails officiels</p>
+              </div>
+              <button onClick={() => setSelectedPermit(null)} className="p-2 rounded-full bg-slate-100 hover:bg-slate-200">
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
           {selectedPermit && (
-            <div className="mt-4">
+            <div className="p-4 pb-24">
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Colonne gauche - Informations principales */}
@@ -1079,8 +1211,34 @@ export default function HunterDashboard() {
               </div>
             </div>
           )}
+          </div>
         </DialogContent>
       </Dialog>
-    </HunterLayout>
+      
+      {/* Footer Blasons only visible on home */}
+      {activeTab === 'home' && (
+        <div className="mt-6 flex items-center justify-center gap-6 pb-6 pt-4 border-t border-slate-200">
+          <img src="/icon-blason.svg" alt="Blason" className="h-16 object-contain opacity-70" />
+          <img
+            src="/logo_forets.png"
+            alt="Eaux et Forets"
+            className="h-16 object-contain mix-blend-multiply opacity-70"
+          />
+        </div>
+      )}
+
+      </div>
+
+      {/* FAB Button - Direct to new declaration */}
+      <motion.button 
+        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        className="fixed bottom-20 right-4 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white active:scale-95 transition-colors z-[80] bg-green-600 shadow-green-600/30"
+        onClick={() => setLocation('/hunting-reports?new=true')}
+        aria-label="Nouvelle déclaration"
+      >
+        <Plus className="w-6 h-6" strokeWidth={2.5} />
+      </motion.button>
+
+    </div>
   );
 }

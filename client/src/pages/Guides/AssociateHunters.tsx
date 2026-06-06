@@ -30,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { BadgeCheck, Eye, FileText, Loader2, User as UserIcon, XCircle } from "lucide-react";
+import { BadgeCheck, Eye, FileText, Loader2, User as UserIcon, XCircle, Plus, Users } from "lucide-react";
 
 // Types pour les données
 interface Hunter {
@@ -133,7 +133,7 @@ export default function AssociateHuntersPage() {
 
   if (!isHuntingGuide) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto px-4 pt-24 pb-20">
         <Card>
           <CardHeader>
             <CardTitle>Accès non autorisé</CardTitle>
@@ -151,28 +151,44 @@ export default function AssociateHuntersPage() {
 
   if (isLoadingGuide || isLoadingAssociations) {
     return (
-      <div className="container mx-auto py-8 flex justify-center">
+      <div className="container mx-auto pt-24 pb-20 flex justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+    <div className="container mx-auto px-2 sm:px-4 pt-24 pb-20 sm:pt-28 sm:pb-24">
       <Card>
         <CardHeader className="p-3 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <CardTitle className="text-lg sm:text-xl md:text-2xl">Gestion des Chasseurs Associés</CardTitle>
-            {guideInfo?.id ? (
-              <AssociateHunters
-                guideId={String(guideInfo.id)}
-                onAssociationComplete={() => {
-                  queryClient.invalidateQueries({ queryKey: ["/api/guides", guideInfo?.id, "hunters"] });
-                }}
-              />
-            ) : (
-              <Button disabled>Chargement du guide…</Button>
-            )}
+            <div className="flex items-center gap-3 mt-2 sm:mt-0">
+              {/* Badge texte inactif (Ancien bouton) */}
+              <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-2 rounded-md text-sm font-medium shadow-sm cursor-default">
+                <Users className="h-4 w-4 text-emerald-600" />
+                Associer des chasseurs
+              </div>
+              
+              {/* Nouveau bouton Plus actif */}
+              {guideInfo?.id ? (
+                <AssociateHunters
+                  guideId={String(guideInfo.id)}
+                  onAssociationComplete={() => {
+                    queryClient.invalidateQueries({ queryKey: ["/api/guides", guideInfo?.id, "hunters"] });
+                  }}
+                  trigger={
+                    <Button size="icon" className="h-10 w-10 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-md transition-transform hover:scale-105">
+                      <Plus className="h-5 w-5 text-white" />
+                    </Button>
+                  }
+                />
+              ) : (
+                <Button size="icon" disabled className="h-10 w-10 rounded-full bg-slate-200">
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                </Button>
+              )}
+            </div>
           </div>
           <CardDescription className="text-xs sm:text-sm">
             En tant que guide de chasse, vous pouvez associer des chasseurs à votre compte pour faciliter le suivi de leurs activités.

@@ -48,7 +48,7 @@ export default function AgentTopHeader() {
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
 
   const isChromelessHome =
-    location === "/supervisor" || location === "/default-home";
+    location === "/supervisor" || location === "/default-home" || location === "/profile" || location.startsWith("/hunter") || location.startsWith("/guide");
 
   /** Accueil plein écran (fixed) : décalage sous barre République. Profil : le parent MainLayout compense déjà — pas de double marge. */
   const headerPaddingTop = isChromelessHome
@@ -73,7 +73,14 @@ export default function AgentTopHeader() {
               <h1 className="text-lg font-bold truncate">
                 {user?.firstName || ""} {user?.lastName || ""}
               </h1>
-              <p className="text-xs text-emerald-200 break-words mt-1 font-semibold">{roleUpper((user as any)?.roleMetierLabel) || "AGENT"}</p>
+              <p className="text-xs text-emerald-200 break-words mt-1 font-semibold">
+                {user?.role === 'hunter' 
+                  ? 'CHASSEUR' 
+                  : user?.role === 'hunting-guide' 
+                    ? 'GUIDE DE CHASSE' 
+                    : (roleUpper((user as any)?.roleMetierLabel) || "AGENT")
+                }
+              </p>
               {localisation && (
                 <p className="text-[10px] text-emerald-300 mt-1">{localisation}</p>
               )}
@@ -83,7 +90,7 @@ export default function AgentTopHeader() {
           {isAlerteDomain && (
             <>
               {/* Desktop : onglets inline dans le header — Masqué sur la page profil */}
-              {location !== '/profile' && location !== '/default-home' && (
+              {location !== '/profile' && !isChromelessHome && (
                 <div className="hidden md:flex items-center gap-3 mr-4">
                   <button
                     onClick={() => setLocation("/alerts")}
@@ -124,10 +131,14 @@ export default function AgentTopHeader() {
                   </button>
                 )
               ) : (
-                location !== '/supervisor' && location !== '/default-home' && (
+                !isChromelessHome && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 border border-white/20 shadow-sm backdrop-blur shrink-0">
                     <button
-                      onClick={() => setLocation((user as any)?.isSupervisorRole ? "/supervisor" : "/default-home")}
+                      onClick={() => {
+                        if (user?.role === 'hunter') setLocation('/hunter');
+                        else if (user?.role === 'hunting-guide') setLocation('/guide');
+                        else setLocation((user as any)?.isSupervisorRole ? "/supervisor" : "/default-home");
+                      }}
                       className="flex items-center gap-1.5 text-xs text-emerald-100 hover:text-white font-medium transition-colors"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -135,7 +146,7 @@ export default function AgentTopHeader() {
                       </svg>
                       <span className="uppercase tracking-wider font-bold hidden sm:block">Accueil</span>
                     </button>
-                    {location !== '/supervisor' && location !== '/default-home' && (
+                    {!isChromelessHome && (
                       <>
                         <span className="text-emerald-500 opacity-60">/</span>
                         <span className="text-xs text-white font-bold uppercase tracking-wider hidden sm:block">
@@ -154,7 +165,7 @@ export default function AgentTopHeader() {
       </div>
 
       {/* Cartes statistiques — Mobile uniquement — Masqué sur la page profil et sur default-home */}
-      {isAlerteDomain && location !== '/profile' && location !== '/default-home' && location !== '/supervisor' && (
+      {isAlerteDomain && location !== '/profile' && !isChromelessHome && (
         <div className="mx-auto w-full max-w-md px-4 md:hidden">
           <div className="relative z-10 grid grid-cols-2 gap-3 pb-1 pt-3">
             <AlerteDomainActionCard

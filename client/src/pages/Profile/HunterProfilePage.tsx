@@ -291,15 +291,7 @@ export default function HunterProfilePage() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-8 pt-6 max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">
-          Mon Profil
-        </h2>
-      </div>
-
-      <div className="border-b border-gray-200"></div>
-
+    <div className="space-y-4 p-4 md:p-8 pt-2 max-w-6xl mx-auto">
       <div className="space-y-6">
 
         <div className="space-y-4">

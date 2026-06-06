@@ -48,11 +48,17 @@ interface Hunter {
 interface AssociateHuntersProps {
     guideId: string;
     onAssociationComplete?: () => void;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    trigger?: React.ReactNode;
 }
 
-export default function AssociateHunters({ guideId, onAssociationComplete }: AssociateHuntersProps) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('manual');
+export default function AssociateHunters({ guideId, onAssociationComplete, open, onOpenChange, trigger }: AssociateHuntersProps) {
+    const [internalIsOpen, setInternalIsOpen] = useState(false);
+    const isOpen = open !== undefined ? open : internalIsOpen;
+    const setIsOpen = onOpenChange || setInternalIsOpen;
+    
+    const [activeTab, setActiveTab] = useState('qr');
     const [showErrorDialog, setShowErrorDialog] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [errorTitle, setErrorTitle] = useState('');
@@ -389,59 +395,73 @@ export default function AssociateHunters({ guideId, onAssociationComplete }: Ass
     return (
         <>
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogTrigger asChild>
-                    <Button size="sm" className="bg-black hover:bg-gray-800 text-white" disabled={!guideId}>
-                        <Users className="h-4 w-4 mr-2" />
-                        Associer des chasseurs
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Users className="h-5 w-5" />
-                            Associer des Chasseurs
-                        </DialogTitle>
-                        <DialogDescription>
-                            Recherchez un chasseur par numéro de pièce, numéro de permis ou scannez son QR code pour l'associer.
-                        </DialogDescription>
-                    </DialogHeader>
+                {trigger ? (
+                    <DialogTrigger asChild>
+                        {trigger}
+                    </DialogTrigger>
+                ) : (
+                    <DialogTrigger asChild>
+                        <Button size="sm" className="bg-black hover:bg-gray-800 text-white" disabled={!guideId}>
+                            <Users className="h-4 w-4 mr-2" />
+                            Associer des chasseurs
+                        </Button>
+                    </DialogTrigger>
+                )}
+                <DialogContent className="max-w-md w-[95vw] rounded-2xl p-0 overflow-hidden bg-white shadow-2xl border-2 border-emerald-500/80 ring-4 ring-emerald-500/20">
+                    <div className="bg-emerald-50/50 px-6 py-5 border-b border-emerald-100/50">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                                <UserPlus className="h-5 w-5 text-emerald-600" />
+                                Associer des Chasseurs
+                            </DialogTitle>
+                            <DialogDescription className="text-slate-500 text-sm mt-1.5">
+                                Recherchez un chasseur par numéro de pièce, numéro de permis ou scannez son QR code pour l'associer.
+                            </DialogDescription>
+                        </DialogHeader>
+                    </div>
 
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="manual" className="flex items-center gap-2">
-                                <Search className="h-4 w-4" />
-                                Recherche manuelle
-                            </TabsTrigger>
-                            <TabsTrigger value="qr" className="flex items-center gap-2">
-                                <QrCode className="h-4 w-4" />
-                                Scan QR Code
-                            </TabsTrigger>
-                        </TabsList>
+                    <div className="p-6 pt-4">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 mb-6 bg-slate-100/80 p-1 rounded-xl">
+                                <TabsTrigger value="qr" className="flex items-center justify-center gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-emerald-700 transition-all">
+                                    <QrCode className="h-4 w-4" />
+                                    Scan QR Code
+                                </TabsTrigger>
+                                <TabsTrigger value="manual" className="flex items-center justify-center gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-emerald-700 transition-all">
+                                    <Search className="h-4 w-4" />
+                                    Recherche manuelle
+                                </TabsTrigger>
+                            </TabsList>
 
-                        <TabsContent value="manual" className="space-y-4">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Rechercher par numéro de pièce ou permis</CardTitle>
-                                    <CardDescription>
+                            <TabsContent value="manual" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
+                                <div className="space-y-1.5">
+                                    <h3 className="font-semibold text-slate-800">Rechercher par numéro de pièce ou permis</h3>
+                                    <p className="text-sm text-slate-500">
                                         Saisissez le numéro de pièce d'identité ou le numéro de permis du chasseur que vous souhaitez associer
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <Label htmlFor="search">Numéro de pièce ou permis</Label>
-                                            <Input
-                                                id="search"
-                                                placeholder="Ex: 1234567890123 ou PER-2024-001234"
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                onKeyPress={(e) => e.key === 'Enter' && searchHunters()}
-                                            />
-                                        </div>
-                                        <div className="flex items-end">
+                                    </p>
+                                </div>
+                                
+                                <div className="space-y-4 pt-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="search" className="text-xs font-medium text-slate-600 uppercase tracking-wider">Numéro de pièce ou permis</Label>
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1">
+                                                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                                    <CreditCard className="h-4 w-4 text-slate-400" />
+                                                </div>
+                                                <Input
+                                                    id="search"
+                                                    placeholder="Ex: 1234567890123 ou PER-2024-001234"
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    onKeyPress={(e) => e.key === 'Enter' && searchHunters()}
+                                                    className="pl-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
+                                                />
+                                            </div>
                                             <Button 
                                                 onClick={searchHunters}
                                                 disabled={isSearching}
+                                                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors px-4"
                                             >
                                                 {isSearching ? (
                                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -454,80 +474,80 @@ export default function AssociateHunters({ guideId, onAssociationComplete }: Ass
 
                                     {/* Résultats de recherche */}
                                     {searchResults.length > 0 && (
-                                        <div className="space-y-2">
-                                            <h4 className="font-medium">Résultats de recherche:</h4>
-                                            {searchResults.map((hunter) => (
-                                                <Card key={hunter.id} className="p-4">
-                                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-3 pt-4 border-t border-slate-100">
+                                            <h4 className="font-medium text-slate-800 text-sm flex items-center gap-2">
+                                                <Users className="h-4 w-4 text-emerald-600" />
+                                                Résultats ({searchResults.length})
+                                            </h4>
+                                            <div className="max-h-[40vh] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                                                {searchResults.map((hunter) => (
+                                                    <div key={hunter.id} className="p-3.5 bg-white border border-slate-200 rounded-xl hover:border-emerald-200 hover:shadow-md transition-all group flex flex-col gap-3">
                                                         <div className="flex items-center gap-3">
-                                                            <Avatar>
+                                                            <Avatar className="h-10 w-10 ring-2 ring-emerald-50">
                                                                 <AvatarImage src={hunter.photo} />
-                                                                <AvatarFallback>
+                                                                <AvatarFallback className="bg-emerald-100 text-emerald-700 font-bold">
                                                                     {hunter.firstName.charAt(0)}{hunter.lastName.charAt(0)}
                                                                 </AvatarFallback>
                                                             </Avatar>
-                                                            <div>
-                                                                <h5 className="font-medium">
+                                                            <div className="flex-1 min-w-0">
+                                                                <h5 className="font-semibold text-slate-800 truncate">
                                                                     {hunter.firstName} {hunter.lastName}
                                                                 </h5>
-                                                                <div className="flex items-center gap-4 text-sm text-gray-500">
-                                                                    <span className="flex items-center gap-1">
-                                                                        <Badge variant="outline">{hunter.idNumber}</Badge>
-                                                                    </span>
-                                                                    {hunter.permitNumber && (
-                                                                        <span className="flex items-center gap-1">
-                                                                            <CreditCard className="h-3 w-3" />
-                                                                            {hunter.permitNumber}
-                                                                        </span>
-                                                                    )}
-                                                                    {hunter.permitCategory && (
-                                                                        <span className="flex items-center gap-1">
-                                                                            <Tag className="h-3 w-3" />
-                                                                            {hunter.permitCategory}
-                                                                        </span>
-                                                                    )}
+                                                                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                                                                    <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-medium px-1.5 py-0">
+                                                                        {hunter.idNumber}
+                                                                    </Badge>
                                                                     {hunter.nationality && (
-                                                                        <span className="flex items-center gap-1">
-                                                                            <Globe className="h-3 w-3" />
-                                                                            {hunter.nationality}
-                                                                        </span>
+                                                                        <span className="truncate">{hunter.nationality}</span>
                                                                     )}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <Button 
-                                                            size="sm"
-                                                            onClick={() => handleAssociate(hunter)}
-                                                        >
-                                                            Sélectionner
-                                                        </Button>
+                                                        <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                                                            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                                                {hunter.permitNumber ? (
+                                                                    <>
+                                                                        <CreditCard className="h-3.5 w-3.5 text-emerald-500" />
+                                                                        <span className="font-medium">{hunter.permitNumber}</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="italic">Aucun permis</span>
+                                                                )}
+                                                            </div>
+                                                            <Button 
+                                                                size="sm"
+                                                                onClick={() => handleAssociate(hunter)}
+                                                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm h-8 rounded-lg"
+                                                            >
+                                                                <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                                                                Sélectionner
+                                                            </Button>
+                                                        </div>
                                                     </div>
-                                                </Card>
-                                            ))}
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
+                                </div>
+                            </TabsContent>
 
 
-                        <TabsContent value="qr" className="space-y-4">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Scanner un QR Code</CardTitle>
-                                    <CardDescription>
-                                        Utilisez la caméra pour scanner le QR code du chasseur
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="relative w-full mx-auto overflow-hidden rounded-lg">
+                            <TabsContent value="qr" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
+                                <div className="space-y-1.5">
+                                    <h3 className="font-semibold text-slate-800">Scanner un QR Code</h3>
+                                    <p className="text-sm text-slate-500">
+                                        Utilisez la caméra de votre appareil pour scanner rapidement le QR code du chasseur
+                                    </p>
+                                </div>
+                                <div className="space-y-4 pt-2">
+                                    <div className="relative w-full mx-auto overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                                         <video
                                             ref={videoRef}
-                                            className="w-full h-auto bg-black rounded-lg"
+                                            className="w-full h-auto bg-black"
                                             style={{ 
                                                 display: isScanning ? 'block' : 'none',
-                                                minHeight: '300px',
-                                                maxHeight: '500px',
+                                                minHeight: '250px',
+                                                maxHeight: '400px',
                                                 objectFit: 'cover'
                                             }}
                                             playsInline
@@ -535,114 +555,93 @@ export default function AssociateHunters({ guideId, onAssociationComplete }: Ass
                                         />
                                         {isScanning && (
                                             <div className="absolute inset-0 pointer-events-none">
-                                                <div className="absolute top-4 left-4 w-12 h-12 border-l-4 border-t-4 border-yellow-400 rounded-tl-lg"></div>
-                                                <div className="absolute top-4 right-4 w-12 h-12 border-r-4 border-t-4 border-yellow-400 rounded-tr-lg"></div>
-                                                <div className="absolute bottom-4 left-4 w-12 h-12 border-l-4 border-b-4 border-yellow-400 rounded-bl-lg"></div>
-                                                <div className="absolute bottom-4 right-4 w-12 h-12 border-r-4 border-b-4 border-yellow-400 rounded-br-lg"></div>
+                                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 border-2 border-emerald-400/50 rounded-lg">
+                                                    <div className="absolute top-0 left-0 w-8 h-8 border-l-4 border-t-4 border-emerald-400 rounded-tl-lg -ml-1 -mt-1"></div>
+                                                    <div className="absolute top-0 right-0 w-8 h-8 border-r-4 border-t-4 border-emerald-400 rounded-tr-lg -mr-1 -mt-1"></div>
+                                                    <div className="absolute bottom-0 left-0 w-8 h-8 border-l-4 border-b-4 border-emerald-400 rounded-bl-lg -ml-1 -mb-1"></div>
+                                                    <div className="absolute bottom-0 right-0 w-8 h-8 border-r-4 border-b-4 border-emerald-400 rounded-br-lg -mr-1 -mb-1"></div>
+                                                </div>
                                             </div>
                                         )}
                                         {!isScanning && (
-                                            <div className="w-full aspect-video border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-4">
-                                                <QrCode className="h-16 w-16 text-gray-400" />
-                                                <p className="text-sm text-muted-foreground text-center">
-                                                    Positionnez le QR code dans le cadre
+                                            <div className="w-full aspect-video flex flex-col items-center justify-center gap-4 p-8">
+                                                <div className="h-16 w-16 rounded-full bg-slate-200/50 flex items-center justify-center">
+                                                    <QrCode className="h-8 w-8 text-slate-400" />
+                                                </div>
+                                                <p className="text-sm text-slate-500 text-center max-w-[200px]">
+                                                    Positionnez le QR code dans le cadre une fois la caméra activée
                                                 </p>
                                             </div>
                                         )}
                                     </div>
                                     
-                                    <div className="flex flex-col gap-2">
-                                        <div className="flex gap-2 justify-center">
-                                            {!isScanning ? (
-                                                <Button onClick={startCamera} className="bg-black hover:bg-gray-800 text-white">
-                                                    <Camera className="h-4 w-4 mr-2" />
-                                                    Démarrer la caméra
-                                                </Button>
-                                            ) : (
-                                                <Button onClick={stopCamera} variant="outline">
-                                                    Arrêter
-                                                </Button>
-                                            )}
-                                        </div>
-                                        
+                                    <div className="flex justify-center pt-2">
+                                        {!isScanning ? (
+                                            <Button onClick={startCamera} className="bg-slate-800 hover:bg-slate-900 text-white rounded-full px-6 shadow-md transition-transform active:scale-95">
+                                                <Camera className="h-4 w-4 mr-2" />
+                                                Activer la caméra
+                                            </Button>
+                                        ) : (
+                                            <Button onClick={stopCamera} variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-full px-6 transition-colors">
+                                                Arrêter le scan
+                                            </Button>
+                                        )}
                                     </div>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-                    </Tabs>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
 
                     {/* Confirmation d'association */}
                     {selectedHunter && (
-                        <Card className="border-green-200 bg-green-50">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2 text-green-800">
-                                    <CheckCircle className="h-5 w-5" />
-                                    Confirmer l'association
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center gap-4 mb-4">
-                                    <Avatar className="h-12 w-12">
-                                        <AvatarImage src={selectedHunter.photo} />
-                                        <AvatarFallback>
-                                            {selectedHunter.firstName.charAt(0)}{selectedHunter.lastName.charAt(0)}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <h4 className="font-medium">
-                                            {selectedHunter.firstName} {selectedHunter.lastName}
-                                        </h4>
-                                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                                            <Badge variant="outline">{selectedHunter.idNumber}</Badge>
-                                            {selectedHunter.permitNumber && (
-                                                <span className="flex items-center gap-1">
-                                                    <CreditCard className="h-3 w-3" />
-                                                    {selectedHunter.permitNumber}
-                                                </span>
-                                            )}
-                                            {selectedHunter.permitCategory && (
-                                                <span className="flex items-center gap-1">
-                                                    <Tag className="h-3 w-3" />
-                                                    {selectedHunter.permitCategory}
-                                                </span>
-                                            )}
-                                            {selectedHunter.nationality && (
-                                                <span className="flex items-center gap-1">
-                                                    <Globe className="h-3 w-3" />
-                                                    {selectedHunter.nationality}
-                                                </span>
-                                            )}
+                        <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-in fade-in duration-200">
+                            <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-emerald-100 overflow-hidden animate-in slide-in-from-bottom-8 duration-300">
+                                <div className="bg-emerald-50 px-5 py-4 border-b border-emerald-100 flex items-center gap-2">
+                                    <CheckCircle className="h-5 w-5 text-emerald-600" />
+                                    <h3 className="font-bold text-emerald-800">Confirmer l'association</h3>
+                                </div>
+                                <div className="p-5">
+                                    <div className="flex items-center gap-4 mb-6 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                        <Avatar className="h-14 w-14 ring-2 ring-white shadow-sm">
+                                            <AvatarImage src={selectedHunter.photo} />
+                                            <AvatarFallback className="bg-emerald-100 text-emerald-700 text-lg font-bold">
+                                                {selectedHunter.firstName.charAt(0)}{selectedHunter.lastName.charAt(0)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-semibold text-slate-800 text-lg truncate">
+                                                {selectedHunter.firstName} {selectedHunter.lastName}
+                                            </h4>
+                                            <p className="text-sm text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+                                                <CreditCard className="h-3.5 w-3.5" />
+                                                {selectedHunter.idNumber}
+                                            </p>
                                         </div>
                                     </div>
+                                    <div className="flex gap-3">
+                                        <Button 
+                                            variant="outline" 
+                                            onClick={() => setSelectedHunter(null)}
+                                            className="flex-1 rounded-xl h-11 border-slate-200 text-slate-600 hover:bg-slate-50"
+                                        >
+                                            Annuler
+                                        </Button>
+                                        <Button 
+                                            onClick={confirmAssociation}
+                                            disabled={associateMutation.isPending}
+                                            className="flex-1 rounded-xl h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20"
+                                        >
+                                            {associateMutation.isPending ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                "Confirmer"
+                                            )}
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button 
-                                        variant="outline" 
-                                        onClick={() => setSelectedHunter(null)}
-                                    >
-                                        <XCircle className="h-4 w-4 mr-2" />
-                                        Annuler
-                                    </Button>
-                                    <Button 
-                                        onClick={confirmAssociation}
-                                        disabled={associateMutation.isPending}
-                                    >
-                                        {associateMutation.isPending ? (
-                                            <>
-                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                Association...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <CheckCircle className="h-4 w-4 mr-2" />
-                                                Confirmer l'association
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     )}
+                    </div>
                 </DialogContent>
             </Dialog>
 
