@@ -10,7 +10,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { InternalMessageRecord } from "@/hooks/useInternalMessaging";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2, Check, CheckCheck, Clock, ArrowLeft, RefreshCw, Square, CheckSquare } from "lucide-react";
+import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2, Check, CheckCheck, Clock, ArrowLeft, RefreshCw, Square, CheckSquare, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { repairAttachmentFileName } from "@/lib/attachmentMime";
@@ -144,6 +144,13 @@ export default function InternalMessageList({
   const [selectedMessage, setSelectedMessage] = useState<InternalMessageRecord | null>(null);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setHasLoadedOnce(true);
+    }
+  }, [loading]);
 
   const filteredMessages = useMemo(() => {
     if (context !== 'inbox') return safeMessages;
@@ -590,8 +597,13 @@ export default function InternalMessageList({
         );
       })()}
       <div className="flex-1 overflow-auto rounded-md bg-gray-50 w-full p-3 relative">
-        {loading && filteredMessages.length === 0 ? (
-          <p className="text-sm text-gray-500">Chargement…</p>
+        {loading && !hasLoadedOnce && filteredMessages.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-sm text-gray-500 flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Chargement…
+            </p>
+          </div>
         ) : filteredMessages.length ? (
           <div className="w-full space-y-3">
             {paginatedMessages.map((message, index) => {
