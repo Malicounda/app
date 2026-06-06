@@ -27,7 +27,9 @@ import {
   Plus,
   X,
   Target,
-  BookOpen
+  BookOpen,
+  Users,
+  ChevronRight
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
@@ -721,6 +723,24 @@ export default function HunterDashboard() {
                     <span className="block text-xs font-bold text-slate-800 leading-tight">Documents</span>
                     <span className="block text-[10px] font-medium text-slate-500 mt-0.5">pièces jointes</span>
                   </div>
+                </motion.button>
+
+                {/* Déclarations du Guide */}
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setLocation('/hunting-declarations')}
+                  className="col-span-2 group relative flex items-center justify-between gap-3.5 rounded-2xl border border-teal-100 bg-gradient-to-r from-teal-50 to-emerald-50 p-4 text-left transition-all duration-200 hover:shadow-md hover:shadow-teal-500/10 hover:border-teal-200 active:bg-teal-100"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/25 group-hover:shadow-teal-500/40 transition-shadow flex-shrink-0">
+                      <Users className="h-6 w-6 text-white" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-bold text-slate-800 leading-tight">Déclarations du Guide</span>
+                      <span className="block text-[10px] font-medium text-slate-500 mt-0.5">Valider/invalider et association</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-teal-600 transition-transform group-hover:translate-x-1" strokeWidth={2.5} />
                 </motion.button>
               </div>
             </div>
