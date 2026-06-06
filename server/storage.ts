@@ -722,6 +722,20 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         if (hunterUser) return hunterUser;
       }
 
+      // 5b. Hunting Guide ID number
+      try {
+        const guideRes = await db.execute(sqlRaw`
+          SELECT u.* FROM hunting_guides hg
+          INNER JOIN users u ON hg.user_id = u.id
+          WHERE hg.id_number = ${value}
+          LIMIT 1
+        `);
+        const guideUser = Array.isArray(guideRes) ? (guideRes as any[])[0] : undefined;
+        if (guideUser) return guideUser as unknown as User;
+      } catch (err) {
+        console.warn('[storage.findUserByIdentifier] guide lookup failed, continuing', err);
+      }
+
       return undefined;
     }
 
@@ -1176,14 +1190,13 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           }
         }
 
-        // 3. Détacher les utilisateurs associés à ce chasseur
-        console.log(`👥 Détachement des utilisateurs liés au chasseur ${id}`);
-        const userUpdateResult = await db.update(users)
-          .set({ hunterId: null })
+        // 3. Supprimer définitivement les utilisateurs associés à ce chasseur pour éviter les comptes fantômes
+        console.log(`👥 Suppression des utilisateurs liés au chasseur ${id}`);
+        const userDeleteResult = await db.delete(users)
           .where(eq(users.hunterId, id))
           .returning();
 
-        console.log(`👤 ${userUpdateResult.length} utilisateurs détachés du chasseur ${id}`);
+        console.log(`👤 ${userDeleteResult.length} utilisateurs supprimés pour le chasseur ${id}`);
 
         // 4. Vérifier si le chasseur existe avant de le supprimer
         const hunterExists = await this.getHunter(id);

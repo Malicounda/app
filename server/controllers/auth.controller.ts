@@ -177,7 +177,8 @@ export const login = async (req: Request, res: Response) => {
         if ((user as any).active === false || (user as any).isActive === false) {
             // Les agents avec rôle par défaut ou superviseur peuvent se connecter même si le compte est inactif
             if (!isDefaultRole && !isSupervisorRole) {
-                return res.status(401).json({ message: "Identifiants invalides" });
+                console.log(`[LOGIN] Tentative de connexion refusée : Compte inactif pour ${user.username}`);
+                return res.status(403).json({ message: "Compte inactif" });
             }
         }
 
@@ -190,7 +191,10 @@ export const login = async (req: Request, res: Response) => {
             const isAlerteLogin = normalized === 'ALERTE';
             const canBypass = isAlerteLogin && (isDefaultRole || isSupervisorRole || skipPassword);
             
-            if (!canBypass) {
+            // Bypass automatique pour les rôles liés à la chasse sur le domaine CHASSE
+            const isChasseUser = normalized === 'CHASSE' && ((user as any).role === 'hunter' || (user as any).role === 'hunting-guide');
+
+            if (!canBypass && !isChasseUser) {
                 try {
                     const domains = await storage.getUserDomainsByUserId(user.id);
                     const match = Array.isArray(domains) ? domains.find((d: any) => String(d?.domain || '').toUpperCase() === normalized) : undefined;

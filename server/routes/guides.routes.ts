@@ -211,9 +211,9 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
     // Supprimer le guide
     await db.execute(sql`DELETE FROM hunting_guides WHERE id = ${guideId}` as any);
 
-    // Optionnel: désactiver l'utilisateur lié (au lieu de supprimer définitivement)
+    // Supprimer définitivement l'utilisateur lié à la table users pour éviter les comptes fantômes
     if ((guide[0] as any).user_id) {
-      await db.execute(sql`UPDATE users SET is_active = FALSE WHERE id = ${guide[0].user_id}` as any);
+      await db.execute(sql`DELETE FROM users WHERE id = ${guide[0].user_id}` as any);
     }
 
     res.json({ message: 'Guide supprimé avec succès', id: guideId });
