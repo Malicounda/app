@@ -1156,9 +1156,14 @@ function GlobalThemeLoader() {
 
   // Mettre à jour depuis la base de données de manière asynchrone
   useEffect(() => {
+    // Ne pas tenter si hors-ligne : le thème localStorage suffit
+    if (!navigator.onLine) return;
     (async () => {
       try {
-        const res = await fetch('/api/themes/active', { cache: 'no-store' });
+        const res = await fetch('/api/themes/active', {
+          cache: 'no-store',
+          credentials: 'include',
+        });
         if (res.ok) {
           const theme = await res.json();
           if (theme?.config) {
@@ -1167,7 +1172,8 @@ function GlobalThemeLoader() {
             window.dispatchEvent(new Event('theme:superadmin:updated'));
           }
         }
-      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+        // 401/403 ignorés silencieusement : le thème local est suffisant
+      } catch (e) { /* Silencieux : le thème est un bonus, pas critique */ }
     })();
   }, []);
 

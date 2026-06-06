@@ -593,6 +593,8 @@ function AlertsPage() {
   } | null>(null);
   // État pour suivre si l'accès à la géolocalisation a été refusé
   const [locationPermissionDenied, setLocationPermissionDenied] = useState<boolean>(false);
+  // Ref pour éviter de relancer la géolocalisation automatique en boucle
+  const geoAutoAttemptedRef = React.useRef(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -1460,72 +1462,70 @@ function AlertsPage() {
     });
     setIsLoadingLocation(true);
 
-    const options = {
-      enableHighAccuracy: true,  // Essayer d'obtenir la meilleure précision possible
-      timeout: 60000,            // Délai d'attente porté à 60 secondes pour mobile
-      maximumAge: 10000          // Autoriser une position récente (<= 10s) pour réduire les échecs
+    // Stratégie deux phases : d'abord rapide (basse précision), puis haute précision
+    // Cela évite les timeouts sur desktop où il n'y a pas de GPS matériel.
+    const tryGeolocation = (highAccuracy: boolean, timeoutMs: number, maxAge: number): Promise<{ latitude: number; longitude: number } | null> => {
+      return new Promise<{ latitude: number; longitude: number } | null>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude, accuracy } = position.coords;
+            const locationData = { latitude, longitude };
+
+            setLocation(locationData);
+            setIsLoadingLocation(false);
+
+            console.log('Position obtenue:', { latitude, longitude, accuracy, highAccuracy });
+
+            // Afficher un toast de succès
+            toast({
+              title: "✅ Position capturée",
+              description: (
+                <div className="space-y-2">
+                  <p>Précision : {Math.round(accuracy)} mètres</p>
+                  <p className="text-xs font-mono mt-1">
+                    {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                  </p>
+                </div>
+              ),
+              duration: 5000,
+            });
+
+            resolve(locationData);
+          },
+          (error) => {
+            // Ne pas afficher d'erreur pour la première tentative rapide — on réessaiera
+            if (!highAccuracy) {
+              console.warn('[Géolocation] Tentative basse précision échouée, bascule vers haute précision.', error.code);
+            } else {
+              console.warn('[Géolocation] Tentative haute précision échouée:', error.code, error.message);
+            }
+            resolve(null);
+          },
+          { enableHighAccuracy: highAccuracy, timeout: timeoutMs, maximumAge: maxAge }
+        );
+      });
     };
 
-    return new Promise<{ latitude: number, longitude: number } | null>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // Fermer le toast de chargement
-          const toastElements = document.querySelectorAll('[data-sonner-toast]');
-          if (toastElements.length > 0) {
-            const lastToast = toastElements[toastElements.length - 1];
-            const closeButton = lastToast.querySelector('[data-sonner-toast-close]') as HTMLElement;
-            if (closeButton) closeButton.click();
-          }
+    // Phase 1 : rapide (basse précision, cache récent autorisé, timeout court)
+    let result = await tryGeolocation(false, 10000, 30000);
 
-          const { latitude, longitude, accuracy } = position.coords;
-          const locationData = { latitude, longitude };
+    // Phase 2 : si la phase 1 échoue, haute précision avec timeout plus long
+    if (!result) {
+      result = await tryGeolocation(true, 60000, 10000);
+    }
 
-          setLocation(locationData);
-          setIsLoadingLocation(false);
+    // Si les deux phases échouent
+    if (!result) {
+      setIsLoadingLocation(false);
 
-          console.log('Position obtenue:', { latitude, longitude, accuracy });
+      toast({
+        title: "Erreur GPS",
+        description: "Impossible d'obtenir votre position. Vérifiez que la localisation est activée dans vos paramètres.",
+        variant: "destructive"
+      });
+    }
 
-          // Afficher un toast de succès avec un bouton pour voir les détails
-          toast({
-            title: "✅ Position capturée",
-            description: (
-              <div className="space-y-2">
-                <p>Précision : {Math.round(accuracy)} mètres</p>
-                <p className="text-xs font-mono mt-1">
-                  {latitude.toFixed(4)}, {longitude.toFixed(4)}
-                </p>
-              </div>
-            ),
-            duration: 5000,
-          });
-
-          resolve(locationData);
-        },
-        (error) => {
-          setIsLoadingLocation(false);
-
-          console.error("Erreur de géolocalisation:", error);
-
-          let message = "Impossible d'obtenir votre position.";
-          if (error.code === error.PERMISSION_DENIED) {
-            message = "L'accès à la géolocalisation a été refusé. Veuillez l'activer dans vos paramètres.";
-            setLocationPermissionDenied(true);
-          } else if (error.code === error.POSITION_UNAVAILABLE) {
-            message = "La position GPS est indisponible.";
-          } else if (error.code === error.TIMEOUT) {
-            message = "Délai d'attente dépassé pour la géolocalisation.";
-          }
-
-          toast({
-            title: "Erreur GPS",
-            description: message,
-            variant: "destructive"
-          });
-          resolve(null);
-        },
-        options
-      );
-    });
+    return result;
   };
 
   // Déterminer si l'utilisateur peut envoyer des alertes
@@ -1543,8 +1543,10 @@ function AlertsPage() {
       setSelectedAlertType(null);
     }
 
-    // Auto-capture de la localisation au chargement pour tous ceux qui peuvent envoyer des alertes
-    if (canSendAlerts && !locationPermissionDenied) {
+    // Auto-capture de la localisation au chargement — UNE SEULE FOIS
+    if (canSendAlerts && !locationPermissionDenied && !geoAutoAttemptedRef.current) {
+      geoAutoAttemptedRef.current = true;
+
       const checkLocation = async () => {
         try {
           const permissionState = await checkGeolocationPermission();
@@ -1568,7 +1570,8 @@ function AlertsPage() {
 
       checkLocation();
     }
-  }, [isHunter, isGuide, canSendAlerts, locationPermissionDenied]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSendAlerts, locationPermissionDenied]);
 
   // Gestion de l'envoi d'une alerte
   const handleSendAlert = async () => {
