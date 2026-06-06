@@ -30,6 +30,7 @@ export default function ReforestationSMSPage() {
     sendIndividual,
     deleteMessage,
     refreshSent,
+    refreshInbox,
   } = useInternalMessaging({ domaineId });
 
   // Cibles spécifiques au reboisement
@@ -268,6 +269,7 @@ export default function ReforestationSMSPage() {
                   loading={loadingInbox}
                   emptyLabel="Aucun message reçu pour le moment."
                   onDelete={handleDelete}
+                  onRefresh={refreshInbox}
                   onReply={async ({ recipientIdentifier, content }) => {
                     try {
                       const isOffline = !navigator.onLine;
@@ -292,6 +294,7 @@ export default function ReforestationSMSPage() {
                   emptyLabel="Aucun message envoyé pour le moment."
                   context="sent"
                   onDelete={handleDelete}
+                  onRefresh={refreshSent}
                 />
               )}
             </div>

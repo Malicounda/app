@@ -32,6 +32,7 @@ export default function SectorSMSPage() {
     sendIndividual,
     deleteMessage,
     refreshSent,
+    refreshInbox,
   } = useInternalMessaging({ domaineId, autoLoad: user?.role === "sub-agent" });
 
   const sectorTargets = useMemo(() => {
@@ -241,6 +242,7 @@ export default function SectorSMSPage() {
                     loading={loadingInbox}
                     emptyLabel="Aucun message reçu pour le moment."
                     onDelete={handleDelete}
+                    onRefresh={refreshInbox}
                   />
                 </div>
               )}
@@ -267,6 +269,7 @@ export default function SectorSMSPage() {
                     emptyLabel="Aucun message envoyé pour le moment."
                     context="sent"
                     onDelete={handleDelete}
+                    onRefresh={refreshSent}
                   />
                 </div>
               )}

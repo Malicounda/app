@@ -24,6 +24,7 @@ export default function RegionalSMSPage() {
     sendIndividual,
     deleteMessage,
     refreshSent,
+    refreshInbox,
   } = useInternalMessaging({ autoLoad: user?.role === "agent", domaineId });
 
   // Liste des administrateurs pour le quick-pick dans le composer
@@ -225,6 +226,7 @@ export default function RegionalSMSPage() {
                     loading={loadingInbox}
                     emptyLabel="Aucun message reçu pour le moment."
                     onDelete={handleDelete}
+                    onRefresh={refreshInbox}
                     onReply={async ({ recipientIdentifier, content }) => {
                       try {
                         const isOffline = !navigator.onLine;
@@ -265,6 +267,7 @@ export default function RegionalSMSPage() {
                     emptyLabel="Aucun message envoyé pour le moment."
                     context="sent"
                     onDelete={handleDelete}
+                    onRefresh={refreshSent}
                   />
                 </div>
               )}

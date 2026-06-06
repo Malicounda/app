@@ -1842,12 +1842,12 @@ function AlertsPage() {
             className={
               mobileAlertLayout
                 ? (showLeftColumn
-                  ? "flex flex-1 min-h-0 flex-col gap-2 lg:grid lg:grid-cols-[minmax(340px,420px)_1fr] lg:gap-4"
+                  ? `flex flex-1 min-h-0 flex-col gap-2 ${!(isHunter || isGuide) ? "lg:grid lg:grid-cols-[minmax(340px,420px)_1fr]" : "max-w-2xl mx-auto w-full"} lg:gap-4`
                   : "flex flex-1 min-h-0 flex-col")
                 : mobileSupervisorLayout
                   ? "flex flex-1 min-h-0 flex-col"
                   : (showLeftColumn
-                    ? "grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr] gap-0 lg:gap-4"
+                    ? `flex flex-1 min-h-0 flex-col ${!(isHunter || isGuide) ? "lg:grid lg:grid-cols-[minmax(340px,420px)_1fr]" : "max-w-2xl mx-auto w-full"} gap-0 lg:gap-4`
                     : "flex flex-1 min-h-0 flex-col")
             }
           >
@@ -2036,15 +2036,16 @@ function AlertsPage() {
             )}
 
             {/* === COLONNE DROITE : Liste des alertes === */}
-            <div
-              className={
-                mobileAlertLayout
-                  ? "flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow-md"
-                  : mobileSupervisorLayout
+            {!(isHunter || isGuide) && (
+              <div
+                className={
+                  mobileAlertLayout
                     ? "flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow-md"
-                    : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 flex flex-col min-h-0 flex-1"
-              }
-            >
+                    : mobileSupervisorLayout
+                      ? "flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow-md"
+                      : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 flex flex-col min-h-0 flex-1"
+                }
+              >
               {isSupervisorRole && (
                 <div className="shrink-0 px-4 py-3 border-b flex items-center justify-between bg-slate-50">
                   <div className="flex gap-2">
@@ -2294,7 +2295,8 @@ function AlertsPage() {
                   Total d&apos;alertes envoyées : {sentAlertsData.length}
                 </div>
               )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { InternalMessageRecord } from "@/hooks/useInternalMessaging";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2, Check, CheckCheck, Clock } from "lucide-react";
+import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2, Check, CheckCheck, Clock, ArrowLeft, RefreshCw, Square, CheckSquare } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { repairAttachmentFileName } from "@/lib/attachmentMime";
@@ -24,6 +24,7 @@ interface InternalMessageListProps {
   onStaleMessage?: (message: InternalMessageRecord) => void;
   context?: 'inbox' | 'sent';
   onReply?: (payload: { recipientIdentifier: string; content: string; original: InternalMessageRecord }) => Promise<void> | void;
+  onRefresh?: () => void;
 }
 
 interface AttachmentPreview {
@@ -108,6 +109,7 @@ export default function InternalMessageList({
   onStaleMessage,
   context = 'inbox',
   onReply,
+  onRefresh,
 }: InternalMessageListProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -139,6 +141,9 @@ export default function InternalMessageList({
   const [replyRecipient, setReplyRecipient] = useState<string>("");
   const [replyContent, setReplyContent] = useState<string>("");
   const [replySubmitting, setReplySubmitting] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<InternalMessageRecord | null>(null);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const filteredMessages = useMemo(() => {
     if (context !== 'inbox') return safeMessages;
@@ -316,13 +321,203 @@ export default function InternalMessageList({
     } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       const message = error?.message ?? error?.toString?.() ?? "Une erreur est survenue lors de la suppression.";
       setDeleteError(message);
-     } finally {
+    } finally {
       setDeleting(false);
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!onDelete || selectedMessageIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      // Find the message objects from safeMessages that correspond to the selected IDs
+      const messagesToDelete = safeMessages.filter(m => typeof m.id === 'number' && selectedMessageIds.has(m.id));
+      await Promise.all(messagesToDelete.map(m => onDelete(m)));
+      setSelectedMessageIds(new Set());
+    } catch (error) {
+      console.warn('[SCODI-DEBUG] Error during bulk delete', error);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const getMessageDetails = (message: any) => {
+    const isGroupKey = Boolean((message as any)?.isGroupMessage);
+    const subject = extractFirstString(message, SUBJECT_KEYS);
+    const content = extractContent(message);
+    const timestamp = formatDate(extractDate(message));
+    const recipient = extractFirstString(message, RECIPIENT_KEYS) || ((): string | null => {
+      const extraKeys = ["recipientUsername", "recipientEmail", "recipientLogin", "recipient_user", "recipient_email"];
+      return extractFirstString(message, extraKeys as any);
+    })();
+    const recipientObj = typeof (message as any).recipient === 'object' && (message as any).recipient ? ((message as any).recipient as Record<string, unknown>) : null;
+    const recipientFirstName = typeof recipientObj?.firstName === 'string' ? recipientObj.firstName.trim() : (typeof (message as any).recipientFirstName === 'string' ? (message as any).recipientFirstName.trim() : undefined);
+    const recipientLastName = typeof recipientObj?.lastName === 'string' ? recipientObj.lastName.trim() : (typeof (message as any).recipientLastName === 'string' ? (message as any).recipientLastName.trim() : undefined);
+    const recipientName = [recipientFirstName, recipientLastName].filter(isNonEmptyString).join(' ');
+    const recipientRoleRaw = (() => {
+      if (recipientObj && typeof recipientObj.role === 'string' && recipientObj.role.trim()) return (recipientObj.role as string).trim();
+      return extractFirstString(message, RECIPIENT_ROLE_KEYS) || null;
+    })();
+    const recipientRegion = (() => {
+      if (typeof recipientObj?.region === 'string' && recipientObj.region.trim()) return recipientObj.region.trim();
+      return extractFirstString(message, RECIPIENT_REGION_KEYS) || undefined;
+    })();
+    const recipientDept = (() => {
+      if (typeof (recipientObj as any)?.departement === 'string' && (recipientObj as any).departement.trim()) return ((recipientObj as any).departement as string).trim();
+      return extractFirstString(message, RECIPIENT_DEPT_KEYS) || undefined;
+    })();
+
+    const senderObj = typeof message.sender === 'object' && message.sender ? (message.sender as Record<string, unknown>) : null;
+    const isGroupMsg = Boolean(message.isGroupMessage);
+    const senderRoleRaw = (() => {
+      if (isGroupMsg && senderObj && typeof senderObj.role === 'string' && senderObj.role.trim()) {
+        return (senderObj.role as string).trim();
+      }
+      for (const key of SENDER_ROLE_KEYS) {
+        const value = message[key];
+        if (typeof value === 'string' && value.trim()) return value.trim();
+      }
+      return null;
+    })();
+
+    const senderRoleLabel = senderRoleRaw ? SENDER_ROLE_LABELS[senderRoleRaw] : undefined;
+    const senderFirstName = typeof senderObj?.firstName === 'string' ? senderObj.firstName.trim() :
+      (typeof message.senderFirstName === 'string' ? message.senderFirstName.trim() : undefined);
+    const senderLastName = typeof senderObj?.lastName === 'string' ? senderObj.lastName.trim() :
+      (typeof message.senderLastName === 'string' ? message.senderLastName.trim() : undefined);
+    const senderBase = !isGroupMsg ? extractFirstString(message, SENDER_KEYS) : null;
+    const senderName = [senderFirstName, senderLastName].filter(isNonEmptyString).join(' ');
+    const sender = senderRoleLabel
+      ? `${senderRoleLabel}${senderName ? ` • ${senderName}` : ''}`
+      : (senderName || senderBase);
+
+    const attachmentName = extractFirstString(message, ['attachmentName', 'attachment_name']) ?? (message.attachmentPath as string | undefined) ?? null;
+    const attachmentSizeRaw = typeof message.attachmentSize === 'number' ? message.attachmentSize : Number(message.attachmentSize ?? 0);
+    const attachmentSize = Number.isFinite(attachmentSizeRaw) && attachmentSizeRaw > 0 ? attachmentSizeRaw : null;
+    const hasAttachment = isNonEmptyString(attachmentName);
+
+    const metaParts = [] as string[];
+    if (context !== 'sent') {
+      if (sender) metaParts.push(`Expéditeur : ${sender}`);
+    } else {
+      let roleLabel: string | undefined;
+      if (recipientRoleRaw === 'sub-agent') roleLabel = 'Agent secteur';
+      else if (recipientRoleRaw === 'agent') roleLabel = 'Agent IREF';
+      const targetRole = (message as any)?.targetRole as string | undefined;
+      const looksLikeAdmin = (recipientRoleRaw === 'admin') || (typeof targetRole === 'string' && targetRole.toLowerCase() === 'admin') || (typeof (recipient || recipientName) === 'string' && /admin/i.test(String(recipient || recipientName)));
+      if (looksLikeAdmin) {
+        metaParts.push('Destinataire : Admin');
+      } else {
+        const assignmentParts: string[] = [];
+        if (recipientDept) assignmentParts.push(`Département ${recipientDept}`);
+        if (recipientRegion) assignmentParts.push(`Région ${recipientRegion}`);
+        const assignment = assignmentParts.join(' / ');
+        const baseName = recipientName || recipient || undefined;
+        const composed = [baseName, roleLabel, assignment ? `— ${assignment}` : ''].filter(isNonEmptyString).join(' ');
+        if (composed) metaParts.push(`Destinataire : ${composed}`);
+        else {
+          const isRegionalAgent = normalizedRole === 'agent' && (user as any)?.type !== 'secteur';
+          if (isRegionalAgent) metaParts.push('Destinataire : Admin');
+        }
+      }
+    }
+    const meta = metaParts.join(' • ');
+    const numericId = typeof message.id === 'number' ? message.id : NaN;
+    const isUnread = context === 'inbox' && (message as any)?.isRead === false && !(Number.isFinite(numericId) && openedRef.current.has(numericId as number));
+
+    return { subject, content, timestamp, sender, attachmentName, attachmentSize, hasAttachment, meta, isGroupKey, isUnread };
+  };
+
+  const renderDetailView = () => {
+    if (!selectedMessage) return null;
+    const { subject, content, timestamp, sender, attachmentName, attachmentSize, hasAttachment, meta } = getMessageDetails(selectedMessage);
+    
+    return (
+      <div className="flex-1 overflow-auto rounded-md bg-white w-full flex flex-col border shadow-sm relative z-10">
+        <div className="flex items-center justify-between p-3 border-b sticky top-0 bg-white">
+          <Button variant="ghost" size="icon" onClick={() => setSelectedMessage(null)} className="hover:bg-gray-100 text-gray-600" title="Retour à la liste">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            {context === 'inbox' && normalizedRole !== 'hunter' && normalizedRole !== 'hunting-guide' && (
+              <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-800" onClick={() => { setForwardFor(selectedMessage); setForwardSubject(subject || ''); setForwardContent(''); setForwardError(null); }} title="Transférer">
+                <Share2 className="h-4 w-4" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => requestDelete(selectedMessage)} title="Supprimer">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            )}
+          </div>
+        </div>
+        
+        <div className="p-6 flex-1 overflow-y-auto">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">{subject || "Message interne"}</h2>
+          
+          <div className="flex items-start justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold uppercase shrink-0">
+                {(sender || meta || '?').charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 text-sm">{meta}</div>
+                <div className="text-xs text-gray-500">{timestamp}</div>
+              </div>
+            </div>
+            {context === 'sent' && Array.isArray((selectedMessage as any).readers) && (selectedMessage as any).readers.length > 0 && (
+              <Button variant="link" className="h-auto p-0 text-xs text-green-700" onClick={() => setReaderDetailFor(selectedMessage)}>
+                Voir les accusés de lecture
+              </Button>
+            )}
+          </div>
+          
+          <div className="text-sm text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
+            {content}
+          </div>
+          
+          {hasAttachment && (
+            <div className="mt-8 pt-4 border-t border-gray-100 flex flex-col items-start gap-2">
+              <div className="text-sm font-semibold text-gray-700">Pièces jointes</div>
+              <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors w-full sm:w-auto">
+                <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center"><MailIcon className="h-4 w-4 text-gray-500"/></div>
+                <div className="flex flex-col min-w-0 pr-4">
+                  <span className="text-sm font-medium truncate max-w-[200px]">{attachmentName}</span>
+                  <span className="text-xs text-gray-500">{attachmentSize ? formatFileSize(attachmentSize) : ''}</span>
+                </div>
+                <Button variant="outline" size="sm" className="ml-auto" onClick={() => openAttachmentPreview(selectedMessage)}>Aperçu</Button>
+              </div>
+            </div>
+          )}
+          
+          {/* Actions bas de page */}
+          {context === 'inbox' && (
+            <div className="mt-10 pt-4 flex gap-3">
+              <Button variant="outline" className="gap-2 rounded-full border-gray-300" onClick={() => {
+                setReplyFor(selectedMessage);
+                const senderObj = typeof selectedMessage.sender === 'object' && selectedMessage.sender ? (selectedMessage.sender as any) : null;
+                const identifier = ((typeof senderObj?.username === 'string' && senderObj.username.trim()) || (typeof (selectedMessage as any).senderUsername === 'string' && String((selectedMessage as any).senderUsername).trim()) || (typeof senderObj?.email === 'string' && senderObj.email.trim()) || (typeof (senderObj as any)?.matricule === 'string' && String((senderObj as any).matricule).trim()) || (typeof (selectedMessage as any)?.senderId === 'number' && Number.isFinite((selectedMessage as any).senderId) ? String((selectedMessage as any).senderId) : '')) as string;
+                setReplyRecipient(identifier);
+                setReplyContent('');
+              }}>
+                <MailIcon className="h-4 w-4" /> Répondre
+              </Button>
+              {normalizedRole !== 'hunter' && normalizedRole !== 'hunting-guide' && (
+                <Button variant="outline" className="gap-2 rounded-full border-gray-300" onClick={() => { setForwardFor(selectedMessage); setForwardSubject(subject || ''); setForwardContent(''); setForwardError(null); }}>
+                  <Share2 className="h-4 w-4" /> Transférer
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="w-full h-full flex flex-col">
+      {selectedMessage ? renderDetailView() : (
+        <>
       {(() => {
         const start = (page - 1) * PAGE_SIZE;
         const end = Math.min(filteredMessages.length, start + PAGE_SIZE);
@@ -333,6 +528,31 @@ export default function InternalMessageList({
               Affichage {filteredMessages.length === 0 ? 0 : start + 1} à {end} sur {filteredMessages.length}
             </span>
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 border-r pr-2 mr-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:bg-gray-100" onClick={() => {
+                  if (selectedMessageIds.size === filteredMessages.length && filteredMessages.length > 0) {
+                    setSelectedMessageIds(new Set());
+                  } else {
+                    const newSet = new Set<number>();
+                    filteredMessages.forEach(m => {
+                      if (typeof m.id === 'number') newSet.add(m.id);
+                    });
+                    setSelectedMessageIds(newSet);
+                  }
+                }} title={selectedMessageIds.size === filteredMessages.length ? "Tout désélectionner" : "Tout sélectionner"}>
+                  {selectedMessageIds.size > 0 && selectedMessageIds.size === filteredMessages.length ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                </Button>
+                {onRefresh && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:bg-gray-100" onClick={onRefresh} title="Actualiser">
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                )}
+                {onDelete && selectedMessageIds.size > 0 && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={handleBulkDelete} disabled={bulkDeleting} title={`Supprimer la sélection (${selectedMessageIds.size})`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               {canShowFilter && (
                 <select
                   className="h-8 rounded-full border border-gray-200 bg-white px-3 text-xs text-gray-700"
@@ -369,271 +589,87 @@ export default function InternalMessageList({
           </div>
         );
       })()}
-      <div className="flex-1 overflow-auto rounded-md bg-gray-50 w-full p-3">
-        {loading ? (
+      <div className="flex-1 overflow-auto rounded-md bg-gray-50 w-full p-3 relative">
+        {loading && filteredMessages.length === 0 ? (
           <p className="text-sm text-gray-500">Chargement…</p>
         ) : filteredMessages.length ? (
           <div className="w-full space-y-3">
             {paginatedMessages.map((message, index) => {
-              const isGroupKey = Boolean((message as any)?.isGroupMessage);
-              const key = typeof message.id === "number"
-                ? `${isGroupKey ? 'group' : 'msg'}-${message.id}`
-                : `${page}-${index}`;
-              const subject = extractFirstString(message, SUBJECT_KEYS);
-              const content = extractContent(message);
-              const timestamp = formatDate(extractDate(message));
-              const recipient = extractFirstString(message, RECIPIENT_KEYS) || ((): string | null => {
-                const extraKeys = ["recipientUsername", "recipientEmail", "recipientLogin", "recipient_user", "recipient_email"];
-                return extractFirstString(message, extraKeys as any);
-              })();
-              const recipientObj = typeof (message as any).recipient === 'object' && (message as any).recipient ? ((message as any).recipient as Record<string, unknown>) : null;
-              const recipientFirstName = typeof recipientObj?.firstName === 'string' ? recipientObj.firstName.trim() : (typeof (message as any).recipientFirstName === 'string' ? (message as any).recipientFirstName.trim() : undefined);
-              const recipientLastName = typeof recipientObj?.lastName === 'string' ? recipientObj.lastName.trim() : (typeof (message as any).recipientLastName === 'string' ? (message as any).recipientLastName.trim() : undefined);
-              const recipientName = [recipientFirstName, recipientLastName].filter(isNonEmptyString).join(' ');
-              const recipientRoleRaw = (() => {
-                if (recipientObj && typeof recipientObj.role === 'string' && recipientObj.role.trim()) return (recipientObj.role as string).trim();
-                return extractFirstString(message, RECIPIENT_ROLE_KEYS) || null;
-              })();
-              const recipientRegion = (() => {
-                if (typeof recipientObj?.region === 'string' && recipientObj.region.trim()) return recipientObj.region.trim();
-                return extractFirstString(message, RECIPIENT_REGION_KEYS) || undefined;
-              })();
-              const recipientDept = (() => {
-                if (typeof (recipientObj as any)?.departement === 'string' && (recipientObj as any).departement.trim()) return ((recipientObj as any).departement as string).trim();
-                return extractFirstString(message, RECIPIENT_DEPT_KEYS) || undefined;
-              })();
-
-              const senderObj = typeof message.sender === "object" && message.sender ? (message.sender as Record<string, unknown>) : null;
-              const isGroupMsg = Boolean(message.isGroupMessage);
-              // Rôle de l'expéditeur
-              const senderRoleRaw = (() => {
-                if (isGroupMsg && senderObj && typeof senderObj.role === "string" && senderObj.role.trim()) {
-                  return (senderObj.role as string).trim();
-                }
-                for (const key of SENDER_ROLE_KEYS) {
-                  const value = message[key];
-                  if (typeof value === "string" && value.trim()) return value.trim();
-                }
-                return null;
-              })();
-
-              const senderRoleLabel = senderRoleRaw ? SENDER_ROLE_LABELS[senderRoleRaw] : undefined;
-              const senderFirstName = typeof senderObj?.firstName === "string" ? senderObj.firstName.trim() :
-                (typeof message.senderFirstName === "string" ? message.senderFirstName.trim() : undefined);
-              const senderLastName = typeof senderObj?.lastName === "string" ? senderObj.lastName.trim() :
-                (typeof message.senderLastName === "string" ? message.senderLastName.trim() : undefined);
-              const senderBase = !isGroupMsg ? extractFirstString(message, SENDER_KEYS) : null;
-              const senderName = [senderFirstName, senderLastName].filter(isNonEmptyString).join(" ");
-              const sender = senderRoleLabel
-                ? `${senderRoleLabel}${senderName ? ` • ${senderName}` : ""}`
-                : (senderName || senderBase);
-
-              const attachmentName = extractFirstString(message, ["attachmentName", "attachment_name"]) ?? (message.attachmentPath as string | undefined) ?? null;
-              const attachmentSizeRaw = typeof message.attachmentSize === "number" ? message.attachmentSize : Number(message.attachmentSize ?? 0);
-              const attachmentSize = Number.isFinite(attachmentSizeRaw) && attachmentSizeRaw > 0 ? attachmentSizeRaw : null;
-              const hasAttachment = isNonEmptyString(attachmentName);
-
-              const metaParts = [] as string[];
-              // Cacher l'expéditeur dans la vue Envoyés
-              if (context !== 'sent') {
-                if (sender) {
-                  metaParts.push(`Expéditeur : ${sender}`);
-                }
-              }
-              if (context === 'sent') {
-                // Build enriched recipient label for sent messages
-                let roleLabel: string | undefined;
-                if (recipientRoleRaw === 'sub-agent') {
-                  roleLabel = 'Agent secteur';
-                } else if (recipientRoleRaw === 'agent') {
-                  roleLabel = 'Agent IREF';
-                }
-                const targetRole = (message as any)?.targetRole as string | undefined;
-                const looksLikeAdmin = (recipientRoleRaw === 'admin') || (typeof targetRole === 'string' && targetRole.toLowerCase() === 'admin') || (typeof (recipient || recipientName) === 'string' && /admin/i.test(String(recipient || recipientName)));
-                if (looksLikeAdmin) {
-                  metaParts.push('Destinataire : Admin');
-                } else {
-                  const assignmentParts: string[] = [];
-                  if (recipientDept) assignmentParts.push(`Département ${recipientDept}`);
-                  if (recipientRegion) assignmentParts.push(`Région ${recipientRegion}`);
-                  const assignment = assignmentParts.join(' / ');
-                  const baseName = recipientName || recipient || undefined;
-                  const composed = [baseName, roleLabel, assignment ? `— ${assignment}` : ''].filter(isNonEmptyString).join(' ');
-                  if (composed) {
-                    metaParts.push(`Destinataire : ${composed}`);
-                  } else {
-                    const isRegionalAgent = normalizedRole === 'agent' && (user as any)?.type !== 'secteur';
-                    if (isRegionalAgent) metaParts.push('Destinataire : Admin');
-                  }
-                }
-              }
-              const meta = metaParts.join(" • ");
-
-              const isInbox = context === 'inbox';
-              const numericId = typeof message.id === 'number' ? message.id : NaN;
-              const isOpen = isInbox && Number.isFinite(numericId) ? openedIds.has(numericId as number) : true;
-              const isUnread = isInbox && (message as any)?.isRead === false && !(Number.isFinite(numericId) && openedRef.current.has(numericId as number));
+              const { subject, content, timestamp, sender, hasAttachment, meta, isUnread } = getMessageDetails(message);
+              const key = typeof message.id === "number" ? `msg-${message.id}` : `${page}-${index}`;
               return (
                 <article
                   key={key}
-                  className={`rounded-lg border p-4 shadow-sm ${
-                    message.isPending
-                      ? 'border-amber-200 bg-amber-50/50 border-l-4 border-l-amber-500'
-                      : isUnread
-                        ? 'border-gray-200 bg-white border-l-4 border-l-green-600'
-                        : 'border-gray-100 bg-gray-50/80 text-gray-500'
+                  className={`group rounded-lg border p-0 shadow-sm cursor-pointer transition-all hover:border-gray-300 hover:shadow-md ${
+                    message.isPending ? 'border-amber-200 bg-amber-50/50 border-l-4 border-l-amber-500'
+                      : isUnread ? 'border-gray-200 bg-white border-l-4 border-l-green-600'
+                      : 'border-gray-100 bg-gray-50/80 text-gray-500'
                   }`}
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest('button')) return;
+                    toggleOpen(message);
+                    setSelectedMessage(message);
+                  }}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isUnread ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {isUnread ? (
-                        <MailIcon className="h-5 w-5" />
-                      ) : (
-                        <MailOpenIcon className="h-5 w-5" />
-                      )}
+                  <div className="flex items-center gap-3 p-3">
+                    {/* Checkbox */}
+                    <div className="shrink-0 flex items-center justify-center pl-1 pr-1" onClick={(e) => {
+                      e.stopPropagation();
+                      if (typeof message.id === 'number') {
+                        const newSet = new Set(selectedMessageIds);
+                        if (newSet.has(message.id)) {
+                          newSet.delete(message.id);
+                        } else {
+                          newSet.add(message.id);
+                        }
+                        setSelectedMessageIds(newSet);
+                      }
+                    }}>
+                      <div className={`h-4 w-4 rounded border flex items-center justify-center cursor-pointer transition-colors ${typeof message.id === 'number' && selectedMessageIds.has(message.id) ? 'bg-green-600 border-green-600' : 'bg-white border-gray-300 hover:border-gray-400'}`}>
+                        {typeof message.id === 'number' && selectedMessageIds.has(message.id) && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                    </div>
+                    {/* Icon Unread / Read */}
+                    <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${isUnread ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                      {isUnread ? <MailIcon className="h-4 w-4" /> : <MailOpenIcon className="h-4 w-4" />}
+                    </div>
+                    
+                    {/* Meta / Expéditeur */}
+                    <div className="w-[180px] shrink-0 truncate font-medium text-sm">
+                      {context === 'inbox' ? sender || 'Inconnu' : meta.replace('Destinataire : ', '') || 'Inconnu'}
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-semibold text-gray-800 truncate">
-                              {subject || "Message interne"}
-                            </h3>
-                            {isUnread && context === 'inbox' && (
-                              <span className="rounded-full bg-green-100 text-green-800 text-[11px] px-2 py-0.5">Nouveau</span>
-                            )}
-                            {context === 'sent' ? (
-                              message.isPending ? (
-                                <span title="En attente de synchronisation" className="flex items-center gap-1 text-amber-600 text-xs font-semibold">
-                                  <Clock className="h-3.5 w-3.5 animate-pulse" />
-                                  <span>En attente...</span>
-                                </span>
-                              ) : Array.isArray((message as any).readers) && (message as any).readers.length > 0 ? (
-                                <span title="Lu"><CheckCheck className="h-4 w-4 text-blue-500" /></span>
-                              ) : (
-                                <span title="Non lu"><Check className="h-4 w-4 text-gray-400" /></span>
-                              )
-                            ) : null}
-                          </div>
-                          {meta ? (
-                            <div className="text-xs text-gray-500 truncate mt-0.5">{meta}</div>
-                          ) : null}
-                        </div>
+                    {/* Sujet et Extrait */}
+                    <div className="flex-1 min-w-0 flex items-center gap-2 truncate">
+                      <span className={`text-sm truncate ${isUnread ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                        {subject || "Message interne"}
+                      </span>
+                      <span className="text-gray-400 text-sm truncate">
+                        - {content}
+                      </span>
+                    </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-gray-500">{timestamp}</span>
-                        </div>
+                    {/* Has Attachment Icon */}
+                    {hasAttachment && (
+                      <div className="shrink-0 text-gray-400">
+                        <MailIcon className="h-4 w-4" />
                       </div>
+                    )}
 
-                      {context === 'inbox' ? (
-                        <div
-                          className="mt-2 text-left w-full cursor-pointer group"
-                          onClick={() => toggleOpen(message)}
-                          aria-label={isOpen ? 'Fermer le message' : 'Ouvrir le message'}
-                        >
-                          {isOpen ? (
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-words text-justify leading-relaxed">
-                              {wrapByWords(content, 20)}
-                            </p>
-                          ) : (
-                            <p className="text-sm text-gray-500 truncate group-hover:text-gray-700 transition-colors">
-                              {content}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        isOpen && (
-                          <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap break-words text-justify leading-relaxed">
-                            {wrapByWords(content, 20)}
-                          </p>
-                        )
-                      )}
-
-                      <div className={`mt-3 flex items-center gap-2 ${context === 'sent' ? 'justify-end' : 'justify-between'}`}>
-                        <div className={`flex items-center gap-1 ${context === 'sent' ? 'ml-auto' : ''}`}>
-                          {context === 'inbox' && normalizedRole !== 'hunter' && normalizedRole !== 'hunting-guide' && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-gray-600 hover:text-gray-800"
-                              onClick={() => { setForwardFor(message); setForwardSubject(subject || ""); setForwardContent(""); setForwardError(null); }}
-                              title="Transférer"
-                              aria-label="Transférer"
-                            >
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {onDelete && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                requestDelete(message);
-                              }}
-                              title="Supprimer"
-                              aria-label="Supprimer"
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </Button>
-                          )}
-                        </div>
-
-                        {context === 'inbox' && (
-                          <Button
-                            variant="outline"
-                            className="h-8 rounded-full border-green-200 text-green-700 hover:bg-green-50"
-                            onClick={() => {
-                              setReplyFor(message);
-                              const senderObj = typeof message.sender === 'object' && message.sender ? (message.sender as any) : null;
-
-                              const identifier = (
-                                (typeof senderObj?.username === 'string' && senderObj.username.trim())
-                                || (typeof (message as any).senderUsername === 'string' && String((message as any).senderUsername).trim())
-                                || (typeof senderObj?.email === 'string' && senderObj.email.trim())
-                                || (typeof (senderObj as any)?.matricule === 'string' && String((senderObj as any).matricule).trim())
-                                || (typeof (message as any)?.senderId === 'number' && Number.isFinite((message as any).senderId) ? String((message as any).senderId) : '')
-                              ) as string;
-
-                              setReplyRecipient(identifier);
-                              setReplyContent('');
-                            }}
-                          >
-                            Répondre
-                          </Button>
-                        )}
-                      </div>
+                    {/* Date */}
+                    <div className="shrink-0 text-xs font-medium text-gray-500 w-24 text-right">
+                      {timestamp}
+                    </div>
+                    
+                    {/* Actions au survol */}
+                    <div className="shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                       {onDelete && (
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); requestDelete(message); }} title="Supprimer">
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
+                       )}
                     </div>
                   </div>
-                  {hasAttachment && isOpen && (
-                    <div className={`mt-3 flex flex-col items-start gap-1 ${context === 'inbox' ? 'pl-12' : ''}`}>
-                      <p className="text-xs text-gray-500">
-                        Pièce jointe : {attachmentName}
-                        {attachmentSize ? ` (${formatFileSize(attachmentSize)})` : ""}
-                      </p>
-                      <Button
-                        variant="link"
-                        className="h-auto p-0 text-sm"
-                        onClick={() => openAttachmentPreview(message)}
-                      >
-                        Aperçu
-                      </Button>
-                    </div>
-                  )}
-                  {context === 'sent' && Array.isArray((message as any).readers) && (message as any).readers.length > 0 && (
-                    <div className="mt-2 flex justify-end">
-                      <Button
-                        variant="link"
-                        className="h-auto p-0 text-sm text-green-700"
-                        onClick={() => setReaderDetailFor(message)}
-                      >
-                        Détails
-                      </Button>
-                    </div>
-                  )}
-                  {onDelete && null}
                 </article>
               );
             })}
@@ -645,6 +681,8 @@ export default function InternalMessageList({
           </div>
         )}
       </div>
+      </>
+      )}
       <MessageAttachmentViewer payload={preview} onClose={closePreview} />
       <Dialog open={!!replyFor} onOpenChange={(open) => { if (!open) { setReplyFor(null); setReplyContent(""); setReplyRecipient(""); setReplySubmitting(false); } }}>
         <DialogContent className="sm:max-w-md">

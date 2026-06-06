@@ -205,6 +205,7 @@ export default function SimpleSMSPage() {
     purgeStaleMessage,
     refreshSent,
     refreshAll,
+    refreshInbox,
   } = useInternalMessaging({ domaineId, autoLoad: true });
 
   const targets = useMemo(() => GLOBAL_TARGETS, []);
@@ -1518,6 +1519,7 @@ export default function SimpleSMSPage() {
                       loading={loadingInbox}
                       emptyLabel="Aucun message reçu pour le moment."
                       onDelete={handleDelete}
+                      onRefresh={refreshInbox}
                       onStaleMessage={(m) =>
                         purgeStaleMessage(Number(m.id), Boolean(m.isGroupMessage))
                       }
@@ -1540,6 +1542,7 @@ export default function SimpleSMSPage() {
                       emptyLabel="Aucun message envoyé pour le moment."
                       context="sent"
                       onDelete={handleDelete}
+                      onRefresh={refreshSent}
                       onStaleMessage={(m) =>
                         purgeStaleMessage(Number(m.id), Boolean(m.isGroupMessage))
                       }
