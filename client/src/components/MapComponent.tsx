@@ -174,7 +174,7 @@ export interface MapComponentProps {
   useSatellite?: boolean;
   colorizeRegionsByStatus?: boolean;
   showAlerts?: boolean;
-  alerts?: Array<{ id: number; title: string | null; message: string | null; nature: string | null; region: string | null; departement?: string | null; lat: number; lon: number; created_at: string; sender?: { first_name: string | null; last_name: string | null; phone: string | null; role?: string | null; region?: string | null; departement?: string | null } }>;
+  alerts?: Array<{ id: number; title: string | null; message: string | null; nature: string | null; region: string | null; departement?: string | null; lat: number; lon: number; created_at: string; sender?: { first_name: string | null; last_name: string | null; phone: string | null; role?: string | null; region?: string | null; departement?: string | null; grade?: string | null; roleMetier?: string | null } }>;
   // Agents
   agents?: Array<{ id: number; username?: string | null; firstName?: string | null; lastName?: string | null; phone?: string | null; role?: string | null; region?: string | null; departement?: string | null; agentLat?: number | null; agentLon?: number | null }>;
   selectedMarkerType: string | null; // Prop: type de marqueur actuellement sélectionné par le parent
@@ -1965,12 +1965,19 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         const region = a.region || 'N/A';
         const departement = (a as any).departement || '';
         const s = a.sender || undefined;
-        const senderName = s ? [s.first_name, s.last_name].filter(Boolean).join(' ') : '';
+        // Pour les agents: afficher Grade + Nom au lieu de Prénom + Nom
+        const isAgent = (s?.role || '').toLowerCase().replace(/[_\s-]+/g, '-') === 'agent';
+        const senderName = isAgent && s?.grade 
+          ? [s.grade, s.last_name].filter(Boolean).join(' ')
+          : s ? [s.first_name, s.last_name].filter(Boolean).join(' ') : '';
         const senderPhone = s?.phone || '';
         const role = (s?.role || '').toLowerCase().replace(/[_\s-]+/g, '-');
         const dep = (s?.departement || '').toUpperCase();
+        // Pour les agents: afficher le rôle métier au lieu du label générique
         let roleLabel = '';
-        if (role === 'sub-agent') {
+        if (isAgent && (s as any)?.roleMetier) {
+          roleLabel = (s as any).roleMetier;
+        } else if (role === 'sub-agent') {
           roleLabel = `Agent secteur${dep ? `, ${dep}` : ''}`;
         } else if (role === 'agent') {
           roleLabel = s?.departement ? `Secteur, ${dep}` : 'IREF';

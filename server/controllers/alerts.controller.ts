@@ -218,9 +218,12 @@ export const getMapAlerts = async (req: Request, res: Response, next: NextFuncti
               a.localite,
               a.created_at,
               a.sender_id,
-              u.first_name, u.last_name, u.phone, u.role, u.region AS user_region, u.departement AS user_departement
+              u.first_name, u.last_name, u.phone, u.role, u.region AS user_region, u.departement AS user_departement,
+              ag.grade, rm.label_fr AS role_metier_label
             FROM alerts a
             LEFT JOIN users u ON u.id = a.sender_id
+            LEFT JOIN agents ag ON ag.user_id = u.id
+            LEFT JOIN roles_metier rm ON rm.id = ag.role_metier_id
             WHERE ${whereClause}
             ORDER BY a.created_at DESC, a.id DESC
         ` as any);
@@ -266,6 +269,8 @@ export const getMapAlerts = async (req: Request, res: Response, next: NextFuncti
                         role: a.role ?? null,
                         region: a.user_region ?? null,
                         departement: a.user_departement ?? null,
+                        grade: a.grade ?? null,
+                        roleMetier: a.role_metier_label ?? null,
                     }
                 };
             })
