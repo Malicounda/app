@@ -228,6 +228,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       {/* Entête verte plein écran pour les agents Alerte */}
       {chromeless && (
         <nav 
+          id="app-header"
           className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-green-900 text-white z-[100] min-h-[52px]"
           style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 0px))' }}
         >

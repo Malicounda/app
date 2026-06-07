@@ -4407,7 +4407,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             <div
               style={{
                 position: 'absolute',
-                top: '35px', // Décale exactement de 20-25px supplémentaires pour libérer la moitié supérieure des pilules cachée par l'en-tête
+                top: '12px', // La marge est désormais sécurisée car MainLayout ajuste dynamiquement l'espace pour le header
                 left: 0,
                 right: 0,
                 zIndex: 1100,
