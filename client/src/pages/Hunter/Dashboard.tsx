@@ -971,7 +971,7 @@ export default function HunterDashboard() {
 
       {/* Modal de détails du permis - Modifié en Bottom Sheet style (plein écran ou drawer) */}
       <Dialog open={!!selectedPermit} onOpenChange={() => setSelectedPermit(null)}>
-        <DialogContent className="max-w-full m-0 p-0 h-[95vh] rounded-t-2xl sm:rounded-2xl sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col fixed bottom-0 left-0 right-0 sm:relative translate-y-0 data-[state=closed]:translate-y-full transition-transform duration-300">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] p-0 overflow-hidden flex flex-col rounded-2xl">
           <div className="bg-slate-50 flex-1 overflow-y-auto no-scrollbar">
             <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between">
               <div>
