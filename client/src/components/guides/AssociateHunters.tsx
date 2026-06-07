@@ -253,32 +253,38 @@ export default function AssociateHunters({ guideId, onAssociationComplete, open,
     };
 
     // Gérer le résultat du scan QR
-    const handleQRScanResult = (qrData: string) => {
+    const handleQRScanResult = (qrData: any) => {
         stopCamera();
         
         console.log('QR Code scanné:', qrData); // Debug
         
-        // Le QR code peut contenir différents formats
-        let hunterId = qrData;
+        let hunterId = '';
         
         try {
             // Essayer de parser comme JSON si c'est un objet
-            const parsed = JSON.parse(qrData);
-            if (parsed.hunterId) {
-                hunterId = parsed.hunterId;
-            } else if (parsed.id) {
-                hunterId = parsed.id;
-            } else if (parsed.userId) {
-                hunterId = parsed.userId;
+            const parsed = typeof qrData === 'string' ? JSON.parse(qrData) : qrData;
+            if (parsed && typeof parsed === 'object') {
+                if (parsed.hunterId) {
+                    hunterId = String(parsed.hunterId);
+                } else if (parsed.id) {
+                    hunterId = String(parsed.id);
+                } else if (parsed.userId) {
+                    hunterId = String(parsed.userId);
+                } else {
+                    hunterId = extractHunterIdFromText(typeof qrData === 'string' ? qrData : String(qrData || ''));
+                }
+            } else {
+                hunterId = extractHunterIdFromText(String(qrData || ''));
             }
-        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+        } catch (e) {
+            if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
             // Si ce n'est pas du JSON, extraire le numéro de pièce d'identité du texte
-            hunterId = extractHunterIdFromText(qrData);
-         }
+            hunterId = extractHunterIdFromText(typeof qrData === 'string' ? qrData : String(qrData || ''));
+        }
         
         console.log('Hunter ID extrait:', hunterId);
         
-        if (hunterId && hunterId.trim()) {
+        if (hunterId && hunterId.trim() && hunterId !== '[object Object]') {
             toast({
                 title: "QR Code détecté",
                 description: `Recherche du chasseur: ${hunterId}`,
@@ -294,39 +300,40 @@ export default function AssociateHunters({ guideId, onAssociationComplete, open,
     };
 
     // Extraire l'ID du chasseur depuis le texte du QR code
-    const extractHunterIdFromText = (text: string): string => {
-        console.log('Extraction ID depuis texte:', text);
+    const extractHunterIdFromText = (text: string | any): string => {
+        const safeText = typeof text === 'string' ? text : String(text || '');
+        console.log('Extraction ID depuis texte:', safeText);
         
         // Chercher le numéro de pièce d'identité
-        const pieceIdMatch = text.match(/N° Pièce d'identité:\s*(\d+)/);
+        const pieceIdMatch = safeText.match(/N° Pièce d'identité:\s*(\d+)/);
         if (pieceIdMatch && pieceIdMatch[1]) {
             console.log('ID trouvé (N° Pièce):', pieceIdMatch[1]);
             return pieceIdMatch[1];
         }
         
         // Chercher le numéro de permis
-        const permitMatch = text.match(/Numéro de Permis:\s*([^\n]+)/);
+        const permitMatch = safeText.match(/Numéro de Permis:\s*([^\n]+)/);
         if (permitMatch && permitMatch[1]) {
             console.log('ID trouvé (Numéro de Permis):', permitMatch[1]);
             return permitMatch[1].trim();
         }
         
         // Chercher un numéro de permis alternatif
-        const permitMatch2 = text.match(/P-[A-Z]{2}-\d{4}-[A-Z0-9]+/);
+        const permitMatch2 = safeText.match(/P-[A-Z]{2}-\d{4}-[A-Z0-9]+/);
         if (permitMatch2 && permitMatch2[0]) {
             console.log('ID trouvé (Format Permis):', permitMatch2[0]);
             return permitMatch2[0];
         }
         
         // Chercher un numéro d'identité simple (séquence de chiffres)
-        const idMatch = text.match(/\b\d{10,}\b/);
+        const idMatch = safeText.match(/\b\d{10,}\b/);
         if (idMatch && idMatch[0]) {
             console.log('ID trouvé (Numéro long):', idMatch[0]);
             return idMatch[0];
         }
         
         console.log('Aucun ID trouvé dans le texte');
-        return text.trim(); // Fallback sur le texte original
+        return safeText.trim(); // Fallback sur le texte original
     };
 
 

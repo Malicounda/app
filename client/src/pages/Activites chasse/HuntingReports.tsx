@@ -582,8 +582,8 @@ export default function HuntingReports() {
             const permitNumber = formData.permitNumber;
             if (!permitNumber) {
               console.log('[Reports] Pas de permit_number');
-              setRemainingBySpeciesId({});
-              setPaidBySpeciesId({});
+              setRemainingBySpeciesId(prev => Object.keys(prev).length === 0 ? prev : {});
+              setPaidBySpeciesId(prev => Object.keys(prev).length === 0 ? prev : {});
               return;
             }
             console.log('[Reports] Taxes list length:', Array.isArray(taxesList) ? taxesList.length : 'n/a');
@@ -646,12 +646,18 @@ export default function HuntingReports() {
               }
             });
 
-            setRemainingBySpeciesId(mapRemaining);
-            setPaidBySpeciesId(mapPaid);
+            setRemainingBySpeciesId(prev => {
+              if (JSON.stringify(prev) === JSON.stringify(mapRemaining)) return prev;
+              return mapRemaining;
+            });
+            setPaidBySpeciesId(prev => {
+              if (JSON.stringify(prev) === JSON.stringify(mapPaid)) return prev;
+              return mapPaid;
+            });
           } catch (e) {
             console.warn('Impossible de charger les taxes pour ce permis:', e);
-            setRemainingBySpeciesId({});
-            setPaidBySpeciesId({});
+            setRemainingBySpeciesId(prev => Object.keys(prev).length === 0 ? prev : {});
+            setPaidBySpeciesId(prev => Object.keys(prev).length === 0 ? prev : {});
           }
         })();
       }
