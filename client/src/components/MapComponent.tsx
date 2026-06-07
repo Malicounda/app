@@ -4342,20 +4342,22 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             <div
               style={{
                 position: 'absolute',
-                top: props.showRadiusControl ? 90 : 50,
+                top: 0, // Collé à l'en-tête supérieur
                 left: 0,
                 right: 0,
                 zIndex: 1100,
                 display: 'flex',
-                background: 'rgba(255, 255, 255, 0.95)',
-                borderBottom: '1px solid #e5e7eb',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                background: 'rgba(255, 255, 255, 0.75)', // Fond semi-transparent
+                backdropFilter: 'blur(8px)', // Effet verre pour lisibilité
+                WebkitBackdropFilter: 'blur(8px)',
+                borderBottom: '1px solid rgba(0,0,0,0.1)', // Contour adapté
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                 padding: '4px',
                 overflowX: 'auto'
               }}
               className="no-scrollbar"
             >
-              <div style={{ display: 'flex', width: '100%' }}>
+              <div style={{ display: 'flex', width: '100%', gap: '2px' }}>
                 {[
                   { key: 'feux_de_brousse', label: 'Feux', color: '#ea580c', icon: '🔥' },
                   { key: 'trafic-bois', label: 'Bois', color: '#8B5A2B', icon: '🪵' },
@@ -4377,9 +4379,10 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                         justifyContent: 'center',
                         gap: '2px',
                         padding: '6px 4px',
-                        borderBottom: isActive ? `2px solid ${color}` : '2px solid transparent',
-                        background: isActive ? '#f9fafb' : 'transparent',
-                        color: isActive ? color : '#9ca3af',
+                        borderRadius: '6px',
+                        border: isActive ? `1px solid ${color}` : '1px solid transparent',
+                        background: isActive ? 'rgba(255, 255, 255, 0.9)' : 'transparent',
+                        color: isActive ? color : '#4b5563',
                         transition: 'all 0.2s',
                       }}
                     >
@@ -4387,7 +4390,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                       <span style={{ fontSize: '9px', fontWeight: 'bold', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>{label}</span>
                       <span style={{
                         background: isActive ? color : '#e5e7eb',
-                        color: isActive ? 'white' : '#6b7280',
+                        color: isActive ? 'white' : '#4b5563',
                         fontSize: '10px',
                         fontWeight: '800',
                         borderRadius: '9999px',
