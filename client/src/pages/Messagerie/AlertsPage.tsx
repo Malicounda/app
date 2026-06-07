@@ -195,35 +195,55 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             {actualAlertData.nature ? <NatureIcon nature={actualAlertData.nature} size={20} /> : styles.icon}
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm sm:text-lg">{actualAlertData.title}</h3>
+                <h3 className="font-semibold text-sm sm:text-lg">
+                  {(() => {
+                    let title = actualAlertData.title || 'Alerte';
+                    if (title === 'ALERTE FEUX_DE_BROUSSE' || title === 'Alerte feux_de_brousse') return 'Alerte Feux de Brousse';
+                    if (title === 'ALERTE TRAFIC_BOIS' || title === 'Alerte trafic-bois' || title === 'Alerte trafic_bois') return 'Alerte Coupe de Bois';
+                    if (title === 'ALERTE BRACONNAGE' || title === 'Alerte braconnage') return 'Alerte Braconnage';
+                    if (title === 'Alerte autre') return 'Autre / Information';
+                    return title;
+                  })()}
+                </h3>
                 {getUrgencyTag(actualAlertData.type, actualAlertData.nature, isPending)}
               </div>
               <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
                 <User className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="font-semibold">
                   {isSent ? "Envoyé par : " : "Reçu de : "}
-                  {senderForDisplayAndStyle.firstName ?? (senderForDisplayAndStyle.username ?? 'Utilisateur inconnu')}
-                  {senderForDisplayAndStyle.lastName ? ` ${senderForDisplayAndStyle.lastName}` : ''}
                   {(() => {
-                    // Normaliser le rôle et construire un label SANS localisation
                     const roleLower = (senderForDisplayAndStyle.role || '').toLowerCase().replace(/[_\s-]+/g, '-');
+                    const isAgent = roleLower === 'agent';
+                    
+                    // Sender Name
+                    let senderName = '';
+                    if (isAgent && senderForDisplayAndStyle.grade) {
+                      senderName = `${senderForDisplayAndStyle.grade} ${senderForDisplayAndStyle.lastName || ''}`.trim();
+                    } else {
+                      senderName = `${senderForDisplayAndStyle.firstName ?? (senderForDisplayAndStyle.username ?? 'Utilisateur inconnu')} ${senderForDisplayAndStyle.lastName || ''}`.trim();
+                    }
+
+                    // Role Label
                     let cleanRoleLabel = '';
-                    if (roleLower === 'sub-agent') {
+                    if (isAgent && senderForDisplayAndStyle.roleMetier) {
+                      cleanRoleLabel = senderForDisplayAndStyle.roleMetier;
+                    } else if (roleLower === 'sub-agent') {
                       cleanRoleLabel = 'Agent secteur';
                     } else if (roleLower === 'agent') {
                       cleanRoleLabel = 'Agent';
                     } else {
                       cleanRoleLabel = getProvenanceLabel(senderForDisplayAndStyle.role ?? 'unknown');
                     }
+
                     const roleText = ` (${cleanRoleLabel})`;
                     // Pour les messages reçus, ajouter ", Lieux : Département/Région" (issus STRICTEMENT des coordonnées de l'alerte)
                     if (!isSent) {
                       const region = actualAlertData.region ? String(actualAlertData.region) : '';
                       const dep = actualAlertData.departement ? String(actualAlertData.departement).toUpperCase() : '';
                       const locationText = region || dep ? `, Lieux : ${dep || 'NON DÉFINI'}${region ? `/${region}` : ''}` : '';
-                      return roleText + locationText;
+                      return senderName + roleText + locationText;
                     }
-                    return roleText;
+                    return senderName + roleText;
                   })()}
                 </span>
               </div>
@@ -263,7 +283,16 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           <>
             <Separator className="my-2 sm:my-3 bg-gray-300" />
             <div className="text-gray-700 text-xs sm:text-sm">
-              <p className="whitespace-pre-line leading-relaxed">{actualAlertData.message}</p>
+              <p className="whitespace-pre-line leading-relaxed">
+                {(() => {
+                  const roleLower = (senderForDisplayAndStyle.role || '').toLowerCase().replace(/[_\s-]+/g, '-');
+                  const isAgent = roleLower === 'agent';
+                  if (isAgent && senderForDisplayAndStyle.roleMetier) {
+                    return <strong className="text-blue-600">🏷️ {senderForDisplayAndStyle.roleMetier}</strong>;
+                  }
+                  return actualAlertData.message;
+                })()}
+              </p>
               {actualAlertData.location && (
                 <p className="text-xs sm:text-sm text-gray-600 mt-2 font-medium">
                   Position: Lat {actualAlertData.location.latitude.toFixed(4)}, Lon {actualAlertData.location.longitude.toFixed(4)}
@@ -1937,7 +1966,7 @@ function AlertsPage() {
                         }`}
                     >
                       <NatureIcon nature="trafic-bois" size={24} />
-                      <span className="text-[10px] sm:text-xs">Trafic de bois</span>
+                      <span className="text-[10px] sm:text-xs">Coupe de bois</span>
                       {selectedAlertType === 'trafic-bois' && (
                         <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full"></span>
                       )}
@@ -1995,7 +2024,7 @@ function AlertsPage() {
                             (isHunter || isGuide
                               ? 'Envoyer une information'
                               : `Envoyer l'alerte ${selectedAlertType === 'braconnage' ? 'de braconnage' :
-                                selectedAlertType === 'trafic-bois' ? 'de trafic de bois' :
+                                selectedAlertType === 'trafic-bois' ? 'de coupe de bois' :
                                   selectedAlertType === 'feux_de_brousse' ? 'de feux de brousse' : 'd\'informations'}`)
                           )}
                         </Button>
@@ -2141,7 +2170,7 @@ function AlertsPage() {
                               <Filter className="h-4 w-4" />
                               {typeFilter === "all" ? "Filtrer" :
                                 typeFilter === "braconnage" ? "Braconnage" :
-                                  typeFilter === "trafic-bois" ? "Trafic de bois" :
+                                  typeFilter === "trafic-bois" ? "Coupe de bois" :
                                     typeFilter === "feux_de_brousse" ? "Feux de brousse" : "Autre / Information"}
                               <ChevronDown className="h-4 w-4" />
                             </Button>
@@ -2154,7 +2183,7 @@ function AlertsPage() {
                               Braconnage
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setTypeFilter("trafic-bois")}>
-                              Trafic de bois
+                              Coupe de bois
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setTypeFilter("feux_de_brousse")}>
                               Feux de brousse
@@ -2228,7 +2257,16 @@ function AlertsPage() {
 
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <div className="font-semibold text-gray-900 truncate">{alert.title}</div>
+                                    <div className="font-semibold text-gray-900 truncate">
+                                      {(() => {
+                                        let title = alert.title || 'Alerte';
+                                        if (title === 'ALERTE FEUX_DE_BROUSSE' || title === 'Alerte feux_de_brousse') return 'Alerte Feux de Brousse';
+                                        if (title === 'ALERTE TRAFIC_BOIS' || title === 'Alerte trafic-bois' || title === 'Alerte trafic_bois') return 'Alerte Coupe de Bois';
+                                        if (title === 'ALERTE BRACONNAGE' || title === 'Alerte braconnage') return 'Alerte Braconnage';
+                                        if (title === 'Alerte autre') return 'Autre / Information';
+                                        return title;
+                                      })()}
+                                    </div>
                                     {getUrgencyTag(alert.type, alert.nature, alert.isPending)}
                                     {!alert.isRead && (
                                       <Badge variant="secondary" className="bg-blue-100 text-blue-800">Non lu</Badge>
@@ -2370,14 +2408,33 @@ function AlertsPage() {
                   <DialogTitle className="text-lg font-semibold text-white">Détails de l&apos;alerte</DialogTitle>
                 </DialogHeader>
                 <div className="mt-2 flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold">{detailsAlert.title}</span>
+                  <span className="font-semibold">
+                    {(() => {
+                      let title = detailsAlert.title || 'Alerte';
+                      if (title === 'ALERTE FEUX_DE_BROUSSE' || title === 'Alerte feux_de_brousse') return 'Alerte Feux de Brousse';
+                      if (title === 'ALERTE TRAFIC_BOIS' || title === 'Alerte trafic-bois' || title === 'Alerte trafic_bois') return 'Alerte Coupe de Bois';
+                      if (title === 'ALERTE BRACONNAGE' || title === 'Alerte braconnage') return 'Alerte Braconnage';
+                      if (title === 'Alerte autre') return 'Autre / Information';
+                      return title;
+                    })()}
+                  </span>
                   {getUrgencyTag(detailsAlert.type, detailsAlert.nature, detailsAlert.isPending)}
                 </div>
               </div>
 
               <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto no-scrollbar">
                 <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  {detailsAlert.message}
+                  {(() => {
+                    const s = detailsAlert.sender;
+                    if (s) {
+                      const roleLower = (s.role || '').toLowerCase().replace(/[_\s-]+/g, '-');
+                      const isAgent = roleLower === 'agent';
+                      if (isAgent && s.roleMetier) {
+                        return <strong className="text-blue-600">🏷️ {s.roleMetier}</strong>;
+                      }
+                    }
+                    return detailsAlert.message;
+                  })()}
                 </p>
 
                 <div className="rounded-xl border border-slate-100 bg-white p-3 space-y-2">
