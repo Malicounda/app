@@ -1879,29 +1879,36 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           });
         }
 
-        // Icônes de base par couleur pour autres natures
-        let color = '#e11d48'; // défaut
-        if (n.includes('braconn') || n.includes('poaching')) color = '#ef4444';
-        else if (n.includes('incident') || n.includes('accident')) color = '#f59e0b';
-        else if (n.includes('animal') || n.includes('faune')) color = '#10b981';
-        else if (n.includes('police') || n.includes('controle') || n.includes('contrôle')) color = '#3b82f6';
-
-        if (isOld) color = '#9CA3AF'; // gray for resolved/old
-
+        // Icône pour les informations ("autre" ou par défaut)
+        const grayFilter = isOld ? 'grayscale(1) opacity(0.85)' : 'none';
+        const bgColor = isOld ? '#9CA3AF' : '#3b82f6'; // Bleu
+        
         return L.divIcon({
           className: 'custom-marker',
           html: `
-            <div class="marker-container">
-              <svg viewBox="0 0 24 24" class="marker-icon">
-                <path fill="${color}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                <circle cx="12" cy="9.5" r="2.5" fill="none"/>
-              </svg>
-              ${isOld ? '' : '<div class="marker-pulse"></div>'}
+            <div class="marker-container" style="position: relative; width:30px; height:30px; filter: ${grayFilter};">
+              <div style="
+                position:absolute; inset:0;
+                border-radius: 6px;
+                background: ${bgColor};
+                box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                display: flex; align-items: center; justify-content: center;
+                color: white; font-family: serif; font-size: 20px; font-weight: bold; font-style: italic;
+              ">
+                i
+              </div>
+              ${isOld ? '' : `
+              <!-- Pulsation bleue -->
+              <svg viewBox="-4 -4 38 38" width="38" height="38" style="position:absolute; top:-4px; left:-4px;">
+                <rect x="0" y="0" width="30" height="30" rx="6" fill="none" stroke="#3b82f6" stroke-width="2" opacity="0.7">
+                  <animate attributeName="opacity" values="0.7;0;0.7" dur="1.6s" repeatCount="indefinite"/>
+                </rect>
+              </svg>`}
             </div>
           `,
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-          popupAnchor: [0, -32]
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+          popupAnchor: [0, -18]
         });
       };
 
