@@ -231,121 +231,117 @@ export default function HuntingDeclarationsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 lg:ml-64 lg:mt-24 pt-4 lg:pt-0">
       <div className="container mx-auto px-4 py-4 lg:py-8 space-y-6 max-w-6xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-4 py-3">
-          <div className="flex items-center gap-2">
-            <User className="h-6 w-6 text-gray-700" />
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Association avec Guide</h1>
-              <p className="text-gray-600 mt-1 md:mt-2">Gérer votre association avec un guide de chasse</p>
-            </div>
+        {/* En-tête de page unifié */}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-2">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-3">
+              <FileText className="h-7 w-7 text-green-600" />
+              Déclarations des Guides
+            </h1>
+            <p className="text-slate-500 mt-2">
+              Gérez votre association avec un guide et validez ses déclarations de chasse.
+            </p>
           </div>
           <Button
             variant="outline"
             onClick={() => setLocation("/dashboard")}
-            className="hidden md:inline-flex"
+            className="hidden md:inline-flex bg-white shadow-sm"
           >
             Retour au tableau de bord
           </Button>
         </div>
 
+        {/* Bannière de Statut d'Association */}
         {guideAssociation ? (
-          <Card className="shadow-md border-0">
-            <CardContent className="pt-6">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-blue-100 rounded-full">
-                      <User className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">
-                        {guideAssociation.guide.firstName} {guideAssociation.guide.lastName}
-                      </h3>
-                      <p className="text-sm text-gray-600">Guide de chasse associé</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Les déclarations effectuées par ce guide avec vos permis apparaîtront ci-dessous pour validation.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowRemoveAssociationConfirm(true)}
-                  className="text-red-600 border-red-200 hover:bg-red-50 w-full lg:w-auto flex items-center gap-2"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Supprimer l'association
-                </Button>
+          <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                <User className="h-6 w-6" />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className="text-sm text-blue-600 font-medium uppercase tracking-wide">Guide Associé Actif</p>
+                <p className="text-lg text-slate-900 font-bold">
+                  {guideAssociation.guide.firstName} {guideAssociation.guide.lastName}
+                </p>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Les déclarations de ce guide nécessiteront votre validation.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setShowRemoveAssociationConfirm(true)}
+              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 w-full sm:w-auto shadow-sm"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Retirer le guide
+            </Button>
+          </div>
         ) : (
-          <Card className="shadow-md border-0">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between gap-2 p-2 sm:p-3 bg-gray-50 border border-gray-200 rounded-md">
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center justify-center w-7 h-7 bg-gray-200 rounded-full">
-                    <User className="h-4 w-4 text-gray-600" />
-                  </div>
-                  <div className="leading-tight">
-                    <h3 className="font-semibold text-gray-700 text-sm">Aucune Association avec Guide</h3>
-                    <p className="text-gray-600 text-xs">Vous n'êtes actuellement associé à aucun guide de chasse.</p>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => setLocation("/guides")}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  Trouver un guide
-                </Button>
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0">
+                <User className="h-6 w-6" />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className="text-slate-900 font-bold text-lg">Aucun guide associé</p>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Vous devez vous associer à un guide pour qu'il puisse déclarer ses prises en votre nom.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setLocation("/guides")}
+              className="bg-green-600 hover:bg-green-700 shadow-sm w-full sm:w-auto"
+            >
+              Trouver un guide
+            </Button>
+          </div>
         )}
 
-        {/* Section Déclarations */}
-        <Card className="shadow-md border-0">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-lg">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Déclarations en attente
-                </CardTitle>
-                <CardDescription>
-                  {pendingGuideDeclarations.length} déclaration(s) nécessitant votre validation
-                </CardDescription>
-              </div>
-              {totalItems > pageSize && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200"
-                  >
-                    Précédent
-                  </Button>
-                  <span className="px-2 text-sm text-emerald-800">
-                    Page {currentPage} / {totalPages}
+        {/* Section Déclarations en attente (sans Card wrapper) */}
+        <div className="mt-8 pt-4">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                Déclarations en attente
+                {pendingGuideDeclarations.length > 0 && (
+                  <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                    {pendingGuideDeclarations.length}
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage >= totalPages}
-                    className="bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200"
-                  >
-                    Suivant
-                  </Button>
-                </div>
-              )}
+                )}
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Veuillez valider ou rejeter les déclarations soumises par votre guide.
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
+            
+            {totalItems > pageSize && (
+              <div className="flex items-center gap-2 bg-white p-1 rounded-lg border shadow-sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 text-slate-600"
+                >
+                  Précédent
+                </Button>
+                <span className="px-2 text-sm font-medium text-slate-600">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="h-8 text-slate-600"
+                >
+                  Suivant
+                </Button>
+              </div>
+            )}
+          </div>
             {pendingGuideDeclarations.length === 0 ? (
               <div className="text-center py-12">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
@@ -463,8 +459,7 @@ export default function HuntingDeclarationsPage() {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
         {/* Modal d'image agrandie */}
         {expandedImage && (

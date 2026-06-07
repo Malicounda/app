@@ -74,6 +74,9 @@ type PermitCategory = {
   isActive: boolean;
 };
 
+const EMPTY_ARRAY: any[] = [];
+const EMPTY_OBJ: Record<string, any> = {};
+
 export default function HuntingReports() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -83,7 +86,7 @@ export default function HuntingReports() {
   const [selectedHunterId, setSelectedHunterId] = useState<number | null>(null);
 
   // Vérifier si le chasseur a des permis actifs
-  const { data: hunterPermits = [] } = useQuery({
+  const { data: hunterPermits = EMPTY_ARRAY } = useQuery({
     queryKey: ['hunter-permits'],
     queryFn: async () => {
       if (user?.role !== 'hunter') return [];
@@ -96,7 +99,7 @@ export default function HuntingReports() {
   });
 
   // Activités consolidées (déclarations+validées) du chasseur connecté (flux chasseur)
-  const { data: myActivities = [] } = useQuery<any[]>({
+  const { data: myActivities = EMPTY_ARRAY } = useQuery<any[]>({
     queryKey: ['/api/hunting-activities/hunter', user?.hunterId],
     enabled: !isGuide && !!user?.hunterId,
     queryFn: async () => {
@@ -369,7 +372,7 @@ export default function HuntingReports() {
   };
 
   // Charger les rapports (déclarations) de l'utilisateur pour calculer la consommation de taxes
-  const { data: reports = [], isLoading } = useQuery<any[]>({
+  const { data: reports = EMPTY_ARRAY, isLoading } = useQuery<any[]>({
     queryKey: ['/api/hunting-reports', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -383,7 +386,7 @@ export default function HuntingReports() {
     enabled: !!user?.id,
   });
 
-  const { data: userPermits = [], isLoading: permitsLoading } = useQuery<UserPermit[]>({
+  const { data: userPermits = EMPTY_ARRAY, isLoading: permitsLoading } = useQuery<UserPermit[]>({
     queryKey: ['/api/permits/hunter/active', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -407,7 +410,7 @@ export default function HuntingReports() {
     },
     enabled: isGuide && !!user?.id,
   });
-  const { data: associatedHunters = [] } = useQuery<Assoc[]>({
+  const { data: associatedHunters = EMPTY_ARRAY } = useQuery<Assoc[]>({
     queryKey: ['/guides', guideInfo?.id, 'hunters'],
     queryFn: async () => {
       const res: any = await apiRequest('GET', `/api/guides/${guideInfo?.id}/hunters`);
@@ -415,7 +418,7 @@ export default function HuntingReports() {
     },
     enabled: isGuide && !!guideInfo?.id,
   });
-  const { data: permitsByHunter = {}, isLoading: loadingGuidePermits } = useQuery<Record<number, UserPermit[]>>({
+  const { data: permitsByHunter = EMPTY_OBJ, isLoading: loadingGuidePermits } = useQuery<Record<number, UserPermit[]>>({
     queryKey: ['/permits/by-hunters', associatedHunters.map(a => a.hunterId)],
     enabled: isGuide && associatedHunters.length > 0,
     queryFn: async () => {
@@ -553,7 +556,7 @@ export default function HuntingReports() {
   const speciesIds = useMemo(() => availableSpecies.map(s => s.id).join(','), [availableSpecies]);
 
   // Taxes du permis couramment sélectionné (cache via React Query)
-  const { data: taxesList = [] } = useQuery<any[]>({
+  const { data: taxesList = EMPTY_ARRAY } = useQuery<any[]>({
     queryKey: ['/api/taxes/by-permit', formData.permitNumber],
     enabled: !!formData.permitNumber,
     queryFn: async () => {
@@ -582,8 +585,8 @@ export default function HuntingReports() {
             const permitNumber = formData.permitNumber;
             if (!permitNumber) {
               console.log('[Reports] Pas de permit_number');
-              setRemainingBySpeciesId(prev => Object.keys(prev).length === 0 ? prev : {});
-              setPaidBySpeciesId(prev => Object.keys(prev).length === 0 ? prev : {});
+              setRemainingBySpeciesId({});
+              setPaidBySpeciesId({});
               return;
             }
             console.log('[Reports] Taxes list length:', Array.isArray(taxesList) ? taxesList.length : 'n/a');
@@ -646,18 +649,12 @@ export default function HuntingReports() {
               }
             });
 
-            setRemainingBySpeciesId(prev => {
-              if (JSON.stringify(prev) === JSON.stringify(mapRemaining)) return prev;
-              return mapRemaining;
-            });
-            setPaidBySpeciesId(prev => {
-              if (JSON.stringify(prev) === JSON.stringify(mapPaid)) return prev;
-              return mapPaid;
-            });
+            setRemainingBySpeciesId(mapRemaining);
+            setPaidBySpeciesId(mapPaid);
           } catch (e) {
             console.warn('Impossible de charger les taxes pour ce permis:', e);
-            setRemainingBySpeciesId(prev => Object.keys(prev).length === 0 ? prev : {});
-            setPaidBySpeciesId(prev => Object.keys(prev).length === 0 ? prev : {});
+            setRemainingBySpeciesId({});
+            setPaidBySpeciesId({});
           }
         })();
       }

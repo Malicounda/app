@@ -141,6 +141,7 @@ export function HuntingGuideForm({ mode = "create", initialValues, onSuccess, on
   const form = useForm<HuntingGuideFormValues>({
     resolver: zodResolver(mode === "edit" ? guideFormEditSchema : guideFormSchema),
     defaultValues: defaults,
+    mode: "onChange",
   });
 
   // Mettre à jour les départements quand la région change
@@ -284,7 +285,7 @@ export function HuntingGuideForm({ mode = "create", initialValues, onSuccess, on
       reader.onload = () => {
         if (reader.result) {
           setPhotoPreview(reader.result.toString());
-          form.setValue("photo", reader.result.toString());
+          form.setValue("photo", reader.result.toString(), { shouldDirty: true });
           setPhotoRemoved(false);
         }
       };
@@ -296,7 +297,7 @@ export function HuntingGuideForm({ mode = "create", initialValues, onSuccess, on
   const handleRemovePhoto = () => {
     setSelectedPhoto(null);
     setPhotoPreview("");
-    form.setValue("photo", "");
+    form.setValue("photo", "", { shouldDirty: true });
     setPhotoRemoved(true);
     // Réinitialiser l'input file
     if (fileInputRef.current) {
@@ -754,7 +755,7 @@ export function HuntingGuideForm({ mode = "create", initialValues, onSuccess, on
                   <Button type="button" variant="outline" onClick={onCancel || (() => {})} className="mr-2">Annuler</Button>
                   <Button
                     type="submit"
-                    disabled={submitting || !form.formState.isValid || !form.formState.isDirty}
+                    disabled={submitting || !form.formState.isDirty}
                     className="bg-green-600 hover:bg-green-700"
                   >
                 {submitting ? (
@@ -1085,7 +1086,7 @@ export function HuntingGuideForm({ mode = "create", initialValues, onSuccess, on
                 <Button type="button" variant="outline" onClick={onCancel || (() => {})} className="mr-2">Annuler</Button>
                 <Button
                   type="submit"
-                  disabled={submitting || !form.formState.isValid || !form.formState.isDirty}
+                  disabled={submitting || !form.formState.isDirty}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {submitting ? (

@@ -335,13 +335,13 @@ router.put('/:id', isAuthenticated, async (req, res) => {
     // 1. D'abord, mettre à jour les informations du guide
     const updatedRows: any[] = await db.execute(sql`
       UPDATE hunting_guides SET
-        first_name = COALESCE(${firstName}, first_name),
-        last_name = COALESCE(${lastName}, last_name),
-        phone = COALESCE(${phone}, phone),
-        departement = COALESCE(${departement}, departement),
-        region = COALESCE(${forcedRegion ?? null}::text, COALESCE(${region}, region)),
-        id_number = COALESCE(${idNumber}, id_number),
-        photo = COALESCE(${photo}::bytea, photo),
+        first_name = COALESCE(${firstName ?? null}, first_name),
+        last_name = COALESCE(${lastName ?? null}, last_name),
+        phone = COALESCE(${phone ?? null}, phone),
+        departement = COALESCE(${departement ?? null}, departement),
+        region = COALESCE(${forcedRegion ?? null}::text, COALESCE(${region ?? null}, region)),
+        id_number = COALESCE(${idNumber ?? null}, id_number),
+        photo = ${photo === "" ? sql`NULL` : sql`COALESCE(${photo ?? null}::bytea, photo)`},
         is_active = COALESCE(${typeof isActive !== 'undefined' ? isActive : null}::boolean, is_active),
         zone_id = ${_zoneId}
       WHERE id = ${guideId}
@@ -357,12 +357,12 @@ router.put('/:id', isAuthenticated, async (req, res) => {
     if (updatedGuide.userId) {
       await db.execute(sql`
         UPDATE users SET
-          first_name = COALESCE(${firstName}, first_name),
-          last_name = COALESCE(${lastName}, last_name),
-          phone = COALESCE(${phone}, phone),
-          region = COALESCE(${region}, region),
-          username = COALESCE(${username}, username),
-          password = COALESCE(${password}, password)
+          first_name = COALESCE(${firstName ?? null}, first_name),
+          last_name = COALESCE(${lastName ?? null}, last_name),
+          phone = COALESCE(${phone ?? null}, phone),
+          region = COALESCE(${region ?? null}, region),
+          username = COALESCE(${username ?? null}, username),
+          password = COALESCE(${password ?? null}, password)
         WHERE id = ${updatedGuide.userId}
       ` as any);
     }
