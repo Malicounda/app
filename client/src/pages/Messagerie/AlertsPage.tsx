@@ -2075,6 +2075,49 @@ function AlertsPage() {
                   </div>
                 </div>
               )}
+              {/* === Barre de filtrage compacte mobile (icônes + compteurs) === */}
+              {activeTab === 'inbox' && (isAlertMobileChromeless || isDefaultRole || isSupervisorRole) && (() => {
+                const base = Array.isArray(alerts) ? alerts : [];
+                const counts = {
+                  feux_de_brousse: base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('feu') || n.includes('brousse'); }).length,
+                  'trafic-bois': base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('trafic') || n.includes('bois'); }).length,
+                  braconnage: base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('braconn'); }).length,
+                  autre: base.filter(a => { const n = (a.nature || '').toLowerCase(); return !n.includes('feu') && !n.includes('brousse') && !n.includes('trafic') && !n.includes('bois') && !n.includes('braconn'); }).length,
+                };
+                const categories = [
+                  { key: 'all', icon: '📋', label: 'Tout', color: '#059669', count: base.length },
+                  { key: 'feux_de_brousse', icon: '🔥', label: 'Feux', color: '#ea580c', count: counts.feux_de_brousse },
+                  { key: 'trafic-bois', icon: '🪵', label: 'Bois', color: '#8B5A2B', count: counts['trafic-bois'] },
+                  { key: 'braconnage', icon: '🎯', label: 'Braconn.', color: '#dc2626', count: counts.braconnage },
+                  { key: 'autre', icon: 'ℹ️', label: 'Info', color: '#6b7280', count: counts.autre },
+                ];
+                return (
+                  <div className="shrink-0 border-b border-gray-200 bg-white md:hidden">
+                    <div className="flex items-stretch overflow-x-auto no-scrollbar">
+                      {categories.map(({ key, icon, label, color, count }) => {
+                        const isActive = typeFilter === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => setTypeFilter(key)}
+                            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-2 px-1 text-center transition-all border-b-2 ${isActive ? 'border-current bg-gray-50' : 'border-transparent'}`}
+                            style={{ color: isActive ? color : '#9ca3af' }}
+                          >
+                            <span className="text-base leading-none">{icon}</span>
+                            <span className="text-[9px] font-bold leading-tight truncate w-full">{label}</span>
+                            <span
+                              className="text-[10px] font-extrabold rounded-full min-w-[18px] h-[16px] px-1 flex items-center justify-center leading-none"
+                              style={{ background: isActive ? color : '#e5e7eb', color: isActive ? '#fff' : '#6b7280' }}
+                            >
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
               {/* Barre d'actions inbox (recherche/filtre/tri) — fixe */}
               {activeTab === 'inbox' && (
                 <div className="shrink-0 px-4 py-3 border-b flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-white">
@@ -2089,6 +2132,7 @@ function AlertsPage() {
                   </div>
 
                   <div className="flex items-center gap-2 justify-end">
+                    <div className="hidden md:block">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="gap-2">
@@ -2118,6 +2162,7 @@ function AlertsPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    </div>
                     <Button
                       variant="outline"
                       size="icon"
