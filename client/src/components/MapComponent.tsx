@@ -4407,7 +4407,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             <div
               style={{
                 position: 'absolute',
-                top: '24px', // Espacement pour ne pas être caché sous l'en-tête
+                top: '140px', // Espacement important pour être complètement en dessous de l'en-tête (qui fait environ 120-130px)
                 left: 0,
                 right: 0,
                 zIndex: 1100,
