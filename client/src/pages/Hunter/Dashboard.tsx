@@ -984,12 +984,173 @@ export default function HunterDashboard() {
             </div>
 
           {selectedPermit && (
-            <div className="p-4 pb-24">
+            <div className="p-4 pb-24 flex flex-col space-y-8">
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Colonne gauche - Informations principales */}
-                <div className="lg:col-span-2 space-y-6 bg-green-50 p-6 rounded-lg border border-green-100">
+              {/* SECTION EN HAUT : Carte de permis téléchargeable (centrée, petit bouton) */}
+              <div className="flex flex-col items-center w-full mt-2">
+                <div id="permit-card" className="w-64 p-4 bg-white border-2 border-dashed border-black text-left font-sans text-black bg-gray-50 rounded-lg border border-gray-200">
+                  <h2 className="text-sm font-bold mb-1 text-center">Direction Eaux et Forêts</h2>
+                  <p className="text-xs mb-3 text-center">Chasse et Conservation des Sols</p>
+
+                  {qrCodeUrl && (
+                    <div className="w-32 h-32 mx-auto mb-3">
+                      <img src={qrCodeUrl} alt="QR Code" className="w-full h-full" />
+                    </div>
+                  )}
+
+                  <p className="text-xs font-semibold mb-2 text-center">
+                    Service des Eaux et Forêts<br />
+                    {selectedPermit.metadata?.createdByUser?.region ?
+                      `IREF/${selectedPermit.metadata.createdByUser.region}` :
+                      selectedPermit.metadata?.createdByUser?.departement ?
+                      `SECTEUR/${selectedPermit.metadata.createdByUser.departement}` :
+                      'DEFCCS'
+                    }
+                  </p>
+
+                  <p className="text-xs mb-1 text-left">
+                    <span className="font-bold">Permis de chasse :</span> {selectedPermit.permitNumber}
+                  </p>
+
+                  <p className="text-xs mb-1 text-left">
+                    <span className="font-bold">Type :</span> {selectedPermit.categoryId || selectedPermit.type}
+                  </p>
+
+                  <p className="text-xs mb-1 text-center">
+                    <span className="font-bold">Nom du chasseur :</span>
+                  </p>
+                  <p className="text-lg font-bold mb-2 text-center">
+                    {hunterInfo ? `${hunterInfo.lastName.toUpperCase()} ${hunterInfo.firstName.toUpperCase()}` : 'Chargement...'}
+                  </p>
+
+                  <p className="text-xs mb-1 text-left">
+                    <span className="font-bold">Prix :</span> {Number(selectedPermit.price).toLocaleString()} FCFA
+                  </p>
+
+                  <p className="text-xs mb-1 text-left">
+                    <span className="font-bold">Émis le :</span> {format(new Date(selectedPermit.issueDate), "dd/MM/yyyy")}
+                  </p>
+
+                  <p className="text-xs mb-1 text-left">
+                    <span className="font-bold">Expire le :</span> {format(new Date(selectedPermit.expiryDate), "dd/MM/yyyy")}
+                  </p>
+
+                  <p className="text-xs text-left">
+                    <span className="font-bold">Quittance :</span> {selectedPermit.receiptNumber || 'N/A'}
+                  </p>
+                </div>
+
+                <Button
+                  onClick={handleDownloadPermit}
+                  size="sm"
+                  className="mt-4 px-8 bg-green-600 hover:bg-green-700 text-xs h-9"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Télécharger le Permis
+                </Button>
+              </div>
+
+              {/* AUTRES INFORMATIONS */}
+              <div className="space-y-6 bg-green-50 p-6 rounded-lg border border-green-100 w-full max-w-3xl mx-auto">
+                
+                {/* Informations du chasseur */}
+                {hunterInfo && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Informations du Chasseur</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Nom Complet</h4>
+                        <p className="text-base">{hunterInfo.firstName} {hunterInfo.lastName}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Numéro Pièce d'Identité</h4>
+                        <p className="text-base">{hunterInfo.idNumber}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Téléphone</h4>
+                        <p className="text-base">{hunterInfo.phone || 'Non renseigné'}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Adresse</h4>
+                        <p className="text-base">{hunterInfo.address || 'Non renseignée'}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Région</h4>
+                        <p className="text-base">{hunterInfo.region || 'Non renseignée'}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Catégorie</h4>
+                        <p className="text-base">{hunterInfo.category || 'Non renseignée'}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+
+                {/* Informations sur les armes */}
+                {hunterInfo && (
+                  <div className="border-t pt-6 border-green-200/60">
+                    <h3 className="text-lg font-semibold mb-4">Informations sur les Armes</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Type d'Arme</h4>
+                        <p className="text-base">{(hunterInfo.weaponType && hunterInfo.weaponType !== 'nan') ? hunterInfo.weaponType : 'Non renseigné'}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Marque</h4>
+                        <p className="text-base">{(hunterInfo.weaponBrand && hunterInfo.weaponBrand !== 'nan') ? hunterInfo.weaponBrand : 'Non renseigné'}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Calibre</h4>
+                        <p className="text-base">{(hunterInfo.weaponCaliber && hunterInfo.weaponCaliber !== 'nan') ? hunterInfo.weaponCaliber : 'Non renseigné'}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-500 mb-1">Référence</h4>
+                        <p className="text-base">{(hunterInfo.weaponReference && hunterInfo.weaponReference !== 'nan') ? hunterInfo.weaponReference : 'Non renseigné'}</p>
+                      </div>
+                      {hunterInfo.weaponOtherDetails && hunterInfo.weaponOtherDetails !== 'nan' && (
+                        <div className="md:col-span-2">
+                          <h4 className="text-sm font-medium text-slate-500 mb-1">Autres Détails</h4>
+                          <p className="text-base">{hunterInfo.weaponOtherDetails}</p>
+                        </div>
+                      )}
+                    </div>
+                    {(!hunterInfo.weaponType || hunterInfo.weaponType === 'nan') &&
+                     (!hunterInfo.weaponBrand || hunterInfo.weaponBrand === 'nan') &&
+                     (!hunterInfo.weaponCaliber || hunterInfo.weaponCaliber === 'nan') && (
+                      <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm text-amber-700">
+                          Aucune information sur les armes n'est disponible pour ce chasseur.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Informations administratives */}
+                <div className="border-t pt-6 border-green-200/60">
+                  <h3 className="text-lg font-semibold mb-4">Informations Administratives</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-500 mb-1">Numéro de Quittance</h4>
+                      <p className="text-base">{selectedPermit.receiptNumber || 'Non disponible'}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-500 mb-1">Émetteur</h4>
+                      <p className="text-base">
+                        {selectedPermit.metadata?.createdByUser ?
+                          `${selectedPermit.metadata.createdByUser.firstName} ${selectedPermit.metadata.createdByUser.lastName}` :
+                          'Service des Eaux et Forêts'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION EN BAS : Informations principales du permis (Désormais à la fin) */}
+                <div className="border-t pt-6 border-green-200/60">
+                  <h3 className="text-lg font-semibold mb-4">Détails du Quitus</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <h3 className="text-sm font-medium text-slate-500 mb-1">Numéro de Permis</h3>
                       <p className="text-lg font-semibold">{selectedPermit.permitNumber}</p>
@@ -1016,199 +1177,43 @@ export default function HunterDashboard() {
                       <p className="text-base">{formatDate(selectedPermit.expiryDate)}</p>
                     </div>
                   </div>
+                </div>
 
-                  {/* Informations du chasseur */}
-                  {hunterInfo && (
-                    <div className="border-t pt-6">
-                      <h3 className="text-lg font-semibold mb-4">Informations du Chasseur</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Nom Complet</h4>
-                          <p className="text-base">{hunterInfo.firstName} {hunterInfo.lastName}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Numéro Pièce d'Identité</h4>
-                          <p className="text-base">{hunterInfo.idNumber}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Téléphone</h4>
-                          <p className="text-base">{hunterInfo.phone || 'Non renseigné'}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Adresse</h4>
-                          <p className="text-base">{hunterInfo.address || 'Non renseignée'}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Région</h4>
-                          <p className="text-base">{hunterInfo.region || 'Non renseignée'}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Catégorie</h4>
-                          <p className="text-base">{hunterInfo.category || 'Non renseignée'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                {/* Informations de renouvellement (Désormais en toute dernière position) */}
+                <div className="border-t pt-6 border-green-200/60">
+                  <h3 className="text-lg font-semibold mb-4">Historique des Renouvellements</h3>
+                  {(() => {
+                    const renewalCount = selectedPermit.renewalCount ||
+                                       selectedPermit.metadata?.renewalCount ||
+                                       (Array.isArray(selectedPermit.renewals) ? selectedPermit.renewals.length : 0) ||
+                                       (Array.isArray(selectedPermit.metadata?.renewals) ? selectedPermit.metadata.renewals.length : 0);
 
-                  {/* Informations de renouvellement */}
-                  <div className="border-t pt-6">
-                    <h3 className="text-lg font-semibold mb-4">Historique des Renouvellements</h3>
-                    {(() => {
-                      const renewalCount = selectedPermit.renewalCount ||
-                                         selectedPermit.metadata?.renewalCount ||
-                                         (Array.isArray(selectedPermit.renewals) ? selectedPermit.renewals.length : 0) ||
-                                         (Array.isArray(selectedPermit.metadata?.renewals) ? selectedPermit.metadata.renewals.length : 0);
-
-                      if (renewalCount === 0) {
-                        return (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <div className="flex items-center gap-2">
-                              <Badge tone="slate">Première émission</Badge>
-                            </div>
-                            <p className="text-sm text-blue-700 mt-2">
-                              Ce permis n'a pas encore été renouvelé. Il s'agit de la première émission.
-                            </p>
+                    if (renewalCount === 0) {
+                      return (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex items-center gap-2">
+                            <Badge tone="slate">Première émission</Badge>
                           </div>
-                        );
-                      } else {
-                        return (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <div className="flex items-center gap-2">
-                              <Badge tone="green">Renouvellement n°{renewalCount}</Badge>
-                            </div>
-                            <p className="text-sm text-green-700 mt-2">
-                              Ce permis a été renouvelé {renewalCount} fois.
-                            </p>
-                          </div>
-                        );
-                      }
-                    })()}
-                  </div>
-
-                  {/* Informations sur les armes */}
-                  {hunterInfo && (
-                    <div className="border-t pt-6">
-                      <h3 className="text-lg font-semibold mb-4">Informations sur les Armes</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Type d'Arme</h4>
-                          <p className="text-base">{(hunterInfo.weaponType && hunterInfo.weaponType !== 'nan') ? hunterInfo.weaponType : 'Non renseigné'}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Marque</h4>
-                          <p className="text-base">{(hunterInfo.weaponBrand && hunterInfo.weaponBrand !== 'nan') ? hunterInfo.weaponBrand : 'Non renseigné'}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Calibre</h4>
-                          <p className="text-base">{(hunterInfo.weaponCaliber && hunterInfo.weaponCaliber !== 'nan') ? hunterInfo.weaponCaliber : 'Non renseigné'}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Référence</h4>
-                          <p className="text-base">{(hunterInfo.weaponReference && hunterInfo.weaponReference !== 'nan') ? hunterInfo.weaponReference : 'Non renseigné'}</p>
-                        </div>
-                        {hunterInfo.weaponOtherDetails && hunterInfo.weaponOtherDetails !== 'nan' && (
-                          <div className="md:col-span-2">
-                            <h4 className="text-sm font-medium text-slate-500 mb-1">Autres Détails</h4>
-                            <p className="text-base">{hunterInfo.weaponOtherDetails}</p>
-                          </div>
-                        )}
-                      </div>
-                      {(!hunterInfo.weaponType || hunterInfo.weaponType === 'nan') &&
-                       (!hunterInfo.weaponBrand || hunterInfo.weaponBrand === 'nan') &&
-                       (!hunterInfo.weaponCaliber || hunterInfo.weaponCaliber === 'nan') && (
-                        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                          <p className="text-sm text-amber-700">
-                            Aucune information sur les armes n'est disponible pour ce chasseur.
+                          <p className="text-sm text-blue-700 mt-2">
+                            Ce permis n'a pas encore été renouvelé. Il s'agit de la première émission.
                           </p>
                         </div>
-                      )}
-                    </div>
-                  )}
-
-
-                  {/* Informations administratives */}
-                  <div className="border-t pt-6">
-                    <h3 className="text-lg font-semibold mb-4">Informations Administratives</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Numéro de Quittance</h4>
-                        <p className="text-base">{selectedPermit.receiptNumber || 'Non disponible'}</p>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Émetteur</h4>
-                        <p className="text-base">
-                          {selectedPermit.metadata?.createdByUser ?
-                            `${selectedPermit.metadata.createdByUser.firstName} ${selectedPermit.metadata.createdByUser.lastName}` :
-                            'Service des Eaux et Forêts'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                      );
+                    } else {
+                      return (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <div className="flex items-center gap-2">
+                            <Badge tone="green">Renouvellement n°{renewalCount}</Badge>
+                          </div>
+                          <p className="text-sm text-green-700 mt-2">
+                            Ce permis a été renouvelé {renewalCount} fois.
+                          </p>
+                        </div>
+                      );
+                    }
+                  })()}
                 </div>
 
-                {/* Colonne droite - Carte de permis téléchargeable */}
-                <div className="lg:col-span-1 flex flex-col items-start mt-4">
-                  <div id="permit-card" className="w-64 p-4 bg-white border-2 border-dashed border-black text-left font-sans text-black bg-gray-50 rounded-lg border border-gray-200">
-                    <h2 className="text-sm font-bold mb-1 text-center">Direction Eaux et Forêts</h2>
-                    <p className="text-xs mb-3 text-center">Chasse et Conservation des Sols</p>
-
-                    {qrCodeUrl && (
-                      <div className="w-32 h-32 mx-auto mb-3">
-                        <img src={qrCodeUrl} alt="QR Code" className="w-full h-full" />
-                      </div>
-                    )}
-
-                    <p className="text-xs font-semibold mb-2 text-center">
-                      Service des Eaux et Forêts<br />
-                      {selectedPermit.metadata?.createdByUser?.region ?
-                        `IREF/${selectedPermit.metadata.createdByUser.region}` :
-                        selectedPermit.metadata?.createdByUser?.departement ?
-                        `SECTEUR/${selectedPermit.metadata.createdByUser.departement}` :
-                        'DEFCCS'
-                      }
-                    </p>
-
-                    <p className="text-xs mb-1 text-left">
-                      <span className="font-bold">Permis de chasse :</span> {selectedPermit.permitNumber}
-                    </p>
-
-                    <p className="text-xs mb-1 text-left">
-                      <span className="font-bold">Type :</span> {selectedPermit.categoryId || selectedPermit.type}
-                    </p>
-
-                    <p className="text-xs mb-1 text-center">
-                      <span className="font-bold">Nom du chasseur :</span>
-                    </p>
-                    <p className="text-lg font-bold mb-2 text-center">
-                      {hunterInfo ? `${hunterInfo.lastName.toUpperCase()} ${hunterInfo.firstName.toUpperCase()}` : 'Chargement...'}
-                    </p>
-
-                    <p className="text-xs mb-1 text-left">
-                      <span className="font-bold">Prix :</span> {Number(selectedPermit.price).toLocaleString()} FCFA
-                    </p>
-
-                    <p className="text-xs mb-1 text-left">
-                      <span className="font-bold">Émis le :</span> {format(new Date(selectedPermit.issueDate), "dd/MM/yyyy")}
-                    </p>
-
-                    <p className="text-xs mb-1 text-left">
-                      <span className="font-bold">Expire le :</span> {format(new Date(selectedPermit.expiryDate), "dd/MM/yyyy")}
-                    </p>
-
-                    <p className="text-xs text-left">
-                      <span className="font-bold">Quittance :</span> {selectedPermit.receiptNumber || 'N/A'}
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={handleDownloadPermit}
-                    className="mt-4 w-full max-w-sm bg-green-600 hover:bg-green-700"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Télécharger le Permis
-                  </Button>
-                </div>
               </div>
             </div>
           )}
