@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequestBlob } from "@/lib/api";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -226,7 +227,7 @@ export default function AssociateHuntersPage() {
 function HunterAssociationRow({
   assoc,
   onRemove,
-  removing,
+  removing
 }: {
   assoc: GuideHunter;
   onRemove: () => void;
@@ -234,10 +235,41 @@ function HunterAssociationRow({
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [openContactOptions, setOpenContactOptions] = useState(false);
-  const [selectedPermit, setSelectedPermit] = useState<any | null>(null);
   const [openTaxes, setOpenTaxes] = useState(false);
+  const [openContactOptions, setOpenContactOptions] = useState(false);
+  const [selectedPermit, setSelectedPermit] = useState<any>(null);
   const [remainingBySpecies, setRemainingBySpecies] = useState<Record<string, number>>({});
+  
+  // État pour la photo du chasseur
+  const [photoUrl, setPhotoUrl] = useState<string>(assoc.hunter?.photo || "");
+
+  // Fetch de la photo du chasseur via attachments
+  const hId = assoc.hunterId || assoc.hunter?.id;
+  useEffect(() => {
+    if (assoc.hunter?.photo && assoc.hunter.photo.startsWith('http')) {
+      setPhotoUrl(assoc.hunter.photo);
+      return;
+    }
+    
+    let prevUrl: string | null = null;
+    if (hId) {
+      (async () => {
+        try {
+          const res = await apiRequestBlob(`/attachments/${hId}/hunterPhoto?inline=1`, 'GET');
+          if (res.ok && res.blob && res.blob.size > 0) {
+            const url = URL.createObjectURL(res.blob);
+            prevUrl = url;
+            setPhotoUrl(url);
+          }
+        } catch (e) {
+          // Silencieux - pas de photo disponible
+        }
+      })();
+    }
+    return () => {
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+    };
+  }, [hId, assoc.hunter?.photo]);
 
   const hunterId = assoc.hunterId;
 
@@ -359,8 +391,8 @@ function HunterAssociationRow({
         <div className="flex items-center gap-3">
           {/* Avatar */}
           <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-semibold shrink-0 overflow-hidden">
-            {assoc.hunter?.photo ? (
-              <img src={assoc.hunter.photo} alt="Photo du chasseur" className="w-full h-full object-cover" />
+            {photoUrl ? (
+              <img src={photoUrl} alt="Photo du chasseur" className="w-full h-full object-cover" />
             ) : (
               getInitials(assoc.hunter?.firstName, assoc.hunter?.lastName)
             )}
@@ -418,8 +450,8 @@ function HunterAssociationRow({
         <DialogContent className="max-w-sm w-[95vw] rounded-2xl p-0 overflow-hidden bg-white">
           <div className="bg-slate-50 p-5 flex flex-col items-center border-b border-slate-100">
             <div className="w-16 h-16 rounded-full bg-white shadow-sm border border-slate-200 flex items-center justify-center text-slate-700 text-xl font-bold mb-3 overflow-hidden">
-              {assoc.hunter?.photo ? (
-                <img src={assoc.hunter.photo} alt="Photo du chasseur" className="w-full h-full object-cover" />
+              {photoUrl ? (
+                <img src={photoUrl} alt="Photo du chasseur" className="w-full h-full object-cover" />
               ) : (
                 getInitials(assoc.hunter?.firstName, assoc.hunter?.lastName)
               )}
