@@ -1973,20 +1973,22 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         const senderPhone = s?.phone || '';
         const role = (s?.role || '').toLowerCase().replace(/[_\s-]+/g, '-');
         const dep = (s?.departement || '').toUpperCase();
-        // Pour les agents: afficher le rôle métier au lieu du label générique
+        // Label de localisation du service (IREF, Secteur, etc.)
         let roleLabel = '';
-        if (isAgent && (s as any)?.roleMetier) {
-          roleLabel = (s as any).roleMetier;
-        } else if (role === 'sub-agent') {
+        if (role === 'sub-agent') {
           roleLabel = `Agent secteur${dep ? `, ${dep}` : ''}`;
         } else if (role === 'agent') {
-          roleLabel = s?.departement ? `Secteur, ${dep}` : 'IREF';
+          roleLabel = s?.departement ? `IREF, ${dep}` : 'IREF';
         } else if (role) {
           roleLabel = role.replace(/-/g, ' ');
         }
+        // Rôle métier de l'agent (pour la dernière ligne)
+        const roleMetierLabel = isAgent && (s as any)?.roleMetier ? (s as any).roleMetier : '';
         const latStr = typeof a.lat === 'number' ? a.lat.toFixed(5) : String(a.lat);
         const lonStr = typeof a.lon === 'number' ? a.lon.toFixed(5) : String(a.lon);
         const senderLine = senderName || roleLabel ? `${senderName} ${roleLabel ? `(${roleLabel}${s?.region ? `, ${s.region}` : ''})` : ''}` : '';
+        // Pour les agents: la dernière ligne affiche le rôle métier au lieu du message d'alerte
+        const lastLineContent = isAgent && roleMetierLabel ? roleMetierLabel : msg;
         const html = `
           <div class="custom-alert-popup-content">
             <div class="popup-header">
@@ -2034,9 +2036,9 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                 <span class="popup-value"><a href="tel:${senderPhone}" class="popup-phone-link">${senderPhone}</a></span>
               </div>
               ` : ''}
-              ${msg ? `
+              ${lastLineContent ? `
               <div class="popup-message">
-                ${msg}
+                ${isAgent && roleMetierLabel ? `<strong style="color:#3b82f6;">🏷️ ${lastLineContent}</strong>` : lastLineContent}
               </div>
               ` : ''}
             </div>
