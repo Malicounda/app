@@ -4491,6 +4491,8 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
               padding: '10px',
               borderRadius: '8px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              minWidth: 'max-content',
+              maxWidth: 'calc(100vw - 60px)',
             }}>
               <div className="alert-filter-drag-handle" style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '4px', color: '#374151', cursor: 'grab', touchAction: 'none', userSelect: 'none' }}>
                 ⠿ Filtrer alertes
@@ -4509,6 +4511,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                     style={{
                       display: 'flex',
                       alignItems: 'center',
+                      justifyContent: 'space-between',
                       gap: '8px',
                       padding: '6px 10px',
                       border: `2px solid ${color}`,
@@ -4520,10 +4523,13 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                       cursor: 'pointer',
                       transition: 'all 0.2s',
                       opacity: alertTypeFilters[key as keyof typeof alertTypeFilters] ? 1 : 0.6,
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    <span style={{ fontSize: '16px' }}>{icon}</span>
-                    <span style={{ flex: 1 }}>{label}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                      <span style={{ fontSize: '16px', flexShrink: 0 }}>{icon}</span>
+                      <span style={{ textOverflow: 'ellipsis', overflow: 'hidden' }}>{label}</span>
+                    </div>
                     <span style={{
                       background: alertTypeFilters[key as keyof typeof alertTypeFilters] ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)',
                       padding: '2px 6px',
