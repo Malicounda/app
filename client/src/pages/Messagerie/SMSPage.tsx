@@ -699,7 +699,8 @@ export default function SimpleSMSPage() {
 
   if (isAlerteUser) {
     return (
-      <div className="sms-alerte-fixed-container flex flex-col bg-slate-50 overflow-hidden">
+      <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
+        <AgentTopHeader />
         {/* supervisor phone Messaging UI */}
         {usePhoneMessagingUi && (
           <div className="bg-white flex-1 flex flex-col min-h-0 w-full h-full relative">
