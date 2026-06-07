@@ -482,11 +482,11 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
                 <span className="text-[10px] font-bold">Accueil</span>
               </button>
               <button 
-                onClick={() => setLocation('/demande-permis-special')} 
-                className={`flex flex-col items-center justify-center w-full h-full ${location === '/demande-permis-special' || location === '/permit-request' ? 'text-green-600' : 'text-slate-400'}`}
+                onClick={() => setLocation('/alerts')} 
+                className={`flex flex-col items-center justify-center w-full h-full ${location === '/alerts' ? 'text-green-600' : 'text-slate-400'}`}
               >
-                <FilePlus2 className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-bold">Permis</span>
+                <Bell className="w-5 h-5 mb-1" />
+                <span className="text-[10px] font-bold">Alertes</span>
               </button>
               <button 
                 onClick={() => setLocation('/sms')} 
