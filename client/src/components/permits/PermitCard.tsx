@@ -206,34 +206,35 @@ export default function PermitCard({ permit, hunter }: PermitCardProps) {
       permit.status === 'expired' ? 'Expiré' : 'Inconnu'}`;
 
   return (
-    <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-md p-6 print:shadow-none">
+    <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-md p-3 sm:p-6 print:shadow-none">
       {/* Entête */}
-      <div className="flex justify-between items-center border-b pb-4 mb-4">
-        <div className="flex items-center">
-          <img src={senegalFlag} alt="Drapeau du Sénégal" className="h-10 mr-3" />
-          <div>
-            <div className="font-bold text-green-800">RÉPUBLIQUE DU SÉNÉGAL</div>
-            <div className="text-sm text-green-700">Ministère de l'Environnement et de la Transition Écologique</div>
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-b pb-4 mb-4">
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+          <img src={senegalFlag} alt="Drapeau du Sénégal" className="h-8 sm:h-10 shrink-0" />
+          <div className="text-left flex-1 sm:flex-initial">
+            <div className="font-bold text-green-800 text-xs sm:text-base leading-tight">RÉPUBLIQUE DU SÉNÉGAL</div>
+            <div className="text-[10px] sm:text-sm text-green-700 leading-tight mt-0.5">Ministère de l'Environnement et de la Transition Écologique</div>
           </div>
+          <img src={eauxForetsLogo} alt="Logo Eaux et Forêts" className="h-10 sm:h-16 shrink-0 sm:hidden block" />
         </div>
 
-        <div className="text-right">
+        <div className="text-right shrink-0 hidden sm:block">
           <img src={eauxForetsLogo} alt="Logo Eaux et Forêts" className="h-16" />
         </div>
       </div>
 
       {/* Titre */}
-      <div className="text-center my-4">
-        <h1 className="text-2xl font-bold uppercase text-green-900">PERMIS DE CHASSE</h1>
+      <div className="text-center my-2 sm:my-4">
+        <h1 className="text-lg sm:text-2xl font-bold uppercase text-green-900">PERMIS DE CHASSE</h1>
         {renewalCount > 0 && (
-          <span className="inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 border border-green-200">
+          <span className="inline-block mt-1 sm:mt-2 px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold rounded-full bg-green-100 text-green-700 border border-green-200">
             Renouvelé
           </span>
         )}
       </div>
 
       {/* Informations principales */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
         <div>
           <div className="mb-4">
             <div className="text-sm text-gray-600">Type de Permis:</div>
@@ -321,10 +322,10 @@ export default function PermitCard({ permit, hunter }: PermitCardProps) {
           </div>
 
 
-          <div className="mb-0 mt-auto flex flex-col items-center">
-            <div className="qrcode-wrapper" id="qrcode-container">
-              <div className="bg-gray-50 p-4 rounded-lg" style={{marginTop: '1.5cm'}}>
-                <div className="relative w-48 h-48 mx-auto mb-1">
+          <div className="mb-0 mt-4 sm:mt-auto flex flex-col items-center sm:items-end">
+            <div className="qrcode-wrapper w-full sm:w-auto" id="qrcode-container">
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg mt-2 sm:mt-[1.5cm] flex flex-col items-center">
+                <div className="relative w-32 h-32 sm:w-48 sm:h-48 mb-1">
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`}
                     alt="QR Code du Permis"
@@ -334,10 +335,10 @@ export default function PermitCard({ permit, hunter }: PermitCardProps) {
                   <img
                     src="/logo_forets.png"
                     alt="Logo Eaux et Forêts"
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10"
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 bg-white/80 rounded-full p-0.5"
                   />
                 </div>
-                <div className="text-xs text-center text-gray-500">Scannez pour vérifier</div>
+                <div className="text-[10px] sm:text-xs text-center text-gray-500 w-full">Scannez pour vérifier</div>
               </div>
             </div>
           </div>
@@ -345,9 +346,9 @@ export default function PermitCard({ permit, hunter }: PermitCardProps) {
       </div>
 
       {/* Pied de page avec informations complètes de l'émetteur */}
-      <div className="border-t pt-4 mt-4">
-        <div className="flex justify-between items-start">
-          <div className="text-xs text-gray-600">
+      <div className="border-t pt-4 mt-2 sm:mt-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="text-[10px] sm:text-xs text-gray-600">
             <div className="font-semibold mb-1">Émetteur:</div>
             {issuerName && <div>{String(issuerName)}</div>}
             <div>Direction des Eaux et Forêts</div>
@@ -359,7 +360,7 @@ export default function PermitCard({ permit, hunter }: PermitCardProps) {
               )}
             </div>
           </div>
-          <div className="text-right text-xs text-gray-600">
+          <div className="text-left sm:text-right text-[10px] sm:text-xs text-gray-600">
             <p className="italic">Document officiel - Le titulaire doit présenter ce permis sur demande des autorités.</p>
           </div>
         </div>

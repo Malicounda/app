@@ -30,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { BadgeCheck, Eye, FileText, Loader2, User as UserIcon, XCircle, Plus, Users } from "lucide-react";
+import { BadgeCheck, Eye, FileText, Loader2, Phone, XCircle, Plus, Users, Trash2 } from "lucide-react";
 
 // Types pour les données
 interface Hunter {
@@ -43,6 +43,7 @@ interface Hunter {
   zone: string | null; // legacy
   departement?: string | null; // canonical key returned by API
   nationality?: string | null;
+  photo?: string | null;
 }
 
 interface GuideHunter {
@@ -194,56 +195,18 @@ export default function AssociateHuntersPage() {
             En tant que guide de chasse, vous pouvez associer des chasseurs à votre compte pour faciliter le suivi de leurs activités.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-2 sm:p-4 md:p-6">
+        <CardContent className="p-0 sm:p-4 md:p-6">
           {associatedHunters && associatedHunters.length > 0 ? (
-            <>
-              {(() => {
-                const totalPages = Math.max(1, Math.ceil(associatedHunters.length / pageSize));
-                const currentPage = Math.min(page, totalPages);
-                const start = (currentPage - 1) * pageSize;
-                const end = start + pageSize;
-                const slice = associatedHunters.slice(start, end);
-                return (
-                  <>
-                    <div className="divide-y divide-slate-200">
-                      {slice.map((assoc: GuideHunter) => (
-                        <HunterAssociationRow
-                          key={assoc.id}
-                          assoc={assoc}
-                          onRemove={() => handleRemoveHunter(assoc.hunterId)}
-                          removing={removeHunterAssociationMutation.isPending}
-                        />
-                      ))}
-                    </div>
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="text-xs text-slate-500">
-                        Page {currentPage} / {totalPages} • {associatedHunters.length} chasseur(s)
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={currentPage <= 1}
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                          className="text-xs"
-                        >
-                          Précédent
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={currentPage >= totalPages}
-                          onClick={() => setPage((p) => p + 1)}
-                          className="text-xs"
-                        >
-                          Suivant
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </>
+            <div className="divide-y divide-slate-100">
+              {associatedHunters.map((assoc: GuideHunter) => (
+                <HunterAssociationRow
+                  key={assoc.id}
+                  assoc={assoc}
+                  onRemove={() => handleRemoveHunter(assoc.hunterId)}
+                  removing={removeHunterAssociationMutation.isPending}
+                />
+              ))}
+            </div>
           ) : (
             <div className="py-4 sm:py-8 text-center">
               <p className="text-muted-foreground text-xs sm:text-sm">
@@ -271,6 +234,7 @@ function HunterAssociationRow({
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [openContactOptions, setOpenContactOptions] = useState(false);
   const [selectedPermit, setSelectedPermit] = useState<any | null>(null);
   const [openTaxes, setOpenTaxes] = useState(false);
   const [remainingBySpecies, setRemainingBySpecies] = useState<Record<string, number>>({});
@@ -388,101 +352,131 @@ function HunterAssociationRow({
 
   return (
     <>
-      <div className={`py-3 px-1 sm:px-2 ${rowClass}`}>
+      <div 
+        className="relative py-3 px-3 sm:px-4 transition-colors hover:bg-slate-50 cursor-pointer" 
+        onClick={() => setOpenContactOptions(true)}
+      >
         <div className="flex items-center gap-3">
           {/* Avatar */}
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-semibold">
-            {getInitials(assoc.hunter?.firstName, assoc.hunter?.lastName)}
+          <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-semibold shrink-0 overflow-hidden">
+            {assoc.hunter?.photo ? (
+              <img src={assoc.hunter.photo} alt="Photo du chasseur" className="w-full h-full object-cover" />
+            ) : (
+              getInitials(assoc.hunter?.firstName, assoc.hunter?.lastName)
+            )}
           </div>
           {/* Infos principales */}
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-slate-800 text-sm sm:text-base truncate">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-800 text-base truncate">
                 {assoc.hunter?.firstName} {assoc.hunter?.lastName}
               </span>
-              {assoc.hunter?.nationality ? (
-                <Badge variant="outline" className="text-[10px] sm:text-xs">{assoc.hunter.nationality}</Badge>
-              ) : null}
             </div>
-            <div className="text-[11px] sm:text-xs text-slate-500 truncate">
-              CNI: {assoc.hunter?.idNumber || '—'}{assoc.hunter?.phone ? ` • ${assoc.hunter.phone}` : ''}
+            <div className="text-xs text-slate-500 truncate mt-0.5">
+              CNI: {assoc.hunter?.idNumber || '—'}
             </div>
-            {/* Statut permis + taxes */}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 mt-1">
               {loadingPermits ? (
-                <span className="text-[11px] text-muted-foreground">Chargement permis…</span>
+                <span className="text-[10px] text-slate-400">Chargement...</span>
               ) : hasActive ? (
-                <>
-                  <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 text-[10px] sm:text-xs whitespace-nowrap">
-                    <BadgeCheck className="h-3 w-3 mr-1" /> Actif
-                  </Badge>
-                  <Button size="sm" variant="outline" onClick={() => handleViewPermit(activePermit!)} className="text-[11px] h-7 px-2">
-                    <Eye className="h-3 w-3 mr-1" /> Quitus
-                  </Button>
-                </>
+                <span className="flex items-center text-[10px] text-emerald-600 font-medium"><BadgeCheck className="w-3 h-3 mr-0.5" /> Permis actif</span>
               ) : hasPermits ? (
-                <>
-                  <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 text-[10px] sm:text-xs whitespace-nowrap">
-                    <XCircle className="h-3 w-3 mr-1" /> Non actif
-                  </Badge>
-                  <Button size="sm" variant="outline" onClick={() => handleViewPermit(permits[0])} className="text-[11px] h-7 px-2">
-                    <Eye className="h-3 w-3 mr-1" /> Voir
-                  </Button>
-                </>
+                <span className="flex items-center text-[10px] text-amber-600 font-medium"><XCircle className="w-3 h-3 mr-0.5" /> Permis expiré</span>
               ) : (
-                <span className="text-[11px] text-muted-foreground">Aucun permis</span>
+                <span className="text-[10px] text-slate-400">Aucun permis</span>
               )}
-
-              {loadingTaxes ? (
-                <span className="text-[11px] text-muted-foreground">Chargement taxes…</span>
-              ) : taxes.length > 0 ? (
-                <>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-[10px] sm:text-xs">{taxes.length} taxe(s)</Badge>
-                  <Button size="sm" variant="outline" onClick={() => setOpenTaxes(true)} className="text-[11px] h-7 px-2">
-                    <FileText className="h-3 w-3 mr-1" /> Voir
-                  </Button>
-                </>
-              ) : (
-                <span className="text-[11px] text-muted-foreground">Aucune taxe</span>
+              {taxes.length > 0 && (
+                <span className="flex items-center text-[10px] text-blue-600 font-medium ml-1"><FileText className="w-3 h-3 mr-0.5" /> {taxes.length} taxe(s)</span>
               )}
             </div>
           </div>
-          {/* Actions droites */}
-          <div className="flex items-center gap-2">
-            {assoc.hunter?.phone ? (
-              <a
-                href={`tel:${assoc.hunter.phone}`}
-                className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-amber-200 bg-amber-100 hover:bg-amber-100/80"
-                title="Appeler le chasseur"
-              >
-                <UserIcon className="h-4 w-4 text-amber-600" />
-              </a>
-            ) : (
-              <div className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-amber-200 bg-amber-100" title="Coordonnées indisponibles">
-                <UserIcon className="h-4 w-4 text-amber-600" />
-              </div>
-            )}
+          {/* Retirer button */}
+          <div className="shrink-0 pl-2">
             <Button
-              variant="destructive"
+              variant="ghost"
               size="sm"
-              onClick={onRemove}
+              onClick={(e) => { e.stopPropagation(); onRemove(); }}
               disabled={removing}
-              className="text-[11px] h-8 px-2 sm:px-3"
+              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-10 px-3 rounded-xl transition-colors"
+              title="Retirer le chasseur"
             >
               {removing ? (
-                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <span>Retirer</span>
+                <div className="flex items-center gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  <span className="hidden sm:inline text-sm font-medium">Retirer</span>
+                </div>
               )}
             </Button>
           </div>
         </div>
       </div>
 
+      {/* Dialog Options de contact */}
+      <Dialog open={openContactOptions} onOpenChange={setOpenContactOptions}>
+        <DialogContent className="max-w-sm w-[95vw] rounded-2xl p-0 overflow-hidden bg-white">
+          <div className="bg-slate-50 p-5 flex flex-col items-center border-b border-slate-100">
+            <div className="w-16 h-16 rounded-full bg-white shadow-sm border border-slate-200 flex items-center justify-center text-slate-700 text-xl font-bold mb-3 overflow-hidden">
+              {assoc.hunter?.photo ? (
+                <img src={assoc.hunter.photo} alt="Photo du chasseur" className="w-full h-full object-cover" />
+              ) : (
+                getInitials(assoc.hunter?.firstName, assoc.hunter?.lastName)
+              )}
+            </div>
+            <DialogTitle className="text-lg font-bold text-slate-800 text-center">
+              {assoc.hunter?.firstName} {assoc.hunter?.lastName}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-500 text-center mt-1">
+              CNI: {assoc.hunter?.idNumber || '—'}
+            </DialogDescription>
+          </div>
+          
+          <div className="p-4 flex flex-col gap-2">
+            {hasPermits ? (
+              <Button 
+                variant="outline" 
+                className="w-full justify-start h-12 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 border-emerald-100 rounded-xl font-medium"
+                onClick={() => { setOpenContactOptions(false); handleViewPermit(activePermit || permits[0]); }}
+              >
+                <Eye className="w-5 h-5 mr-3 text-emerald-600" />
+                Voir le Quitus du permis
+              </Button>
+            ) : (
+              <div className="px-4 py-3 text-sm text-slate-500 text-center bg-slate-50 rounded-xl border border-slate-100 mb-2">
+                Ce chasseur n'a pas de permis enregistré.
+              </div>
+            )}
+            
+            {taxes.length > 0 && (
+              <Button 
+                variant="outline" 
+                className="w-full justify-start h-12 text-blue-700 hover:bg-blue-50 hover:text-blue-800 border-blue-100 rounded-xl font-medium"
+                onClick={() => { setOpenContactOptions(false); setOpenTaxes(true); }}
+              >
+                <FileText className="w-5 h-5 mr-3 text-blue-600" />
+                Voir les Taxes d'abattage
+              </Button>
+            )}
+
+            {assoc.hunter?.phone && (
+              <Button 
+                variant="outline" 
+                className="w-full justify-start h-12 text-slate-700 hover:bg-slate-50 border-slate-200 rounded-xl font-medium mt-2"
+                onClick={() => window.location.href = `tel:${assoc.hunter.phone}`}
+              >
+                <Phone className="w-5 h-5 mr-3 text-slate-500" />
+                Appeler le chasseur
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog Quitus */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-4xl max-h-[90vh] overflow-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-4xl max-h-[90vh] overflow-auto p-4 sm:p-6">
+          <DialogHeader className="mb-2">
             <DialogTitle className="text-base sm:text-lg">Quitus du Permis</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               Visualisation du permis du chasseur {assoc.hunter?.firstName} {assoc.hunter?.lastName}
