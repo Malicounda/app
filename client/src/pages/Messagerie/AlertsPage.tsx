@@ -404,7 +404,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </PopoverContent>
                   </Popover>
                   <span className="text-xs text-gray-600">
-                    {Array.isArray(actualAlertData.readByRoles) && actualAlertData.readByRoles.length > 0 ? "Message lu" : "Message non lu"}
+                    {Array.isArray(actualAlertData.readByRoles) && actualAlertData.readByRoles.length > 0 ? "Lu" : "Non lu"}
                   </span>
                 </div>
               )}
