@@ -1703,7 +1703,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         const isPoaching = n.includes('braconn') || n.includes('poach');
 
         if (isWoodTraffic) {
-          // Icône "bûches" (trafic de bois) avec anneau marron. Pulse si <24h, gris/no pulse si >24h
+          // Icône "bûches" (coupe de bois) avec anneau marron. Pulse si <24h, gris/no pulse si >24h
           const grayFilter = isOld ? 'grayscale(1) opacity(0.85)' : 'none';
           return L.divIcon({
             className: 'custom-marker',
@@ -1959,7 +1959,10 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           return false;
         });
 
-        const title = a.title || 'Alerte';
+        let title = a.title || 'Alerte';
+        if (title === 'ALERTE FEUX_DE_BROUSSE') title = 'Alerte Feux de Brousse';
+        else if (title === 'ALERTE TRAFIC_BOIS' || title === 'ALERTE TRAFIC-BOIS') title = 'Alerte Coupe de Bois';
+        else if (title === 'ALERTE BRACONNAGE') title = 'Alerte Braconnage';
         const msg = a.message || '';
         const when = new Date(a.created_at).toLocaleString();
         const region = a.region || 'N/A';
@@ -1995,17 +1998,25 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         const senderLine = senderName || roleLabel ? `${senderName} ${roleLabel ? `(${roleLabel}${s?.region ? `, ${s.region}` : ''})` : ''}` : '';
         // Pour les agents: la dernière ligne affiche le rôle métier au lieu du message d'alerte
         const lastLineContent = isAgent && roleMetierLabel ? roleMetierLabel : msg;
+        // Format de la nature pour un affichage propre
+        let displayNature = a.nature || '';
+        if (displayNature === 'feux_de_brousse') displayNature = 'Feux de brousse';
+        else if (displayNature === 'trafic-bois' || displayNature === 'trafic_bois') displayNature = 'Coupe de bois';
+        else if (displayNature === 'braconnage') displayNature = 'Braconnage';
+        else if (displayNature === 'autre') displayNature = 'Autre / Information';
+        else if (displayNature) displayNature = displayNature.charAt(0).toUpperCase() + displayNature.slice(1);
+
         const html = `
           <div class="custom-alert-popup-content">
             <div class="popup-header">
               <span class="popup-title">${title}</span>
             </div>
             <div class="popup-body">
-              ${a.nature ? `
+              ${displayNature ? `
               <div class="popup-row">
                 <span class="popup-icon">⚠️</span>
                 <span class="popup-label">Nature :</span>
-                <span class="popup-value">${a.nature}</span>
+                <span class="popup-value">${displayNature}</span>
               </div>
               ` : ''}
               <div class="popup-row">
@@ -4486,7 +4497,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
               </div>
               {[
                 { key: 'feux_de_brousse', label: 'Feux de brousse', color: '#ef4444', icon: '🔥' },
-                { key: 'trafic-bois', label: 'Trafic de bois', color: '#8B5A2B', icon: '🪵' },
+                { key: 'trafic-bois', label: 'Coupe de bois', color: '#8B5A2B', icon: '🪵' },
                 { key: 'braconnage', label: 'Braconnage', color: '#FF1F3D', icon: '🎯' },
                 { key: 'autre', label: 'Information', color: '#6b7280', icon: 'ℹ️' },
               ].map(({ key, label, color, icon }) => {
