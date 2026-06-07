@@ -4338,7 +4338,75 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             }).length,
           };
 
-          return (
+          return isMobile ? (
+            <div
+              style={{
+                position: 'absolute',
+                top: props.showRadiusControl ? 90 : 50,
+                left: 0,
+                right: 0,
+                zIndex: 1100,
+                display: 'flex',
+                background: 'rgba(255, 255, 255, 0.95)',
+                borderBottom: '1px solid #e5e7eb',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                padding: '4px',
+                overflowX: 'auto'
+              }}
+              className="no-scrollbar"
+            >
+              <div style={{ display: 'flex', width: '100%' }}>
+                {[
+                  { key: 'feux_de_brousse', label: 'Feux', color: '#ea580c', icon: '🔥' },
+                  { key: 'trafic-bois', label: 'Bois', color: '#8B5A2B', icon: '🪵' },
+                  { key: 'braconnage', label: 'Braconn.', color: '#dc2626', icon: '🎯' },
+                  { key: 'autre', label: 'Info', color: '#6b7280', icon: 'ℹ️' },
+                ].map(({ key, label, color, icon }) => {
+                  const count = counts[key as keyof typeof counts];
+                  const isActive = alertTypeFilters[key as keyof typeof alertTypeFilters];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setAlertTypeFilters(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }))}
+                      style={{
+                        flex: '1',
+                        minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '2px',
+                        padding: '6px 4px',
+                        borderBottom: isActive ? `2px solid ${color}` : '2px solid transparent',
+                        background: isActive ? '#f9fafb' : 'transparent',
+                        color: isActive ? color : '#9ca3af',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <span style={{ fontSize: '16px', lineHeight: 1 }}>{icon}</span>
+                      <span style={{ fontSize: '9px', fontWeight: 'bold', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>{label}</span>
+                      <span style={{
+                        background: isActive ? color : '#e5e7eb',
+                        color: isActive ? 'white' : '#6b7280',
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        borderRadius: '9999px',
+                        minWidth: '18px',
+                        height: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1,
+                        marginTop: '2px'
+                      }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
             <div
               ref={alertFilterRef}
               onPointerDown={onAlertFilterPointerDown}
