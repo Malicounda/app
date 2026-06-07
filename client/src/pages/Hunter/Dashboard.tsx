@@ -744,25 +744,6 @@ export default function HunterDashboard() {
                 </motion.button>
               </div>
             </div>
-
-
-
-            {/* Aperçu des permis imminents/actifs (Optionnel, on met une liste courte) */}
-            {activePermits.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-sm font-bold text-slate-800 mb-2">Permis récents</h3>
-                <div className="grid grid-cols-1 gap-3">
-                  {activePermits.slice(0, 2).map((permit: HunterPermit) => (
-                    <PermitCard key={permit.id} item={permit} onViewDetails={handleViewPermitDetails} user={user} />
-                  ))}
-                </div>
-                {activePermits.length > 2 && (
-                  <Button variant="ghost" className="w-full mt-2 text-green-700" onClick={() => setLocation('/hunter/permits')}>
-                    Voir tous les permis
-                  </Button>
-                )}
-              </div>
-            )}
           </motion.div>
         )}
 
