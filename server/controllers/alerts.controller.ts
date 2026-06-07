@@ -322,6 +322,7 @@ interface UserBasicInfo {
     region: string | null;
     departement: string | null;
     grade?: string | null;
+    roleMetier?: string | null;
 }
 
 export interface AlertResponse {
@@ -1186,11 +1187,12 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                 a.id as alert_id_full, a.title, a.message as alert_message, a.nature, a.region, a.zone,
                 a.lat, a.lon, a.departement, a.commune, a.arrondissement, a.localite, a.sender_id, a.created_at as alert_created_at, a.updated_at as alert_updated_at,
                 u.id as sender_id_full, u.username, u.first_name, u.last_name, u.phone as sender_phone, u.role, u.region as sender_region, u.departement as sender_departement,
-                ag.grade as sender_grade
+                ag.grade as sender_grade, rm.label_fr as sender_role_metier
             FROM notifications n
             LEFT JOIN alerts a ON n.alert_id = a.id
             LEFT JOIN users u ON a.sender_id = u.id
             LEFT JOIN agents ag ON ag.user_id = u.id
+            LEFT JOIN roles_metier rm ON rm.id = ag.role_metier_id
             WHERE n.user_id = ${authenticatedUser.id}
             ORDER BY n.created_at DESC
         ` as any);
@@ -1232,7 +1234,8 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                     role: n.role,
                     region: n.sender_region,
                     departement: n.sender_departement,
-                    grade: n.sender_grade
+                    grade: n.sender_grade,
+                    roleMetier: n.sender_role_metier
                 } : null
             } : null
         }));
@@ -1309,6 +1312,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                         region: (notif.alert as any).users.region,
                         departement: ((notif.alert as any).users as any).departement,
                         grade: ((notif.alert as any).users as any).grade || null,
+                        roleMetier: ((notif.alert as any).users as any).roleMetier || null,
                     } : undefined
                 };
             }
@@ -1366,9 +1370,12 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                        a.lat, a.lon, a.departement, a.sender_id, a.is_read,
                        a.created_at, a.updated_at,
                        u.username, u.first_name, u.last_name, u.role,
-                       u.region as user_region, u.departement as user_departement
+                       u.region as user_region, u.departement as user_departement,
+                       ag.grade, rm.label_fr as role_metier_label
                 FROM alerts a
                 LEFT JOIN users u ON a.sender_id = u.id
+                LEFT JOIN agents ag ON ag.user_id = u.id
+                LEFT JOIN roles_metier rm ON rm.id = ag.role_metier_id
                 WHERE u.role = 'agent'
                 ORDER BY a.created_at DESC
                 LIMIT 100
@@ -1380,9 +1387,12 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                        a.lat, a.lon, a.departement, a.sender_id, a.is_read,
                        a.created_at, a.updated_at,
                        u.username, u.first_name, u.last_name, u.role,
-                       u.region as user_region, u.departement as user_departement
+                       u.region as user_region, u.departement as user_departement,
+                       ag.grade, rm.label_fr as role_metier_label
                 FROM alerts a
                 LEFT JOIN users u ON a.sender_id = u.id
+                LEFT JOIN agents ag ON ag.user_id = u.id
+                LEFT JOIN roles_metier rm ON rm.id = ag.role_metier_id
                 WHERE a.sender_id = ${authenticatedUser.id}
                 ORDER BY a.created_at DESC
                 LIMIT 100
@@ -1410,7 +1420,9 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                 last_name: a.last_name,
                 role: a.role,
                 region: a.user_region,
-                departement: a.user_departement
+                departement: a.user_departement,
+                grade: a.grade,
+                roleMetier: a.role_metier_label
             } : null
         }));
 
@@ -1517,6 +1529,8 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                     role: alertData.users.role,
                     region: alertData.users.region,
                     departement: (alertData.users as any).departement,
+                    grade: (alertData.users as any).grade || null,
+                    roleMetier: (alertData.users as any).roleMetier || null,
                 } : undefined
             };
         }));

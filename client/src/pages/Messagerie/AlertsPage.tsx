@@ -76,6 +76,8 @@ interface Alert {
     region?: string;
     departement?: string;
     phone?: string | null;
+    grade?: string | null;
+    roleMetier?: string | null;
   };
   location?: {
     latitude: number;
@@ -2048,300 +2050,304 @@ function AlertsPage() {
                       : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 flex flex-col min-h-0 flex-1"
                 }
               >
-              {isSupervisorRole && (
-                <div className="shrink-0 px-4 py-3 border-b flex items-center justify-between bg-slate-50">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setActiveTab('inbox')}
-                      className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'inbox'
-                        ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
-                      Alertes reçues
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('outbox')}
-                      className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'outbox'
-                        ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
-                      Alertes envoyées
-                    </button>
-                  </div>
-                  <div className="text-xs text-gray-500 font-medium">
-                    {activeTab === 'inbox' ? `${alerts.length} reçue(s)` : `${sentAlertsData.length} envoyée(s)`}
-                  </div>
-                </div>
-              )}
-              {/* === Barre de filtrage compacte mobile (icônes + compteurs) === */}
-              {activeTab === 'inbox' && (isAlertMobileChromeless || isDefaultRole || isSupervisorRole) && (() => {
-                const base = Array.isArray(alerts) ? alerts : [];
-                const counts = {
-                  feux_de_brousse: base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('feu') || n.includes('brousse'); }).length,
-                  'trafic-bois': base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('trafic') || n.includes('bois'); }).length,
-                  braconnage: base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('braconn'); }).length,
-                  autre: base.filter(a => { const n = (a.nature || '').toLowerCase(); return !n.includes('feu') && !n.includes('brousse') && !n.includes('trafic') && !n.includes('bois') && !n.includes('braconn'); }).length,
-                };
-                const categories = [
-                  { key: 'all', icon: '📋', label: 'Tout', color: '#059669', count: base.length },
-                  { key: 'feux_de_brousse', icon: '🔥', label: 'Feux', color: '#ea580c', count: counts.feux_de_brousse },
-                  { key: 'trafic-bois', icon: '🪵', label: 'Bois', color: '#8B5A2B', count: counts['trafic-bois'] },
-                  { key: 'braconnage', icon: '🎯', label: 'Braconn.', color: '#dc2626', count: counts.braconnage },
-                  { key: 'autre', icon: 'ℹ️', label: 'Info', color: '#6b7280', count: counts.autre },
-                ];
-                return (
-                  <div className="shrink-0 border-b border-gray-200 bg-white md:hidden">
-                    <div className="flex items-stretch overflow-x-auto no-scrollbar">
-                      {categories.map(({ key, icon, label, color, count }) => {
-                        const isActive = typeFilter === key;
-                        return (
-                          <button
-                            key={key}
-                            onClick={() => setTypeFilter(key)}
-                            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-2 px-1 text-center transition-all border-b-2 ${isActive ? 'border-current bg-gray-50' : 'border-transparent'}`}
-                            style={{ color: isActive ? color : '#9ca3af' }}
-                          >
-                            <span className="text-base leading-none">{icon}</span>
-                            <span className="text-[9px] font-bold leading-tight truncate w-full">{label}</span>
-                            <span
-                              className="text-[10px] font-extrabold rounded-full min-w-[18px] h-[16px] px-1 flex items-center justify-center leading-none"
-                              style={{ background: isActive ? color : '#e5e7eb', color: isActive ? '#fff' : '#6b7280' }}
-                            >
-                              {count}
-                            </span>
-                          </button>
-                        );
-                      })}
+                {isSupervisorRole && (
+                  <div className="shrink-0 px-4 py-3 border-b flex items-center justify-between bg-slate-50">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setActiveTab('inbox')}
+                        className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'inbox'
+                          ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                          }`}
+                      >
+                        Alertes reçues
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('outbox')}
+                        className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'outbox'
+                          ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                          }`}
+                      >
+                        Alertes envoyées
+                      </button>
+                    </div>
+                    <div className="text-xs text-gray-500 font-medium">
+                      {activeTab === 'inbox' ? `${alerts.length} reçue(s)` : `${sentAlertsData.length} envoyée(s)`}
                     </div>
                   </div>
-                );
-              })()}
-              {/* Barre d'actions inbox (recherche/filtre/tri) — fixe */}
-              {activeTab === 'inbox' && (
-                <div className="shrink-0 px-4 py-3 border-b hidden md:flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-white">
-                  <div className="w-full md:max-w-md relative">
-                    <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <Input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                      placeholder="Rechercher une alerte..."
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 justify-end">
-                    <div className="hidden md:block">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="gap-2">
-                          <Filter className="h-4 w-4" />
-                          {typeFilter === "all" ? "Filtrer" :
-                            typeFilter === "braconnage" ? "Braconnage" :
-                              typeFilter === "trafic-bois" ? "Trafic de bois" :
-                                typeFilter === "feux_de_brousse" ? "Feux de brousse" : "Autre / Information"}
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={() => setTypeFilter("all")}>
-                          Toutes les alertes
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTypeFilter("braconnage")}>
-                          Braconnage
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTypeFilter("trafic-bois")}>
-                          Trafic de bois
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTypeFilter("feux_de_brousse")}>
-                          Feux de brousse
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTypeFilter("autre")}>
-                          Autre / Information
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setSortNewestFirst((v) => !v)}
-                      title={sortNewestFirst ? 'Tri: plus récent' : 'Tri: plus ancien'}
-                    >
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className={`flex-1 min-h-0 overflow-y-auto no-scrollbar ${listScrollPadding}`}>
-                {activeTab === "inbox" ? (
-                  (isLoadingAlerts && alerts.length === 0) ? (
-                    <div className="flex justify-center items-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    </div>
-                  ) : filteredInbox.length === 0 ? (
-                    (isHunter || isGuide)
-                      ? null
-                      : (
-                        <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
-                          <CardContent className="flex flex-col items-center justify-center py-8">
-                            <Bell className="h-10 w-10 text-gray-400 mb-2" />
-                            <p className="text-gray-500 text-center">Aucune alerte reçue pour le moment.</p>
-                          </CardContent>
-                        </Card>
-                      )
-                  ) : (
-                    <>
-                      <div className="px-4 py-3 border-b bg-slate-50">
-                        <div className="font-semibold text-gray-800">Liste des Alertes</div>
-                      </div>
-                      {/* Grille responsive pour les cartes d'alerte */}
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:gap-3 xl:p-3">
-                        {filteredInbox.map((alert: Alert) => {
-                          const styles = getAlertTypeStyles(alert.type);
-                          const senderStrip = getSenderRoleStyle(alert.sender);
-                          const createdAtDate = alert.createdAt ? new Date(alert.createdAt) : null;
-                          const timeAgo = createdAtDate && !isNaN(createdAtDate.getTime())
-                            ? formatDistanceToNow(createdAtDate, { addSuffix: true, locale: fr })
-                            : '';
-                          const formatted = createdAtDate && !isNaN(createdAtDate.getTime())
-                            ? format(createdAtDate, "dd/MM/yyyy à HH:mm", { locale: fr })
-                            : '';
-
+                )}
+                {/* === Barre de filtrage compacte mobile (icônes + compteurs) === */}
+                {activeTab === 'inbox' && (isAlertMobileChromeless || isDefaultRole || isSupervisorRole) && (() => {
+                  const base = Array.isArray(alerts) ? alerts : [];
+                  const counts = {
+                    feux_de_brousse: base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('feu') || n.includes('brousse'); }).length,
+                    'trafic-bois': base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('trafic') || n.includes('bois'); }).length,
+                    braconnage: base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('braconn'); }).length,
+                    autre: base.filter(a => { const n = (a.nature || '').toLowerCase(); return !n.includes('feu') && !n.includes('brousse') && !n.includes('trafic') && !n.includes('bois') && !n.includes('braconn'); }).length,
+                  };
+                  const categories = [
+                    { key: 'all', icon: '📋', label: 'Tout', color: '#059669', count: base.length },
+                    { key: 'feux_de_brousse', icon: '🔥', label: 'Feux', color: '#ea580c', count: counts.feux_de_brousse },
+                    { key: 'trafic-bois', icon: '🪵', label: 'Bois', color: '#8B5A2B', count: counts['trafic-bois'] },
+                    { key: 'braconnage', icon: '🎯', label: 'Braconn.', color: '#dc2626', count: counts.braconnage },
+                    { key: 'autre', icon: 'ℹ️', label: 'Info', color: '#6b7280', count: counts.autre },
+                  ];
+                  return (
+                    <div className="shrink-0 border-b border-gray-200 bg-white md:hidden">
+                      <div className="flex items-stretch overflow-x-auto no-scrollbar">
+                        {categories.map(({ key, icon, label, color, count }) => {
+                          const isActive = typeFilter === key;
                           return (
-                            <div key={alert.id} className={"flex gap-3 px-4 py-3 xl:rounded-xl xl:border xl:border-gray-100 xl:shadow-sm xl:bg-white hover:bg-slate-50 transition-colors cursor-pointer " + senderStrip}
-                              onClick={() => {
-                                setDetailsAlert(alert);
-                                setDetailsOpen(true);
-                                if (!alert.isRead) markAsRead(alert.id);
-                              }}
+                            <button
+                              key={key}
+                              onClick={() => setTypeFilter(key)}
+                              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-2 px-1 text-center transition-all border-b-2 ${isActive ? 'border-current bg-gray-50' : 'border-transparent'}`}
+                              style={{ color: isActive ? color : '#9ca3af' }}
                             >
-                              <div className="shrink-0 flex items-center justify-center">
-                                <div className={"h-9 w-9 rounded-full flex items-center justify-center border " + styles.border + " " + styles.bg}>
-                                  {alert.nature ? <NatureIcon nature={alert.nature} size={18} /> : styles.icon}
-                                </div>
-                              </div>
+                              <span className="text-base leading-none">{icon}</span>
+                              <span className="text-[9px] font-bold leading-tight truncate w-full">{label}</span>
+                              <span
+                                className="text-[10px] font-extrabold rounded-full min-w-[18px] h-[16px] px-1 flex items-center justify-center leading-none"
+                                style={{ background: isActive ? color : '#e5e7eb', color: isActive ? '#fff' : '#6b7280' }}
+                              >
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+                {/* Barre d'actions inbox (recherche/filtre/tri) — fixe */}
+                {activeTab === 'inbox' && (
+                  <div className="shrink-0 px-4 py-3 border-b hidden md:flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-white">
+                    <div className="w-full md:max-w-md relative">
+                      <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                        placeholder="Rechercher une alerte..."
+                      />
+                    </div>
 
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="font-semibold text-gray-900 truncate">{alert.title}</div>
-                                  {getUrgencyTag(alert.type, alert.nature, alert.isPending)}
-                                  {!alert.isRead && (
-                                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">Non lu</Badge>
-                                  )}
-                                </div>
+                    <div className="flex items-center gap-2 justify-end">
+                      <div className="hidden md:block">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="gap-2">
+                              <Filter className="h-4 w-4" />
+                              {typeFilter === "all" ? "Filtrer" :
+                                typeFilter === "braconnage" ? "Braconnage" :
+                                  typeFilter === "trafic-bois" ? "Trafic de bois" :
+                                    typeFilter === "feux_de_brousse" ? "Feux de brousse" : "Autre / Information"}
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => setTypeFilter("all")}>
+                              Toutes les alertes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTypeFilter("braconnage")}>
+                              Braconnage
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTypeFilter("trafic-bois")}>
+                              Trafic de bois
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTypeFilter("feux_de_brousse")}>
+                              Feux de brousse
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTypeFilter("autre")}>
+                              Autre / Information
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setSortNewestFirst((v) => !v)}
+                        title={sortNewestFirst ? 'Tri: plus récent' : 'Tri: plus ancien'}
+                      >
+                        <ArrowUpDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
-                                <div className="mt-0.5 text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
-                                  <div className="flex items-center gap-1">
-                                    <User className="h-4 w-4 text-gray-500" />
-                                    <span>
-                                      {alert.sender?.firstName ?? alert.sender?.username ?? 'Utilisateur'}
-                                      {alert.sender?.lastName ? ` ${alert.sender.lastName}` : ''}
-                                      {' '}({getProvenanceLabel(alert.sender?.role ?? 'unknown')})
-                                    </span>
+                <div className={`flex-1 min-h-0 overflow-y-auto no-scrollbar ${listScrollPadding}`}>
+                  {activeTab === "inbox" ? (
+                    (isLoadingAlerts && alerts.length === 0) ? (
+                      <div className="flex justify-center items-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      </div>
+                    ) : filteredInbox.length === 0 ? (
+                      (isHunter || isGuide)
+                        ? null
+                        : (
+                          <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
+                            <CardContent className="flex flex-col items-center justify-center py-8">
+                              <Bell className="h-10 w-10 text-gray-400 mb-2" />
+                              <p className="text-gray-500 text-center">Aucune alerte reçue pour le moment.</p>
+                            </CardContent>
+                          </Card>
+                        )
+                    ) : (
+                      <>
+                        <div className="px-4 py-3 border-b bg-slate-50">
+                          <div className="font-semibold text-gray-800">Liste des Alertes</div>
+                        </div>
+                        {/* Grille responsive pour les cartes d'alerte */}
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:gap-3 xl:p-3">
+                          {filteredInbox.map((alert: Alert) => {
+                            const styles = getAlertTypeStyles(alert.type);
+                            const senderStrip = getSenderRoleStyle(alert.sender);
+                            const createdAtDate = alert.createdAt ? new Date(alert.createdAt) : null;
+                            const timeAgo = createdAtDate && !isNaN(createdAtDate.getTime())
+                              ? formatDistanceToNow(createdAtDate, { addSuffix: true, locale: fr })
+                              : '';
+                            const formatted = createdAtDate && !isNaN(createdAtDate.getTime())
+                              ? format(createdAtDate, "dd/MM/yyyy à HH:mm", { locale: fr })
+                              : '';
+
+                            return (
+                              <div key={alert.id} className={"flex gap-3 px-4 py-3 xl:rounded-xl xl:border xl:border-gray-100 xl:shadow-sm xl:bg-white hover:bg-slate-50 transition-colors cursor-pointer " + senderStrip}
+                                onClick={() => {
+                                  setDetailsAlert(alert);
+                                  setDetailsOpen(true);
+                                  if (!alert.isRead) markAsRead(alert.id);
+                                }}
+                              >
+                                <div className="shrink-0 flex items-center justify-center">
+                                  <div className={"h-9 w-9 rounded-full flex items-center justify-center border " + styles.border + " " + styles.bg}>
+                                    {alert.nature ? <NatureIcon nature={alert.nature} size={18} /> : styles.icon}
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="h-4 w-4 text-gray-500" />
-                                    <span>{formatAlertLocation(alert)}</span>
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="font-semibold text-gray-900 truncate">{alert.title}</div>
+                                    {getUrgencyTag(alert.type, alert.nature, alert.isPending)}
+                                    {!alert.isRead && (
+                                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">Non lu</Badge>
+                                    )}
+                                  </div>
+
+                                  <div className="mt-0.5 text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
+                                    <div className="flex items-center gap-1">
+                                      <User className="h-4 w-4 text-gray-500" />
+                                      <span>
+                                        {alert.sender?.role === 'agent' && alert.sender?.grade
+                                          ? alert.sender.grade
+                                          : (alert.sender?.firstName ?? alert.sender?.username ?? 'Utilisateur')}
+                                        {alert.sender?.lastName ? ` ${alert.sender.lastName}` : ''}
+                                        {' '}({alert.sender?.role === 'agent' && alert.sender?.roleMetier 
+                                          ? alert.sender.roleMetier 
+                                          : getProvenanceLabel(alert.sender?.role ?? 'unknown')})
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="h-4 w-4 text-gray-500" />
+                                      <span>{formatAlertLocation(alert)}</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-0.5 text-sm text-gray-500">
+                                    {timeAgo ? (
+                                      <>
+                                        <span>{timeAgo}</span>
+                                        <span className="ml-2">({formatted})</span>
+                                      </>
+                                    ) : (
+                                      <span>-</span>
+                                    )}
                                   </div>
                                 </div>
 
-                                <div className="mt-0.5 text-sm text-gray-500">
-                                  {timeAgo ? (
-                                    <>
-                                      <span>{timeAgo}</span>
-                                      <span className="ml-2">({formatted})</span>
-                                    </>
-                                  ) : (
-                                    <span>-</span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="shrink-0 flex flex-col sm:flex-row items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => {
-                                    const lat = alert.location?.latitude;
-                                    const lon = alert.location?.longitude;
-                                    if (lat && lon) {
-                                      markAsRead(alert.id).finally(() => {
-                                        handleLocate(lat, lon, alert.title);
-                                      });
-                                    }
-                                  }}
-                                  disabled={!alert.location}
-                                  title="Localiser"
-                                >
-                                  <MapPin className="h-4 w-4" />
-                                </Button>
-                                {user?.role === 'admin' && (
+                                <div className="shrink-0 flex flex-col sm:flex-row items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                   <Button
                                     variant="outline"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => deleteAlert(alert.id)}
-                                    title="Supprimer"
+                                    onClick={() => {
+                                      const lat = alert.location?.latitude;
+                                      const lon = alert.location?.longitude;
+                                      if (lat && lon) {
+                                        markAsRead(alert.id).finally(() => {
+                                          handleLocate(lat, lon, alert.title);
+                                        });
+                                      }
+                                    }}
+                                    disabled={!alert.location}
+                                    title="Localiser"
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <MapPin className="h-4 w-4" />
                                   </Button>
-                                )}
+                                  {user?.role === 'admin' && (
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => deleteAlert(alert.id)}
+                                      title="Supprimer"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )
-                ) : (
-                  (isLoadingSent && sentAlertsData.length === 0) ? (
-                    <div className="flex justify-center items-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    </div>
-                  ) : sentAlertsData.length === 0 ? (
-                    <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
-                      <CardContent className="flex flex-col items-center justify-center py-8">
-                        <Bell className="h-10 w-10 text-gray-400 mb-2" />
-                        <p className="text-gray-500 text-center">Aucune alerte envoyée pour le moment.</p>
-                      </CardContent>
-                    </Card>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )
                   ) : (
-                    <>
-                      {sentAlertsData.map((alert: Alert) => (
-                        <MessageBubble
-                          key={alert.id}
-                          alert={alert}
-                          isExpanded={expandedAlerts.includes(alert.id)}
-                          onLocate={handleLocate}
-                          toggleExpand={toggleExpand}
-                          markAsRead={markAsRead}
-                          deleteAlert={deleteAlert}
-                          getAlertTypeStyles={getAlertTypeStyles}
-                          getUrgencyTag={getUrgencyTag}
-                          getSenderRoleStyle={getSenderRoleStyle}
-                          getProvenanceLabel={getProvenanceLabel}
-                          isSent={true}
-                        />
-                      ))}
-                    </>
-                  )
-                )}
-              </div>
+                    (isLoadingSent && sentAlertsData.length === 0) ? (
+                      <div className="flex justify-center items-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      </div>
+                    ) : sentAlertsData.length === 0 ? (
+                      <Card className="border-dashed border-gray-300 bg-gray-50 m-4">
+                        <CardContent className="flex flex-col items-center justify-center py-8">
+                          <Bell className="h-10 w-10 text-gray-400 mb-2" />
+                          <p className="text-gray-500 text-center">Aucune alerte envoyée pour le moment.</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <>
+                        {sentAlertsData.map((alert: Alert) => (
+                          <MessageBubble
+                            key={alert.id}
+                            alert={alert}
+                            isExpanded={expandedAlerts.includes(alert.id)}
+                            onLocate={handleLocate}
+                            toggleExpand={toggleExpand}
+                            markAsRead={markAsRead}
+                            deleteAlert={deleteAlert}
+                            getAlertTypeStyles={getAlertTypeStyles}
+                            getUrgencyTag={getUrgencyTag}
+                            getSenderRoleStyle={getSenderRoleStyle}
+                            getProvenanceLabel={getProvenanceLabel}
+                            isSent={true}
+                          />
+                        ))}
+                      </>
+                    )
+                  )}
+                </div>
 
-              {showInboxTotalFooter && (
-                <div className={alertsTotalFooterClass}>
-                  Total d&apos;alertes reçues : {alerts.length}
-                </div>
-              )}
-              {showOutboxTotalFooter && (
-                <div className={alertsTotalFooterClass}>
-                  Total d&apos;alertes envoyées : {sentAlertsData.length}
-                </div>
-              )}
+                {showInboxTotalFooter && (
+                  <div className={alertsTotalFooterClass}>
+                    Total d&apos;alertes reçues : {alerts.length}
+                  </div>
+                )}
+                {showOutboxTotalFooter && (
+                  <div className={alertsTotalFooterClass}>
+                    Total d&apos;alertes envoyées : {sentAlertsData.length}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2380,10 +2386,14 @@ function AlertsPage() {
                     <div>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Agent</p>
                       <p className="font-medium text-gray-900">
-                        {detailsAlert.sender?.firstName ?? detailsAlert.sender?.username ?? 'Utilisateur'}
+                        {detailsAlert.sender?.role === 'agent' && detailsAlert.sender?.grade
+                          ? detailsAlert.sender.grade
+                          : (detailsAlert.sender?.firstName ?? detailsAlert.sender?.username ?? 'Utilisateur')}
                         {detailsAlert.sender?.lastName ? ` ${detailsAlert.sender.lastName}` : ''}
                         <span className="text-gray-500 font-normal">
-                          {' '}({getProvenanceLabel(detailsAlert.sender?.role ?? 'unknown')})
+                          {' '}({detailsAlert.sender?.role === 'agent' && detailsAlert.sender?.roleMetier 
+                            ? detailsAlert.sender.roleMetier 
+                            : getProvenanceLabel(detailsAlert.sender?.role ?? 'unknown')})
                         </span>
                       </p>
                     </div>
