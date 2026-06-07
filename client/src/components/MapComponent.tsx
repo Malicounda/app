@@ -669,6 +669,10 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           baseOsm.addTo(map);
         }
       }
+
+      // Limiter le zoom maximum pour l'image satellitaire à 100m (zoom 17),
+      // tout en gardant 50m (zoom 18) pour la carte de base (terrain/osm)
+      map.setMaxZoom(useSatellite ? 17 : 18);
     }, [useSatellite, isOnlineMap]);
 
     useImperativeHandle(ref, () => ({
@@ -788,7 +792,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         {
           minZoom: 5,
-          maxZoom: 18,
+          maxZoom: 17, // Limité à 100m
           attribution: '© Esri',
           zIndex: 2,
           crossOrigin: true
@@ -812,7 +816,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       const offlineSatelliteLayer = L.tileLayer('/tiles/satellite/{z}/{x}/{y}.png', {
         minZoom: 5,
         maxNativeZoom: 9,
-        maxZoom: 18,
+        maxZoom: 17, // Limité à 100m
         zIndex: 1
       });
       layersRef.current.baseOfflineSatellite = offlineSatelliteLayer;
