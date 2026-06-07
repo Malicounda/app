@@ -1778,10 +1778,10 @@ function AlertsPage() {
   const showLeftColumn = canSendAlerts && !((isHunter || isGuide) && activeTab === 'outbox') && !(activeTab === 'inbox' && (isRegionalAgent || isSectorAgent));
 
   return (
-    <div className={`flex flex-col overflow-hidden bg-[#2d6a4f] ${isAlertMobileChromeless ? "h-full min-h-0" : "h-[100dvh]"}`}>
+    <div className={isHunter || isGuide ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50" : `flex flex-col overflow-hidden bg-[#2d6a4f] ${isAlertMobileChromeless ? "h-full min-h-0" : "h-[100dvh]"}`}>
       {(isHunter || isGuide) && <AgentTopHeader />}
-      <div className={`w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 ${isAlertMobileChromeless ? "py-0 lg:py-4" : "py-2 sm:py-3 lg:py-4"}`}>
-        <div className={`w-full ${(isHunter || isGuide) ? 'max-w-3xl' : 'max-w-7xl'} flex flex-col flex-1 min-h-0 mx-auto`}>
+      <div className={isHunter || isGuide ? "flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain pb-24" : `w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 ${isAlertMobileChromeless ? "py-0 lg:py-4" : "py-2 sm:py-3 lg:py-4"}`}>
+        <div className={isHunter || isGuide ? "w-full max-w-3xl flex flex-col flex-1 min-h-0 mx-auto px-2 sm:px-4 py-4" : `w-full flex flex-col flex-1 min-h-0 mx-auto`}>
           {/* Bouton Retour + Actions - Barre supérieure */}
           <div className="shrink-0 bg-white rounded-t-lg shadow-sm border border-b-0 border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 justify-between">
             {/* Bouton Retour — visible pour tous, redirige vers l'accueil du domaine */}

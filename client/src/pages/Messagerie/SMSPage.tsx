@@ -1457,6 +1457,83 @@ export default function SimpleSMSPage() {
     );
   }
 
+  if (inboxOnly) {
+    return (
+      <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
+        <AgentTopHeader />
+        <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain pb-24">
+          <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 py-4">
+            <div className="bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden flex flex-col min-h-0 shadow-sm">
+              <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex items-start gap-2">
+                  <div className="h-9 w-9 rounded-full bg-green-50 text-green-700 flex items-center justify-center shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3 8.25A2.25 2.25 0 015.25 6h13.5A2.25 2.25 0 0121 8.25v9.5A2.25 2.25 0 0118.75 20H5.25A2.25 2.25 0 013 17.75v-9.5zm2.25-.75a.75.75 0 00-.75.75v.807l7.06 4.237a2.25 2.25 0 002.38 0L21.5 9.057V8.25a.75.75 0 00-.75-.75H5.25zm16.25 3.308l-6.786 4.072a3.75 3.75 0 01-3.956 0L4.5 10.808v6.942c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-6.942z" /></svg>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-gray-900">Boîte de réception</div>
+                    <div className="text-xs text-gray-500">{inbox.length} message(s)</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="hidden md:flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 py-2 w-64 shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-500"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /></svg>
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="bg-transparent outline-none text-sm w-full"
+                      placeholder="Rechercher un message..."
+                    />
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('reçus')}
+                    className="text-xs rounded-full px-3 py-1 border bg-green-50 border-green-600 text-green-700"
+                  >
+                    Reçus
+                  </button>
+                </div>
+              </div>
+
+              <div className="md:hidden border-b border-gray-200 px-4 py-3 bg-white">
+                <div className="flex items-center gap-2 bg-gray-100 border border-gray-200 rounded-full px-3 py-2 w-full shadow-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-500"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /></svg>
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="bg-transparent outline-none text-sm w-full"
+                    placeholder="Rechercher un message..."
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 flex-1 min-h-0 bg-white">
+                <InternalMessageList
+                  messages={filteredInbox}
+                  loading={loadingInbox}
+                  emptyLabel="Aucun message reçu pour le moment."
+                  onDelete={handleDelete}
+                  onRefresh={refreshInbox}
+                  onStaleMessage={(m) =>
+                    purgeStaleMessage(Number(m.id), Boolean(m.isGroupMessage))
+                  }
+                  onReply={async ({ recipientIdentifier, content }) => {
+                    try {
+                      await sendIndividual({ recipientIdentifier, content });
+                      toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
+                      return;
+                    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                      toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <MessageAttachmentViewer payload={preview} onClose={() => setPreview(null)} />
+      </div>
+    );
+  }
+
   return (
     <div className={`flex flex-col bg-[#2d6a4f] ${usePhoneMessagingUi ? 'h-full' : 'min-h-screen'}`}>
       {inboxOnly && <AgentTopHeader />}

@@ -48,7 +48,7 @@ export default function AgentTopHeader() {
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
 
   const isChromelessHome =
-    location === "/supervisor" || location === "/default-home" || location === "/profile" || location.startsWith("/hunter") || location.startsWith("/guide") || location.includes("/hunting-declarations") || location.includes("/demande-permis-special");
+    location === "/supervisor" || location === "/default-home" || location === "/profile" || location.startsWith("/hunter") || location.startsWith("/guide") || location.includes("/hunting-declarations") || location.includes("/demande-permis-special") || location.includes("/alerts") || location.includes("/sms");
 
   /** Accueil plein écran (fixed) : décalage sous barre République. Profil : le parent MainLayout compense déjà — pas de double marge. */
   const headerPaddingTop = isChromelessHome
