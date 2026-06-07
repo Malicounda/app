@@ -4363,7 +4363,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         {props.showRadiusControl && !props.minimal && (
           <div style={{
             position: 'absolute',
-            top: isMobile ? 70 : 39,
+            top: isMobile ? 85 : 39,
             left: isMobile ? '50%' : 20,
             transform: isMobile ? 'translateX(-50%)' : 'none',
             zIndex: 1100
@@ -4407,7 +4407,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             <div
               style={{
                 position: 'absolute',
-                top: '12px', // Flotte tout en haut, juste en dessous de l'en-tête (qui déborde d'environ 10px sur la carte)
+                top: '35px', // Décale exactement de 20-25px supplémentaires pour libérer la moitié supérieure des pilules cachée par l'en-tête
                 left: 0,
                 right: 0,
                 zIndex: 1100,
