@@ -175,7 +175,7 @@ export default function ProfilePage() {
       <main
         className={
           isAlerteDomain
-            ? "flex h-full min-h-0 flex-col overflow-hidden bg-slate-50"
+            ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50"
             : "min-h-screen bg-slate-50 pb-20"
         }
       >
