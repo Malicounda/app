@@ -1979,6 +1979,12 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           roleLabel = `Agent secteur${dep ? `, ${dep}` : ''}`;
         } else if (role === 'agent') {
           roleLabel = s?.departement ? `IREF, ${dep}` : 'IREF';
+        } else if (role === 'hunter') {
+          roleLabel = 'Chasseur';
+        } else if (role === 'hunting-guide') {
+          roleLabel = 'Guide de chasse';
+        } else if (role === 'admin') {
+          roleLabel = 'Administrateur';
         } else if (role) {
           roleLabel = role.replace(/-/g, ' ');
         }
