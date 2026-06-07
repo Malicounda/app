@@ -11,6 +11,7 @@ import { AlertCircle, Calendar, Check, FileText, MapPin, Trash2, User, X } from 
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { z } from "zod";
+import AgentTopHeader from "@/components/layout/AgentTopHeader";
 
 // Types
 type Hunter = { id: number; lastName: string; firstName: string };
@@ -229,8 +230,10 @@ export default function HuntingDeclarationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 lg:ml-64 lg:mt-24 pt-4 lg:pt-0">
-      <div className="container mx-auto px-4 py-4 lg:py-8 space-y-6 max-w-6xl">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100">
+      <AgentTopHeader />
+      <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain">
+        <div className="container mx-auto px-4 py-4 lg:py-8 space-y-6 max-w-6xl pb-24">
         {/* En-tête de page unifié */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-2">
           <div>
@@ -528,6 +531,7 @@ export default function HuntingDeclarationsPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
