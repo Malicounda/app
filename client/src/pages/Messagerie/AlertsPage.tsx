@@ -2131,10 +2131,11 @@ function AlertsPage() {
                             <button
                               key={key}
                               onClick={() => setTypeFilter(key)}
-                              className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-1 transition-all border-b-2 ${isActive ? 'border-current bg-gray-50' : 'border-transparent'}`}
+                              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-2 px-1 text-center transition-all border-b-2 ${isActive ? 'border-current bg-gray-50' : 'border-transparent'}`}
                               style={{ color: isActive ? color : '#9ca3af' }}
                             >
                               <span className="text-base leading-none">{icon}</span>
+                              <span className="text-[9px] font-bold leading-tight truncate w-full">{label}</span>
                               <span
                                 className="text-[10px] font-extrabold rounded-full min-w-[18px] h-[16px] px-1 flex items-center justify-center leading-none"
                                 style={{ background: isActive ? color : '#e5e7eb', color: isActive ? '#fff' : '#6b7280' }}

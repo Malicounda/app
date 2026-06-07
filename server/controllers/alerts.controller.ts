@@ -407,7 +407,7 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
         const defaultMessages: Record<string, string> = {
             'feux_de_brousse': 'Alerte feux de brousse détectée dans la zone',
             'braconnage': 'Activité de braconnage suspectée dans la zone',
-            'trafic_bois': 'Trafic de bois illégal détecté dans la zone'
+            'trafic_bois': 'Coupe de bois illégale détectée dans la zone'
         };
 
         // Déclarer la variable avec let pour permettre la réassignation

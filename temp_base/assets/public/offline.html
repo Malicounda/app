@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hors ligne - Gestion des Permis de Chasse</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+      background-color: #f8f9fa;
+      color: #333;
+    }
+    .container {
+      max-width: 500px;
+      padding: 30px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #4CAF50;
+      margin-bottom: 20px;
+    }
+    p {
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      color: #4CAF50;
+    }
+    .btn {
+      display: inline-block;
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: 500;
+      margin-top: 20px;
+      cursor: pointer;
+      border: none;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 4px;
+      background-color: #f1f1f1;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📡</div>
+    <h1>Vous êtes hors ligne</h1>
+    <p>Vous n'êtes pas connecté à Internet actuellement. Certaines fonctionnalités peuvent être limitées.</p>
+    <p>Vous pouvez continuer à utiliser l'application en mode hors ligne. Vos modifications seront synchronisées automatiquement lorsque vous serez à nouveau connecté.</p>
+    <button class="btn" id="retry-button">Réessayer la connexion</button>
+    <div class="status" id="status-message"></div>
+  </div>
+
+  <script>
+    // Vérifier périodiquement la connexion
+    function checkConnection() {
+      const statusMessage = document.getElementById('status-message');
+      
+      if (navigator.onLine) {
+        statusMessage.textContent = 'Connexion rétablie! Redirection en cours...';
+        statusMessage.style.backgroundColor = '#d4edda';
+        statusMessage.style.color = '#155724';
+        statusMessage.style.display = 'block';
+        
+        // Rediriger vers la page d'accueil après un court délai
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        statusMessage.textContent = 'Toujours hors ligne. Veuillez vérifier votre connexion.';
+        statusMessage.style.backgroundColor = '#f8d7da';
+        statusMessage.style.color = '#721c24';
+        statusMessage.style.display = 'block';
+        
+        // Masquer le message après 3 secondes
+        setTimeout(() => {
+          statusMessage.style.display = 'none';
+        }, 3000);
+      }
+    }
+    
+    // Ajouter un écouteur d'événement au bouton
+    document.getElementById('retry-button').addEventListener('click', checkConnection);
+    
+    // Vérifier la connexion lorsque l'état en ligne change
+    window.addEventListener('online', () => {
+      checkConnection();
+    });
+    
+    // Vérifier également périodiquement
+    setInterval(checkConnection, 30000); // Vérifier toutes les 30 secondes
+  </script>
+</body>
+</html>

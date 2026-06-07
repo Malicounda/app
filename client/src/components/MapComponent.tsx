@@ -4412,17 +4412,14 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                 right: 0,
                 zIndex: 1100,
                 display: 'flex',
-                background: 'rgba(255, 255, 255, 0.75)', // Fond semi-transparent
-                backdropFilter: 'blur(8px)', // Effet verre pour lisibilité
-                WebkitBackdropFilter: 'blur(8px)',
-                borderBottom: '1px solid rgba(0,0,0,0.1)', // Contour adapté
-                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                padding: '4px',
-                overflowX: 'auto'
+                padding: '10px 8px',
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                pointerEvents: 'none' // Laisser passer les clics à travers le conteneur vide
               }}
               className="no-scrollbar"
             >
-              <div style={{ display: 'flex', width: '100%', gap: '2px' }}>
+              <div style={{ display: 'flex', width: 'max-content', gap: '8px', margin: '0 auto', padding: '0 4px', pointerEvents: 'auto' }}>
                 {[
                   { key: 'feux_de_brousse', label: 'Feux', color: '#ea580c', icon: '🔥' },
                   { key: 'trafic-bois', label: 'Bois', color: '#8B5A2B', icon: '🪵' },
@@ -4436,38 +4433,37 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                       key={key}
                       onClick={() => setAlertTypeFilters(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }))}
                       style={{
-                        flex: '1',
-                        minWidth: 0,
                         display: 'flex',
-                        flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '2px',
-                        padding: '6px 4px',
-                        borderRadius: '6px',
-                        border: isActive ? `1px solid ${color}` : '1px solid transparent',
-                        background: isActive ? 'rgba(255, 255, 255, 0.9)' : 'transparent',
-                        color: isActive ? color : '#4b5563',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        border: `1.5px solid ${color}`,
+                        background: 'white',
+                        opacity: isActive ? 1 : 0.7,
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
                         transition: 'all 0.2s',
+                        cursor: 'pointer'
                       }}
                     >
                       <span style={{ fontSize: '16px', lineHeight: 1 }}>{icon}</span>
-                      <span style={{ fontSize: '9px', fontWeight: 'bold', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>{label}</span>
                       <span style={{
-                        background: isActive ? color : '#e5e7eb',
-                        color: isActive ? 'white' : '#4b5563',
-                        fontSize: '10px',
+                        background: color,
+                        color: 'white',
+                        fontSize: '12px',
                         fontWeight: '800',
-                        borderRadius: '9999px',
-                        minWidth: '18px',
-                        height: '16px',
+                        borderRadius: '11px',
+                        minWidth: '22px',
+                        height: '22px',
+                        padding: '0 6px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         lineHeight: 1,
-                        marginTop: '2px'
+                        boxSizing: 'border-box',
+                        letterSpacing: '0.5px'
                       }}>
-                        {count}
+                        {new Intl.NumberFormat('fr-FR').format(count)}
                       </span>
                     </button>
                   );
@@ -4509,7 +4505,6 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
                       gap: '8px',
                       padding: '6px 10px',
                       border: `2px solid ${color}`,
@@ -4523,23 +4518,19 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                       opacity: alertTypeFilters[key as keyof typeof alertTypeFilters] ? 1 : 0.6,
                     }}
                   >
-                    <span style={{ flex: 1, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {label}
+                    <span style={{ fontSize: '16px' }}>{icon}</span>
+                    <span style={{ flex: 1 }}>{label}</span>
+                    <span style={{
+                      background: alertTypeFilters[key as keyof typeof alertTypeFilters] ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      minWidth: '20px',
+                      textAlign: 'center',
+                    }}>
+                      {count}
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '16px' }}>{icon}</span>
-                      <span style={{
-                        background: alertTypeFilters[key as keyof typeof alertTypeFilters] ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)',
-                        padding: '2px 6px',
-                        borderRadius: '10px',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        minWidth: '20px',
-                        textAlign: 'center',
-                      }}>
-                        {count}
-                      </span>
-                    </div>
                   </button>
                 );
               })}

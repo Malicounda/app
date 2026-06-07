@@ -9,7 +9,7 @@ interface IconProps {
   title?: string;
 }
 
-export const WoodTrafficIcon: React.FC<IconProps> = ({ size = 24, dimmed = false, className = "", title = "Trafic de bois" }) => {
+export const WoodTrafficIcon: React.FC<IconProps> = ({ size = 24, dimmed = false, className = "", title = "Coupe de bois" }) => {
   const borderColor = dimmed ? "#9CA3AF" : "#8B5A2B"; // gris vs marron
   const filter = dimmed ? "grayscale(1) opacity(0.85)" : "none";
   const ring = (

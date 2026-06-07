@@ -1,0 +1,3 @@
+# SPA fallback — les fichiers statiques existants (/assets/*, etc.) sont servis avant cette règle.
+# Ne pas utiliser de rewrite qui écrase /assets : les chemins doivent être absolus (base: '/' dans Vite).
+/*    /index.html   200

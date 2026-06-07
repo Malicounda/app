@@ -40,7 +40,7 @@ type MessageItem = {
 };
 
 // ═══════════════ Helpers ═══════════════
-const natureLabels: Record<string, string> = { braconnage: "Braconnage", feux_de_brousse: "Feux de brousse", "trafic-bois": "Trafic de bois", trafic_bois: "Trafic de bois", autre: "Autre / Information" };
+const natureLabels: Record<string, string> = { braconnage: "Braconnage", feux_de_brousse: "Feux de brousse", "trafic-bois": "Coupe de bois", trafic_bois: "Coupe de bois", autre: "Autre / Information" };
 const natureColors: Record<string, string> = { braconnage: "bg-red-100 text-red-700", feux_de_brousse: "bg-orange-100 text-orange-700", "trafic-bois": "bg-amber-100 text-amber-800", trafic_bois: "bg-amber-100 text-amber-800", autre: "bg-gray-100 text-gray-700" };
 
 function agentName(s: any) {
@@ -429,7 +429,7 @@ function AlertesTab() {
               <option value="all">Toutes natures</option>
               <option value="braconnage">Braconnage</option>
               <option value="feux_de_brousse">Feux de brousse</option>
-              <option value="trafic_bois">Trafic de bois</option>
+              <option value="trafic_bois">Coupe de bois</option>
               <option value="autre">Autre / Information</option>
             </select>
           </div>

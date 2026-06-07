@@ -32,7 +32,7 @@ export default function LicenseDialog({ isOpen, onClose }: LicenseDialogProps) {
         <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-5 text-xs text-slate-600 leading-relaxed font-sans whitespace-pre-wrap select-text selection:bg-blue-100">
 {`Système de Contrôle et de Digitalisation (SCoDi)
 SCoDi est une application de gestion forestière destinée à la digitalisation et au contrôle des activités des Eaux et Forêts au Sénégal.
-Elle permet la traçabilité des opérations, le suivi des activités forestières et l'amélioration de la réponse face aux menaces (braconnage, trafic de bois, feux de brousse).
+Elle permet la traçabilité des opérations, le suivi des activités forestières et l'amélioration de la réponse face aux menaces (braconnage, coupe de bois, feux de brousse).
 
 CONDITIONS D'UTILISATION
 En utilisant cette application, vous acceptez les conditions suivantes :
