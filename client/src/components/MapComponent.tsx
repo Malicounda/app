@@ -3705,14 +3705,22 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           pane: 'zicsPane',
           onEachFeature: (feature, layer) => {
             if (feature.properties && feature.properties.name) {
-              let popupContent = `<b>${feature.properties.name}</b>`;
+              let popupContent = `
+                <div class="zone-popup-content">
+                  <div class="zone-popup-header">
+                    <span class="zone-dot" style="background:#3B82F6"></span>
+                    <h3>${feature.properties.name}</h3>
+                  </div>
+                  <div class="zone-popup-body">
+              `;
               if (feature.properties.dates) {
-                popupContent += `<br>Dates: ${feature.properties.dates}`;
+                popupContent += `<div class="zone-info-row"><span class="label">Dates:</span> <strong>${feature.properties.dates}</strong></div>`;
               }
               if (feature.properties.status) {
-                popupContent += `<br>Statut: ${feature.properties.status}`;
+                popupContent += `<div class="zone-info-row"><span class="label">Statut:</span> <strong>${feature.properties.status}</strong></div>`;
               }
-              layer.bindPopup(popupContent);
+              popupContent += `</div></div>`;
+              layer.bindPopup(popupContent, { className: 'zone-popup-container' });
             }
           }
         }).addTo(map);
@@ -3771,11 +3779,19 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           pane: 'amodieesPane',
           onEachFeature: (feature, layer) => {
             if (feature.properties && feature.properties.name) {
-              let popupContent = `<b>${feature.properties.name}</b>`;
+              let popupContent = `
+                <div class="zone-popup-content">
+                  <div class="zone-popup-header">
+                    <span class="zone-dot" style="background:#F472B6"></span>
+                    <h3>${feature.properties.name}</h3>
+                  </div>
+                  <div class="zone-popup-body">
+              `;
                if (feature.properties.status) {
-                popupContent += `<br>Statut: ${feature.properties.status}`;
+                popupContent += `<div class="zone-info-row"><span class="label">Statut:</span> <strong>${feature.properties.status}</strong></div>`;
               }
-              layer.bindPopup(popupContent);
+              popupContent += `</div></div>`;
+              layer.bindPopup(popupContent, { className: 'zone-popup-container' });
               try {
                 (layer as any).bringToFront && (layer as any).bringToFront();
                 ensureAlertsPaneZIndex();
@@ -3943,12 +3959,17 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             });
 
             marker.bindPopup(`
-              <div class="custom-popup">
-                <h3>${name}</h3>
-                <div><b>Type:</b> ${type}</div>
-                <div><b>Centre:</b> ${lat.toFixed(6)}, ${lon.toFixed(6)}</div>
+              <div class="zone-popup-content">
+                <div class="zone-popup-header">
+                  <span class="zone-dot" style="background:${color}"></span>
+                  <h3>${name}</h3>
+                </div>
+                <div class="zone-popup-body">
+                  <div class="zone-info-row"><span class="label">Type:</span> <strong>${type}</strong></div>
+                  <div class="zone-info-row"><span class="label">Centre:</span> <strong>${lat.toFixed(5)}, ${lon.toFixed(5)}</strong></div>
+                </div>
               </div>
-            `);
+            `, { className: 'zone-popup-container' });
 
             group.addLayer(marker);
           }
@@ -4114,11 +4135,18 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           ? 'Fermée'
           : 'Inconnue';
 
-        const popupContent = `<div>
-          ${name ? `<strong>${name}</strong><br/>` : ''}
-          <span>Statut: ${statusLabel}</span>
-        </div>`;
-        (layer as any).bindPopup(popupContent);
+        const popupContent = `
+          <div class="zone-popup-content">
+            <div class="zone-popup-header">
+              <span class="zone-dot" style="background:${info?.color || '#0ea5e9'}"></span>
+              <h3>${name || 'Région'}</h3>
+            </div>
+            <div class="zone-popup-body">
+              <div class="zone-info-row"><span class="label">Statut:</span> <strong>${statusLabel}</strong></div>
+            </div>
+          </div>
+        `;
+        (layer as any).bindPopup(popupContent, { className: 'zone-popup-container' });
       }
 
       // Gestion des événements de survol
