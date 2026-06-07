@@ -495,7 +495,11 @@ function HunterAssociationRow({
               <Button 
                 variant="outline" 
                 className="w-full justify-start h-12 text-slate-700 hover:bg-slate-50 border-slate-200 rounded-xl font-medium mt-2"
-                onClick={() => window.location.href = `tel:${assoc.hunter.phone}`}
+                onClick={() => {
+                  if (assoc.hunter?.phone) {
+                    window.location.href = `tel:${assoc.hunter.phone}`;
+                  }
+                }}
               >
                 <Phone className="w-5 h-5 mr-3 text-slate-500" />
                 Appeler le chasseur

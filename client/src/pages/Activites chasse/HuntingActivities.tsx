@@ -604,6 +604,8 @@ export default function HuntingActivities() {
                                                         />
                                                       </DialogTrigger>
                                                       <DialogContent className="max-w-4xl transition-all duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95">
+                                                        <DialogTitle className="sr-only">Photo du prélèvement</DialogTitle>
+                                                        <DialogDescription className="sr-only">Vue agrandie de la photo du prélèvement</DialogDescription>
                                                         <img
                                                           src={`/api/hunting-activities/${activity.reportId}/photo`}
                                                           alt={activity.species[0]?.name ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
