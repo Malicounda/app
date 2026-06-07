@@ -2120,7 +2120,7 @@ function AlertsPage() {
               })()}
               {/* Barre d'actions inbox (recherche/filtre/tri) — fixe */}
               {activeTab === 'inbox' && (
-                <div className="shrink-0 px-4 py-3 border-b flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-white">
+                <div className="shrink-0 px-4 py-3 border-b hidden md:flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-white">
                   <div className="w-full md:max-w-md relative">
                     <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <Input
