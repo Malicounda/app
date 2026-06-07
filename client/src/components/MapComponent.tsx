@@ -4362,11 +4362,11 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         {/* Contrôle de rayon et recherche */}
         {props.showRadiusControl && !props.minimal && (
           <div style={{
-            position: 'absolute',
-            top: isMobile ? 85 : 39,
+            position: isMobile ? 'fixed' : 'absolute',
+            top: isMobile ? 'calc(var(--fixed-top, 60px) + 55px)' : 39,
             left: isMobile ? '50%' : 20,
             transform: isMobile ? 'translateX(-50%)' : 'none',
-            zIndex: 1100
+            zIndex: isMobile ? 1050 : 1100
           }}>
             <RadiusControl
               onRadiusChange={handleRadiusChange}
@@ -4406,13 +4406,13 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           return isMobile ? (
             <div
               style={{
-                position: 'absolute',
-                top: '12px', // La marge est désormais sécurisée car MainLayout ajuste dynamiquement l'espace pour le header
+                position: 'fixed', // FIXED pour sortir du stacking context de la carte (z-index: 0) et flotter au-dessus de l'en-tête
+                top: 'calc(var(--fixed-top, 60px) + 6px)', // Juste en dessous de l'en-tête, dynamique
                 left: 0,
                 right: 0,
-                zIndex: 1100,
+                zIndex: 1050, // Au-dessus de l'en-tête vert (z-index: 100)
                 display: 'flex',
-                padding: '10px 8px',
+                padding: '4px 8px',
                 overflowX: 'auto',
                 WebkitOverflowScrolling: 'touch',
                 pointerEvents: 'none' // Laisser passer les clics à travers le conteneur vide
