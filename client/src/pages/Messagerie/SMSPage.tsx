@@ -1,4 +1,5 @@
 import ResponsivePage from "@/components/layout/ResponsivePage";
+import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import InternalMessageComposer from "@/components/messaging/InternalMessageComposer";
 import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
