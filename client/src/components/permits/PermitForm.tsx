@@ -143,12 +143,9 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
 
       console.log('[PermitForm] Numéro de permis généré:', data.permitNumber);
 
-      // Récupérer les informations du chasseur pour filtrer les catégories
-      const selectedHunter = hunters.find(h => h.id === hunterId);
-      if (selectedHunter && selectedHunter.category) {
-        setHunterCategory(selectedHunter.category);
-        filterPermitCategories(selectedHunter.category.toLowerCase());
-      }
+      // NOTE: Ne PAS appeler filterPermitCategories ici.
+      // Le useEffect réactif [permitCategories, hunterCategory] s'en charge.
+      // L'appeler ici causait un bug en production (stale closure avec permitCategories=[]).
 
       return data.permitNumber;
     } catch (error) {
@@ -209,6 +206,14 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
     if (c.includes('touriste') || c.includes('touristique')) return 'touriste';
     return 'autre';
   };
+
+  // Réactif: re-filtrer les catégories quand permitCategories ou hunterCategory changent
+  // Cela résout le problème en production où les catégories se chargent APRÈS la sélection du chasseur
+  useEffect(() => {
+    if (hunterCategory && permitCategories.length > 0) {
+      filterPermitCategories(hunterCategory.toLowerCase());
+    }
+  }, [permitCategories, hunterCategory]);
 
   const form = useForm<PermitFormData>({
     resolver: zodResolver(permitFormSchema),
@@ -639,9 +644,9 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
 
                         // Chercher le chasseur pour déterminer son type (résident, coutumier, etc.)
                         const selectedHunter = hunters.find(h => h.id === hunterId);
-                        if (selectedHunter) {
+                        if (selectedHunter && selectedHunter.category) {
+                          setHunterCategory(selectedHunter.category);
                           // Filtrer les catégories de permis en fonction du type de chasseur
-                          // On utilise la catégorie du chasseur (category) pour déterminer le type
                           filterPermitCategories(selectedHunter.category.toLowerCase());
                         }
 
