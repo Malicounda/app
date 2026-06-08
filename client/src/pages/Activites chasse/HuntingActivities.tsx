@@ -12,6 +12,7 @@ import { format, isValid, parseISO } from 'date-fns';
 import { Eye, Feather, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
+import { resolveApiUrl } from '@/utils/environment';
 
 // Types pour les activités de chasse
 interface HuntingSpecies {
@@ -94,6 +95,7 @@ export default function HuntingActivities() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('token') || sessionStorage.getItem('token')) : '';
 
   // Vérifier si le chasseur a des permis actifs
   const { data: hunterPermits = [] } = useQuery({
@@ -503,7 +505,7 @@ export default function HuntingActivities() {
                                     <div className="flex flex-col items-center">
                                       {activity.photoAvailable && activity.reportId ? (
                                         <img
-                                          src={`/api/hunting-activities/${activity.reportId}/photo`}
+                                          src={resolveApiUrl(`/api/hunting-activities/${activity.reportId}/photo${token ? `?token=${token}` : ''}`)}
                                           alt={activity.species[0]?.name && activity.species[0].name !== 'null' ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
                                           className="w-24 h-24 object-cover rounded-md border-2 border-amber-300 bg-white shadow-sm mb-2"
                                         />
@@ -820,7 +822,7 @@ export default function HuntingActivities() {
                               <DialogTrigger asChild>
                                 <div className="relative cursor-zoom-in">
                                   <img
-                                    src={`/api/hunting-activities/${activity.reportId}/photo`}
+                                    src={resolveApiUrl(`/api/hunting-activities/${activity.reportId}/photo${token ? `?token=${token}` : ''}`)}
                                     alt={activity.species[0]?.name && activity.species[0].name !== 'null' ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
                                     className="w-full h-36 sm:h-44 object-cover transition-transform duration-300 group-hover:scale-105"
                                   />
@@ -835,7 +837,7 @@ export default function HuntingActivities() {
                                 <DialogTitle className="sr-only">Photo du prélèvement</DialogTitle>
                                 <DialogDescription className="sr-only">Vue agrandie de la photo du prélèvement</DialogDescription>
                                 <img
-                                  src={`/api/hunting-activities/${activity.reportId}/photo`}
+                                  src={resolveApiUrl(`/api/hunting-activities/${activity.reportId}/photo${token ? `?token=${token}` : ''}`)}
                                   alt={activity.species[0]?.name && activity.species[0].name !== 'null' ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
                                   className="w-full h-auto max-h-[85vh] object-contain rounded-xl bg-black/50 backdrop-blur-sm"
                                 />
