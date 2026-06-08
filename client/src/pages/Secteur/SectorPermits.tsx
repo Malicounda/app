@@ -353,10 +353,12 @@ export default function SectorPermits() {
     )}
 
     {/* Formulaire d'ajout de permis */}
-    <PermitForm
-      open={showAddForm}
-      onClose={() => setShowAddForm(false)}
-    />
+    {showAddForm && (
+      <PermitForm
+        open={showAddForm}
+        onClose={() => setShowAddForm(false)}
+      />
+    )}
   </div>
 );
 }
