@@ -100,18 +100,16 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
   const { data: attachmentData, isLoading: loadingAttachments, error: attachmentError } = useQuery({
     queryKey: ['hunter-attachments', hunterId],
     queryFn: async () => {
-      console.log('Fetching attachments for hunter:', hunterId);
       const response = await fetch(`/api/attachments/${hunterId}`);
-      console.log('Response status:', response.status);
       if (!response.ok) {
-        console.error('Failed to fetch attachments:', response.statusText);
         throw new Error('Failed to fetch attachments');
       }
       const data = await response.json();
-      console.log('Attachments data:', data);
       return data;
     },
     enabled: !!hunterId && open,
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
   });
 
 
@@ -138,7 +136,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     if (open && hunterId) {
       fetchDocuments();
     }
-  }, [open, hunterId, attachmentData]);
+  }, [open, hunterId]);
 
   // Mutation pour mettre à jour un document (même endpoint que la création)
   const updateDocument = useMutation({
@@ -195,6 +193,8 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       return Array.isArray(data) ? data : [];
     },
     enabled: !!hunterId && open,
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
   });
 
   // Quand la liste des permis change, déterminer s'il existe au moins une taxe par permis
@@ -247,6 +247,8 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       return response.json();
     },
     enabled: !!hunterId && open,
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
   });
 
   // Cache local pour les données du chasseur

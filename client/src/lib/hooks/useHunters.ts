@@ -150,25 +150,23 @@ export function useNationalHunters() {
 // Hook spécifique pour les détails d'un chasseur et les opérations associées
 export function useHunterDetails(hunterId: number) {
   const queryClient = useQueryClient();
-  console.log("Démarrage du hook useHunterDetails avec l'ID:", hunterId);
 
   // Récupérer les détails du chasseur
   const { data: hunter, isLoading, error } = useQuery<Hunter>({
     queryKey: ["/api/hunters", hunterId],
     enabled: !!hunterId,
-    queryFn: async ({ queryKey }) => {
-      console.log("Exécution de la queryFn pour les détails du chasseur, queryKey:", queryKey);
+    queryFn: async () => {
       const response = await apiRequest<Hunter>('GET', `/api/hunters/${hunterId}`);
       if (!response.ok) {
-        console.error("Erreur lors de la requête chasseur:", response.error);
         throw new Error(response.error || "Erreur lors de la récupération du chasseur");
       }
       if (!response.data) {
         throw new Error('Hunter not found');
       }
-      console.log("Données reçues du serveur pour le chasseur:", response.data);
       return response.data;
     },
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
   });
 
   // Mutation pour suspendre un chasseur
