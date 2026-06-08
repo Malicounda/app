@@ -36,6 +36,9 @@ import { usePermissions } from "@/lib/hooks/usePermissions";
 import type { Hunter } from "@shared/schema";
 import HunterForm from "./HunterForm";
 
+const EMPTY_ARRAY: any[] = [];
+const DEFAULT_PERMIT_ACCESS = { enabled: false };
+
 interface HunterDetailsProps {
   hunterId: number;
   open: boolean;
@@ -183,7 +186,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     }
   });
 
-  const { data: permits = [], isLoading: loadingPermits } = useQuery<any[]>({
+  const { data: permits = EMPTY_ARRAY, isLoading: loadingPermits } = useQuery<any[]>({
     queryKey: ['hunter-permits', hunterId],
     queryFn: async () => {
       const response = await fetch(`/api/permits/hunter/${hunterId}`);
@@ -199,7 +202,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     const run = async () => {
       try {
         if (!Array.isArray(permits) || permits.length === 0) {
-          setHasTaxesMap({});
+          setHasTaxesMap(prev => Object.keys(prev).length === 0 ? prev : EMPTY_ARRAY as any);
           return;
         }
         const entries = await Promise.allSettled(
@@ -220,9 +223,16 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
             map[id] = has;
           }
         }
-        setHasTaxesMap(map);
+        
+        setHasTaxesMap(prev => {
+          const keys1 = Object.keys(prev);
+          const keys2 = Object.keys(map);
+          if (keys1.length !== keys2.length) return map;
+          const hasDifference = keys1.some(k => prev[Number(k)] !== map[Number(k)]);
+          return hasDifference ? map : prev;
+        });
       } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-        setHasTaxesMap({ });
+        setHasTaxesMap(prev => Object.keys(prev).length === 0 ? prev : EMPTY_ARRAY as any);
       }
     };
     run();
@@ -299,7 +309,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
      }
   };
 
-  const { data: agentPermitAccess = { enabled: false } } = useQuery<{ enabled: boolean }>({
+  const { data: agentPermitAccess = DEFAULT_PERMIT_ACCESS } = useQuery<{ enabled: boolean }>({
     queryKey: ["/api/settings/agent-permit-access"],
     queryFn: async () => {
       try {
@@ -307,13 +317,13 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
         if (res && res.ok && typeof res.data !== 'undefined') return res.data as any;
         // if server returned ok=false, fallback to local
         const local = readLocalAgentPermitAccess();
-        return local ?? { enabled: false };
+        return local ?? DEFAULT_PERMIT_ACCESS;
       } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         const local = readLocalAgentPermitAccess();
-        return local ?? { enabled: false  };
+        return local ?? DEFAULT_PERMIT_ACCESS;
       }
     },
-    initialData: readLocalAgentPermitAccess() ?? { enabled: false },
+    initialData: readLocalAgentPermitAccess() ?? DEFAULT_PERMIT_ACCESS,
     enabled: !!user,
     refetchOnWindowFocus: false,
     retry: false,
