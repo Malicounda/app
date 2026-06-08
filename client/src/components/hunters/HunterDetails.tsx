@@ -100,12 +100,11 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
   const { data: attachmentData, isLoading: loadingAttachments, error: attachmentError } = useQuery({
     queryKey: ['hunter-attachments', hunterId],
     queryFn: async () => {
-      const response = await fetch(`/api/attachments/${hunterId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch attachments');
+      const res = await apiRequest<any>('GET', `/attachments/${hunterId}`);
+      if (!res.ok) {
+        throw new Error(res.error || 'Failed to fetch attachments');
       }
-      const data = await response.json();
-      return data;
+      return res.data;
     },
     enabled: !!hunterId && open,
     staleTime: 1000 * 60,
@@ -187,10 +186,9 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
   const { data: permits = EMPTY_ARRAY, isLoading: loadingPermits } = useQuery<any[]>({
     queryKey: ['hunter-permits', hunterId],
     queryFn: async () => {
-      const response = await fetch(`/api/permits/hunter/${hunterId}`);
-      if (!response.ok) throw new Error('Failed to fetch permits');
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
+      const res = await apiRequest<any[]>('GET', `/permits/hunter/${hunterId}`);
+      if (!res.ok) throw new Error(res.error || 'Failed to fetch permits');
+      return Array.isArray(res.data) ? res.data : [];
     },
     enabled: !!hunterId && open,
     staleTime: 1000 * 60,
@@ -242,9 +240,9 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
   const { data: hunter, isLoading, error } = useQuery({
     queryKey: ['hunter', hunterId],
     queryFn: async () => {
-      const response = await fetch(`/api/hunters/${hunterId}`);
-      if (!response.ok) throw new Error('Failed to fetch hunter');
-      return response.json();
+      const res = await apiRequest<any>('GET', `/hunters/${hunterId}`);
+      if (!res.ok) throw new Error(res.error || 'Failed to fetch hunter');
+      return res.data;
     },
     enabled: !!hunterId && open,
     staleTime: 1000 * 60,
