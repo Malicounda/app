@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.eforets.alerte',
-  appName: 'Alerte',
+  appId: 'com.eforets.chasse',
+  appName: 'Chasse',
   webDir: 'client/dist',
   server: {
     // Comme la sauvegarde Alerte.apk : WebView → login Alerte uniquement (pas le bundle local complet)
@@ -16,7 +16,7 @@ const config: CapacitorConfig = {
     captureInput: true,
     webContentsDebuggingEnabled: false,
     backgroundColor: '#114b26',
-    appendUserAgent: 'AlerteAPK',
+    appendUserAgent: 'ChasseAPK',
   },
   plugins: {
     App: {

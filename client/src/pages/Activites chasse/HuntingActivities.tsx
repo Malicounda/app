@@ -499,10 +499,10 @@ export default function HuntingActivities() {
                                 <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start justify-between">
                                   <div className="order-1 w-full sm:w-auto text-center sm:text-left">
                                     <h3 className="font-bold text-amber-800 font-serif mb-2">📅 {safeFormatDate(activity.date)}</h3>
-                                    {activity.type === 'rejected' && activity.review_notes && (
+                                    {activity.type === 'rejected' && (activity as any).review_notes && (
                                       <div className="mt-2 mb-2 p-2 bg-red-50 border border-red-200 rounded-md text-left inline-block max-w-[250px]">
                                         <p className="text-red-700 text-xs font-semibold mb-1">Motif du rejet:</p>
-                                        <p className="text-red-600 text-xs italic break-words">{activity.review_notes}</p>
+                                        <p className="text-red-600 text-xs italic break-words">{(activity as any).review_notes}</p>
                                       </div>
                                     )}
 

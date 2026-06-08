@@ -13,11 +13,21 @@ export default function HomePageWrapper() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
+    const isChasseApk =
+      typeof window !== 'undefined' &&
+      navigator.userAgent.includes('ChasseAPK');
+
     const isAlerteApk =
       typeof window !== 'undefined' &&
+      !isChasseApk &&
       (window.location.search.includes('isApk=true') ||
         navigator.userAgent.includes('AlerteAPK') ||
         (typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNativePlatform?.()));
+
+    if (isChasseApk && !isAuthenticated && !isLoading) {
+      setLocation('/login');
+      return;
+    }
 
     if (isAlerteApk && !isAuthenticated && !isLoading) {
       setLocation('/alerte-login');
@@ -71,14 +81,19 @@ export default function HomePageWrapper() {
 
   // Si l'utilisateur n'est pas connecté, afficher la page d'accueil
   if (!isAuthenticated) {
+    const isChasseApk =
+      typeof window !== 'undefined' &&
+      navigator.userAgent.includes('ChasseAPK');
+
     const isAlerteApk =
       typeof window !== 'undefined' &&
+      !isChasseApk &&
       (window.location.search.includes('isApk=true') ||
         navigator.userAgent.includes('AlerteAPK') ||
         (typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNativePlatform?.()));
     
     // Éviter de flasher la page d'accueil si on va être redirigé
-    if (isAlerteApk) {
+    if (isAlerteApk || isChasseApk) {
       return (
         <div className="min-h-screen bg-emerald-900 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent" />
