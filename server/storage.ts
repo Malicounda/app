@@ -603,6 +603,21 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
 
         if (result.length > 0) {
           console.log(`Successfully assigned hunter ${hunterId} to user ${userId}`);
+          
+          // Enregistrer l'utilisateur dans le domaine CHASSE (id = 1) si ce n'est pas déjà fait
+          try {
+            await db.execute(sql`
+              INSERT INTO user_domains (user_id, domain, domaine_id, role, active, created_at)
+              SELECT ${userId}, 'CHASSE', 1, 'hunter', TRUE, NOW()
+              WHERE NOT EXISTS (
+                SELECT 1 FROM user_domains WHERE user_id = ${userId} AND domain = 'CHASSE'
+              )
+            `);
+            console.log(`Successfully ensured user ${userId} is assigned to CHASSE domain`);
+          } catch (domainErr) {
+            console.error(`Error ensuring user ${userId} domain assignment during hunter mapping:`, domainErr);
+          }
+
           return result[0];
         }
         console.warn(`User ${userId} not found or no update occurred when assigning hunter ${hunterId}`);

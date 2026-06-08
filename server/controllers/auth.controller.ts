@@ -429,6 +429,22 @@ export const register = async (req: Request, res: Response) => {
             role,
         });
 
+        // Si c'est un chasseur ou un guide, l'associer directement au domaine CHASSE (id = 1)
+        if (role === 'hunter' || role === 'hunting-guide') {
+            try {
+                await db.execute(sql`
+                    INSERT INTO user_domains (user_id, domain, domaine_id, role, active, created_at)
+                    SELECT ${newUser.id}, 'CHASSE', 1, ${role}, TRUE, NOW()
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM user_domains WHERE user_id = ${newUser.id} AND domain = 'CHASSE'
+                    )
+                ` as any);
+                console.log(`[REGISTER] Associé l'utilisateur ${newUser.username} au domaine CHASSE avec succès`);
+            } catch (domainErr) {
+                console.error(`[REGISTER] Erreur lors de l'association au domaine CHASSE pour ${newUser.username}:`, domainErr);
+            }
+        }
+
         console.log('[REGISTER] Utilisateur créé avec succès:', newUser.username);
         const { password: _p, ...safeUser } = newUser as any;
         return res.status(201).json({ message: "Inscription réussie", user: safeUser });

@@ -214,6 +214,7 @@ export const huntingGuides = pgTable("hunting_guides", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   userId: integer("user_id").references(() => users.id),
+  domainId: integer("domain_id").references(() => domaines.id),
 });
 
 export const insertHuntingGuideSchema = createInsertSchema(huntingGuides).omit({

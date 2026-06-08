@@ -49,6 +49,7 @@ router.get('/', isAuthenticated, async (req, res) => {
           hg.created_at AS "createdAt",
           hg.user_id AS "userId",
           hg.zone_id AS "zoneId",
+          hg.domain_id AS "domainId",
           u.username AS "username"
         FROM hunting_guides hg
         LEFT JOIN users u ON hg.user_id = u.id
@@ -70,6 +71,7 @@ router.get('/', isAuthenticated, async (req, res) => {
           hg.created_at AS "createdAt",
           hg.user_id AS "userId",
           hg.zone_id AS "zoneId",
+          hg.domain_id AS "domainId",
           u.username AS "username"
         FROM hunting_guides hg
         LEFT JOIN users u ON hg.user_id = u.id
@@ -92,6 +94,7 @@ router.get('/', isAuthenticated, async (req, res) => {
           hg.created_at AS "createdAt",
           hg.user_id AS "userId",
           hg.zone_id AS "zoneId",
+          hg.domain_id AS "domainId",
           u.username AS "username"
         FROM hunting_guides hg
         LEFT JOIN users u ON hg.user_id = u.id
@@ -129,6 +132,7 @@ router.get('/:id', isAuthenticated, async (req, res) => {
         hg.created_at AS "createdAt",
         hg.user_id AS "userId",
         hg.zone_id AS "zoneId",
+        hg.domain_id AS "domainId",
         u.username AS "username"
       FROM hunting_guides hg
       LEFT JOIN users u ON hg.user_id = u.id
@@ -175,6 +179,7 @@ router.get('/by-departement/:departement', isAuthenticated, async (req, res) => 
         hg.created_at AS "createdAt",
         hg.user_id AS "userId",
         hg.zone_id AS "zoneId",
+        hg.domain_id AS "domainId",
         u.username AS "username"
       FROM hunting_guides hg
       LEFT JOIN users u ON hg.user_id = u.id
@@ -265,13 +270,22 @@ router.post('/', isAuthenticated, async (req, res) => {
     ` as any) as any[];
     const newUser = newUsers[0];
 
-    // 2. Ensuite, créer le guide et lier l'utilisateur
+    // 2. Ensuite, créer le guide et lier l'utilisateur et le domaine (domain_id = 1 pour CHASSE)
     const newGuides: any[] = await db.execute(sql`
-      INSERT INTO hunting_guides (first_name, last_name, phone, departement, region, id_number, photo, user_id, is_active, created_at, zone_id)
-      VALUES (${_firstName}, ${_lastName}, ${_phone}, ${_departement}, ${_region}, ${_idNumber}, ${photo}, ${newUser.id}, TRUE, NOW(), ${_zoneId})
-      RETURNING id, first_name AS "firstName", last_name AS "lastName", phone, departement AS "zone", region, id_number AS "idNumber", photo, user_id AS "userId", is_active AS "isActive", created_at AS "createdAt", zone_id AS "zoneId"
+      INSERT INTO hunting_guides (first_name, last_name, phone, departement, region, id_number, photo, user_id, is_active, created_at, zone_id, domain_id)
+      VALUES (${_firstName}, ${_lastName}, ${_phone}, ${_departement}, ${_region}, ${_idNumber}, ${photo}, ${newUser.id}, TRUE, NOW(), ${_zoneId}, 1)
+      RETURNING id, first_name AS "firstName", last_name AS "lastName", phone, departement AS "zone", region, id_number AS "idNumber", photo, user_id AS "userId", is_active AS "isActive", created_at AS "createdAt", zone_id AS "zoneId", domain_id AS "domainId"
     ` as any) as any[];
     const newGuide = newGuides[0];
+
+    // 3. Associer le compte au domaine CHASSE (domaine_id = 1) dans user_domains
+    await db.execute(sql`
+      INSERT INTO user_domains (user_id, domain, domaine_id, role, active, created_at)
+      SELECT ${newUser.id}, 'CHASSE', 1, 'hunting-guide', TRUE, NOW()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM user_domains WHERE user_id = ${newUser.id} AND domain = 'CHASSE'
+      )
+    ` as any);
 
     // Retourner un objet combiné avec les informations du guide et de l'utilisateur
     res.status(201).json({...newGuide, username: newUser.username});
@@ -343,9 +357,10 @@ router.put('/:id', isAuthenticated, async (req, res) => {
         id_number = COALESCE(${idNumber ?? null}, id_number),
         photo = ${photo === "" ? sql`NULL` : sql`COALESCE(${photo ?? null}::bytea, photo)`},
         is_active = COALESCE(${typeof isActive !== 'undefined' ? isActive : null}::boolean, is_active),
-        zone_id = ${_zoneId}
+        zone_id = ${_zoneId},
+        domain_id = 1
       WHERE id = ${guideId}
-      RETURNING id, first_name AS "firstName", last_name AS "lastName", phone, departement AS "zone", region, id_number AS "idNumber", photo, user_id AS "userId", is_active AS "isActive", created_at AS "createdAt", zone_id AS "zoneId"
+      RETURNING id, first_name AS "firstName", last_name AS "lastName", phone, departement AS "zone", region, id_number AS "idNumber", photo, user_id AS "userId", is_active AS "isActive", created_at AS "createdAt", zone_id AS "zoneId", domain_id AS "domainId"
     ` as any) as any[];
     const updatedGuide = updatedRows[0];
 
@@ -382,6 +397,7 @@ router.put('/:id', isAuthenticated, async (req, res) => {
         hg.created_at AS "createdAt",
         hg.user_id AS "userId",
         hg.zone_id AS "zoneId",
+        hg.domain_id AS "domainId",
         u.username AS "username"
       FROM hunting_guides hg
       LEFT JOIN users u ON hg.user_id = u.id

@@ -265,6 +265,7 @@ export const huntingGuides = pgTable("hunting_guides", {
   licenseNumber: text("license_number").unique(),
   region: text("region"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  domainId: integer("domain_id"),
 });
 
 export const guideHunterAssociations = pgTable("guide_hunter_associations", {
