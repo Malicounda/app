@@ -116,7 +116,7 @@ export default function HuntingActivities() {
 
 
   // Vérifier si le chasseur a des permis actifs (non expirés et non suspendus)
-  const hasActivePermits = hunterPermits.some((permit: any) => {
+  const hasActivePermits = Array.isArray(hunterPermits) && hunterPermits.some((permit: any) => {
     const isActive = permit.status === 'active';
     const isNotExpired = permit.expiryDate && new Date(permit.expiryDate) >= new Date();
     const result = isActive && isNotExpired;
@@ -124,7 +124,7 @@ export default function HuntingActivities() {
     return result;
   });
 
-  console.log('[HuntingActivities] hasActivePermits:', hasActivePermits, 'Total permis:', hunterPermits.length);
+  console.log('[HuntingActivities] hasActivePermits:', hasActivePermits, 'Total permis:', Array.isArray(hunterPermits) ? hunterPermits.length : 0);
   const [selectedActivity, setSelectedActivity] = useState<HuntingActivity | null>(null);
   const [selectedActivityIndex, setSelectedActivityIndex] = useState<number | null>(null);
   const [selectedGuideActivity, setSelectedGuideActivity] = useState<GuideActivity | null>(null);

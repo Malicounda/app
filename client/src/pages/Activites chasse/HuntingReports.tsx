@@ -111,7 +111,7 @@ export default function HuntingReports() {
   });
 
   // Vérifier si le chasseur a des permis actifs (non expirés et non suspendus)
-  const hasActivePermits = hunterPermits.some((permit: any) => {
+  const hasActivePermits = Array.isArray(hunterPermits) && hunterPermits.some((permit: any) => {
     const isActive = permit.status === 'active';
     const isNotExpired = permit.expiryDate && new Date(permit.expiryDate) >= new Date();
     const result = isActive && isNotExpired;
@@ -119,7 +119,7 @@ export default function HuntingReports() {
     return result;
   });
 
-  console.log('[HuntingReports] hasActivePermits:', hasActivePermits, 'Total permis:', hunterPermits.length);
+  console.log('[HuntingReports] hasActivePermits:', hasActivePermits, 'Total permis:', Array.isArray(hunterPermits) ? hunterPermits.length : 0);
 
 
   const [showForm, setShowForm] = useState(typeof window !== 'undefined' && window.location.search.includes('new=true'));
