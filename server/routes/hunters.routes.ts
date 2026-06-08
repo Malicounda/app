@@ -143,6 +143,39 @@ router.get('/me/completion-status', isAuthenticated, async (req: Request, res: R
   }
 });
 
+// Vérifier si le chasseur courant a un guide actif associé
+router.get('/me/active-guide', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const currentUserId = req.user?.id as number | undefined;
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'Non authentifié' });
+    }
+
+    const user = await storage.getUser(currentUserId);
+    const hunterId = (user as any)?.hunterId || (user as any)?.hunter_id as number | undefined;
+
+    if (!hunterId) {
+      return res.json({ hasActiveGuide: false });
+    }
+
+    const associations = await db.execute(sql`
+      SELECT gha.id
+      FROM guide_hunter_associations gha
+      WHERE gha.hunter_id = ${hunterId} AND gha.is_active = TRUE
+      LIMIT 1
+    ` as any) as any[];
+
+    if (associations && associations.length > 0) {
+      return res.json({ hasActiveGuide: true });
+    }
+
+    return res.json({ hasActiveGuide: false });
+  } catch (error) {
+    console.error('Erreur lors de la vérification du guide actif:', error);
+    return res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
 // Endpoint pour récupérer tous les documents téléversés d'un chasseur depuis hunter_attachments
 router.get('/my-documents', isAuthenticated, async (req: Request, res: Response) => {
   try {

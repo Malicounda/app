@@ -779,9 +779,9 @@ export default function HuntingReports() {
       basePayload = {
         ...basePayload,
         hunterId: selectedHunterId,  // ID du chasseur pour qui on déclare
-        guideId: user?.id,          // ID du guide qui fait la déclaration
+        guideId: user?.guideId || user?.id,          // ID du guide qui fait la déclaration
       };
-      console.log('🎯 Déclaration par guide pour chasseur:', { hunterId: selectedHunterId, guideId: user?.id });
+      console.log('🎯 Déclaration par guide pour chasseur:', { hunterId: selectedHunterId, guideId: user?.guideId || user?.id });
     } else if (!isGuide) {
       // Si c'est un chasseur qui fait sa propre déclaration
       basePayload = {
@@ -961,33 +961,31 @@ export default function HuntingReports() {
   );
 
   return (
-    <div className="min-h-screen bg-stone-100">
-      <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-4 sm:py-8">
-        {/* Fil d'Ariane / Bouton de retour vers Carnet d'activités */}
-        <div className="mb-3 sm:mb-4">
-
+    <div className="h-[calc(100dvh-75px)] sm:h-screen bg-stone-100 flex flex-col overflow-hidden pb-safe">
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col min-h-0">
+        <div className="mb-4 shrink-0">
+          <Tabs value="carnet" onValueChange={(v) => { if (v === 'activites') setLocation('/hunting-activities'); }} className="w-full">
+            <TabsList className="grid grid-cols-2 bg-[#0b3d2e] border border-emerald-700/50 rounded-lg w-full p-1 shadow-md">
+              <TabsTrigger value="carnet" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">
+                Carnet de Chasse
+              </TabsTrigger>
+              <TabsTrigger value="activites" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">
+                <FileText className="h-4 w-4" />
+                Mes Activités
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
+
         {!showForm ? (
-          <div className="relative">
-            <div className="w-full max-w-4xl mx-auto bg-gradient-to-br from-[#0b3d2e] to-[#14532d] rounded-lg shadow-2xl p-3 sm:p-6 relative overflow-hidden flex flex-col justify-center items-center font-serif text-white">
+          <div className="relative flex-1 flex flex-col min-h-0">
+            <div className="w-full max-w-4xl mx-auto bg-gradient-to-br from-[#0b3d2e] to-[#14532d] rounded-lg shadow-2xl p-3 sm:p-6 relative overflow-hidden flex flex-col justify-center items-center font-serif text-white shrink-0">
               <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px), repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px)` }}></div>
               <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner">
                 <div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div>
               </div>
               <div className="ml-6 sm:ml-12 relative z-10 text-center w-full px-2">
-                <div className="w-full mb-4 sm:mb-6">
-                  <Tabs value="carnet" onValueChange={(v) => { if (v === 'activites') setLocation('/hunting-activities'); }} className="w-full">
-                    <TabsList className="grid grid-cols-2 bg-emerald-900/60 border border-emerald-700/50 rounded-lg w-full p-1">
-                      <TabsTrigger value="carnet" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">
-                        Carnet de Chasse
-                      </TabsTrigger>
-                      <TabsTrigger value="activites" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">
-                        <FileText className="h-4 w-4" />
-                        Mes Activités
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
                 <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-emerald-100 mb-2 font-serif" style={{ textShadow: '2px 2px 4px rgba(1, 124, 57, 0.36)' }}>CARNET DE CHASSE</h1>
                 <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mx-auto mb-3 sm:mb-6 bg-emerald-100 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
                   <img src="/images/logo_carnet.jpg" alt="Logo carnet" className="max-w-full h-auto object-contain" />
@@ -996,10 +994,10 @@ export default function HuntingReports() {
                 <Button onClick={() => setShowForm(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 sm:py-3 sm:px-8 md:py-4 md:px-10 text-sm sm:text-base md:text-lg rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105">📝 Nouveau prélèvement</Button>
               </div>
             </div>
-            <div className="bg-emerald-50/70 rounded-lg shadow-xl p-2 sm:p-4 md:p-6 relative overflow-hidden mt-4">
+            <div className="bg-emerald-50/70 rounded-lg shadow-xl p-2 sm:p-4 md:p-6 relative overflow-hidden mt-2">
               <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-6 md:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner"><div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1 h-1 sm:w-1.5 sm:h-1.5 md:w-2 md:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div></div>
-              <div className="ml-5 sm:ml-8 md:ml-12">
-                <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg shadow-md mt-4">
+              <div className="ml-5 sm:ml-8 md:ml-12 pb-2">
+                <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg shadow-md">
                   <h2 className="text-base sm:text-lg md:text-xl font-bold text-amber-900 mb-3 sm:mb-4">Informations importantes</h2>
                   <div className="space-y-3 sm:space-y-4">
                     <div className="p-2 sm:p-3 md:p-4 bg-amber-50 border-l-4 border-amber-500 rounded">
@@ -1032,9 +1030,9 @@ export default function HuntingReports() {
             </div>
           </div>
         ) : (
-          <div className="bg-emerald-50/70 rounded-lg shadow-xl p-3 sm:p-4 md:p-8 relative">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4 sm:mb-6 gap-2 sm:gap-0"><Button variant="ghost" onClick={() => setShowForm(false)} className="sm:mr-4 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs sm:text-sm"><ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />Retour au carnet</Button><h1 className="text-xs sm:text-sm md:text-base font-bold text-amber-900 font-serif">📝 Nouvelle déclaration d'abattage</h1></div>
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-4 sm:space-y-6 md:space-y-8">
+          <div className="bg-emerald-50/70 rounded-lg shadow-xl p-3 sm:p-4 md:p-8 relative flex-1 flex flex-col min-h-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4 sm:mb-6 gap-2 sm:gap-0 shrink-0"><Button variant="ghost" onClick={() => setShowForm(false)} className="sm:mr-4 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs sm:text-sm"><ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />Retour au carnet</Button><h1 className="text-xs sm:text-sm md:text-base font-bold text-amber-900 font-serif">📝 Nouvelle déclaration d'abattage</h1></div>
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4 sm:space-y-6 md:space-y-8 flex-1 overflow-y-auto styled-scrollbar pr-2 pb-2">
               <Card>
                 <CardHeader className="p-3 sm:p-4 md:p-6">
                   <CardTitle className="text-base sm:text-lg md:text-xl">Permis de chasse</CardTitle>
@@ -1478,5 +1476,6 @@ export default function HuntingReports() {
         )}
       </div>
     </div>
+  </div>
   );
 }

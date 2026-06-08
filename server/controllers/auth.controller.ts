@@ -250,6 +250,8 @@ export const login = async (req: Request, res: Response) => {
             departement: (user as any).departement ?? null,
             // Inclure hunterId pour les utilisateurs avec le rôle hunter
             hunterId: (user as any).hunterId ?? null,
+            // Ajouter guideId (sera peuplé plus bas)
+            guideId: (user as any).guideId ?? null,
             isSuperAdmin,
             isDefaultRole,
             isSupervisorRole,
@@ -317,6 +319,24 @@ export const login = async (req: Request, res: Response) => {
                 if ((user as any).hunterId) {
                     tokenPayload.hunterId = (user as any).hunterId;
                     console.log('[LOGIN] Token JWT avec hunterId:', (user as any).hunterId);
+                }
+
+                // Tenter de récupérer le guideId si l'utilisateur est un guide
+                let guideId = null;
+                if (String((user as any).role || '') === 'hunting-guide') {
+                    try {
+                        const guideRows = await db.execute(sql`SELECT id FROM hunting_guides WHERE user_id = ${user.id} LIMIT 1` as any);
+                        const row = Array.isArray(guideRows) ? guideRows[0] : (guideRows as any)[0];
+                        if (row && row.id) {
+                            guideId = Number(row.id);
+                            req.session.user.guideId = guideId;
+                            tokenPayload.guideId = guideId;
+                            (user as any).guideId = guideId;
+                            console.log('[LOGIN] Guide ID trouvé:', guideId);
+                        }
+                    } catch (e) {
+                        console.error('[LOGIN] Erreur récupération guideId:', e);
+                    }
                 }
 
                 const token = storage.generateAuthToken(tokenPayload);
@@ -581,6 +601,7 @@ export const getMe = async (req: Request, res: Response) => {
                 commune: users.commune,
                 arrondissement: users.arrondissement,
                 hunterId: users.hunterId,
+                // On récupèrera le guideId avec une requête séparée si besoin
                 grade: agents.grade,
                 genre: agents.genre,
                 roleMetierCode: rolesMetier.code,
@@ -599,6 +620,19 @@ export const getMe = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Non authentifié" });
         }
 
+        // Récupérer le guideId si c'est un guide
+        if (u.role === 'hunting-guide') {
+            try {
+                const guideRows = await db.execute(sql`SELECT id FROM hunting_guides WHERE user_id = ${u.id} LIMIT 1` as any);
+                const row = Array.isArray(guideRows) ? guideRows[0] : (guideRows as any)[0];
+                if (row && row.id) {
+                    u.guideId = Number(row.id);
+                }
+            } catch (e) {
+                console.error('[GET ME] Erreur récupération guideId:', e);
+            }
+        }
+
         // Mettre à jour la session avec les dernières valeurs de la DB
         req.session.user = {
             ...(req.session.user as any),
@@ -615,6 +649,7 @@ export const getMe = async (req: Request, res: Response) => {
             region: u.region,
             departement: u.departement,
             hunterId: u.hunterId,
+            guideId: u.guideId,
         } as any;
 
         return res.json({
@@ -634,6 +669,7 @@ export const getMe = async (req: Request, res: Response) => {
             commune: u.commune ?? null,
             arrondissement: u.arrondissement ?? null,
             hunterId: u.hunterId ?? null,
+            guideId: u.guideId ?? null,
             grade: u.grade ?? null,
             genre: u.genre ?? null,
             roleMetierCode: u.roleMetierCode ?? null,

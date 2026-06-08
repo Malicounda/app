@@ -844,14 +844,14 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
               {!embedded && step === 1 && (
                 <button
                   type="button"
-                  onClick={() => window.location.replace("/")}
+                  onClick={() => window.location.replace("/login-chasse")}
                   className="fixed md:absolute right-3 md:right-0 top-3 md:top-0 flex items-center justify-center w-12 h-12 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-teal-400 to-green-500 hover:from-teal-500 hover:to-green-600 text-white shadow-md transition-all duration-300 hover:shadow-lg z-[60] md:z-10"
                   style={{
                     top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
                     right: 'calc(env(safe-area-inset-right, 0px) + 0.75rem)'
                   }}
-                  aria-label="Retour à l'accueil"
-                  title="Retour à l'accueil"
+                  aria-label="Retour à la page de connexion"
+                  title="Retour à la page de connexion"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transform rotate-180" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />

@@ -57,6 +57,8 @@ export default function HuntingDeclarationsPage() {
   const [_, setLocation] = useLocation();
   const [showRemoveAssociationConfirm, setShowRemoveAssociationConfirm] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
+  const [rejectingDeclarationId, setRejectingDeclarationId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   // Pagination (5 éléments/page) pour les déclarations du guide
   const [page, setPage] = useState(1);
   const pageSize = 5;
@@ -438,14 +440,8 @@ export default function HuntingDeclarationsPage() {
                             </Button>
                             <Button
                               onClick={() => {
-                                const reason = prompt('Raison du rejet (optionnel):');
-                                if (reason !== null) {
-                                  reviewDeclarationMutation.mutate({
-                                    declarationId: declaration.id,
-                                    action: 'reject',
-                                    notes: reason || 'Déclaration rejetée'
-                                  });
-                                }
+                                setRejectingDeclarationId(declaration.id);
+                                setRejectReason("");
                               }}
                               variant="destructive"
                               size="sm"
@@ -526,6 +522,52 @@ export default function HuntingDeclarationsPage() {
                   className="bg-red-600 hover:bg-red-700"
                 >
                   Supprimer
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Modal de motif de rejet */}
+        {rejectingDeclarationId !== null && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Motif du rejet
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Veuillez indiquer la raison pour laquelle vous rejetez cette déclaration (optionnel).
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-red-500 focus:border-red-500 mb-4 h-24 resize-none"
+                placeholder="Ex: Espèce non autorisée, date incorrecte..."
+              />
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setRejectingDeclarationId(null);
+                    setRejectReason("");
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={() => {
+                    reviewDeclarationMutation.mutate({
+                      declarationId: rejectingDeclarationId,
+                      action: 'reject',
+                      notes: rejectReason || 'Déclaration rejetée'
+                    });
+                    setRejectingDeclarationId(null);
+                    setRejectReason("");
+                  }}
+                  variant="destructive"
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={reviewDeclarationMutation.isPending}
+                >
+                  {reviewDeclarationMutation.isPending ? 'Rejet en cours...' : 'Confirmer le rejet'}
                 </Button>
               </div>
             </div>

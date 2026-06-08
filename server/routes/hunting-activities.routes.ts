@@ -386,6 +386,100 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
   }
 });
 
+// Récupérer toutes les activités de chasse déclarées par un guide
+router.get('/guide/:guideId', isAuthenticated, async (req, res) => {
+  try {
+    const guideId = Number(req.params.guideId);
+    
+    if (Number.isNaN(guideId)) {
+      return res.status(400).json({ message: 'ID de guide invalide' });
+    }
+
+    const currentUser = req.user as any;
+    if (currentUser?.role !== 'admin' && Number(currentUser?.guideId) !== guideId) {
+      return res.status(403).json({ message: 'Non autorisé' });
+    }
+
+    // Un guide n'a que des déclarations directes (dans declaration_especes)
+    // Certaines peuvent être approuvées (status = 'approved'), rejetées ('rejected'), ou en attente ('pending' ou NULL)
+    const guideRows = await db.execute(sql`
+      SELECT 
+        de.id,
+        de.hunter_id,
+        de.permit_id,
+        de.permit_number,
+        de.espece_id AS species_id,
+        de.nom_espece AS species_name,
+        de.nom_scientifique AS scientific_name,
+        de.sexe AS sex,
+        COALESCE(de.quantity, 1) AS quantity,
+        de.location,
+        de.lat,
+        de.lon,
+        de.created_at AS hunting_date,
+        CASE WHEN de.photo_data IS NOT NULL THEN true ELSE false END as has_photo,
+        de.photo_mime,
+        de.photo_name,
+        NULL AS activity_number,
+        COALESCE(de.status, 'pending') AS status,
+        'guide_declaration' AS source_type,
+        de.review_notes,
+        (
+          SELECT CONCAT(hg.first_name, ' ', hg.last_name)
+          FROM hunting_guides hg
+          WHERE hg.id = de.guide_id
+        ) AS guide_name
+      FROM declaration_especes de
+      WHERE de.guide_id = ${guideId} 
+         OR (de.guide_id IS NOT NULL AND de.user_id = (SELECT user_id FROM hunting_guides WHERE id = ${guideId}))
+         OR (de.guide_id IS NOT NULL AND de.user_id = ${currentUser.id})
+    `);
+
+    const resultRows = Array.isArray(guideRows) ? guideRows : [];
+
+    const activities = resultRows.map((row: any) => ({
+      id: row.id,
+      source_id: row.id,
+      source_type: row.source_type,
+      hunter_id: row.hunter_id,
+      permit_id: row.permit_id,
+      permit_number: row.permit_number,
+      species_id: row.species_id,
+      species_name: row.species_name,
+      scientific_name: row.scientific_name,
+      sex: row.sex,
+      quantity: row.quantity || 1,
+      location: row.location,
+      lat: row.lat ? parseFloat(row.lat) : null,
+      lon: row.lon ? parseFloat(row.lon) : null,
+      hunting_date: row.hunting_date,
+      photo_data: row.has_photo,
+      photo_mime: row.photo_mime,
+      photo_name: row.photo_name,
+      created_at: row.hunting_date,
+      activity_number: null,
+      status: row.status,
+      // Indicateurs
+      is_validated_activity: false,
+      is_guide_declaration: true,
+      guide_name: row.guide_name || null,
+      review_notes: row.review_notes || null,
+    }));
+
+    // Trier par date
+    activities.sort((a, b) => new Date(b.created_at || new Date()).getTime() - new Date(a.created_at || new Date()).getTime());
+
+    console.log(`✅ Retour de ${activities.length} activités pour le guide ${guideId}`);
+    res.json(activities);
+  } catch (error: any) {
+    console.error('❌ Erreur lors de la récupération des activités du guide:', error);
+    res.status(500).json({ 
+      message: 'Échec de la récupération des activités',
+      error: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    });
+  }
+});
+
 // Récupérer une activité spécifique avec sa photo
 router.get('/:id/photo', isAuthenticated, async (req, res) => {
   try {

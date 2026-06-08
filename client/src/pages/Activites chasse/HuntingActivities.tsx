@@ -151,21 +151,26 @@ export default function HuntingActivities() {
     document.title = 'Carnet de Chasse Numérique | SCoDiPP_Ch';
   }, []);
 
+  const isGuide = user?.role === 'hunting-guide';
+  const queryId = isGuide ? user?.guideId : user?.hunterId;
+  const endpointPath = isGuide ? 'guide' : 'hunter';
+
   // Récupérer les activités de chasse unifiées (déclarations + activités validées)
   const { data: unifiedActivities = [], isLoading: activitiesLoading } = useQuery({
-    queryKey: ['/api/hunting-activities', user?.hunterId],
+    queryKey: ['/api/hunting-activities', endpointPath, queryId],
     queryFn: async () => {
-      if (!user?.hunterId) return [];
-      const response = await apiRequest<UnifiedActivity[]>('GET', `/api/hunting-activities/hunter/${user.hunterId}`);
+      if (!queryId) return [];
+      const response = await apiRequest<UnifiedActivity[]>('GET', `/api/hunting-activities/${endpointPath}/${queryId}`);
       const data = Array.isArray(response) ? response : (response as any)?.data || [];
       console.log('[HuntingActivities] API response:', data.map((a: any) => ({
         id: a.id,
         source_type: a.source_type,
-        is_validated_activity: a.is_validated_activity
+        is_validated_activity: a.is_validated_activity,
+        status: a.status
       })));
       return data as UnifiedActivity[];
     },
-    enabled: !!user?.hunterId,
+    enabled: !!queryId,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -175,8 +180,15 @@ export default function HuntingActivities() {
 
   // Convertir les activités unifiées au format attendu par l'interface
   const activities: HuntingActivity[] = unifiedActivities.map((activity: UnifiedActivity) => {
-    const calculatedType = activity.is_validated_activity ? 'validated' : 'direct';
-    console.log(`[HuntingActivities] Mapping activity id=${activity.id}, source_type=${activity.source_type}, is_validated_activity=${activity.is_validated_activity}, calculatedType=${calculatedType}`);
+    let calculatedType: 'validated' | 'pending' | 'rejected' | 'direct' = 'direct';
+    if (activity.is_validated_activity || activity.status === 'approved') {
+      calculatedType = 'validated';
+    } else if (activity.status === 'rejected') {
+      calculatedType = 'rejected';
+    } else if (activity.status === 'pending' || activity.status === null) {
+      calculatedType = 'pending';
+    }
+    console.log(`[HuntingActivities] Mapping activity id=${activity.id}, source_type=${activity.source_type}, status=${activity.status}, calculatedType=${calculatedType}`);
 
     // Construire la zone avec Région/Département si disponibles
     let zoneDisplay = activity.location || '';
@@ -209,7 +221,7 @@ export default function HuntingActivities() {
       guideName: activity.is_guide_declaration ? 'Guide de chasse' : undefined,
       status: activity.status,
       coordinates: activity.lat && activity.lon ? `${activity.lat}, ${activity.lon}` : undefined,
-      type: activity.is_validated_activity ? 'validated' : 'direct',
+      type: calculatedType,
       photoAvailable: !!activity.photo_data,
       reportId: activity.is_validated_activity ? (activity as any).id : activity.source_id,
       activityNumber: activity.activity_number
@@ -375,13 +387,26 @@ export default function HuntingActivities() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-100">
-      <div className="">
-        <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-4 sm:py-8">
+    <div className="h-[calc(100dvh-75px)] sm:h-screen bg-stone-100 flex flex-col overflow-hidden pb-safe">
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col min-h-0">
+          <div className="mb-4 shrink-0">
+            <Tabs value="activites" onValueChange={(v) => { if (v === 'carnet') setLocation('/hunting-reports'); }} className="w-full">
+              <TabsList className="grid grid-cols-2 bg-[#0b3d2e] border border-emerald-700/50 rounded-lg w-full p-1 shadow-md">
+                <TabsTrigger value="carnet" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">
+                  Carnet de Chasse
+                </TabsTrigger>
+                <TabsTrigger value="activites" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">
+                  <FileText className="h-4 w-4" />
+                  Mes Activités
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           {!showForm ? (
-            <div className="relative">
+            <div className="relative flex-1 flex flex-col min-h-0">
               {/* Pages du carnet */}
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg shadow-xl p-3 sm:p-6 relative overflow-hidden" style={{
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg shadow-xl p-3 sm:p-6 relative overflow-hidden flex-1 flex flex-col min-h-0" style={{
                 backgroundImage: `
                   linear-gradient(90deg, rgba(139, 69, 19, 0.05) 0%, transparent 5%),
                   repeating-linear-gradient(0deg, transparent, transparent 24px, rgba(139, 69, 19, 0.1) 24px, rgba(139, 69, 19, 0.1) 25px)
@@ -397,25 +422,12 @@ export default function HuntingActivities() {
                   </div>
                 </div>
 
-                <div className="ml-8 sm:ml-12">
-                  <div className="mb-4 sm:mb-6 mt-2">
-                    <Tabs value="activites" onValueChange={(v) => { if (v === 'carnet') setLocation('/hunting-reports'); }} className="w-full">
-                      <TabsList className="grid grid-cols-2 bg-amber-200/50 border border-amber-300 rounded-lg w-full p-1">
-                        <TabsTrigger value="carnet" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white font-serif text-amber-900 transition-all">
-                          Carnet de Chasse
-                        </TabsTrigger>
-                        <TabsTrigger value="activites" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white font-serif text-amber-900 transition-all">
-                          <FileText className="h-4 w-4" />
-                          Mes Activités
-                        </TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  </div>
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="ml-8 sm:ml-12 flex flex-col flex-1 min-h-0">
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 min-h-0">
 
-                    <TabsContent value="list">
-                      <div className="space-y-6">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+                    <TabsContent value="list" className="data-[state=active]:flex flex-col flex-1 min-h-0 m-0">
+                      <div className="flex flex-col flex-1 min-h-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2 shrink-0">
                           <h2 className="text-2xl font-bold text-amber-800 font-serif mb-2 sm:mb-0">
                             {user?.role === 'hunting-guide' ? 'Les Prélèvements' : 'Mes Prélèvements'}
                           </h2>
@@ -447,13 +459,13 @@ export default function HuntingActivities() {
                         </div>
 
                         {filteredActivities.length === 0 ? (
-                          <div className="text-center py-12">
+                          <div className="text-center py-12 flex-1">
                             <div className="text-6xl mb-4">📖</div>
                             <p className="text-amber-700 font-serif text-lg">Votre carnet est vide</p>
                             <p className="text-amber-600 font-serif">Commencez par déclarer votre premier prélèvement</p>
                           </div>
                         ) : (
-                          <div className="space-y-4">
+                          <div className="space-y-4 flex-1 overflow-y-auto pr-2 pb-2 -mr-2 styled-scrollbar">
                             {paginatedActivities.map((activity, index) => (
                               <div key={activity.id} className="bg-gradient-to-r from-amber-100 to-amber-50 rounded-lg p-3 sm:p-6 shadow-md border-l-4 border-amber-600 relative" style={{
                                 backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 24px, rgba(139, 69, 19, 0.05) 24px, rgba(139, 69, 19, 0.05) 25px)'
@@ -469,6 +481,14 @@ export default function HuntingActivities() {
                                     <Badge className="bg-green-600 text-white border-green-700">
                                       ✓ Validée
                                     </Badge>
+                                  ) : activity.type === 'rejected' ? (
+                                    <Badge variant="destructive" className="bg-red-600">
+                                      ✗ Rejetée
+                                    </Badge>
+                                  ) : activity.type === 'pending' ? (
+                                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+                                      ⏳ En attente
+                                    </Badge>
                                   ) : (
                                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
                                       📝 Déclaration directe
@@ -479,11 +499,13 @@ export default function HuntingActivities() {
                                 <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start justify-between">
                                   <div className="order-1 w-full sm:w-auto text-center sm:text-left">
                                     <h3 className="font-bold text-amber-800 font-serif mb-2">📅 {safeFormatDate(activity.date)}</h3>
-                                    {activity.type === 'validated' && (
-                                      <div className="mt-2 mb-2 p-1.5 bg-green-50 border border-green-200 rounded inline-block">
-                                        <p className="text-green-600 text-xs font-semibold">✅ Déclaration validée</p>
+                                    {activity.type === 'rejected' && activity.review_notes && (
+                                      <div className="mt-2 mb-2 p-2 bg-red-50 border border-red-200 rounded-md text-left inline-block max-w-[250px]">
+                                        <p className="text-red-700 text-xs font-semibold mb-1">Motif du rejet:</p>
+                                        <p className="text-red-600 text-xs italic break-words">{activity.review_notes}</p>
                                       </div>
                                     )}
+
                                   </div>
 
                                   <div className="order-3 sm:order-2 flex flex-col items-center flex-1 w-full mt-2 sm:mt-0 text-center">

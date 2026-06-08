@@ -135,6 +135,8 @@ async function saveSession(u: User) {
         firstName: u.firstName,
         lastName: u.lastName,
         username: u.username,
+        guideId: u.guideId,
+        hunterId: u.hunterId,
       })
     );
   } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
