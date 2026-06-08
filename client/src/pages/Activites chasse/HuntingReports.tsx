@@ -1120,6 +1120,12 @@ export default function HuntingReports() {
                           .map(cat => (
                             <TabsContent key={cat} value={cat}>
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+                                {/* Carte pour ajouter une espèce non présente */}
+                                <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 flex flex-col items-center text-center p-1.5 sm:p-2 bg-white border-dashed border-2 border-amber-300 hover:border-amber-500" onClick={() => { setIsCustomSpecies(true); setSelectedSpecies({ id: 'custom', name: 'Espèce non listée', category: cat as any, emoji: '🦌' }); setDialogGpsCoords(null); setGeolocationStatus('idle'); getDialogGeolocation(); }}>
+                                  <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 flex items-center justify-center rounded-md mb-1 sm:mb-2 bg-amber-50 text-xl sm:text-2xl md:text-3xl">➕</div>
+                                  <CardTitle className="text-xs sm:text-sm font-semibold text-amber-900 break-words">Ajouter une espèce non listée</CardTitle>
+                                </Card>
+
                                 {availableSpecies
                                   .filter(s => s.category === cat)
                                   .filter(s => {
@@ -1132,16 +1138,18 @@ export default function HuntingReports() {
                                     const remaining = remainingBySpeciesId[s.id] ?? undefined;
                                     const isChassable = (s as any).chassable !== false;
                                     const isTaxable = (s as any).taxable !== false;
-                                    // Désactiver seulement si: non chassable OU (taxable ET taxes épuisées)
-                                    const disabled = !isChassable || (isTaxable && paidBySpeciesId[s.id] && remaining !== undefined && remaining <= 0);
+                                    // Désactiver si: non chassable OU (taxable ET (pas de taxe payée OU taxes épuisées))
+                                    const disabled = !isChassable || (isTaxable && (!paidBySpeciesId[s.id] || (remaining !== undefined && remaining <= 0)));
                                     return (
                                       <Card key={s.id} className={`cursor-pointer transition-shadow duration-200 flex flex-col items-center text-center p-1.5 sm:p-2 ${disabled ? 'bg-gray-100 border-gray-200 opacity-60' : 'bg-amber-50 border-amber-200 hover:shadow-lg hover:border-amber-400'}`}
                                         onClick={() => {
                                           if (disabled) {
-                                            // Message contextuel: non chassable ou taxes épuisées
+                                            // Message contextuel: non chassable, taxe non payée ou taxes épuisées
                                             if (!isChassable) {
                                               toast({ title: "Espèce non chassable", description: "Cette espèce n'est pas autorisée à la chasse.", variant: 'destructive' });
-                                            } else if (paidBySpeciesId[s.id] && remaining !== undefined && remaining <= 0) {
+                                            } else if (isTaxable && !paidBySpeciesId[s.id]) {
+                                              toast({ title: "Taxe non payée", description: "Vous n'avez pas payé la taxe d'abattage pour cette espèce avec ce permis.", variant: 'destructive' });
+                                            } else if (isTaxable && paidBySpeciesId[s.id] && remaining !== undefined && remaining <= 0) {
                                               toast({ title: "Taxes épuisées", description: "Le quota de cette espèce pour ce permis est épuisé.", variant: 'destructive' });
                                             }
                                             return;
@@ -1162,7 +1170,12 @@ export default function HuntingReports() {
                                           className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-cover rounded-md mb-1 sm:mb-2"
                                         />
                                         <CardTitle className="text-xs sm:text-sm font-semibold text-amber-900 break-words">{s.name}</CardTitle>
-                                        {paidBySpeciesId[s.id] && remaining !== undefined && (
+                                        {isTaxable && !paidBySpeciesId[s.id] && (
+                                          <div className="mt-1 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold">
+                                            Taxe non payée
+                                          </div>
+                                        )}
+                                        {isTaxable && paidBySpeciesId[s.id] && remaining !== undefined && (
                                           <div className={`mt-1 text-[10px] px-2 py-0.5 rounded-full ${remaining > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-700'}`}>
                                             {`Taxes restantes: ${remaining}`}
                                           </div>
@@ -1170,11 +1183,6 @@ export default function HuntingReports() {
                                       </Card>
                                     );
                                   })}
-                                {/* Carte pour ajouter une espèce non présente */}
-                                <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 flex flex-col items-center text-center p-1.5 sm:p-2 bg-white border-dashed border-2 border-amber-300 hover:border-amber-500" onClick={() => { setIsCustomSpecies(true); setSelectedSpecies({ id: 'custom', name: 'Espèce non listée', category: cat as any, emoji: '🦌' }); setDialogGpsCoords(null); setGeolocationStatus('idle'); getDialogGeolocation(); }}>
-                                  <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 flex items-center justify-center rounded-md mb-1 sm:mb-2 bg-amber-50 text-xl sm:text-2xl md:text-3xl">➕</div>
-                                  <CardTitle className="text-xs sm:text-sm font-semibold text-amber-900 break-words">Ajouter une espèce non listée</CardTitle>
-                                </Card>
                               </div>
                             </TabsContent>
                           ))}
