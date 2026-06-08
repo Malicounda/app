@@ -176,7 +176,20 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
       return res.status(400).json({ message: "Paramètre hunterId invalide" });
     }
     const result: any[] = await db.execute(sql`
-      SELECT * FROM taxes WHERE hunter_id = ${hunterIdNum} ORDER BY created_at DESC
+      SELECT
+        t.id, t.tax_number AS "taxNumber", t.hunter_id AS "hunterId", t.permit_id AS "permitId",
+        t.issue_date AS "issueDate", t.animal_type AS "animalType", t.quantity, t.receipt_number AS "receiptNumber",
+        t.amount, t.created_at AS "createdAt", t.created_by AS "createdBy",
+        u.id AS "issuerId", u.role AS "issuerRole", u.region AS "issuerRegion", u.departement AS "issuerDepartement",
+        u.username AS "issuerUsername", u.first_name AS "issuerFirstName", u.last_name AS "issuerLastName",
+        h.first_name AS "hunterFirstName", h.last_name AS "hunterLastName", h.id_number AS "hunterIdNumber",
+        p.permit_number AS "permitNumber", p.type AS "permitType", p.status AS "permitStatus"
+      FROM taxes t
+      LEFT JOIN hunters h ON t.hunter_id = h.id
+      LEFT JOIN permits p ON t.permit_id = p.id
+      LEFT JOIN users u ON t.created_by = u.id
+      WHERE t.hunter_id = ${hunterIdNum}
+      ORDER BY t.created_at DESC
     ` as any);
     return res.json(result);
   } catch (err) {

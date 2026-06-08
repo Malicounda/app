@@ -161,16 +161,13 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     window.addEventListener('toggle-sidebar', handleToggleSidebar);
     window.addEventListener('toggle-sidebar-collapse', handleToggleSidebarCollapse);
 
-    window.addEventListener('toggle-sidebar', handleToggleSidebar);
-    window.addEventListener('toggle-sidebar-collapse', handleToggleSidebarCollapse);
-
     // Nettoyage
     return () => {
       window.removeEventListener('toggle-sidebar', handleToggleSidebar);
       window.removeEventListener('toggle-sidebar-collapse', handleToggleSidebarCollapse);
       document.body.style.overflow = ''; // Réactiver le défilement lors du démontage
     };
-  });
+  }, []);
 
   // Ajuster la hauteur du header dynamiquement
   const headerHeight = '60px'; // fallback
@@ -245,7 +242,9 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
             <div className="leading-tight min-w-0">
               <p className="text-[9px] sm:text-[11px] font-semibold uppercase truncate">République du Sénégal</p>
               <p className="text-[7px] sm:text-[9px] text-green-200 uppercase truncate hidden sm:block">Direction des Eaux et Forêts</p>
-              <p className="text-[8px] sm:text-[10px] text-green-300 uppercase truncate">Système d'Alerte</p>
+              <p className="text-[8px] sm:text-[10px] text-green-300 uppercase truncate">
+                {isHunterOrGuide ? "Activité de Chasse Réglementaire" : "Système d'Alerte"}
+              </p>
             </div>
           </div>
 

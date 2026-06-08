@@ -160,42 +160,41 @@ export default function AssociateHuntersPage() {
   }
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 pt-24 pb-20 sm:pt-28 sm:pb-24">
-      <Card>
-        <CardHeader className="p-3 sm:p-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-            <CardTitle className="text-lg sm:text-xl md:text-2xl">Gestion des Chasseurs Associés</CardTitle>
-            <div className="flex items-center gap-3 mt-2 sm:mt-0">
-              {/* Badge texte inactif (Ancien bouton) */}
-              <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-2 rounded-md text-sm font-medium shadow-sm cursor-default">
-                <Users className="h-4 w-4 text-emerald-600" />
-                Associer des chasseurs
-              </div>
-              
-              {/* Nouveau bouton Plus actif */}
-              {guideInfo?.id ? (
-                <AssociateHunters
-                  guideId={String(guideInfo.id)}
-                  onAssociationComplete={() => {
-                    queryClient.invalidateQueries({ queryKey: ["/api/guides", guideInfo?.id, "hunters"] });
-                  }}
-                  trigger={
-                    <Button size="icon" className="h-10 w-10 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-md transition-transform hover:scale-105">
-                      <Plus className="h-5 w-5 text-white" />
-                    </Button>
-                  }
-                />
-              ) : (
-                <Button size="icon" disabled className="h-10 w-10 rounded-full bg-slate-200">
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
-                </Button>
-              )}
-            </div>
+    <div className="w-full sm:container sm:mx-auto px-0 sm:px-4 mt-[-1.5rem] sm:mt-0 pb-20 sm:pb-24">
+      {/* Barre d'action sticky (remplace l'ancien titre) */}
+      <div className="px-4 py-3 sm:py-4 sticky top-0 z-40 bg-[#f8fafc] border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm mb-4">
+        <p className="text-xs sm:text-sm text-slate-600 max-w-md leading-relaxed">
+          En tant que guide de chasse, vous pouvez associer des chasseurs à votre compte pour faciliter le suivi de leurs activités.
+        </p>
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          {/* Badge texte inactif (Ancien bouton) */}
+          <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-2 rounded-md text-sm font-medium shadow-sm cursor-default">
+            <Users className="h-4 w-4 text-emerald-600" />
+            Associer des chasseurs
           </div>
-          <CardDescription className="text-xs sm:text-sm">
-            En tant que guide de chasse, vous pouvez associer des chasseurs à votre compte pour faciliter le suivi de leurs activités.
-          </CardDescription>
-        </CardHeader>
+          
+          {/* Nouveau bouton Plus actif */}
+          {guideInfo?.id ? (
+            <AssociateHunters
+              guideId={String(guideInfo.id)}
+              onAssociationComplete={() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/guides", guideInfo?.id, "hunters"] });
+              }}
+              trigger={
+                <Button size="icon" className="h-10 w-10 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-md transition-transform hover:scale-105">
+                  <Plus className="h-5 w-5 text-white" />
+                </Button>
+              }
+            />
+          ) : (
+            <Button size="icon" disabled className="h-10 w-10 rounded-full bg-slate-200">
+              <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Card className="rounded-none sm:rounded-xl border-x-0 border-t-0 sm:border-x sm:border-t shadow-none sm:shadow-sm m-0">
         <CardContent className="p-0 sm:p-4 md:p-6">
           {associatedHunters && associatedHunters.length > 0 ? (
             <div className="divide-y divide-slate-100">

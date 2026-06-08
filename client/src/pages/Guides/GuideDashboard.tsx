@@ -318,53 +318,60 @@ export default function GuideDashboard() {
               </h2>
             </div>
 
-            <Tabs defaultValue="taxes" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-xl">
-                <TabsTrigger value="taxes" className="rounded-lg font-bold text-xs">
-                  Taxes d'Abattage ({declarations.length})
-                </TabsTrigger>
-                <TabsTrigger value="reports" className="rounded-lg font-bold text-xs" onClick={() => setLocation('/hunting-reports')}>
-                  Rapports de Chasse
-                </TabsTrigger>
-              </TabsList>
+            <div className="w-full mt-4 space-y-3">
+              <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                <div className="mb-3">
+                  <h3 className="font-bold text-slate-800 text-sm">Paiements des taxes d'abattage ({declarations.length})</h3>
+                  <p className="text-[11px] text-slate-500">Historique des taxes payées par vos chasseurs associés.</p>
+                </div>
+                {isLoadingDeclarations ? (
+                   <div className="text-center text-slate-500 py-6">Chargement...</div>
+                ) : declarations.length === 0 ? (
+                   <div className="text-center text-slate-500 py-6">Aucune taxe trouvée</div>
+                ) : (
+                   <div className="space-y-2">
+                     {declarations.map(tax => {
+                       let permitNumber = "Non spécifié";
+                       if (tax.hunterId && (permitsByHunter as any)[tax.hunterId]) {
+                         const hunterPermits = (permitsByHunter as any)[tax.hunterId] as any[];
+                         const permit = hunterPermits.find(p => p.id === tax.permitId);
+                         if (permit) {
+                           permitNumber = permit.permitNumber;
+                         } else if (hunterPermits.length > 0) {
+                           permitNumber = hunterPermits[0].permitNumber;
+                         }
+                       }
 
-              <TabsContent value="taxes" className="mt-4 space-y-3">
-                <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                  <div className="mb-3">
-                    <h3 className="font-bold text-slate-800 text-sm">Paiements des taxes d'abattage</h3>
-                    <p className="text-[11px] text-slate-500">Historique des taxes payées par vos chasseurs associés.</p>
-                  </div>
-                  {isLoadingDeclarations ? (
-                     <div className="text-center text-slate-500 py-6">Chargement...</div>
-                  ) : declarations.length === 0 ? (
-                     <div className="text-center text-slate-500 py-6">Aucune taxe trouvée</div>
-                  ) : (
-                     <div className="space-y-2">
-                       {declarations.map(tax => (
+                       return (
                          <div key={tax.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100/50 transition-colors">
                            <div>
-                             <p className="font-bold text-slate-800 text-sm">{tax.animalType} <span className="font-normal text-slate-500">x{tax.quantity}</span></p>
-                             <p className="text-[11px] text-slate-500">{tax.hunterFirstName} {tax.hunterLastName}</p>
+                             <p className="font-bold text-slate-800 text-sm">
+                               Espèce : <span className="text-emerald-700">{tax.animalType}</span> <span className="font-normal text-slate-500 ml-1">x{tax.quantity}</span>
+                             </p>
+                             <p className="text-[11px] text-slate-500 mt-1">
+                               Chasseur : <span className="font-medium text-slate-700">{tax.hunterFirstName} {tax.hunterLastName}</span>
+                             </p>
+                             <p className="text-[11px] text-slate-500">
+                               Permis N° : <span className="font-semibold text-slate-700">{permitNumber}</span>
+                             </p>
                            </div>
-                           <div className="text-right">
-                             <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200 text-xs font-bold">{Number(tax.amount).toLocaleString()} FCFA</Badge>
+                           <div className="text-right flex flex-col justify-center items-end">
+                             <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200 text-xs font-bold mb-1">
+                               {Number(tax.amount).toLocaleString()} FCFA
+                             </Badge>
+                             {(tax.createdAt || tax.issueDate) && (
+                               <span className="text-[9px] text-slate-400">
+                                 {new Date(tax.createdAt || tax.issueDate || '').toLocaleDateString('fr-FR')}
+                               </span>
+                             )}
                            </div>
                          </div>
-                       ))}
-                     </div>
-                  )}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="reports" className="mt-4">
-                <div className="p-6 text-center bg-white rounded-xl border border-slate-200 shadow-sm">
-                  <p className="text-slate-500 text-sm mb-4">Accédez à l'historique complet de vos prélèvements et enregistrez de nouveaux rapports de chasse.</p>
-                  <Button onClick={() => setLocation('/hunting-reports')} className="bg-green-600 hover:bg-green-700 font-bold rounded-full">
-                    Ouvrir les Rapports de Chasse
-                  </Button>
-                </div>
-              </TabsContent>
-            </Tabs>
+                       );
+                     })}
+                   </div>
+                )}
+              </div>
+            </div>
           </motion.div>
         )}
 
