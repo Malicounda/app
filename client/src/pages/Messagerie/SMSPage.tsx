@@ -1,5 +1,4 @@
 import ResponsivePage from "@/components/layout/ResponsivePage";
-import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import InternalMessageComposer from "@/components/messaging/InternalMessageComposer";
 import InternalMessageList from "@/components/messaging/InternalMessageList";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,9 +49,9 @@ export default function SimpleSMSPage() {
   const fallbackRecipientsLabel = isAlerteDomain
     ? (userDeptLabel ? `Superviseur — ${userDeptLabel}` : userRegionLabel ? `Superviseur — ${userRegionLabel}` : 'Chargement du superviseur...')
     : [
-        userRegionLabel ? `Agent régional — ${userRegionLabel}` : 'Agent régional',
-        userDeptLabel ? `Agent secteur — ${userDeptLabel}` : 'Agent secteur',
-      ].join(' ; ');
+      userRegionLabel ? `Agent régional — ${userRegionLabel}` : 'Agent régional',
+      userDeptLabel ? `Agent secteur — ${userDeptLabel}` : 'Agent secteur',
+    ].join(' ; ');
   const inboxOnly = role === 'hunter' || role === 'hunting-guide';
   const domaineId = getMessagingDomaineIdForHook();
   const [recipientOptions, setRecipientOptions] = useState<Array<{ value: string; label: string }>>([]);
@@ -61,6 +60,12 @@ export default function SimpleSMSPage() {
   const [preview, setPreview] = useState<AttachmentPreview | null>(null);
   // Phone messaging UI navigation state (supervisor)
   const [phoneView, setPhoneView] = useState<'list' | 'chat' | 'new'>('list');
+
+  // Notify MainLayout to hide/show the bottom nav bar based on chat state
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('sms:chat-state', { detail: phoneView !== 'list' }));
+    return () => { window.dispatchEvent(new CustomEvent('sms:chat-state', { detail: false })); };
+  }, [phoneView]);
   const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
   const [tempConversation, setTempConversation] = useState<any | null>(null);
   const [newRecipientSearch, setNewRecipientSearch] = useState('');
@@ -78,12 +83,13 @@ export default function SimpleSMSPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedConvKeys, setSelectedConvKeys] = useState<Set<string>>(new Set());
   const [massDeleting, setMassDeleting] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
   const deleteConversationByKey = async (contactKey: string): Promise<boolean> => {
     const conv = conversations.find((c) => c.contactKey === contactKey);
     if (isGroupConversationKey(contactKey)) {
       if (conv?.messages?.length) {
-        await Promise.all(conv.messages.map((m) => deleteMessage(m.rawMsgObj).catch(() => {})));
+        await Promise.all(conv.messages.map((m) => deleteMessage(m.rawMsgObj).catch(() => { })));
       }
       return true;
     }
@@ -103,7 +109,7 @@ export default function SimpleSMSPage() {
     }
 
     if (conv?.messages?.length) {
-      await Promise.all(conv.messages.map((m) => deleteMessage(m.rawMsgObj).catch(() => {})));
+      await Promise.all(conv.messages.map((m) => deleteMessage(m.rawMsgObj).catch(() => { })));
       return true;
     }
     return false;
@@ -121,8 +127,9 @@ export default function SimpleSMSPage() {
       setPhoneView('list');
       setSelectedContactKey(null);
       await refreshAll();
-    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-      toast({ title: "Erreur", description: e?.message || "Impossible de supprimer la discussion.", variant: "destructive"  });
+    } catch (e: any) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: e?.message || "Impossible de supprimer la discussion.", variant: "destructive" });
     } finally {
       setDeletingConv(false);
       setShowHeaderMenu(false);
@@ -139,7 +146,7 @@ export default function SimpleSMSPage() {
             await markMessageAsRead(
               m.id,
               Boolean(m.rawMsgObj?.isGroupMessage)
-            ).catch(() => {});
+            ).catch(() => { });
           }
         }
       }
@@ -177,8 +184,9 @@ export default function SimpleSMSPage() {
           variant: "destructive",
         });
       }
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-      toast({ title: "Erreur", description: "Une erreur est survenue lors de la suppression.", variant: "destructive"  });
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: "Une erreur est survenue lors de la suppression.", variant: "destructive" });
     } finally {
       setMassDeleting(false);
     }
@@ -239,7 +247,7 @@ export default function SimpleSMSPage() {
           const data = await resp.json();
           if (!cancelled && Array.isArray(data)) setDomaines(data);
         }
-      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
+      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e); }
     })();
     return () => { cancelled = true; };
   }, [isDefaultRole]);
@@ -256,7 +264,7 @@ export default function SimpleSMSPage() {
     (async () => {
       try {
         const userRegion = String((user as any)?.region || '').trim();
-        const userDept   = String((user as any)?.departement || '').trim();
+        const userDept = String((user as any)?.departement || '').trim();
 
         if (isAlerteDomain) {
           // ══ ALERTE : routage hiérarchique vers superviseurs ══
@@ -296,9 +304,9 @@ export default function SimpleSMSPage() {
             .filter(u => !isSelf(u))
             .map(u => {
               const value = String(u?.id || '').trim();
-              const full  = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
+              const full = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
               const grade = String(u?.grade || '').trim();
-              const name  = grade ? `${grade} ${full || u?.username}` : (full || u?.username || value);
+              const name = grade ? `${grade} ${full || u?.username}` : (full || u?.username || value);
               // Étiquette : superviseur départemental ou régional
               const isRegionalSup = !u?.departement;
               const roleTag = isRegionalSup ? 'Superviseur régional' : 'Superviseur départemental';
@@ -341,9 +349,10 @@ export default function SimpleSMSPage() {
           .filter(o => Boolean(o.value));
         const unique = Array.from(new Map(opts.map(o => [o.value, o])).values());
         if (!cancelled) setAutoRecipients(unique);
-      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         if (!cancelled) setAutoRecipients([]);
-       }
+      }
     })();
     return () => { cancelled = true; };
   }, [isAlerteDomain, isDefaultRole, isSupervisorRole, user]);
@@ -373,7 +382,7 @@ export default function SimpleSMSPage() {
           attachment: defaultAttachment,
         });
       }
-      
+
       if (isOffline) {
         toast({
           title: "Mode hors-ligne",
@@ -382,13 +391,14 @@ export default function SimpleSMSPage() {
       } else {
         toast({ title: "Message envoyé", description: `Envoyé à ${autoRecipients.length} destinataire(s) de votre zone.` });
       }
-      
+
       setDefaultMsg("");
       setDefaultAttachment(null);
       if (defaultFileRef.current) defaultFileRef.current.value = "";
       refreshSent();
-    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-      toast({ title: "Erreur", description: e?.message || "Impossible d'envoyer le message.", variant: "destructive"  });
+    } catch (e: any) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: e?.message || "Impossible d'envoyer le message.", variant: "destructive" });
     } finally {
       setDefaultSending(false);
     }
@@ -466,9 +476,10 @@ export default function SimpleSMSPage() {
 
         const unique = Array.from(new Map(opts.map((o) => [o.value, o])).values());
         if (!cancelled) setRecipientOptions(unique);
-      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         if (!cancelled) setRecipientOptions([]);
-       }
+      }
     })();
     return () => { cancelled = true; };
   }, [role, user, isAlerteDomain]);
@@ -493,8 +504,9 @@ export default function SimpleSMSPage() {
     try {
       await deleteMessage(message);
       toast({ title: "Supprimé", description: "Le message a été supprimé." });
-    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
-      toast({ title: "Suppression impossible", description: error?.message || "Une erreur est survenue lors de la suppression.", variant: "destructive"  });
+    } catch (error: any) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
+      toast({ title: "Suppression impossible", description: error?.message || "Une erreur est survenue lors de la suppression.", variant: "destructive" });
     }
   };
   const filteredInbox = useMemo(() => filterMessages(inbox), [inbox, normalizedQuery]);
@@ -587,7 +599,7 @@ export default function SimpleSMSPage() {
     if (phoneView === 'chat' && selectedConversation) {
       selectedConversation.messages.forEach((m: any) => {
         if (!m.isSent && m.rawMsgObj && !m.rawMsgObj.isRead) {
-          void markMessageAsRead(m.id, Boolean(m.rawMsgObj?.isGroupMessage)).catch(() => {});
+          void markMessageAsRead(m.id, Boolean(m.rawMsgObj?.isGroupMessage)).catch(() => { });
           m.rawMsgObj.isRead = true;
         }
       });
@@ -614,8 +626,9 @@ export default function SimpleSMSPage() {
       setDefaultMsg(''); setDefaultAttachment(null);
       if (defaultFileRef.current) defaultFileRef.current.value = '';
       refreshSent();
-    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-      toast({ title: "Erreur", description: e?.message || "Impossible de terminer l'action.", variant: "destructive"  });
+    } catch (e: any) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      toast({ title: "Erreur", description: e?.message || "Impossible de terminer l'action.", variant: "destructive" });
     } finally { setDefaultSending(false); }
   };
 
@@ -675,7 +688,7 @@ export default function SimpleSMSPage() {
         }
         await sendGroup({ targets: resolvedTargets, content, attachment });
       }
-      
+
       if (isOffline) {
         toast({
           title: "Mode hors-ligne",
@@ -685,12 +698,13 @@ export default function SimpleSMSPage() {
         toast({ title: "Message envoyé", description: "Le message a été envoyé." });
       }
       return true;
-    } catch (error: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
+    } catch (error: any) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', error);
       toast({
         title: "Erreur",
         description: error?.message || "Impossible d'envoyer le message.",
         variant: "destructive",
-       });
+      });
       return false;
     }
   };
@@ -699,8 +713,7 @@ export default function SimpleSMSPage() {
 
   if (isAlerteUser) {
     return (
-      <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
-        <AgentTopHeader />
+      <div className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-50 ${phoneView === 'list' ? 'pb-14' : ''} md:pb-0`} style={{ paddingTop: 'calc(52px + env(safe-area-inset-top, 0px))' }}>
         {/* supervisor phone Messaging UI */}
         {usePhoneMessagingUi && (
           <div className="bg-white flex-1 flex flex-col min-h-0 w-full h-full relative">
@@ -823,23 +836,23 @@ export default function SimpleSMSPage() {
                     const isSelected = selectedConvKeys.has(conv.contactKey);
                     return (
                       <div key={conv.contactKey}
-                           className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors text-left select-none ${isSelectionMode ? 'cursor-pointer hover:bg-gray-50' : 'cursor-pointer hover:bg-gray-50 active:bg-gray-100'} ${isSelected ? 'bg-green-50/50' : ''}`}
-                           onClick={() => {
-                             if (isSelectionMode) toggleConvSelection(conv.contactKey);
-                             else {
-                               setSelectedContactKey(conv.contactKey);
-                               setTempConversation(null);
-                               setPhoneView('chat');
-                               setDefaultMsg('');
-                             }
-                           }}
-                           onContextMenu={(e) => {
-                             e.preventDefault();
-                             if (!isSelectionMode) { setIsSelectionMode(true); toggleConvSelection(conv.contactKey); }
-                           }}>
+                        className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors text-left select-none ${isSelectionMode ? 'cursor-pointer hover:bg-gray-50' : 'cursor-pointer hover:bg-gray-50 active:bg-gray-100'} ${isSelected ? 'bg-green-50/50' : ''}`}
+                        onClick={() => {
+                          if (isSelectionMode) toggleConvSelection(conv.contactKey);
+                          else {
+                            setSelectedContactKey(conv.contactKey);
+                            setTempConversation(null);
+                            setPhoneView('chat');
+                            setDefaultMsg('');
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          if (!isSelectionMode) { setIsSelectionMode(true); toggleConvSelection(conv.contactKey); }
+                        }}>
                         {isSelectionMode ? (
                           <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-green-600 border-green-600' : 'border-gray-300'}`}>
-                             {isSelected && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                            {isSelected && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                           </div>
                         ) : (
                           <ContactAvatar size="lg" unread={conv.unreadCount > 0} isGroup={conv.contactInitial === 'G'} />
@@ -923,7 +936,7 @@ export default function SimpleSMSPage() {
                     );
                     const isGroupMsg = Boolean(
                       m.rawMsgObj?.isGroupMessage ||
-                        selectedConversation.contactKey.startsWith('group_')
+                      selectedConversation.contactKey.startsWith('group_')
                     );
                     const url = m.rawMsgObj?.id
                       ? buildMessageAttachmentUrl(Number(m.rawMsgObj.id), { isGroup: isGroupMsg })
@@ -1053,15 +1066,29 @@ export default function SimpleSMSPage() {
                     )}
                   </div>
                 )}
-                <div className="px-1 sm:px-3 py-2 border-t border-gray-200 bg-white shrink-0">
+                <div className="px-1 sm:px-3 py-2 border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] bg-white shrink-0">
                   <div className="flex items-end gap-1 sm:gap-2">
-                    <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
-                    <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
-                    
-                    {/* Hidden input and button for direct Camera capture */}
-                    <input id="camera-capture-input-2" type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
-                    <button type="button" onClick={() => document.getElementById('camera-capture-input-2')?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Camera className="h-4 w-4 text-gray-500" /></button>
-                    
+                    <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setDefaultAttachment(f); setShowAttachMenu(false); } }} />
+                    <input id="camera-capture-input-2" type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setDefaultAttachment(f); setShowAttachMenu(false); } }} />
+                    <div className="relative shrink-0">
+                      <button type="button" onClick={() => setShowAttachMenu(!showAttachMenu)} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><Paperclip className="h-4 w-4 text-gray-500" /></button>
+                      {showAttachMenu && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowAttachMenu(false)} />
+                          <div className="absolute bottom-11 left-0 w-44 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                            <button type="button" onClick={() => { defaultFileRef.current?.click(); }} className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors">
+                              <Plus className="h-4 w-4 text-gray-500" />
+                              <span>Fichier</span>
+                            </button>
+                            <button type="button" onClick={() => { document.getElementById('camera-capture-input-2')?.click(); }} className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors">
+                              <Camera className="h-4 w-4 text-gray-500" />
+                              <span>Caméra</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
                     <div className="flex-1 relative">
                       {editingMessage && (
                         <div className="absolute -top-8 left-0 right-0 bg-yellow-50 text-yellow-800 text-[10px] font-bold px-3 py-1.5 rounded-t-xl border border-yellow-200 border-b-0 flex justify-between items-center">
@@ -1104,11 +1131,11 @@ export default function SimpleSMSPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-500 font-medium">À :</span>
                     <div className="flex-1 relative flex items-center">
-                      <input 
-                        value={newRecipientSearch} 
+                      <input
+                        value={newRecipientSearch}
                         onChange={e => setNewRecipientSearch(e.target.value)}
                         placeholder={isAlerteDomain ? "Tel / email / matricule..." : "Rechercher un agent..."}
-                        className="w-full bg-transparent outline-none text-sm placeholder:text-gray-400 pr-6" 
+                        className="w-full bg-transparent outline-none text-sm placeholder:text-gray-400 pr-6"
                       />
                       {newRecipientSearch.length > 0 && (
                         <button
@@ -1126,16 +1153,16 @@ export default function SimpleSMSPage() {
                         onClick={async () => {
                           const ident = newRecipientSearch.trim();
                           if (!ident) return;
-                          
+
                           setIsResolvingContact(true);
                           try {
                             const res = await authenticatedFetch(`/api/users/resolve-identifier?ident=${encodeURIComponent(ident)}`);
-                            
+
                             if (!res.ok) {
-                               setShowAgentNotFoundDialog(true);
-                               return;
+                              setShowAgentNotFoundDialog(true);
+                              return;
                             }
-                            
+
                             const userObj = await res.json();
                             if (userObj.role === 'admin' || userObj.role === 'superadmin') {
                               setShowAgentNotFoundDialog(true);
@@ -1144,33 +1171,34 @@ export default function SimpleSMSPage() {
                             const key = String(userObj.id);
                             const contactName = [userObj.grade, userObj.firstName, userObj.lastName].filter(Boolean).join(' ').trim() || userObj.username || ident;
                             const roleMetier = userObj.roleMetier || userObj.serviceLocation || userObj.role || '';
-                            
+
                             const existingConv = conversations.find(c => String(c.contactKey) === key || c.contactIdentifier === ident);
-                            if (existingConv) { 
-                              setSelectedContactKey(existingConv.contactKey); 
+                            if (existingConv) {
+                              setSelectedContactKey(existingConv.contactKey);
                               setTempConversation(null);
-                            } else { 
-                              setSelectedContactKey(key); 
-                              setTempConversation({ 
-                                contactKey: key, 
-                                contactName: contactName, 
-                                contactInitial: contactName.charAt(0).toUpperCase(), 
-                                contactIdentifier: String(userObj.id), 
-                                contactGrade: userObj.grade || '', 
-                                contactRoleMetier: roleMetier, 
-                                lastMessage: '', 
-                                lastTime: new Date(), 
-                                lastIsSent: false, 
-                                unreadCount: 0, 
-                                messages: [] 
-                              }); 
+                            } else {
+                              setSelectedContactKey(key);
+                              setTempConversation({
+                                contactKey: key,
+                                contactName: contactName,
+                                contactInitial: contactName.charAt(0).toUpperCase(),
+                                contactIdentifier: String(userObj.id),
+                                contactGrade: userObj.grade || '',
+                                contactRoleMetier: roleMetier,
+                                lastMessage: '',
+                                lastTime: new Date(),
+                                lastIsSent: false,
+                                unreadCount: 0,
+                                messages: []
+                              });
                             }
-                            setPhoneView('chat'); 
+                            setPhoneView('chat');
                             setDefaultMsg('');
                             setNewRecipientSearch('');
-                          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                          } catch (e) {
+                            if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
                             setShowAgentNotFoundDialog(true);
-                           } finally {
+                          } finally {
                             setIsResolvingContact(false);
                           }
                         }}
@@ -1386,10 +1414,10 @@ export default function SimpleSMSPage() {
                   if (!activeActionMessage || !activeActionMessage.isSent) return null;
                   const convMessages = selectedConversation?.messages || [];
                   const isLastMsg = convMessages.length > 0 && convMessages[convMessages.length - 1].id === activeActionMessage.id;
-                  
+
                   const msgTime = new Date(activeActionMessage.time).getTime();
                   const isWithin12Hours = Date.now() - msgTime <= 12 * 60 * 60 * 1000;
-                  
+
                   if (!isLastMsg || !isWithin12Hours) return null;
 
                   return (
@@ -1521,8 +1549,9 @@ export default function SimpleSMSPage() {
                       await sendIndividual({ recipientIdentifier, content });
                       toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
                       return;
-                    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-                      toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });
+                    } catch (e: any) {
+                      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                      toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive' });
                     }
                   }}
                 />
@@ -1608,8 +1637,9 @@ export default function SimpleSMSPage() {
                           await sendIndividual({ recipientIdentifier, content });
                           toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
                           return;
-                        } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-                          toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });
+                        } catch (e: any) {
+                          if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                          toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive' });
                         }
                       }}
                     />
@@ -1738,7 +1768,7 @@ export default function SimpleSMSPage() {
                         );
                         const isGroupMsg = Boolean(
                           m.rawMsgObj?.isGroupMessage ||
-                            selectedConversation.contactKey.startsWith('group_')
+                          selectedConversation.contactKey.startsWith('group_')
                         );
                         const url = m.rawMsgObj?.id
                           ? buildMessageAttachmentUrl(Number(m.rawMsgObj.id), { isGroup: isGroupMsg })
@@ -1861,11 +1891,11 @@ export default function SimpleSMSPage() {
                       <div className="flex items-end gap-1 sm:gap-2">
                         <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
                         <button type="button" onClick={() => defaultFileRef.current?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus className="h-4 w-4 text-gray-500" /></button>
-                        
+
                         {/* Hidden input and button for direct Camera capture */}
                         <input id="camera-capture-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
                         <button type="button" onClick={() => document.getElementById('camera-capture-input')?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Camera className="h-4 w-4 text-gray-500" /></button>
-                        
+
                         <div className="flex-1 relative">
                           <textarea value={defaultMsg} onChange={e => {
                             setDefaultMsg(e.target.value);

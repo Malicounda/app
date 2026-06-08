@@ -1,6 +1,6 @@
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { guessAttachmentMime, isImageMime, repairAttachmentFileName } from '@/lib/attachmentMime';
-import { FileText, Image as ImageIcon } from 'lucide-react';
+import { Download, FileText, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const formatFileSize = (bytes?: number | null) => {
@@ -80,6 +80,30 @@ export type ChatAttachmentBlockProps = {
   onOpen: () => void;
 };
 
+function downloadAttachment(url: string, filename: string) {
+  authenticatedFetch(url.includes('download=1') ? url : (url + (url.includes('?') ? '&download=1' : '?download=1')))
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || 'fichier';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 200);
+    })
+    .catch(() => {
+      const token = localStorage.getItem('token');
+      let finalUrl = url;
+      if (token) {
+        finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
+      }
+      window.open(finalUrl, '_system');
+    });
+}
+
 export default function ChatAttachmentBlock({
   url,
   name,
@@ -145,6 +169,16 @@ export default function ChatAttachmentBlock({
           ) : null}
         </div>
       </div>
+      {variant === 'received' && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); downloadAttachment(url, displayName || 'fichier'); }}
+          className="flex items-center gap-1.5 w-full px-2 py-1.5 text-[10px] font-semibold text-green-700 bg-green-50 hover:bg-green-100 border-t border-gray-200 transition-colors"
+        >
+          <Download className="h-3 w-3" />
+          Télécharger
+        </button>
+      )}
     </div>
   );
 }

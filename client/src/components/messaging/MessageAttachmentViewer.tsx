@@ -69,16 +69,29 @@ function useAuthBlob(url: string, enabled: boolean) {
 }
 
 function downloadBlob(url: string, filename: string) {
-  // Les téléchargements blob ne marchent pas toujours dans les WebViews Capacitor/Android
-  // Nous passons plutôt par window.open() vers l'URL d'API (avec le token) qui a Content-Disposition: attachment
-  const token = localStorage.getItem('token');
-  let finalUrl = url;
-  if (token) {
-    finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
-  }
-  
-  // Utiliser _system pour essayer d'ouvrir via le navigateur/téléchargeur natif
-  window.open(finalUrl, '_system');
+  // Attempt authenticated blob download first (works in WebViews/Capacitor)
+  authenticatedFetch(url.includes('download=1') ? url : (url + (url.includes('?') ? '&download=1' : '?download=1')))
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || 'fichier';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 200);
+    })
+    .catch(() => {
+      // Fallback: open via browser with token in URL
+      const token = localStorage.getItem('token');
+      let finalUrl = url;
+      if (token) {
+        finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
+      }
+      window.open(finalUrl, '_system');
+    });
 }
 
 function InteractiveImage({ src, alt }: { src: string; alt: string }) {

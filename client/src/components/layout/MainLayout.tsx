@@ -99,6 +99,13 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
   // État pour gérer la visibilité du menu latéral sur mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Track when SMS chat is open to hide bottom nav (input field overlap)
+  const [smsChatOpen, setSmsChatOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e: Event) => setSmsChatOpen((e as CustomEvent).detail ?? false);
+    window.addEventListener('sms:chat-state', handler);
+    return () => window.removeEventListener('sms:chat-state', handler);
+  }, []);
   // État pour sidebar rétractée (rail à icônes) sur desktop
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -283,7 +290,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
       {/* Main Content */}
       <div
-        className={chromeless ? `flex flex-1 overflow-hidden ${location === '/sms' ? 'pb-[56px] md:pb-0' : ''}` : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
+        className={chromeless ? "flex flex-1 overflow-hidden" : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
         style={{ 
           ...(!chromeless ? { height: 'calc(100vh - var(--fixed-top))' } : {}),
           paddingTop: chromeless && (location !== '/sms' || isHunterOrGuide) ? 'calc(52px + env(safe-area-inset-top, 0px))' : undefined
@@ -432,8 +439,8 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       </div>
 
       {/* Navigation mobile unifiée pour agents (chromeless) */}
-      {chromeless && !isHunterOrGuide && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around py-2 z-[250] md:hidden">
+      {chromeless && !isHunterOrGuide && !smsChatOpen && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] flex items-center justify-around py-2 z-[250] md:hidden">
           <button
             onClick={() => setLocation((user as any)?.isSupervisorRole ? "/supervisor" : "/default-home")}
             className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform"
