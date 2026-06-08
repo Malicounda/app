@@ -809,6 +809,17 @@ export default function HuntingActivities() {
                                 ))}
                               </span>
                             )}
+                            {activity.species[0].sex && activity.species[0].sex !== 'null' && (
+                              <div className="mt-2 inline-block">
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                  activity.species[0].sex === 'Mâle' ? 'bg-blue-100 text-blue-800' :
+                                  activity.species[0].sex === 'Femelle' ? 'bg-pink-100 text-pink-800' :
+                                  'bg-stone-200 text-stone-700'
+                                }`}>
+                                  Sexe: {activity.species[0].sex}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <span className="text-xl sm:text-2xl font-serif text-stone-800 font-bold">Espèce inconnue</span>
