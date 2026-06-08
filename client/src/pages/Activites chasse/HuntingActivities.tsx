@@ -126,6 +126,7 @@ export default function HuntingActivities() {
 
   console.log('[HuntingActivities] hasActivePermits:', hasActivePermits, 'Total permis:', hunterPermits.length);
   const [selectedActivity, setSelectedActivity] = useState<HuntingActivity | null>(null);
+  const [selectedActivityIndex, setSelectedActivityIndex] = useState<number | null>(null);
   const [selectedGuideActivity, setSelectedGuideActivity] = useState<GuideActivity | null>(null);
   const [showSpeciesDetails, setShowSpeciesDetails] = useState<{[key: string]: boolean}>({});
   const [isEditing, setIsEditing] = useState(false);
@@ -395,24 +396,20 @@ export default function HuntingActivities() {
                 </div>
 
                 <div className="ml-8 sm:ml-12">
-                  {/* Fil d'Ariane / Bouton de retour vers Rapports de chasse */}
-                  <div className="mb-3 sm:mb-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setLocation('/hunting-reports')}
-                      className="bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
-                    >
-                      ← Retour aux Rapports
-                    </Button>
+                  <div className="mb-4 sm:mb-6 mt-2">
+                    <Tabs value="activites" onValueChange={(v) => { if (v === 'carnet') setLocation('/hunting-reports'); }} className="w-full">
+                      <TabsList className="grid grid-cols-2 bg-amber-200/50 border border-amber-300 rounded-lg w-full p-1">
+                        <TabsTrigger value="carnet" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white font-serif text-amber-900 transition-all">
+                          Carnet de Chasse
+                        </TabsTrigger>
+                        <TabsTrigger value="activites" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white font-serif text-amber-900 transition-all">
+                          <FileText className="h-4 w-4" />
+                          Mes Activités
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
                   </div>
                   <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid grid-cols-1 mb-4 sm:mb-6 bg-amber-200 border-2 border-amber-300 rounded-lg w-full">
-                      <TabsTrigger value="list" className="flex items-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white font-serif">
-                        <FileText className="h-4 w-4" />
-                        Liste
-                      </TabsTrigger>
-                    </TabsList>
 
                     <TabsContent value="list">
                       <div className="space-y-6">
@@ -477,35 +474,23 @@ export default function HuntingActivities() {
                                   )}
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                  <div>
+                                <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start justify-between">
+                                  <div className="order-1 w-full sm:w-auto text-center sm:text-left">
                                     <h3 className="font-bold text-amber-800 font-serif mb-2">📅 {safeFormatDate(activity.date)}</h3>
-                                    <p className="text-amber-700"><strong>Zone:</strong> {activity.zone}</p>
-                                    {activity.arrondissement && (
-                                      <p className="text-amber-700"><strong>Arrondissement:</strong> {activity.arrondissement}</p>
-                                    )}
-                                    {/* Commune masquée sur demande */}
-                                    {activity.departement && (
-                                      <p className="text-amber-700"><strong>Département:</strong> {activity.departement}</p>
-                                    )}
-                                    {activity.region && (
-                                      <p className="text-amber-700"><strong>Région:</strong> {activity.region}</p>
-                                    )}
-
-                                    {/* Informations spécifiques aux activités validées */}
                                     {activity.type === 'validated' && (
-                                      <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded">
-                                        <p className="text-green-600 text-xs">
-                                          ✅ Déclaration validée
-                                        </p>
+                                      <div className="mt-2 mb-2 p-1.5 bg-green-50 border border-green-200 rounded inline-block">
+                                        <p className="text-green-600 text-xs font-semibold">✅ Déclaration validée</p>
                                       </div>
                                     )}
                                   </div>
 
-                                  <div>
-                                    <h4 className="font-semibold text-amber-800 font-serif mb-2">🎯 Espèces prélevées{Array.isArray(activity.species) && activity.species.length > 0 ? ` : ${activity.species[0].name}` : ''}</h4>
+                                  <div className="order-3 sm:order-2 flex flex-col items-center flex-1 w-full mt-2 sm:mt-0 text-center">
+                                    <h4 className="font-semibold text-amber-800 font-serif mb-1">🎯 Espèces prélevées : {(() => {
+                                      const name = Array.isArray(activity.species) && activity.species.length > 0 ? activity.species[0]?.name : null;
+                                      return (!name || name === 'null') ? 'Espèce inconnue' : name;
+                                    })()}</h4>
                                     {(activity as any).hunterName || activity.permitNumber ? (
-                                      <div className="text-[12px] text-amber-700 mb-2">
+                                      <div className="text-[12px] text-amber-700 mb-3">
                                         {((activity as any).hunterName) && (
                                           <span><strong>Pour:</strong> {(activity as any).hunterName}</span>
                                         )}
@@ -515,122 +500,33 @@ export default function HuntingActivities() {
                                         )}
                                       </div>
                                     ) : null}
-                                    <div className="flex flex-col sm:flex-row gap-3 items-start">
+                                    <div className="flex flex-col items-center">
                                       {activity.photoAvailable && activity.reportId ? (
                                         <img
                                           src={`/api/hunting-activities/${activity.reportId}/photo`}
-                                          alt={activity.species[0]?.name ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
-                                          className="w-16 h-16 object-cover rounded border border-amber-300 bg-white"
+                                          alt={activity.species[0]?.name && activity.species[0].name !== 'null' ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
+                                          className="w-24 h-24 object-cover rounded-md border-2 border-amber-300 bg-white shadow-sm mb-2"
                                         />
                                       ) : null}
-                                      <div className="flex-1 space-y-1">
+                                      <div className="w-full">
                                         {(Array.isArray(activity.species) ? activity.species : []).map((species: HuntingSpecies) => (
-                                          <div key={species.id} className="px-3 py-2 rounded">
-                                            <div className="flex items-center">
-                                              <span className="font-serif text-amber-800">{species.name}</span>
-                                            </div>
-                                            <div className="text-amber-700 text-sm"></div>
+                                          <div key={species.id}>
+                                            <span className="font-serif text-amber-800">{species.name}</span>
                                           </div>
                                         ))}
                                       </div>
                                     </div>
                                   </div>
 
-                                  <div className="flex flex-col justify-center sm:justify-start lg:justify-center">
-                                    <Dialog>
-                                      <DialogTrigger asChild>
-                                        <Button variant="outline" className="bg-amber-200 hover:bg-amber-300 border-amber-400 text-amber-800 font-serif">
-                                          <Eye className="h-4 w-4 mr-2" />
-                                          Voir détails
-                                        </Button>
-                                      </DialogTrigger>
-                                      <DialogContent className="max-w-2xl">
-                                        <DialogHeader>
-                                          <DialogTitle className="font-serif text-amber-800">Détails du prélèvement</DialogTitle>
-                                          <DialogDescription>
-                                            {safeFormatDate(activity.date)} - {activity.zone}
-                                          </DialogDescription>
-                                        </DialogHeader>
-                                        <div className="space-y-4">
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                              <h4 className="font-semibold mb-2">Informations générales</h4>
-                                              {/* Date masquée sur demande (le titre contient déjà la date) */}
-                                              {/* Zone: afficher uniquement si ce n'est pas une ligne GPS */}
-                                              {activity.zone && !(typeof activity.zone === 'string' && activity.zone.toUpperCase().includes('GPS')) && (
-                                                <p><strong>Zone:</strong> {activity.zone}</p>
-                                              )}
-                                              {activity.arrondissement && (<p><strong>Arrondissement:</strong> {activity.arrondissement}</p>)}
-                                              {/* Commune masquée sur demande */}
-                                              {activity.departement && (<p><strong>Département:</strong> {activity.departement}</p>)}
-                                              {activity.region && (<p><strong>Région:</strong> {activity.region}</p>)}
-                                              <p><strong>Quantité prélevée:</strong> {Array.isArray(activity.species) && activity.species.length > 0 && typeof activity.species[0].count === 'number' ? activity.species[0].count : 1}</p>
-                                              {/* Nom et nom scientifique sous la quantité (sans libellé) */}
-                                              {Array.isArray(activity.species) && activity.species.length > 0 && (
-                                                <div className="mt-1">
-                                                  <div className="font-semibold">{activity.species[0].name}</div>
-                                                  {activity.species[0].scientificName && (
-                                                    <div className="text-amber-800">
-                                                      {activity.species[0].scientificName.split(' ').map((part: string, idx: number) => (
-                                                        <div key={idx}><em>{part}</em></div>
-                                                      ))}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              )}
-                                            </div>
-                                            <div>
-                                              <h4 className="font-semibold mb-2">Espèces prélevées</h4>
-                                              {((activity as any).hunterName) || activity.permitNumber ? (
-                                                <div className="text-sm text-amber-800 mb-2">
-                                                  {((activity as any).hunterName) && (
-                                                    <div><strong>Chasseur:</strong> {(activity as any).hunterName}</div>
-                                                  )}
-                                                  {activity.permitNumber && (
-                                                    <div><strong>Permis:</strong> {activity.permitNumber}</div>
-                                                  )}
-                                                </div>
-                                              ) : null}
-                                              <div className="grid grid-cols-1 gap-4">
-                                                {(activity.photoAvailable && activity.reportId) ? (
-                                                  <div className="rounded-lg overflow-hidden border border-amber-200 bg-white">
-                                                    {/* Image cliquable pour agrandissement */}
-                                                    <Dialog>
-                                                      <DialogTrigger asChild>
-                                                        <img
-                                                          src={`/api/hunting-activities/${activity.reportId}/photo`}
-                                                          alt={activity.species[0]?.name ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
-                                                          className="w-full object-contain max-h-96 bg-white cursor-zoom-in"
-                                                        />
-                                                      </DialogTrigger>
-                                                      <DialogContent className="max-w-4xl transition-all duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95">
-                                                        <DialogTitle className="sr-only">Photo du prélèvement</DialogTitle>
-                                                        <DialogDescription className="sr-only">Vue agrandie de la photo du prélèvement</DialogDescription>
-                                                        <img
-                                                          src={`/api/hunting-activities/${activity.reportId}/photo`}
-                                                          alt={activity.species[0]?.name ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
-                                                          className="w-full h-auto max-h-[80vh] object-contain bg-white transition-opacity duration-300 ease-out"
-                                                        />
-                                                      </DialogContent>
-                                                    </Dialog>
-                                                    <div className="text-center text-sm text-amber-700 py-2 border-t border-amber-100">
-                                                      Heure: {safeFormatDate(activity.date, 'HH:mm')}
-                                                    </div>
-                                                  </div>
-                                                ) : <div className="text-sm text-gray-500 self-center">Aucune photo</div>}
-                                              </div>
-                                            </div>
-                                          </div>
-
-                                          {activity.notes && (
-                                            <div>
-                                              <h4 className="font-semibold mb-2">Notes</h4>
-                                              <p className="text-gray-600">{activity.notes}</p>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </DialogContent>
-                                    </Dialog>
+                                  <div className="order-2 sm:order-3 w-full sm:w-auto">
+                                    <Button
+                                      variant="outline"
+                                      className="w-full sm:w-auto bg-amber-200 hover:bg-amber-300 border-amber-400 text-amber-800 font-serif shadow-sm"
+                                      onClick={() => setSelectedActivityIndex(startIndex + index)}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Voir détails
+                                    </Button>
                                   </div>
                                 </div>
                               </div>
@@ -808,6 +704,197 @@ export default function HuntingActivities() {
           )}
         </div>
       </div>
+      {/* Global Dialog for Activity Details */}
+      <Dialog open={selectedActivityIndex !== null} onOpenChange={(open) => !open && setSelectedActivityIndex(null)}>
+        {selectedActivityIndex !== null && sortedActivities[selectedActivityIndex] && (
+          (() => {
+            const activity = sortedActivities[selectedActivityIndex];
+            return (
+              <DialogContent className="top-auto bottom-0 left-0 right-0 translate-x-0 translate-y-0 w-full max-w-full rounded-t-xl rounded-b-none max-h-[95vh] sm:top-[50%] sm:bottom-auto sm:left-[50%] sm:right-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-2xl sm:rounded-xl sm:max-h-[90vh] overflow-y-auto p-0 border-0 bg-stone-100">
+                <div className="bg-amber-100 py-2 px-3 sm:py-3 sm:px-4 border-b border-amber-200 sticky top-0 z-10">
+                  <DialogHeader>
+                    <DialogTitle className="font-serif text-xl sm:text-2xl text-amber-900 text-center">Détails du prélèvement</DialogTitle>
+                    <DialogDescription className="text-center text-amber-700 font-medium pt-0.5 text-xs sm:text-sm">
+                      📅 {safeFormatDate(activity.date)}
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+                
+                <div className="pt-2 px-3 pb-24 sm:pt-3 sm:px-4 space-y-3">
+                  
+                  {/* Section Localisation & Chasseur */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Carte Localisation */}
+                    <div className="bg-white p-3 rounded-xl shadow-sm border border-stone-200">
+                      <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-1.5 text-sm sm:text-base">
+                        <span className="bg-amber-100 p-1 rounded text-xs">📍</span> Localisation
+                      </h4>
+                      <div className="space-y-1 text-xs sm:text-sm text-stone-700">
+                        {activity.zone && !(typeof activity.zone === 'string' && activity.zone.toUpperCase().includes('GPS')) && (
+                          <p className="flex justify-between border-b border-stone-50 pb-0.5">
+                            <span className="font-medium text-stone-500">Zone</span>
+                            <span className="text-right">{activity.zone}</span>
+                          </p>
+                        )}
+                        {activity.arrondissement && (
+                          <p className="flex justify-between border-b border-stone-50 pb-0.5">
+                            <span className="font-medium text-stone-500">Arrond.</span>
+                            <span className="text-right">{activity.arrondissement}</span>
+                          </p>
+                        )}
+                        {activity.departement && (
+                          <p className="flex justify-between border-b border-stone-50 pb-0.5">
+                            <span className="font-medium text-stone-500">Département</span>
+                            <span className="text-right">{activity.departement}</span>
+                          </p>
+                        )}
+                        {activity.region && (
+                          <p className="flex justify-between pb-0.5">
+                            <span className="font-medium text-stone-500">Région</span>
+                            <span className="text-right">{activity.region}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Carte Chasseur & Permis */}
+                    {(((activity as any).hunterName) || activity.permitNumber) && (
+                      <div className="bg-white p-3 rounded-xl shadow-sm border border-stone-200">
+                        <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-1.5 text-sm sm:text-base">
+                          <span className="bg-amber-100 p-1 rounded text-xs">👤</span> Acteur
+                        </h4>
+                        <div className="space-y-1 text-xs sm:text-sm text-stone-700">
+                          {((activity as any).hunterName) && (
+                            <p className="flex justify-between border-b border-stone-50 pb-0.5">
+                              <span className="font-medium text-stone-500">Chasseur</span>
+                              <span className="font-semibold text-stone-800 text-right">{(activity as any).hunterName}</span>
+                            </p>
+                          )}
+                          {activity.permitNumber && (
+                            <p className="flex justify-between pb-0.5">
+                              <span className="font-medium text-stone-500">Permis N°</span>
+                              <span className="font-mono text-amber-700 font-bold bg-amber-50 px-1 rounded text-right">{activity.permitNumber}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Carte Espèce & Photo */}
+                  <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                    <div className="p-3 border-b border-stone-100 bg-stone-50/50">
+                      <h4 className="font-semibold text-amber-800 flex justify-between items-center text-sm sm:text-base">
+                        <span className="flex items-center gap-1.5">
+                          <span className="bg-amber-100 p-1 rounded text-xs">🎯</span>
+                          Détails Espèce
+                        </span>
+                        <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded-full font-bold">
+                          Qté: {Array.isArray(activity.species) && activity.species.length > 0 && typeof activity.species[0].count === 'number' ? activity.species[0].count : 1}
+                        </span>
+                      </h4>
+                    </div>
+                    
+                    <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                      <div className="text-center sm:text-left space-y-2">
+                        {Array.isArray(activity.species) && activity.species.length > 0 && activity.species[0].name && activity.species[0].name !== 'null' ? (
+                          <div className="flex flex-col">
+                            <span className="text-xl sm:text-2xl font-serif text-stone-800 font-bold">{activity.species[0].name}</span>
+                            {activity.species[0].scientificName && (
+                              <span className="text-stone-500 italic mt-0.5 text-xs sm:text-sm">
+                                {activity.species[0].scientificName.split(' ').map((part: string, idx: number) => (
+                                  <span key={idx}>{part} </span>
+                                ))}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xl sm:text-2xl font-serif text-stone-800 font-bold">Espèce inconnue</span>
+                        )}
+                      </div>
+
+                      <div className="flex justify-center sm:justify-end">
+                        {(activity.photoAvailable && activity.reportId) ? (
+                          <div className="relative group rounded-xl overflow-hidden shadow-md border border-stone-900 w-full sm:w-auto max-w-[12rem]">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <div className="relative cursor-zoom-in">
+                                  <img
+                                    src={`/api/hunting-activities/${activity.reportId}/photo`}
+                                    alt={activity.species[0]?.name && activity.species[0].name !== 'null' ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
+                                    className="w-full h-36 sm:h-44 object-cover transition-transform duration-300 group-hover:scale-105"
+                                  />
+                                  <div className="absolute bottom-0 left-0 right-0 bg-white/85 p-1 border-t border-stone-200">
+                                    <p className="text-stone-900 text-[10px] sm:text-xs font-bold text-center">
+                                      Heure: {safeFormatDate(activity.date, 'HH:mm')}
+                                    </p>
+                                  </div>
+                                </div>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-4xl p-1 bg-transparent border-none shadow-none transition-all duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95">
+                                <DialogTitle className="sr-only">Photo du prélèvement</DialogTitle>
+                                <DialogDescription className="sr-only">Vue agrandie de la photo du prélèvement</DialogDescription>
+                                <img
+                                  src={`/api/hunting-activities/${activity.reportId}/photo`}
+                                  alt={activity.species[0]?.name && activity.species[0].name !== 'null' ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
+                                  className="w-full h-auto max-h-[85vh] object-contain rounded-xl bg-black/50 backdrop-blur-sm"
+                                />
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+                        ) : (
+                          <div className="w-full h-24 sm:w-36 sm:h-36 bg-stone-100 rounded-xl flex items-center justify-center border border-dashed border-stone-300 text-stone-400 text-xs">
+                            Aucune photo
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes section if present */}
+                  {activity.notes && (
+                    <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 text-amber-900 shadow-sm text-xs sm:text-sm">
+                      <h4 className="font-semibold mb-1 flex items-center gap-1.5 text-xs sm:text-sm">
+                        <span className="bg-amber-200 p-0.5 rounded">📝</span> Notes
+                      </h4>
+                      <p className="italic text-amber-800">{activity.notes}</p>
+                    </div>
+                  )}
+                  
+                </div>
+
+                <div className="bg-stone-200/50 p-3 pb-safe sm:pb-3 border-t border-stone-200 flex flex-col sm:flex-row gap-2 justify-between items-center sticky bottom-0 z-10">
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto border-amber-300 text-amber-800 bg-white text-xs sm:text-sm h-9"
+                    onClick={() => setSelectedActivityIndex(Math.max(0, selectedActivityIndex - 1))}
+                    disabled={selectedActivityIndex === 0}
+                  >
+                    ← Précédent
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto border-amber-300 text-amber-800 bg-white text-xs sm:text-sm h-9"
+                    onClick={() => setSelectedActivityIndex(Math.min(sortedActivities.length - 1, selectedActivityIndex + 1))}
+                    disabled={selectedActivityIndex === sortedActivities.length - 1}
+                  >
+                    Suivant →
+                  </Button>
+                  
+                  <Button
+                    variant="default"
+                    className="w-full sm:w-auto bg-stone-700 hover:bg-stone-800 text-white text-xs sm:text-sm h-9"
+                    onClick={() => setSelectedActivityIndex(null)}
+                  >
+                    Fermer
+                  </Button>
+                </div>
+              </DialogContent>
+            );
+          })()
+        )}
+      </Dialog>
     </div>
   );
 }

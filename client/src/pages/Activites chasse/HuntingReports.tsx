@@ -17,6 +17,7 @@ import { fr } from 'date-fns/locale';
 import {
   ArrowLeft,
   Camera,
+  FileText,
   Loader,
   Navigation
 } from 'lucide-react';
@@ -974,15 +975,18 @@ export default function HuntingReports() {
                 <div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div>
               </div>
               <div className="ml-6 sm:ml-12 relative z-10 text-center w-full px-2">
-                <div className="w-full text-left mb-2 sm:mb-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setLocation('/hunting-activities')}
-                    className="bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
-                  >
-                    ← Retour aux Activités
-                  </Button>
+                <div className="w-full mb-4 sm:mb-6">
+                  <Tabs value="carnet" onValueChange={(v) => { if (v === 'activites') setLocation('/hunting-activities'); }} className="w-full">
+                    <TabsList className="grid grid-cols-2 bg-emerald-900/60 border border-emerald-700/50 rounded-lg w-full p-1">
+                      <TabsTrigger value="carnet" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">
+                        Carnet de Chasse
+                      </TabsTrigger>
+                      <TabsTrigger value="activites" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">
+                        <FileText className="h-4 w-4" />
+                        Mes Activités
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
                 <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-emerald-100 mb-2 font-serif" style={{ textShadow: '2px 2px 4px rgba(1, 124, 57, 0.36)' }}>CARNET DE CHASSE</h1>
                 <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mx-auto mb-3 sm:mb-6 bg-emerald-100 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
