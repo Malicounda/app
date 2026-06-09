@@ -175,7 +175,7 @@ export default function Login() {
                           <User className="h-5 w-5 text-green-600" />
                         </div>
                         <Input
-                          placeholder="nom_utilisateur, e-mail ou matricule"
+                          placeholder="username"
                           {...field}
                           disabled={isLoading}
                           className="h-12 pl-10 bg-white/95 border-2 border-green-600/30 focus:border-green-600 focus:ring-4 focus:ring-green-600/20 rounded-xl shadow-sm transition-all"
@@ -199,7 +199,7 @@ export default function Login() {
                         </div>
                         <Input
                           type={showPassword ? "text" : "password"}
-                          placeholder="Mot de passe (optionnel si matricule)"
+                          placeholder="mot de passe"
                           {...field}
                           value={field.value ?? ''}
                           disabled={isLoading}

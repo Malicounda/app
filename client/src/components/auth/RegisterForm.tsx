@@ -114,6 +114,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
   const [location, navigate] = useLocation();
   // step: 1 = hunter form (now), 2 = account creation
   const [step, setStep] = useState(initialStep ?? 1);
+  const [isSuccess, setIsSuccess] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
@@ -401,9 +402,11 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       try { await afterLoginRefreshAll(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
-      // Nouveau flux public: rediriger directement vers /hunter,
-      // l'étape 2 se fera dans le modal du tableau de bord chasseur
-      navigate('/hunter');
+      // Afficher l'écran de succès
+      setIsSuccess(true);
+      setTimeout(() => {
+        navigate('/login');
+      }, 3000);
     } catch (error: any) {
       console.error("Erreur lors de l'inscription:", error);
       // Si le backend a renvoyé des erreurs de validation structurées (Zod)
@@ -844,7 +847,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
               {!embedded && step === 1 && (
                 <button
                   type="button"
-                  onClick={() => window.location.replace("/login-chasse")}
+                  onClick={() => navigate("/login")}
                   className="fixed md:absolute right-3 md:right-0 top-3 md:top-0 flex items-center justify-center w-12 h-12 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-teal-400 to-green-500 hover:from-teal-500 hover:to-green-600 text-white shadow-md transition-all duration-300 hover:shadow-lg z-[60] md:z-10"
                   style={{
                     top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
@@ -1023,6 +1026,16 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
                   </div>
                 </form>
               </Form>
+            ) : isSuccess ? (
+              <div className="flex flex-col items-center justify-center h-full space-y-6 animate-in fade-in zoom-in duration-500 py-20">
+                <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-4 shadow-sm border border-green-200">
+                  <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-3xl font-bold text-green-800 text-center">Inscription réussie !</h2>
+                <p className="text-slate-600 text-center text-lg">Vous allez être redirigé vers la page de connexion dans quelques instants...</p>
+              </div>
             ) : (
               // Mode public: afficher UNIQUEMENT l'étape 1 (création de compte)
               <Form {...form}>
