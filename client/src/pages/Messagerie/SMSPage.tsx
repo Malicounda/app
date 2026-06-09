@@ -70,7 +70,7 @@ export default function SimpleSMSPage() {
 
   // Notify MainLayout to hide/show the bottom nav bar based on chat state
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('sms:chat-state', { detail: phoneView !== 'list' }));
+    window.dispatchEvent(new CustomEvent('sms:chat-state', { detail: phoneView === 'chat' }));
     return () => { window.dispatchEvent(new CustomEvent('sms:chat-state', { detail: false })); };
   }, [phoneView]);
   const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
@@ -745,7 +745,7 @@ export default function SimpleSMSPage() {
 
   if (isAlerteUser) {
     return (
-      <div className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-50 ${phoneView === 'list' ? 'pb-14' : ''} md:pb-0`} style={{ paddingTop: 'calc(52px + env(safe-area-inset-top, 0px))' }}>
+      <div className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-50 ${phoneView !== 'chat' ? 'pb-14 sm:pb-16' : ''} md:pb-0`} style={{ paddingTop: 'calc(52px + env(safe-area-inset-top, 0px))' }}>
         {/* supervisor phone Messaging UI */}
         {usePhoneMessagingUi && (
           <div className="bg-white flex-1 flex flex-col min-h-0 w-full h-full relative">
