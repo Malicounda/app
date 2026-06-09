@@ -233,7 +233,12 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
         return !superAdminIds.has(Number(u.id));
       });
 
-    const mergedForAdmin = roleParam === 'admin'
+    const currentUserRole = String(resolvedCurrent?.role || '').toLowerCase();
+    const isDomainAdmin = currentUserRole === 'admin';
+    const isSuperAdminUser = currentUserRole === 'super-admin' || superAdminIds.has(currentUserId);
+    const showSuperAdmin = isDomainAdmin || isSuperAdminUser;
+
+    const mergedForAdmin = (roleParam === 'admin' && showSuperAdmin)
       ? [...filtered, ...(Array.isArray(systemAdminUsers) ? systemAdminUsers : [])]
       : filtered;
 
@@ -712,6 +717,26 @@ router.post('/', isAuthenticated, upload.single('attachment'), async (req: Reque
 
     if (!recipientIds.length) {
       return res.status(400).json({ message: 'Aucun destinataire valide fourni.' });
+    }
+
+    // Récupérer tous les super-admins du système
+    const systemAdminUsers = await db
+      .select({ id: users.id })
+      .from(superAdmins)
+      .innerJoin(users, eq(users.id as any, superAdmins.userId as any));
+    const superAdminIds = new Set((systemAdminUsers || []).map((u: any) => Number(u.id)).filter((n: any) => Number.isFinite(n)));
+
+    // Vérifier l'autorisation d'envoi aux super-admins
+    const currentUserRole = String((req as any)?.user?.role || '').toLowerCase();
+    const isDomainAdmin = currentUserRole === 'admin';
+    const isSuperAdminUser = currentUserRole === 'super-admin' || superAdminIds.has(senderId);
+    const canSendToSuperAdmin = isDomainAdmin || isSuperAdminUser;
+
+    if (!canSendToSuperAdmin) {
+      const hasSuperAdminRecipient = recipientIds.some(rid => superAdminIds.has(rid));
+      if (hasSuperAdminRecipient) {
+        return res.status(403).json({ message: "Seuls les administrateurs de domaine peuvent envoyer un message à l'administrateur du système." });
+      }
     }
 
     const domaineId = await MessagingService.getAuthorizedContext(senderId, req.body.domaineId, res);
