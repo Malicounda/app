@@ -2576,9 +2576,13 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         const user = await this.getUser(userId);
         if (!user) return { individual: Number(individualResult?.value || 0), group: 0 };
 
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 7); // Les messages de groupe expirent après 7 jours
+
         const groupConditions = [
           eq(groupMessages.targetRole, user.role as any),
-          or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any))
+          or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any)),
+          gte(groupMessages.createdAt, cutoffDate)
         ];
         if (user.createdAt) {
           groupConditions.push(gte(groupMessages.createdAt, user.createdAt));
@@ -2720,9 +2724,13 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
       const user = await this.getUser(userId);
       if (!user) return [];
 
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 7); // Les messages de groupe expirent après 7 jours
+
       const conditions = [
         eq(groupMessages.targetRole, user.role as any),
-        or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any))
+        or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any)),
+        gte(groupMessages.createdAt, cutoffDate)
       ];
       if (user.createdAt) {
         conditions.push(gte(groupMessages.createdAt, user.createdAt));

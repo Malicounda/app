@@ -12,19 +12,29 @@ import { Preferences } from "@capacitor/preferences";
 // Initialiser les fonctionnalités PWA (Service Worker + offline fetch)
 initPWA();
 
-// APK Alerte: imposer le domaine ALERTE dès le démarrage
+// Imposer le domaine selon l'APK dès le démarrage
 try {
+  const isChasseApk =
+    typeof window !== "undefined" &&
+    window.navigator.userAgent &&
+    window.navigator.userAgent.includes("ChasseAPK");
+
   const isAlerteApk =
     typeof window !== "undefined" &&
+    !isChasseApk &&
     (window.location.search.includes("isApk=true") ||
       window.navigator.userAgent.includes("AlerteAPK"));
-  if (isAlerteApk) {
+
+  if (isChasseApk) {
+    localStorage.setItem("domain", "CHASSE");
+    Preferences.set({ key: "domain", value: "CHASSE" }).catch(() => {});
+  } else if (isAlerteApk) {
     localStorage.setItem("domain", "ALERTE");
     Preferences.set({ key: "domain", value: "ALERTE" }).catch(() => {});
   }
 } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
   // ignore
- }
+}
 
 // Logger les détails de l'environnement (mode, URL API, plateforme, réseau)
 logEnvironmentInfo();

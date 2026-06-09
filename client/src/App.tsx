@@ -15,6 +15,7 @@ import { useDisableContextMenu } from "@/hooks/useDisableContextMenu";
 import { useSessionHeartbeat } from "@/hooks/useSessionHeartbeat";
 import NotFound from "@/pages/not-found";
 import { isUserSuperAdmin } from "@/utils/navigation";
+import { isChasseAPK } from "@/utils/environment";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
@@ -1218,13 +1219,19 @@ function AppContent() {
       typeof window !== 'undefined' &&
       (window.location.search.includes('isApk=true') ||
         navigator.userAgent.includes('AlerteAPK') ||
-        (typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNativePlatform?.()));
+        (typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNativePlatform?.() && !isChasseAPK()));
         
-    if (isAlerteApk) {
+    if (isChasseAPK()) {
+      try {
+        localStorage.setItem('domain', 'CHASSE');
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('[AppContent] Failed to set domain to CHASSE in localStorage', e);
+      }
+    } else if (isAlerteApk) {
       try {
         localStorage.setItem('domain', 'ALERTE');
       } catch (e) {
-        if (import.meta.env.DEV) console.warn('[AppContent] Failed to set domain in localStorage', e);
+        if (import.meta.env.DEV) console.warn('[AppContent] Failed to set domain to ALERTE in localStorage', e);
       }
     }
 
