@@ -276,7 +276,7 @@ export const createHuntingReport = async (req: Request, res: Response) => {
     // Récupération du domaine CHASSE
     let chasseDomainId: number | null = null;
     try {
-      const dRows: any[] = await db.execute(sql`SELECT id FROM domaines WHERE code_slug = 'chasse' LIMIT 1` as any);
+      const dRows: any[] = await db.execute(sql`SELECT id FROM domaines WHERE nom_domaine = 'CHASSE' LIMIT 1` as any);
       const dRow = Array.isArray(dRows) ? dRows[0] : (dRows as any)[0];
       chasseDomainId = dRow?.id ?? null;
     } catch (e) {
