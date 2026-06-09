@@ -2573,57 +2573,10 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           .where(and(...individualConditions));
 
         // 2. Compter les messages de groupe non lus
-        const user = await this.getUser(userId);
-        if (!user) return { individual: Number(individualResult?.value || 0), group: 0 };
-
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 7); // Les messages de groupe expirent après 7 jours
-
-        const groupConditions = [
-          eq(groupMessages.targetRole, user.role as any),
-          or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any)),
-          gte(groupMessages.createdAt, cutoffDate)
-        ];
-        if (user.createdAt) {
-          groupConditions.push(gte(groupMessages.createdAt, user.createdAt));
-        }
-        if (domaineId === null) {
-          groupConditions.push(isNull(groupMessages.domaineId));
-        } else if (domaineId !== undefined) {
-          groupConditions.push(eq(groupMessages.domaineId, domaineId));
-        } else {
-          // If undefined, fetch across all domains BUT only those the user actively belongs to
-          groupConditions.push(
-            or(
-              isNull(groupMessages.domaineId),
-              inArray(
-                groupMessages.domaineId,
-                db.select({ domaineId: userDomains.domaineId })
-                  .from(userDomains)
-                  .where(and(eq(userDomains.userId, userId), eq(userDomains.active, true as any)))
-              )
-            )
-          );
-        }
-
-        const groupMessagesList = await db.select({ id: groupMessages.id })
-          .from(groupMessages)
-          .innerJoin(users, eq(users.id, groupMessages.senderId)) // Filter out messages from deleted senders
-          .where(and(...groupConditions));
-
-        const groupIds = groupMessagesList.map(m => m.id);
-        if (groupIds.length === 0) return { individual: Number(individualResult?.value || 0), group: 0 };
-
-        const readMessages = await db.select({ messageId: groupMessageReads.messageId })
-          .from(groupMessageReads)
-          .where(and(eq(groupMessageReads.userId, userId), inArray(groupMessageReads.messageId, groupIds)));
-
-        const readIds = new Set(readMessages.map(r => r.messageId));
-        const unreadGroupCount = groupIds.filter(id => !readIds.has(id)).length;
-
+        // Puisque les messages de groupe sont maintenant directement insérés dans la table des messages individuels de chaque destinataire au moment de l'envoi, le compteur de groupe dynamique vaut toujours 0.
         return {
           individual: Number(individualResult?.value || 0),
-          group: unreadGroupCount
+          group: 0
         };
       } catch (error) {
         console.error("Erreur lors du comptage des messages non lus:", error);
@@ -2720,87 +2673,8 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
     }
 
     async getGroupMessagesByUser(userId: number, domaineId?: number | null): Promise<GroupMessageWithSender[]> {
-      // Récupérer l'utilisateur
-      const user = await this.getUser(userId);
-      if (!user) return [];
-
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 7); // Les messages de groupe expirent après 7 jours
-
-      const conditions = [
-        eq(groupMessages.targetRole, user.role as any),
-        or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any)),
-        gte(groupMessages.createdAt, cutoffDate)
-      ];
-      if (user.createdAt) {
-        conditions.push(gte(groupMessages.createdAt, user.createdAt));
-      }
-      if (domaineId === null) {
-        conditions.push(isNull(groupMessages.domaineId));
-      } else if (domaineId !== undefined) {
-        conditions.push(eq(groupMessages.domaineId, domaineId));
-      } else {
-        conditions.push(
-          or(
-            isNull(groupMessages.domaineId),
-            inArray(
-              groupMessages.domaineId,
-              db.select({ domaineId: userDomains.domaineId })
-                .from(userDomains)
-                .where(and(eq(userDomains.userId, userId), eq(userDomains.active, true as any)))
-            )
-          )
-        );
-      }
-
-      const rows = await db
-        .select({
-          msg: groupMessages,
-          senderId: users.id,
-          senderUsername: users.username,
-          senderFirstName: users.firstName,
-          senderLastName: users.lastName,
-          senderRole: users.role,
-          readId: groupMessageReads.id,
-          readIsRead: groupMessageReads.isRead,
-          readIsDeleted: groupMessageReads.isDeleted,
-          readAt: groupMessageReads.readAt,
-        })
-        .from(groupMessages)
-        .leftJoin(users, eq(groupMessages.senderId, users.id))
-        .leftJoin(
-          groupMessageReads,
-          and(eq(groupMessageReads.messageId, groupMessages.id), eq(groupMessageReads.userId, userId))
-        )
-        .where(and(...conditions))
-        .orderBy(desc(groupMessages.createdAt));
-
-      return rows
-        .filter(r => !r.readId || !r.readIsDeleted)
-        .map(r => ({
-          id: r.msg.id,
-          senderId: r.msg.senderId,
-          sender: {
-            id: r.senderId!,
-            username: r.senderUsername!,
-            firstName: r.senderFirstName || undefined,
-            lastName: r.senderLastName || undefined,
-            role: r.senderRole as any,
-          },
-          subject: r.msg.subject,
-          content: r.msg.content,
-          type: r.msg.type as any,
-          targetRole: r.msg.targetRole,
-          targetRegion: r.msg.targetRegion,
-          domaineId: r.msg.domaineId,
-          attachmentPath: r.msg.attachmentPath,
-          attachmentName: r.msg.attachmentName,
-          attachmentMime: r.msg.attachmentMime,
-          attachmentSize: r.msg.attachmentSize,
-          createdAt: r.msg.createdAt,
-          updatedAt: r.msg.updatedAt,
-          isRead: !!r.readId ? !!r.readIsRead : false,
-        }));
+      // Les messages de groupe sont maintenant distribués individuellement lors de l'envoi, donc on retourne un tableau vide
+      return [];
     }
 
     async getGroupMessagesBySender(senderId: number, domaineId?: number | null): Promise<GroupMessage[]> {

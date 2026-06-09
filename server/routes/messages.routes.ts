@@ -832,45 +832,63 @@ router.post('/group', isAuthenticated, upload.single('attachment'), async (req, 
       attachmentSize: savedAttachment?.size,
       domaineId: domaineId ?? null,
     });
+    const queryConditions = [
+      eq(users.role, normalizedTargetRole as any)
+    ];
+    if (targetRegion) {
+      queryConditions.push(eq(users.region, targetRegion as any));
+    }
+
+    let targetUsersQuery = db
+      .select({ id: users.id })
+      .from(users);
+
+    if (domaineId) {
+      targetUsersQuery = targetUsersQuery.innerJoin(
+        userDomains,
+        and(
+          eq(userDomains.userId, users.id),
+          eq(userDomains.active as any, true as any),
+          eq(userDomains.domaineId as any, domaineId as any)
+        )
+      ) as any;
+    }
+
+    const targetUsers = await targetUsersQuery.where(and(...queryConditions));
+    const recipientIds = targetUsers.map(u => u.id).filter(id => id !== senderId);
+
+    // Copier individuellement pour chaque membre ciblé dans 'messages'
+    // avec 'deletedAtSender' à la date courante pour cacher ces copies de la boîte d'envoi de l'expéditeur
+    if (recipientIds.length > 0) {
+      const messagesToInsert = recipientIds.map(recipientId => ({
+        senderId,
+        recipientId,
+        subject: subject || null,
+        content: normalizedContent,
+        type: 'standard' as const,
+        isRead: false,
+        domaineId: domaineId ?? null,
+        attachmentPath: savedAttachment?.key || null,
+        attachmentName: savedAttachment?.name || null,
+        attachmentMime: savedAttachment?.mime || null,
+        attachmentSize: savedAttachment?.size || null,
+        deletedAtSender: new Date(),
+      }));
+      await db.insert(messages).values(messagesToInsert);
+    }
 
     const notificationService = (req.app as any).notificationService;
     if (notificationService) {
-      // Pour les messages de groupe, récupérer les IDs des utilisateurs cibles.
-      try {
-        const queryConditions = [
-          eq(users.role, normalizedTargetRole as any)
-        ];
-        if (targetRegion) {
-          queryConditions.push(eq(users.region, targetRegion as any));
-        }
-
-        let targetUsersQuery = db
-          .select({ id: users.id })
-          .from(users);
-
-        if (domaineId) {
-          targetUsersQuery = targetUsersQuery.innerJoin(
-            userDomains,
-            and(
-              eq(userDomains.userId, users.id),
-              eq(userDomains.active as any, true as any),
-              eq(userDomains.domaineId as any, domaineId as any)
-            )
-          ) as any;
-        }
-
-        const targetUsers = await targetUsersQuery.where(and(...queryConditions));
-        const recipientIds = targetUsers.map(u => u.id).filter(id => id !== senderId);
-
-        if (recipientIds.length > 0) {
+      if (recipientIds.length > 0) {
+        try {
           await notificationService.broadcastToUsers(recipientIds, {
             title: "Nouveau message de groupe",
             body: subject ? subject : "Votre groupe a reçu un nouveau message",
             data: { type: 'MESSAGE' }
           });
+        } catch (err) {
+          console.error('[POST /api/messages/group] Notification broadcast failed', err);
         }
-      } catch (err) {
-        console.error('[POST /api/messages/group] Notification broadcast failed', err);
       }
 
       // Notifier également l'expéditeur pour mettre à jour son UI
