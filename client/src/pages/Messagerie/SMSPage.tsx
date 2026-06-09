@@ -44,7 +44,13 @@ export default function SimpleSMSPage() {
   const isAlerteDomain = _smsDomain === 'ALERTE' ||
     ((_smsDomain !== 'CHASSE' && _smsDomain !== 'REBOISEMENT') &&
       (isDefaultRole || isSupervisorRole));
-  const usePhoneMessagingUi = isAlerteDomain;
+  const usePhoneMessagingUi = isAlerteDomain || role === 'hunter' || role === 'hunting-guide';
+  const getHomePath = () => {
+    if (role === 'hunter') return '/hunter';
+    if (role === 'hunting-guide') return '/guide';
+    if (isSupervisorRole) return '/supervisor';
+    return '/default-home';
+  };
   const userRegionLabel = String((user as any)?.region || '').trim();
   const userDeptLabel = String((user as any)?.departement || '').trim();
   const fallbackRecipientsLabel = isAlerteDomain
@@ -266,6 +272,31 @@ export default function SimpleSMSPage() {
       try {
         const userRegion = String((user as any)?.region || '').trim();
         const userDept = String((user as any)?.departement || '').trim();
+
+        if (role === 'hunter' || role === 'hunting-guide') {
+          const currentDomaineId = domaineId || 2;
+          const requests = [
+            authenticatedFetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(currentDomaineId))}`),
+            authenticatedFetch(`/api/messages/agents?role=agent&domaineId=${encodeURIComponent(String(currentDomaineId))}`),
+          ];
+          const responses = await Promise.all(requests);
+          const jsons = await Promise.all(responses.map(r => r.ok ? r.json() : Promise.resolve([])));
+          const allAgents = jsons.flat();
+          const isSelf = (u: any) => Number(u?.id) === Number((user as any)?.id);
+          const opts = allAgents
+            .filter(u => !isSelf(u))
+            .map((u: any) => {
+              const value = String(u?.id || '').trim();
+              const full = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
+              const grade = String(u?.grade || '').trim();
+              const name = grade ? `${grade} ${full || u?.username}` : (full || u?.username || value);
+              const roleTag = u?.role === 'admin' ? 'Administrateur' : 'Agent de Chasse';
+              return { value, label: `${name} (${roleTag})`, roleTag };
+            }).filter(o => Boolean(o.value));
+          const unique = Array.from(new Map(opts.map(o => [o.value, o])).values());
+          if (!cancelled) setAutoRecipients(unique);
+          return;
+        }
 
         if (isAlerteDomain) {
           // ══ ALERTE : routage hiérarchique vers superviseurs ══
@@ -710,7 +741,7 @@ export default function SimpleSMSPage() {
     }
   };
 
-  const isAlerteUser = isAlerteDomain;
+  const isAlerteUser = isAlerteDomain || role === 'hunter' || role === 'hunting-guide';
 
   if (isAlerteUser) {
     return (
@@ -758,7 +789,7 @@ export default function SimpleSMSPage() {
                       {/* Fil d'ariane */}
                       <div className="flex items-center justify-end gap-1.5 text-xs text-green-200 font-medium shrink-0 w-1/3">
                         <Link
-                          href={isSupervisorRole ? "/supervisor" : "/default-home"}
+                          href={getHomePath()}
                           className="flex items-center gap-0.5 hover:text-white transition-colors"
                         >
                           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -890,7 +921,7 @@ export default function SimpleSMSPage() {
                     {/* Fil d'ariane */}
                     <div className="hidden sm:flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
                       <Link
-                        href={isSupervisorRole ? "/supervisor" : "/default-home"}
+                        href={getHomePath()}
                         className="flex items-center gap-0.5 hover:text-white transition-colors"
                       >
                         <span>Accueil</span>
@@ -1121,7 +1152,7 @@ export default function SimpleSMSPage() {
                     <div className="text-sm font-semibold">Nouveau message</div>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
-                    <Link href={isSupervisorRole ? "/supervisor" : "/default-home"} className="flex items-center gap-0.5 hover:text-white transition-colors">
+                    <Link href={getHomePath()} className="flex items-center gap-0.5 hover:text-white transition-colors">
                       <span>Accueil</span>
                     </Link>
                     <span className="text-green-500 opacity-60">/</span>
@@ -1265,7 +1296,7 @@ export default function SimpleSMSPage() {
               {/* Fil d'ariane */}
               <div className="flex items-center gap-1.5 text-xs text-green-200 font-medium shrink-0">
                 <Link
-                  href="/default-home"
+                  href={getHomePath()}
                   className="flex items-center gap-0.5 hover:text-white transition-colors"
                 >
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
