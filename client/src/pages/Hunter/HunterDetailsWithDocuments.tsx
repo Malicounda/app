@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { getApiBaseUrl } from '@/utils/environment';
 
 // Types pour les chasseurs avec documents
 interface HunterWithDocuments {
@@ -297,6 +298,30 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
       setPreviewUrl(null);
     }
     setPreviewError(null);
+  };
+
+  const handleOpenDocument = (isInline: boolean) => {
+    if (!previewDocType) return;
+    const apiBaseUrl = getApiBaseUrl();
+    const token = localStorage.getItem('token');
+    let finalUrl = `${apiBaseUrl}/attachments/${hunterId}/${previewDocType}`;
+    if (isInline) {
+      finalUrl += '?inline=1';
+    }
+    if (token) {
+      finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
+    }
+
+    const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+    const isCustomApk = typeof navigator !== 'undefined' && 
+      (/AlerteAPK/i.test(navigator.userAgent) || /ChasseAPK/i.test(navigator.userAgent));
+    const isMobileNative = isCapacitor || isCustomApk;
+
+    if (isMobileNative) {
+      window.open(finalUrl, '_system');
+    } else {
+      window.open(finalUrl, '_blank');
+    }
   };
 
   const handleDocumentUploadSuccess = async () => {
@@ -833,22 +858,10 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
         <div className="flex items-center justify-between pt-2">
           <Button variant="outline" onClick={closePreview}>Fermer</Button>
           {previewDocType && (
-            <a
-              href={`/api/attachments/${hunterId}/${previewDocType as string}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button>Télécharger</Button>
-            </a>
+            <Button onClick={() => handleOpenDocument(false)}>Télécharger</Button>
           )}
           {previewDocType && (
-            <a
-              href={`/api/attachments/${hunterId}/${previewDocType}?inline=1`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button variant="secondary">Ouvrir dans un onglet</Button>
-            </a>
+            <Button variant="secondary" onClick={() => handleOpenDocument(true)}>Ouvrir dans un onglet</Button>
           )}
         </div>
       </DialogContent>

@@ -7232,7 +7232,26 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                           </button>
                           <button
                             className="border-2 border-blue-600 text-blue-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
-                            onClick={() => window.open(`/api/infractions/pv/${selectedPV.pv?.id || selectedPV.id}/file?mode=download`, '_blank')}
+                            onClick={() => {
+                              const apiBaseUrl = getApiBaseUrl();
+                              const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+                              const path = `/infractions/pv/${selectedPV.pv?.id || selectedPV.id}/file?mode=download`;
+                              let finalUrl = `${apiBaseUrl}${path}`;
+                              if (token) {
+                                finalUrl += `&token=${encodeURIComponent(token)}`;
+                              }
+                              
+                              const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+                              const isCustomApk = typeof navigator !== 'undefined' && 
+                                (/AlerteAPK/i.test(navigator.userAgent) || /ChasseAPK/i.test(navigator.userAgent));
+                              const isMobileNative = isCapacitor || isCustomApk;
+                              
+                              if (isMobileNative) {
+                                window.open(finalUrl, '_system');
+                              } else {
+                                window.open(finalUrl, '_blank');
+                              }
+                            }}
                             type="button"
                           >
                             <Download className="w-4 h-4" />

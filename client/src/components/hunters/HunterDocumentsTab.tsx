@@ -9,6 +9,7 @@ import { FileUploadDialog } from './FileUploadDialog';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { apiRequest, apiRequestBlob } from '@/lib/api';
+import { getApiBaseUrl } from '@/utils/environment';
 
 interface Document {
   id: string;
@@ -111,6 +112,22 @@ export function HunterDocumentsTab() {
 
   const handleDownload = async (documentId: string) => {
     try {
+      const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+      const isCustomApk = typeof navigator !== 'undefined' && 
+        (/AlerteAPK/i.test(navigator.userAgent) || /ChasseAPK/i.test(navigator.userAgent));
+      const isMobileNative = isCapacitor || isCustomApk;
+
+      if (isMobileNative) {
+        const apiBaseUrl = getApiBaseUrl();
+        const token = localStorage.getItem('token');
+        let finalUrl = `${apiBaseUrl}/attachments/${hunterId}/${documentId}`;
+        if (token) {
+          finalUrl += `?token=${encodeURIComponent(token)}`;
+        }
+        window.open(finalUrl, '_system');
+        return;
+      }
+
       const res = await apiRequestBlob(`/attachments/${hunterId}/${documentId}?inline=1`, 'GET');
       if (!res.ok || !res.blob) throw new Error(res.error || 'Téléchargement indisponible');
       const blobUrl = URL.createObjectURL(res.blob);

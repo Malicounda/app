@@ -974,7 +974,25 @@ export default function HunterDashboard() {
                   </p>
                   <Button
                     className="mt-2"
-                    onClick={() => window.open(getDocumentViewUrl(selectedDocument), '_blank')}
+                    onClick={() => {
+                      const url = getDocumentViewUrl(selectedDocument);
+                      const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+                      const isCustomApk = typeof navigator !== 'undefined' && 
+                        (/AlerteAPK/i.test(navigator.userAgent) || /ChasseAPK/i.test(navigator.userAgent));
+                      const isMobileNative = isCapacitor || isCustomApk;
+                      
+                      const token = localStorage.getItem('token');
+                      let finalUrl = url;
+                      if (token) {
+                        finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
+                      }
+                      
+                      if (isMobileNative) {
+                        window.open(finalUrl, '_system');
+                      } else {
+                        window.open(finalUrl, '_blank');
+                      }
+                    }}
                   >
                     Ouvrir dans un nouvel onglet
                   </Button>

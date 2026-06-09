@@ -81,6 +81,21 @@ export type ChatAttachmentBlockProps = {
 };
 
 function downloadAttachment(url: string, filename: string) {
+  const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+  const isCustomApk = typeof navigator !== 'undefined' && 
+    (/AlerteAPK/i.test(navigator.userAgent) || /ChasseAPK/i.test(navigator.userAgent));
+  const isMobileNative = isCapacitor || isCustomApk;
+
+  if (isMobileNative) {
+    const token = localStorage.getItem('token');
+    let finalUrl = url.includes('download=1') ? url : (url + (url.includes('?') ? '&download=1' : '?download=1'));
+    if (token) {
+      finalUrl += `&token=${encodeURIComponent(token)}`;
+    }
+    window.open(finalUrl, '_system');
+    return;
+  }
+
   authenticatedFetch(url.includes('download=1') ? url : (url + (url.includes('?') ? '&download=1' : '?download=1')))
     .then(async (res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
