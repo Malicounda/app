@@ -140,8 +140,11 @@ export default function Login() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-gradient-to-br from-lime-50 via-green-50 to-emerald-100 flex items-center justify-center overflow-auto p-4">
-      <div className="w-full max-w-md bg-white/70 backdrop-blur rounded-2xl shadow-xl p-6">
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-auto p-4 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: 'url("/login_bg_chasse.png")' }}
+    >
+      <div className="w-full max-w-md bg-white/30 backdrop-blur-lg border-2 border-white/80 rounded-3xl shadow-2xl p-8 relative">
         {typeof navigator !== 'undefined' && !navigator.userAgent.includes('ChasseAPK') && (
           <button
             type="button"
@@ -152,12 +155,8 @@ export default function Login() {
             <span>Retour</span>
           </button>
         )}
-        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
-          {logoUrl ? (
-            <img src={logoUrl} alt="Chasse" className="w-10 h-10 object-contain" />
-          ) : (
-            <DomainIcon className="w-10 h-10 text-green-600" />
-          )}
+        <div className="w-24 h-24 mx-auto mb-4 rounded-full flex items-center justify-center overflow-hidden border-2 border-green-100 shadow-sm bg-white">
+          <img src="/login_icon_chasse.png" alt="Chasse" className="w-full h-full object-cover" />
         </div>
         <h1 className="text-2xl font-bold text-center text-gray-800">Connexion Chasse</h1>
         <p className="text-center text-sm text-gray-600 mt-1">Permis et activités dédiés à la chasse</p>
@@ -179,7 +178,7 @@ export default function Login() {
                           placeholder="nom_utilisateur, e-mail ou matricule"
                           {...field}
                           disabled={isLoading}
-                          className="h-12 pl-10 bg-white border-2 focus:border-green-300 rounded-lg shadow-sm"
+                          className="h-12 pl-10 bg-white/95 border-2 border-green-600/30 focus:border-green-600 focus:ring-4 focus:ring-green-600/20 rounded-xl shadow-sm transition-all"
                         />
                       </div>
                     </FormControl>
@@ -204,7 +203,7 @@ export default function Login() {
                           {...field}
                           value={field.value ?? ''}
                           disabled={isLoading}
-                          className="h-12 pl-10 pr-10 bg-white border-2 focus:border-green-300 rounded-lg shadow-sm"
+                          className="h-12 pl-10 pr-10 bg-white/95 border-2 border-green-600/30 focus:border-green-600 focus:ring-4 focus:ring-green-600/20 rounded-xl shadow-sm transition-all"
                         />
                         <button
                           type="button"
