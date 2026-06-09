@@ -273,6 +273,16 @@ export const createHuntingReport = async (req: Request, res: Response) => {
       }
     }
 
+    // Récupération du domaine CHASSE
+    let chasseDomainId: number | null = null;
+    try {
+      const dRows: any[] = await db.execute(sql`SELECT id FROM domaines WHERE code_slug = 'chasse' LIMIT 1` as any);
+      const dRow = Array.isArray(dRows) ? dRows[0] : (dRows as any)[0];
+      chasseDomainId = dRow?.id ?? null;
+    } catch (e) {
+      console.warn('⚠️ Erreur récupération domain_id CHASSE:', e);
+    }
+
     if (finalGuideId) {
       // Cas GUIDE: on crée une déclaration en attente dans declaration_especes
       const insertQuery = sql`
@@ -282,14 +292,14 @@ export const createHuntingReport = async (req: Request, res: Response) => {
           sexe, quantity, lat, lon, location,
           arrondissement, commune, departement, region,
           photo_data, photo_mime, photo_name, photo_checksum,
-          status
+          status, domain_id
         ) VALUES (
           ${userId}, ${finalHunterId}, ${finalGuideId}, ${permitId}, ${permitNumber},
           ${category ?? null}, ${speciesId}, ${nom_espece ?? null}, ${nom_scientifique ?? null},
           ${sex}, ${quantity}, ${lat}, ${lon}, ${location ?? null},
           ${arrondissement ?? null}, ${commune ?? null}, ${departement ?? null}, ${region ?? null},
           ${photo_data}, ${photo_mime}, ${photo_name}, ${photo_checksum},
-          'pending'
+          'pending', ${chasseDomainId}
         )
         RETURNING id, created_at
       `;
@@ -319,14 +329,14 @@ export const createHuntingReport = async (req: Request, res: Response) => {
             scientific_name, sex, quantity, location, lat, lon,
             region, departement, arrondissement, commune,
             hunting_date, photo_data, photo_mime, photo_name,
-            source_type, source_id, created_at
+            source_type, source_id, domain_id, created_at
           ) VALUES (
             ${activityNumber}, ${finalHunterId}, ${permitId}, ${permitNumber},
             ${speciesId}, ${nom_espece ?? null}, ${nom_scientifique ?? null},
             ${sex}, ${quantity}, ${location ?? null}, ${lat}, ${lon},
             ${region ?? null}, ${departement ?? null}, ${arrondissement ?? null}, ${commune ?? null},
             NOW(), ${photo_data ?? null}, ${photo_mime ?? null}, ${photo_name ?? null},
-            'direct_declaration', NULL, NOW()
+            'direct_declaration', NULL, ${chasseDomainId}, NOW()
           )
           RETURNING id, created_at
         ` as any;
