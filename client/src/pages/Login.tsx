@@ -93,32 +93,6 @@ export default function Login() {
 
       await login(values.identifier, values.password || '');
 
-      // Dans le ChasseAPK, seuls les chasseurs et guides de chasse peuvent se connecter
-      if (isChasseApk) {
-        // Vérifier le rôle après connexion
-        try {
-          const meRes = await fetch('/api/auth/me', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` },
-          });
-          if (meRes.ok) {
-            const meData = await meRes.json();
-            const role = meData?.role || '';
-            if (role !== 'hunter' && role !== 'hunting-guide') {
-              // Déconnexion immédiate
-              try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
-              localStorage.removeItem('token');
-              window.location.reload();
-              toast({
-                title: "Accès refusé",
-                description: "Cette application est réservée aux chasseurs et guides de chasse.",
-                variant: "destructive",
-              });
-              return;
-            }
-          }
-        } catch {}
-      }
-
       // La redirection est gérée par l'effet ci-dessus qui surveille isAuthenticated et user
       toast({
         title: "Connexion réussie",

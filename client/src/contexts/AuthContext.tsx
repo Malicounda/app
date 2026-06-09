@@ -224,6 +224,13 @@ export function AuthProvider({
 
       if (!response?.user) throw new Error("Utilisateur invalide");
 
+      const isChasseApk = typeof navigator !== 'undefined' && navigator.userAgent.includes('ChasseAPK');
+      if (isChasseApk) {
+        if (response.user.role !== 'hunter' && response.user.role !== 'hunting-guide') {
+          throw new Error("Accès refusé. Cette application est réservée uniquement aux chasseurs et guides de chasse.");
+        }
+      }
+
       if (response.token) {
         localStorage.setItem("token", response.token);
         await setPreference("token", response.token);

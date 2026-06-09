@@ -2580,6 +2580,9 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           eq(groupMessages.targetRole, user.role as any),
           or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any))
         ];
+        if (user.createdAt) {
+          groupConditions.push(gte(groupMessages.createdAt, user.createdAt));
+        }
         if (domaineId === null) {
           groupConditions.push(isNull(groupMessages.domaineId));
         } else if (domaineId !== undefined) {
@@ -2721,6 +2724,9 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         eq(groupMessages.targetRole, user.role as any),
         or(sql`${groupMessages.targetRegion} IS NULL`, eq(groupMessages.targetRegion, user.region as any))
       ];
+      if (user.createdAt) {
+        conditions.push(gte(groupMessages.createdAt, user.createdAt));
+      }
       if (domaineId === null) {
         conditions.push(isNull(groupMessages.domaineId));
       } else if (domaineId !== undefined) {
