@@ -317,12 +317,14 @@ export const createHuntingReport = async (req: Request, res: Response) => {
           INSERT INTO hunting_activities (
             activity_number, hunter_id, permit_id, permit_number, species_id, species_name,
             scientific_name, sex, quantity, location, lat, lon,
+            region, departement, arrondissement, commune,
             hunting_date, photo_data, photo_mime, photo_name,
             source_type, source_id, created_at
           ) VALUES (
             ${activityNumber}, ${finalHunterId}, ${permitId}, ${permitNumber},
             ${speciesId}, ${nom_espece ?? null}, ${nom_scientifique ?? null},
             ${sex}, ${quantity}, ${location ?? null}, ${lat}, ${lon},
+            ${region ?? null}, ${departement ?? null}, ${arrondissement ?? null}, ${commune ?? null},
             NOW(), ${photo_data ?? null}, ${photo_mime ?? null}, ${photo_name ?? null},
             'direct_declaration', NULL, NOW()
           )

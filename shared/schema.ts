@@ -1620,6 +1620,10 @@ export const huntingActivities = pgTable("hunting_activities", {
 	location: text("location"),
 	lat: numeric("lat", { precision: 10, scale:  8 }),
 	lon: numeric("lon", { precision: 11, scale:  8 }),
+	region: text("region"),
+	departement: text("departement"),
+	arrondissement: text("arrondissement"),
+	commune: text("commune"),
 	huntingDate: timestamp("hunting_date", { mode: 'string' }),
 	// TODO: failed to parse database type 'bytea'
 	photoData: unknown("photo_data"),

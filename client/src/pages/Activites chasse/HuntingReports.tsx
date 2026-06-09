@@ -862,8 +862,32 @@ export default function HuntingReports() {
 
   const handleConfirmSpecies = async (sex: 'Mâle' | 'Femelle' | 'Inconnu') => {
     console.log('=== handleConfirmSpecies appelée ===');
+    
+    setGeolocationStatus('loading');
+    let freshCoords = dialogGpsCoords;
+    try {
+      freshCoords = await new Promise<string>((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("La géolocalisation n'est pas supportée"));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (position) => resolve(`${position.coords.latitude}, ${position.coords.longitude}`),
+          (error) => reject(error),
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      });
+      setDialogGpsCoords(freshCoords);
+      setGeolocationStatus('success');
+    } catch (err: any) {
+      console.error('❌ Erreur de rafraîchissement GPS:', err);
+      setGeolocationStatus('error');
+      toast({ title: 'Erreur GPS', description: err.message || 'Impossible de vérifier la position actuelle.', variant: 'destructive' });
+      return;
+    }
+
     console.log('Sex:', sex);
-    console.log('dialogGpsCoords:', dialogGpsCoords);
+    console.log('freshCoords:', freshCoords);
     console.log('formData.permitNumber:', formData.permitNumber);
     console.log('isCustomSpecies:', isCustomSpecies);
     console.log('customSpeciesName:', customSpeciesName);
@@ -872,7 +896,7 @@ export default function HuntingReports() {
     console.log('selectedSpecies:', selectedSpecies);
     console.log('formData:', formData);
 
-    if (!dialogGpsCoords) {
+    if (!freshCoords) {
       console.log('❌ GPS manquant');
       toast({ title: 'GPS requis', description: 'Autorisez la géolocalisation', variant: 'destructive' });
       return;
@@ -916,8 +940,8 @@ export default function HuntingReports() {
         quantity: q,
         sex,
         speciesId: 'custom',
-        coordinates: dialogGpsCoords,
-        location: `GPS: ${dialogGpsCoords}`,
+        coordinates: freshCoords,
+        location: `GPS: ${freshCoords}`,
         category: selectedSpecies?.category || selectedCategory,
         nom_espece: customSpeciesName?.trim() ? customSpeciesName.trim() : undefined,
         nom_scientifique: customScientificName?.trim() ? customScientificName.trim() : undefined,
@@ -934,8 +958,8 @@ export default function HuntingReports() {
         quantity: q,
         sex,
         speciesId: selectedSpecies.id,
-        coordinates: dialogGpsCoords,
-        location: `GPS: ${dialogGpsCoords}`,
+        coordinates: freshCoords,
+        location: `GPS: ${freshCoords}`,
         category: selectedSpecies.category,
         nom_espece: selectedSpecies.name,
         nom_scientifique: selectedSpecies.scientificName,
@@ -963,7 +987,7 @@ export default function HuntingReports() {
   return (
     <div className="h-[calc(100dvh-75px)] sm:h-screen bg-stone-100 flex flex-col overflow-hidden pb-safe">
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col min-h-0">
+        <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col min-h-0 overflow-y-auto no-scrollbar">
         <div className="mb-4 shrink-0">
           <Tabs value="carnet" onValueChange={(v) => { if (v === 'activites') setLocation('/hunting-activities'); }} className="w-full">
             <TabsList className="grid grid-cols-2 bg-[#0b3d2e] border border-emerald-700/50 rounded-lg w-full p-1 shadow-md">
@@ -1032,7 +1056,7 @@ export default function HuntingReports() {
         ) : (
           <div className="bg-emerald-50/70 rounded-lg shadow-xl p-3 sm:p-4 md:p-8 relative flex-1 flex flex-col min-h-0">
             <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4 sm:mb-6 gap-2 sm:gap-0 shrink-0"><Button variant="ghost" onClick={() => setShowForm(false)} className="sm:mr-4 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs sm:text-sm"><ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />Retour au carnet</Button><h1 className="text-xs sm:text-sm md:text-base font-bold text-amber-900 font-serif">📝 Nouvelle déclaration d'abattage</h1></div>
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-4 sm:space-y-6 md:space-y-8 flex-1 overflow-y-auto styled-scrollbar pr-2 pb-2">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4 sm:space-y-6 md:space-y-8 flex-1 overflow-y-auto no-scrollbar pr-2 pb-2">
               <Card>
                 <CardHeader className="p-3 sm:p-4 md:p-6">
                   <CardTitle className="text-base sm:text-lg md:text-xl">Permis de chasse</CardTitle>

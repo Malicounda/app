@@ -7,7 +7,7 @@ export const isCapacitorNative = (): boolean => {
     if (typeof window === 'undefined') return false;
     
     // 1. Détection par l'User Agent personnalisé injecté dans la config Capacitor
-    if (window.navigator.userAgent && window.navigator.userAgent.includes('AlerteAPK')) {
+    if (window.navigator.userAgent && (window.navigator.userAgent.includes('AlerteAPK') || window.navigator.userAgent.includes('ChasseAPK'))) {
       return true;
     }
     
@@ -27,6 +27,25 @@ export const isCapacitorNative = (): boolean => {
     if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error in isCapacitorNative', e);
   }
   return false;
+};
+
+export const isChasseAPK = (): boolean => {
+  try {
+    if (typeof window === 'undefined') return false;
+    return !!(window.navigator.userAgent && window.navigator.userAgent.includes('ChasseAPK'));
+  } catch (e) {
+    return false;
+  }
+};
+
+export const getAppLogo = (): string => {
+  if (isChasseAPK()) return '/logo_chasse.png';
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('domain') === 'CHASSE') {
+      return '/logo_chasse.png';
+    }
+  } catch (e) {}
+  return '/logo_forets.png';
 };
 
 // Helper to check if running in Tauri WebView

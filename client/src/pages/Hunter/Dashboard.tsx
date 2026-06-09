@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/api';
-import { getApiBaseUrl } from '@/utils/environment';
+import { getApiBaseUrl, getAppLogo } from '@/utils/environment';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -612,7 +612,7 @@ export default function HunterDashboard() {
           ctx.drawImage(qrImg, 0, 0, size, size);
 
           // Charger le logo
-          const logoUrl = '/logo_forets.png';
+          const logoUrl = getAppLogo();
           const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
@@ -1242,7 +1242,7 @@ export default function HunterDashboard() {
         <div className="mt-6 flex items-center justify-center gap-6 pb-6 pt-4 border-t border-slate-200">
           <img src="/icon-blason.svg" alt="Blason" className="h-16 object-contain opacity-70" />
           <img
-            src="/logo_forets.png"
+            src={getAppLogo()}
             alt="Eaux et Forets"
             className="h-16 object-contain mix-blend-multiply opacity-70"
           />

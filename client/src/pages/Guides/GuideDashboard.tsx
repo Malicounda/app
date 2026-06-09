@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import AssociateHunters from "@/components/guides/AssociateHunters";
 import { apiRequest } from "@/lib/queryClient";
+import { getAppLogo } from "@/utils/environment";
 
 // Types basés sur l'API réelle
 type Hunter = {
@@ -380,7 +381,7 @@ export default function GuideDashboard() {
           <div className="mt-6 flex items-center justify-center gap-6 pb-6 pt-4 border-t border-slate-200">
             <img src="/icon-blason.svg" alt="Blason" className="h-16 object-contain opacity-70" />
             <img
-              src="/logo_forets.png"
+              src={getAppLogo()}
               alt="Eaux et Forets"
               className="h-16 object-contain mix-blend-multiply opacity-70"
             />

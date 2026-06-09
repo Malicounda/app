@@ -3,7 +3,7 @@ import Legend from '@/components/Legend';
 import { RadiusControl } from '@/components/RadiusControl';
 import '@/components/RadiusControl.css';
 import '@/styles/markers.css';
-
+import { resolveApiUrl } from '@/utils/environment';
 // Ajouter le style CSS pour le motif de croix des zones inactives
 if (typeof window !== 'undefined' && !document.getElementById('inactive-zone-pattern-style')) {
   const style = document.createElement('style');
@@ -1136,7 +1136,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                   quantity: r.quantity ?? null,
                   date: r.date ?? null,
                   location: r.location ?? null,
-                  photoUrl: r.id ? `/api/hunting-reports/${r.id}/photo` : null,
+                  photoUrl: r.id ? resolveApiUrl(`/api/hunting-reports/${r.id}/photo`) : null,
                   region: r.region ?? null,
                   departement: r.departement ?? null,
                   commune: r.commune ?? null,

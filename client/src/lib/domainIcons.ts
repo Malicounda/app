@@ -73,7 +73,12 @@ function resolveVisual(domainKey: string): DomainVisual {
   const cfg = readThemeCfg();
   const entry = cfg?.domains?.[domainKey];
   const iconName = entry?.icon?.trim();
-  const logoUrl = entry?.logoUrl?.trim() || undefined;
+  let logoUrl = entry?.logoUrl?.trim() || undefined;
+  
+  if (!logoUrl && domainKey === 'CHASSE') {
+    logoUrl = '/logo_chasse.png';
+  }
+  
   const icon = (iconName && ICONS[iconName]) ? ICONS[iconName] : (DEFAULT_ICONS[domainKey] ?? Target);
   return { icon, logoUrl };
 }

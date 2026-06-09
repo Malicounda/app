@@ -1,4 +1,5 @@
 import React from 'react';
+import { getAppLogo } from '@/utils/environment';
 
 interface SplashScreenProps {
   message?: string;
@@ -17,7 +18,7 @@ export function SplashScreen({ message = "Chargement..." }: SplashScreenProps) {
             className="w-24 h-24 object-contain relative z-10"
             onError={(e) => {
               // Fallback si le logo n'est pas trouvé
-              (e.target as HTMLImageElement).src = '/logo_forets.png';
+              (e.target as HTMLImageElement).src = getAppLogo();
             }}
           />
         </div>
@@ -32,7 +33,7 @@ export function SplashScreen({ message = "Chargement..." }: SplashScreenProps) {
         <div className="absolute bottom-8 w-full left-0 flex flex-col items-center">
           <div className="flex items-center gap-3 opacity-60">
             <img src="/icon-blason.svg" alt="Blason" className="h-8 object-contain" />
-            <img src="/logo_forets.png" alt="Eaux et Forêts" className="h-8 object-contain mix-blend-multiply" />
+            <img src={getAppLogo()} alt="Eaux et Forêts" className="h-8 object-contain mix-blend-multiply" />
           </div>
         </div>
       </div>

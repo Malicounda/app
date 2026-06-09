@@ -205,9 +205,10 @@ export default function HuntingActivities() {
       id: `${activity.source_type}-${activity.id}`,
       date: activity.hunting_date || activity.created_at,
       zone: zoneDisplay,
-      region: (activity as any).region_name || '',
-      // Renseigner le département pour l'affichage dans le modal
-      departement: (activity as any).departement_name || '',
+      region: (activity as any).region_name || (activity as any).region || '',
+      departement: (activity as any).departement_name || (activity as any).departement || '',
+      arrondissement: (activity as any).arrondissement_name || (activity as any).arrondissement || '',
+      commune: (activity as any).commune_name || (activity as any).commune || '',
       permitNumber: activity.permit_number || '',
       species: [{
         id: activity.species_id.toString(),
@@ -465,7 +466,7 @@ export default function HuntingActivities() {
                             <p className="text-amber-600 font-serif">Commencez par déclarer votre premier prélèvement</p>
                           </div>
                         ) : (
-                          <div className="space-y-4 flex-1 overflow-y-auto pr-2 pb-2 -mr-2 styled-scrollbar">
+                          <div className="space-y-4 flex-1 overflow-y-auto pr-2 pb-2 -mr-2 no-scrollbar">
                             {paginatedActivities.map((activity, index) => (
                               <div key={activity.id} className="bg-gradient-to-r from-amber-100 to-amber-50 rounded-lg p-3 sm:p-6 shadow-md border-l-4 border-amber-600 relative" style={{
                                 backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 24px, rgba(139, 69, 19, 0.05) 24px, rgba(139, 69, 19, 0.05) 25px)'
@@ -744,10 +745,10 @@ export default function HuntingActivities() {
                   </DialogHeader>
                 </div>
                 
-                <div className="pt-2 px-3 pb-24 sm:pt-3 sm:px-4 space-y-3">
+                <div className="pt-2 px-3 pb-24 sm:pt-3 sm:px-4 flex flex-col gap-1.5 sm:gap-3">
                   
                   {/* Section Localisation & Chasseur */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-3">
                     {/* Carte Localisation */}
                     <div className="bg-white p-3 rounded-xl shadow-sm border border-stone-200">
                       <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-1.5 text-sm sm:text-base">
@@ -766,16 +767,18 @@ export default function HuntingActivities() {
                             <span className="text-right">{activity.arrondissement}</span>
                           </p>
                         )}
-                        {activity.departement && (
+                        {activity.commune && (
                           <p className="flex justify-between border-b border-stone-50 pb-0.5">
-                            <span className="font-medium text-stone-500">Département</span>
-                            <span className="text-right">{activity.departement}</span>
+                            <span className="font-medium text-stone-500">Commune</span>
+                            <span className="text-right">{activity.commune}</span>
                           </p>
                         )}
-                        {activity.region && (
-                          <p className="flex justify-between pb-0.5">
-                            <span className="font-medium text-stone-500">Région</span>
-                            <span className="text-right">{activity.region}</span>
+                        {activity.coordinates && (
+                          <p className="flex flex-col mt-1.5">
+                            <span className="font-medium text-stone-500 mb-1">Coordonnées GPS</span>
+                            <span className="font-mono text-blue-600 bg-blue-50 p-1.5 rounded text-center text-[10px] sm:text-xs border border-blue-100">
+                              {activity.coordinates}
+                            </span>
                           </p>
                         )}
                       </div>

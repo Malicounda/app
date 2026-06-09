@@ -98,20 +98,22 @@ router.get('/', isAuthenticated, async (req, res) => {
         ha.created_at,
         ha.activity_number,
         ha.source_type,
-        (
+        COALESCE(ha.region, (
           SELECT r.nom 
           FROM regions r 
           WHERE ha.lat IS NOT NULL AND ha.lon IS NOT NULL 
             AND ST_Intersects(r.geom, ST_Transform(ST_SetSRID(ST_Point(ha.lon, ha.lat), 4326), ST_SRID(r.geom)))
           LIMIT 1
-        ) as region,
-        (
+        )) as region,
+        COALESCE(ha.departement, (
           SELECT d.nom 
           FROM departements d 
           WHERE ha.lat IS NOT NULL AND ha.lon IS NOT NULL 
             AND ST_Intersects(d.geom, ST_Transform(ST_SetSRID(ST_Point(ha.lon, ha.lat), 4326), ST_SRID(d.geom)))
           LIMIT 1
-        ) as departement
+        )) as departement,
+        ha.arrondissement as arrondissement,
+        ha.commune as commune
       FROM hunting_activities ha
       WHERE ${whereClause}
       ORDER BY ha.created_at DESC
@@ -137,6 +139,8 @@ router.get('/', isAuthenticated, async (req, res) => {
       sourceType: row.source_type,
       region: row.region,
       departement: row.departement,
+      arrondissement: row.arrondissement,
+      commune: row.commune,
     }));
 
     console.log(`[GET /hunting-activities] Retour de ${activities.length} activités`);
@@ -212,7 +216,7 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
         ha.location,
         ha.lat,
         ha.lon,
-        (
+        COALESCE(ha.region, (
           SELECT r.nom 
           FROM regions r 
           WHERE ha.lat IS NOT NULL AND ha.lon IS NOT NULL 
@@ -221,8 +225,8 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
               ST_Transform(ST_SetSRID(ST_Point(ha.lon, ha.lat), 4326), ST_SRID(r.geom))
             )
           LIMIT 1
-        ) as region_name,
-        (
+        )) as region_name,
+        COALESCE(ha.departement, (
           SELECT d.nom 
           FROM departements d 
           WHERE ha.lat IS NOT NULL AND ha.lon IS NOT NULL 
@@ -231,7 +235,9 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
               ST_Transform(ST_SetSRID(ST_Point(ha.lon, ha.lat), 4326), ST_SRID(d.geom))
             )
           LIMIT 1
-        ) as departement_name,
+        )) as departement_name,
+        ha.arrondissement as arrondissement_name,
+        ha.commune as commune_name,
         ha.hunting_date,
         CASE WHEN ha.photo_data IS NOT NULL THEN true ELSE false END as has_photo,
         ha.photo_mime,
@@ -267,6 +273,8 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
       hunting_date: row.hunting_date,
       region_name: row.region_name,
       departement_name: row.departement_name,
+      arrondissement_name: row.arrondissement_name,
+      commune_name: row.commune_name,
       photo_data: row.has_photo,
       photo_mime: row.photo_mime,
       photo_name: row.photo_name,
@@ -303,7 +311,7 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
         COALESCE(de.status, 'pending') AS status,
         CASE WHEN de.guide_id IS NOT NULL THEN 'guide_declaration' ELSE 'direct_declaration' END AS source_type,
         de.id AS source_id,
-        (
+        COALESCE(de.region, (
           SELECT r.nom 
           FROM regions r 
           WHERE de.lat IS NOT NULL AND de.lon IS NOT NULL 
@@ -312,8 +320,8 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
               ST_Transform(ST_SetSRID(ST_Point(de.lon, de.lat), 4326), ST_SRID(r.geom))
             )
           LIMIT 1
-        ) as region_name,
-        (
+        )) as region_name,
+        COALESCE(de.departement, (
           SELECT d.nom 
           FROM departements d 
           WHERE de.lat IS NOT NULL AND de.lon IS NOT NULL 
@@ -322,7 +330,9 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
               ST_Transform(ST_SetSRID(ST_Point(de.lon, de.lat), 4326), ST_SRID(d.geom))
             )
           LIMIT 1
-        ) as departement_name,
+        )) as departement_name,
+        de.arrondissement as arrondissement_name,
+        de.commune as commune_name,
         (
           SELECT CONCAT(u.first_name, ' ', u.last_name)
           FROM hunting_guides hg
@@ -356,6 +366,8 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
       hunting_date: row.hunting_date,
       region_name: row.region_name,
       departement_name: row.departement_name,
+      arrondissement_name: row.arrondissement_name,
+      commune_name: row.commune_name,
       photo_data: row.has_photo,
       photo_mime: row.photo_mime,
       photo_name: row.photo_name,
