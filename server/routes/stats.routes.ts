@@ -171,15 +171,14 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
     const rows: Array<{ region: string; species_id: string; nom_espece: string | null; nom_scientifique: string | null; quantity: number }>
       = await db.execute(
         sql`SELECT
-              COALESCE(LOWER(TRIM(u.region)), 'nondefini') AS region,
+              COALESCE(LOWER(TRIM(d.region)), 'nondefini') AS region,
               d.espece_id AS species_id,
               COALESCE(d.nom_espece, '') AS nom_espece,
               COALESCE(d.nom_scientifique, '') AS nom_scientifique,
               COALESCE(SUM(d.quantity), 0) AS quantity
             FROM declaration_especes d
-            LEFT JOIN users u ON u.id = d.user_id
             WHERE COALESCE(d.quantity, 0) > 0
-            GROUP BY COALESCE(LOWER(TRIM(u.region)), 'nondefini'), d.espece_id, d.nom_espece, d.nom_scientifique
+            GROUP BY COALESCE(LOWER(TRIM(d.region)), 'nondefini'), d.espece_id, d.nom_espece, d.nom_scientifique
             ORDER BY region ASC, species_id ASC` as any
       ) as any;
 

@@ -10,6 +10,7 @@ import {
 import { mapCache } from '@/lib/mapCache';
 import { apiRequest } from '@/lib/queryClient';
 import { filterAlertsForSupervisor } from '@/utils/alertZoneScope';
+import { resolveApiUrl } from '@/utils/environment';
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -1151,7 +1152,7 @@ const MapPage: React.FC = () => {
           quantity: r.quantity ?? null,
           date: r.date ?? null,
           location: r.location ?? null,
-          photoUrl: r.id ? `/api/hunting-reports/${r.id}/photo` : null,
+          photoUrl: r.id ? resolveApiUrl(`/api/hunting-reports/${r.id}/photo${localStorage.getItem('token') ? '?token=' + localStorage.getItem('token') : ''}`) : null,
           region: r.region ?? null,
           departement: r.departement ?? null,
           commune: r.commune ?? null,
@@ -1168,7 +1169,7 @@ const MapPage: React.FC = () => {
           quantity: a.quantity ?? null,
           date: a.huntingDate ?? a.hunting_date ?? a.createdAt ?? a.created_at ?? null,
           location: a.location ?? null,
-          photoUrl: a.id ? `/api/hunting-activities/${a.id}/photo` : null,
+          photoUrl: a.id ? resolveApiUrl(`/api/hunting-activities/${a.id}/photo${localStorage.getItem('token') ? '?token=' + localStorage.getItem('token') : ''}`) : null,
           region: a.region ?? null,
           departement: a.departement ?? null,
           commune: a.commune ?? null,
@@ -1888,7 +1889,7 @@ const MapPage: React.FC = () => {
                       quantity: r.quantity ?? null,
                       date: r.date ?? null,
                       location: r.location ?? null,
-                      photoUrl: r.id ? `/api/hunting-reports/${r.id}/photo` : null,
+                      photoUrl: r.id ? resolveApiUrl(`/api/hunting-reports/${r.id}/photo${localStorage.getItem('token') ? '?token=' + localStorage.getItem('token') : ''}`) : null,
                       region: r.region ?? null,
                       departement: r.departement ?? null,
                       commune: r.commune ?? null,
@@ -1905,7 +1906,7 @@ const MapPage: React.FC = () => {
                       quantity: a.quantity ?? null,
                       date: a.huntingDate ?? a.hunting_date ?? a.createdAt ?? a.created_at ?? null,
                       location: a.location ?? null,
-                      photoUrl: a.id ? `/api/hunting-activities/${a.id}/photo` : null,
+                      photoUrl: a.id ? resolveApiUrl(`/api/hunting-activities/${a.id}/photo${localStorage.getItem('token') ? '?token=' + localStorage.getItem('token') : ''}`) : null,
                       region: a.region ?? null,
                       departement: a.departement ?? null,
                       commune: a.commune ?? null,
