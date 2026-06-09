@@ -2340,11 +2340,9 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         eq(messages.senderId, senderId),
         isNull(messages.deletedAtSender) // Aligné avec le schéma (deletedAtSender)
       ];
-      if (domaineId === null) {
-        conditions.push(isNull(messages.domaineId));
-      } else if (domaineId !== undefined) {
-        conditions.push(eq(messages.domaineId, domaineId));
-      }
+      // Pour les messages individuels (directs/internes), on ne filtre pas par domaineId
+      // afin que les utilisateurs reçoivent leurs messages quel que soit l'APK ou le domaine de connexion.
+
       // Filtrer les messages dont le destinataire n'existe plus (utilisateur supprimé)
       return await db.select({ message: messages })
         .from(messages)
@@ -2359,11 +2357,9 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         eq(messages.recipientId, recipientId),
         isNull(messages.deletedAt) // Aligné avec le schéma (deletedAt)
       ];
-      if (domaineId === null) {
-        conditions.push(isNull(messages.domaineId));
-      } else if (domaineId !== undefined) {
-        conditions.push(eq(messages.domaineId, domaineId));
-      }
+      // Pour les messages individuels (directs/internes), on ne filtre pas par domaineId
+      // afin que les utilisateurs reçoivent leurs messages quel que soit l'APK ou le domaine de connexion.
+
       // Filtrer les messages dont l'expéditeur n'existe plus (utilisateur supprimé)
       return await db.select({ message: messages })
         .from(messages)
@@ -2561,11 +2557,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           eq(messages.isRead, false),
           isNull(messages.deletedAt)
         ];
-        if (domaineId === null) {
-          individualConditions.push(isNull(messages.domaineId));
-        } else if (domaineId !== undefined) {
-          individualConditions.push(eq(messages.domaineId, domaineId));
-        }
+        // Pour les messages individuels, on ne filtre pas par domaineId
 
         const [individualResult] = await db.select({ value: count() })
           .from(messages)
