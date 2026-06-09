@@ -4,6 +4,7 @@ import { buildMessageAttachmentUrl } from '@/lib/messageAttachments';
 import { Download, FileText, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { resolveApiUrl } from '@/utils/environment';
 
 export type AttachmentViewPayload = {
   messageId: number;
@@ -76,7 +77,8 @@ function downloadBlob(url: string, filename: string) {
 
   if (isMobileNative) {
     const token = localStorage.getItem('token');
-    let finalUrl = url.includes('download=1') ? url : (url + (url.includes('?') ? '&download=1' : '?download=1'));
+    const absoluteUrl = resolveApiUrl(url);
+    let finalUrl = absoluteUrl.includes('download=1') ? absoluteUrl : (absoluteUrl + (absoluteUrl.includes('?') ? '&download=1' : '?download=1'));
     if (token) {
       finalUrl += `&token=${encodeURIComponent(token)}`;
     }
@@ -101,7 +103,8 @@ function downloadBlob(url: string, filename: string) {
     .catch(() => {
       // Fallback: open via browser with token in URL
       const token = localStorage.getItem('token');
-      let finalUrl = url;
+      const absoluteUrl = resolveApiUrl(url);
+      let finalUrl = absoluteUrl;
       if (token) {
         finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
       }

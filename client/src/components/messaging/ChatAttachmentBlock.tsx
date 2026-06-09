@@ -2,6 +2,7 @@ import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { guessAttachmentMime, isImageMime, repairAttachmentFileName } from '@/lib/attachmentMime';
 import { Download, FileText, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { resolveApiUrl } from '@/utils/environment';
 
 const formatFileSize = (bytes?: number | null) => {
   if (!bytes) return null;
@@ -88,7 +89,8 @@ function downloadAttachment(url: string, filename: string) {
 
   if (isMobileNative) {
     const token = localStorage.getItem('token');
-    let finalUrl = url.includes('download=1') ? url : (url + (url.includes('?') ? '&download=1' : '?download=1'));
+    const absoluteUrl = resolveApiUrl(url);
+    let finalUrl = absoluteUrl.includes('download=1') ? absoluteUrl : (absoluteUrl + (absoluteUrl.includes('?') ? '&download=1' : '?download=1'));
     if (token) {
       finalUrl += `&token=${encodeURIComponent(token)}`;
     }
@@ -111,7 +113,8 @@ function downloadAttachment(url: string, filename: string) {
     })
     .catch(() => {
       const token = localStorage.getItem('token');
-      let finalUrl = url;
+      const absoluteUrl = resolveApiUrl(url);
+      let finalUrl = absoluteUrl;
       if (token) {
         finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
       }
