@@ -477,7 +477,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       {/* Navigation mobile unifiée pour Chasseurs et Guides */}
       {/* Reflète exactement les items de la Navbar latérale originale pour cohérence */}
       {chromeless && isHunterOrGuide && (
-        <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-2 pb-safe z-[250] md:hidden">
+        <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] flex items-center justify-around px-2 pb-safe z-[250] md:hidden">
           {user?.role === 'hunter' ? (
             <>
               {/* Chasseur: Accueil | Demande Permis | Messagerie | Profil */}
