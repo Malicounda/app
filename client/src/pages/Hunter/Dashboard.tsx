@@ -612,7 +612,7 @@ export default function HunterDashboard() {
           ctx.drawImage(qrImg, 0, 0, size, size);
 
           // Charger le logo
-          const logoUrl = getAppLogo();
+          const logoUrl = '/logo_forets.png';
           const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
