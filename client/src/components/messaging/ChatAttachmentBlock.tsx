@@ -1,6 +1,6 @@
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { guessAttachmentMime, isImageMime, repairAttachmentFileName } from '@/lib/attachmentMime';
-import { Download, FileText, Image as ImageIcon } from 'lucide-react';
+import { FileText, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { resolveApiUrl } from '@/utils/environment';
 
@@ -81,46 +81,6 @@ export type ChatAttachmentBlockProps = {
   onOpen: () => void;
 };
 
-function downloadAttachment(url: string, filename: string) {
-  const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
-  const isCustomApk = typeof navigator !== 'undefined' && 
-    (/AlerteAPK/i.test(navigator.userAgent) || /ChasseAPK/i.test(navigator.userAgent));
-  const isMobileNative = isCapacitor || isCustomApk;
-
-  if (isMobileNative) {
-    const token = localStorage.getItem('token');
-    const absoluteUrl = resolveApiUrl(url);
-    let finalUrl = absoluteUrl.includes('download=1') ? absoluteUrl : (absoluteUrl + (absoluteUrl.includes('?') ? '&download=1' : '?download=1'));
-    if (token) {
-      finalUrl += `&token=${encodeURIComponent(token)}`;
-    }
-    window.open(finalUrl, '_system');
-    return;
-  }
-
-  authenticatedFetch(url.includes('download=1') ? url : (url + (url.includes('?') ? '&download=1' : '?download=1')))
-    .then(async (res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename || 'fichier';
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 200);
-    })
-    .catch(() => {
-      const token = localStorage.getItem('token');
-      const absoluteUrl = resolveApiUrl(url);
-      let finalUrl = absoluteUrl;
-      if (token) {
-        finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
-      }
-      window.open(finalUrl, '_system');
-    });
-}
 
 export default function ChatAttachmentBlock({
   url,
@@ -187,16 +147,6 @@ export default function ChatAttachmentBlock({
           ) : null}
         </div>
       </div>
-      {variant === 'received' && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); downloadAttachment(url, displayName || 'fichier'); }}
-          className="flex items-center gap-1.5 w-full px-2 py-1.5 text-[10px] font-semibold text-green-700 bg-green-50 hover:bg-green-100 border-t border-gray-200 transition-colors"
-        >
-          <Download className="h-3 w-3" />
-          Télécharger
-        </button>
-      )}
     </div>
   );
 }

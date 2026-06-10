@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.eforets.chasse"
+    namespace "com.eforets.alerte"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.eforets.chasse"
-        setProperty("archivesBaseName", "Chasse")
+        applicationId "com.eforets.alerte"
+        setProperty("archivesBaseName", "Alerte")
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

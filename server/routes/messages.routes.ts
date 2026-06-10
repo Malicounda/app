@@ -30,6 +30,20 @@ const upload = multer({
   },
 });
 
+const handleAttachmentUpload = (req: Request, res: Response, next: import('express').NextFunction) => {
+  upload.single('attachment')(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ message: "La pièce jointe est trop volumineuse (max 5 Mo)." });
+      }
+      return res.status(400).json({ message: "Erreur lors du traitement de la pièce jointe", error: err.message });
+    } else if (err) {
+      return res.status(400).json({ message: "Erreur inattendue lors de l'upload", error: err.message });
+    }
+    next();
+  });
+};
+
 async function resolveUploadedAttachment(req: Request) {
   if (!req.file?.buffer?.length) return null;
   return persistMessageAttachment({
@@ -632,7 +646,7 @@ router.patch('/:id/content', isAuthenticated, async (req: Request, res: Response
 });
 
 // Envoyer un message individuel avec pièce jointe
-router.post('/', isAuthenticated, upload.single('attachment'), async (req: Request, res: Response) => {
+router.post('/', isAuthenticated, handleAttachmentUpload, async (req: Request, res: Response) => {
   try {
     const senderId = (req as any)?.user?.id;
     if (!senderId) {
@@ -809,7 +823,7 @@ router.post('/', isAuthenticated, upload.single('attachment'), async (req: Reque
 });
 
 // Envoyer un message de groupe
-router.post('/group', isAuthenticated, upload.single('attachment'), async (req, res) => {
+router.post('/group', isAuthenticated, handleAttachmentUpload, async (req, res) => {
   try {
     const { subject, content, targetRole, targetRegion } = req.body;
     const senderId = (req as any)?.user?.id;
@@ -1126,6 +1140,10 @@ router.get('/:id/attachment', isAuthenticated, async (req: Request, res: Respons
 
     if (!userId) return res.status(401).json({ message: 'Non authentifié' });
 
+    if (!Number.isFinite(messageId) || messageId <= 0 || messageId > 2147483647) {
+      return res.status(404).json({ message: 'Message introuvable (ID invalide)' });
+    }
+
     const message = await storage.getMessage(messageId);
     if (!message) {
       return res.status(404).json({ message: 'Message non trouvé' });
@@ -1207,6 +1225,10 @@ router.get('/group/:id/attachment', isAuthenticated, async (req: Request, res: R
     const userId = (req as any)?.user?.id;
 
     if (!userId) return res.status(401).json({ message: 'Non authentifié' });
+
+    if (!Number.isFinite(messageId) || messageId <= 0 || messageId > 2147483647) {
+      return res.status(404).json({ message: 'Message de groupe introuvable (ID invalide)' });
+    }
 
     const groupMessage = await storage.getGroupMessage(messageId);
     if (!groupMessage) {
