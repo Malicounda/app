@@ -1470,7 +1470,8 @@ export default function SimpleSMSPage() {
 
                 {(() => {
                   const mObj = activeActionMessage.rawMsgObj;
-                  if (!mObj?.attachmentId) return null;
+                  const hasAttachment = Boolean(mObj?.attachmentPath || mObj?.attachmentName);
+                  if (!hasAttachment) return null;
                   
                   return (
                     <button
@@ -2079,7 +2080,8 @@ export default function SimpleSMSPage() {
 
               {(() => {
                 const mObj = activeActionMessage.rawMsgObj;
-                if (!mObj?.attachmentId) return null;
+                const hasAttachment = Boolean(mObj?.attachmentPath || mObj?.attachmentName);
+                if (!hasAttachment) return null;
                 
                 return (
                   <button
