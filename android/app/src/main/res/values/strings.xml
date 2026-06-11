@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">EF Alerte</string>
-    <string name="title_activity_main">EF Alerte</string>
-    <string name="package_name">com.eforets.alerte</string>
-    <string name="custom_url_scheme">com.eforets.alerte</string>
+    <string name="app_name">SN Chasse</string>
+    <string name="title_activity_main">SN Chasse</string>
+    <string name="package_name">com.eforets.chasse</string>
+    <string name="custom_url_scheme">com.eforets.chasse</string>
 </resources>
