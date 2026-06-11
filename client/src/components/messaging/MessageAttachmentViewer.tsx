@@ -258,14 +258,7 @@ export default function MessageAttachmentViewer({ payload, onClose }: Props) {
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={handleDownload}
-          className="shrink-0 h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20"
-          aria-label="Télécharger"
-        >
-          <Download className="h-5 w-5" />
-        </button>
+
         <button
           type="button"
           onClick={onClose}
@@ -291,10 +284,10 @@ export default function MessageAttachmentViewer({ payload, onClose }: Props) {
               <p className="text-red-300 text-sm mb-4">{error}</p>
               <button
                 type="button"
-                onClick={handleDownload}
-                className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium"
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg bg-gray-600 text-white text-sm font-medium"
               >
-                Télécharger quand même
+                Fermer
               </button>
             </div>
           ) : isImage && blobUrl ? (
@@ -315,11 +308,10 @@ export default function MessageAttachmentViewer({ payload, onClose }: Props) {
               </p>
               <button
                 type="button"
-                onClick={handleDownload}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-green-600 text-white text-sm font-medium"
+                onClick={onClose}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-600 text-white text-sm font-medium mt-4"
               >
-                <Download className="h-4 w-4" />
-                Télécharger
+                Fermer
               </button>
             </div>
           )}

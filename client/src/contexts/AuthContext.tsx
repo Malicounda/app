@@ -225,9 +225,18 @@ export function AuthProvider({
       if (!response?.user) throw new Error("Utilisateur invalide");
 
       const isChasseApk = typeof navigator !== 'undefined' && navigator.userAgent.includes('ChasseAPK');
+      const isAlerteApk = typeof navigator !== 'undefined' && navigator.userAgent.includes('AlerteAPK');
+
       if (isChasseApk) {
         if (response.user.role !== 'hunter' && response.user.role !== 'hunting-guide') {
           throw new Error("Accès refusé. Cette application est réservée uniquement aux chasseurs et guides de chasse.");
+        }
+      }
+
+      if (isAlerteApk) {
+        const allowedRoles = ['agent', 'sub-agent', 'brigade', 'triage', 'poste-control', 'sous-secteur'];
+        if (!allowedRoles.includes(response.user.role) || response.user.isSuperAdmin) {
+          throw new Error("Accès refusé. Cette application est réservée uniquement aux agents internes. Les administrateurs n'y ont pas accès.");
         }
       }
 

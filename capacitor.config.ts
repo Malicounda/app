@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.eforets.alerte',
-  appName: 'Alerte',
+  appName: 'EF Alerte',
   webDir: 'client/dist',
   server: {
     // Comme la sauvegarde Alerte.apk : WebView → login Alerte uniquement (pas le bundle local complet)

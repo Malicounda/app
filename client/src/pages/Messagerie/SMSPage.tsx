@@ -478,7 +478,7 @@ export default function SimpleSMSPage() {
           const fullName = toName(u);
           const username = String(u?.username || '').trim();
           const name = fullName || username || roleLabel;
-          const usernameSuffix = fullName && username ? ` (${username})` : '';
+          const usernameSuffix = ''; // Retrait du matricule
           const dept = u?.departement ? ` — ${u.departement}` : '';
           const region = u?.region ? ` — ${u.region}` : '';
 
@@ -842,7 +842,7 @@ export default function SimpleSMSPage() {
                     </div>
                   </div>
                 )}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto pb-20">
                   {/* Skeleton loader while fetching */}
                   {initialLoadRef.current && (loadingInbox || loadingSent) && conversations.length === 0 && (
                     <div className="flex flex-col gap-0 animate-pulse">
@@ -1241,7 +1241,7 @@ export default function SimpleSMSPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto pb-20">
                   {recipientOptions.filter(r => !newRecipientSearch || r.label.toLowerCase().includes(newRecipientSearch.toLowerCase())).map((r, i) => (
                     <button key={i} onClick={() => {
                       const existingConv = conversations.find(c => String(c.contactKey) === String(r.value) || c.contactIdentifier === r.value);
@@ -1464,6 +1464,44 @@ export default function SimpleSMSPage() {
                       className="w-full text-left px-5 py-4 text-sm font-semibold text-gray-700 hover:bg-gray-100 active:bg-gray-200 flex items-center gap-3 transition-colors"
                     >
                       <span className="text-lg">✏️</span> Modifier le message
+                    </button>
+                  );
+                })()}
+
+                {(() => {
+                  const mObj = activeActionMessage.rawMsgObj;
+                  if (!mObj?.attachmentId) return null;
+                  
+                  return (
+                    <button
+                      onClick={() => {
+                        const url = buildMessageAttachmentUrl(Number(mObj.id), {
+                          isGroup: mObj.isGroup,
+                          download: true
+                        });
+                        const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+                        const isCustomApk = typeof navigator !== 'undefined' && (/AlerteAPK/i.test(navigator.userAgent) || /ChasseAPK/i.test(navigator.userAgent));
+                        
+                        if (isCapacitor || isCustomApk) {
+                          const token = localStorage.getItem('token');
+                          let finalUrl = url;
+                          if (token) finalUrl += `&token=${encodeURIComponent(token)}`;
+                          window.open(finalUrl, '_system');
+                        } else {
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.target = '_blank';
+                          a.download = mObj.attachmentName || 'fichier';
+                          a.style.display = 'none';
+                          document.body.appendChild(a);
+                          a.click();
+                          setTimeout(() => document.body.removeChild(a), 200);
+                        }
+                        setActiveActionMessage(null);
+                      }}
+                      className="w-full text-left px-5 py-4 text-sm font-semibold text-green-700 hover:bg-green-50 active:bg-green-100 flex items-center gap-3 transition-colors"
+                    >
+                      <span className="text-lg">📥</span> Télécharger la pièce jointe
                     </button>
                   );
                 })()}
@@ -2038,6 +2076,44 @@ export default function SimpleSMSPage() {
             <div className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Options du message</div>
 
             <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 divide-y divide-gray-100">
+
+              {(() => {
+                const mObj = activeActionMessage.rawMsgObj;
+                if (!mObj?.attachmentId) return null;
+                
+                return (
+                  <button
+                    onClick={() => {
+                      const url = buildMessageAttachmentUrl(Number(mObj.id), {
+                        isGroup: mObj.isGroup,
+                        download: true
+                      });
+                      const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+                      const isCustomApk = typeof navigator !== 'undefined' && (/AlerteAPK/i.test(navigator.userAgent) || /ChasseAPK/i.test(navigator.userAgent));
+                      
+                      if (isCapacitor || isCustomApk) {
+                        const token = localStorage.getItem('token');
+                        let finalUrl = url;
+                        if (token) finalUrl += `&token=${encodeURIComponent(token)}`;
+                        window.open(finalUrl, '_system');
+                      } else {
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.target = '_blank';
+                        a.download = mObj.attachmentName || 'fichier';
+                        a.style.display = 'none';
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => document.body.removeChild(a), 200);
+                      }
+                      setActiveActionMessage(null);
+                    }}
+                    className="w-full text-left px-5 py-4 text-sm font-semibold text-green-700 hover:bg-green-50 active:bg-green-100 flex items-center gap-3 transition-colors"
+                  >
+                    <span className="text-lg">📥</span> Télécharger la pièce jointe
+                  </button>
+                );
+              })()}
 
               <button
                 onClick={async () => {
