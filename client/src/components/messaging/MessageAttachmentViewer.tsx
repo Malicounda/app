@@ -82,7 +82,7 @@ function downloadBlob(url: string, filename: string) {
     if (token) {
       finalUrl += `&token=${encodeURIComponent(token)}`;
     }
-    window.open(finalUrl, '_system');
+    window.location.href = finalUrl;
     return;
   }
 
@@ -108,7 +108,7 @@ function downloadBlob(url: string, filename: string) {
       if (token) {
         finalUrl += finalUrl.includes('?') ? `&token=${encodeURIComponent(token)}` : `?token=${encodeURIComponent(token)}`;
       }
-      window.open(finalUrl, '_system');
+      window.location.href = finalUrl;
     });
 }
 

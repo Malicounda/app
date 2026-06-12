@@ -7247,7 +7247,7 @@ const contrevenantEndIndex = filteredContrevenantsWithAssociations.length === 0 
                               const isMobileNative = isCapacitor || isCustomApk;
                               
                               if (isMobileNative) {
-                                window.open(finalUrl, '_system');
+                                window.location.href = finalUrl;
                               } else {
                                 window.open(finalUrl, '_blank');
                               }

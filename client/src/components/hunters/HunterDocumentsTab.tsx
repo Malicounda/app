@@ -124,7 +124,7 @@ export function HunterDocumentsTab() {
         if (token) {
           finalUrl += `?token=${encodeURIComponent(token)}`;
         }
-        window.open(finalUrl, '_system');
+        window.location.href = finalUrl;
         return;
       }
 

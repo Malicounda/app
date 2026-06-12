@@ -988,7 +988,7 @@ export default function HunterDashboard() {
                       }
                       
                       if (isMobileNative) {
-                        window.open(finalUrl, '_system');
+                        window.location.href = finalUrl;
                       } else {
                         window.open(finalUrl, '_blank');
                       }

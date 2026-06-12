@@ -1487,7 +1487,7 @@ export default function SimpleSMSPage() {
                           const token = localStorage.getItem('token');
                           let finalUrl = url;
                           if (token) finalUrl += `&token=${encodeURIComponent(token)}`;
-                          window.open(finalUrl, '_system');
+                          window.location.href = finalUrl;
                         } else {
                           const a = document.createElement('a');
                           a.href = url;
@@ -2097,7 +2097,7 @@ export default function SimpleSMSPage() {
                         const token = localStorage.getItem('token');
                         let finalUrl = url;
                         if (token) finalUrl += `&token=${encodeURIComponent(token)}`;
-                        window.open(finalUrl, '_system');
+                        window.location.href = finalUrl;
                       } else {
                         const a = document.createElement('a');
                         a.href = url;
