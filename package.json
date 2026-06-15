@@ -26,7 +26,9 @@
     "tauri": "cd client && npm run tauri",
     "tauri:dev": "cd client && npm run tauri dev",
     "tauri:build": "cd client && npm run tauri build",
-    "create-admin": "tsx scripts/create-admin-user.ts"
+    "create-admin": "tsx scripts/create-admin-user.ts",
+    "switch:alerte": "tsx scripts/switch-app.ts alerte",
+    "switch:chasse": "tsx scripts/switch-app.ts chasse"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",

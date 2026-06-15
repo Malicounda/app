@@ -9,7 +9,6 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_CANDIDATES = [
-    ROOT / "assets" / "icon.png",
     ROOT / "client" / "dist" / "Eaux et Forets logo" / "android-chrome-512x512.png",
     ROOT / "client" / "public" / "Eaux et Forets logo" / "android-chrome-512x512.png",
 ]

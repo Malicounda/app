@@ -11,7 +11,7 @@ import { mapCache } from '@/lib/mapCache';
 import { apiRequest } from '@/lib/queryClient';
 import { filterAlertsForSupervisor } from '@/utils/alertZoneScope';
 import { resolveApiUrl } from '@/utils/environment';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 
 import {
     FaBullseye,
@@ -186,6 +186,127 @@ const MapPage: React.FC = () => {
   }, []);
 
   const [alertsForMap, setAlertsForMap] = useState<Array<{ id: number; title: string | null; message: string | null; nature: string | null; region: string | null; departement?: string | null; lat: number; lon: number; created_at: string; sender?: { first_name: string | null; last_name: string | null; phone: string | null; role?: string | null; region?: string | null; departement?: string | null } }>>([]);
+  const [onlyActiveAlerts, setOnlyActiveAlerts] = useState(true);
+  const [alertPeriodFilter, setAlertPeriodFilter] = useState<string>("24h");
+  const [selectedMonthYear, setSelectedMonthYear] = useState<string>("all");
+
+  const activeAlertsCount = useMemo(() => {
+    const now = new Date().getTime();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    return (alertsForMap || []).filter(alert => {
+      const time = new Date(alert.created_at).getTime();
+      return (now - time) < twentyFourHours;
+    }).length;
+  }, [alertsForMap]);
+
+  const threeDaysAlertsCount = useMemo(() => {
+    const now = new Date().getTime();
+    const threeDays = 3 * 24 * 60 * 60 * 1000;
+    return (alertsForMap || []).filter(alert => {
+      const time = new Date(alert.created_at).getTime();
+      return (now - time) < threeDays;
+    }).length;
+  }, [alertsForMap]);
+
+  const oneWeekAlertsCount = useMemo(() => {
+    const now = new Date().getTime();
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+    return (alertsForMap || []).filter(alert => {
+      const time = new Date(alert.created_at).getTime();
+      return (now - time) < oneWeek;
+    }).length;
+  }, [alertsForMap]);
+
+  const currentMonthYear = useMemo(() => {
+    const d = new Date();
+    const frMonths = [
+      "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+      "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+    ];
+    const month = d.getMonth();
+    const year = d.getFullYear();
+    
+    // Count alerts in this month
+    const count = (alertsForMap || []).filter(alert => {
+      if (!alert.created_at) return false;
+      const ad = new Date(alert.created_at);
+      return ad.getFullYear() === year && ad.getMonth() === month;
+    }).length;
+
+    return {
+      value: `${year}-${month}`,
+      label: `${frMonths[month]} ${year} (${count})`
+    };
+  }, [alertsForMap]);
+
+  const previousMonthYear = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    
+    const frMonths = [
+      "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+      "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+    ];
+    const month = d.getMonth();
+    const year = d.getFullYear();
+    
+    // Count alerts in this month
+    const count = (alertsForMap || []).filter(alert => {
+      if (!alert.created_at) return false;
+      const ad = new Date(alert.created_at);
+      return ad.getFullYear() === year && ad.getMonth() === month;
+    }).length;
+
+    return {
+      value: `${year}-${month}`,
+      label: `${frMonths[month]} ${year} (${count})`
+    };
+  }, [alertsForMap]);
+
+  const filteredAlertsForMap = useMemo(() => {
+    let list = alertsForMap || [];
+
+    const now = new Date().getTime();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    const threeDays = 3 * twentyFourHours;
+    const oneWeek = 7 * twentyFourHours;
+
+    if (onlyActiveAlerts) {
+      // Masquer les alertes désactivées (>24h)
+      list = list.filter(alert => {
+        const time = new Date(alert.created_at).getTime();
+        return (now - time) < twentyFourHours;
+      });
+    } else {
+      // Filtrer selon la période sélectionnée
+      if (alertPeriodFilter === '24h') {
+        list = list.filter(alert => {
+          const time = new Date(alert.created_at).getTime();
+          return (now - time) < twentyFourHours;
+        });
+      } else if (alertPeriodFilter === '3d') {
+        list = list.filter(alert => {
+          const time = new Date(alert.created_at).getTime();
+          return (now - time) < threeDays;
+        });
+      } else if (alertPeriodFilter === '1w') {
+        list = list.filter(alert => {
+          const time = new Date(alert.created_at).getTime();
+          return (now - time) < oneWeek;
+        });
+      } else if (alertPeriodFilter === 'all' && selectedMonthYear !== 'all') {
+        const [yearStr, monthStr] = selectedMonthYear.split('-');
+        const targetYear = parseInt(yearStr);
+        const targetMonth = parseInt(monthStr);
+        list = list.filter(alert => {
+          const date = new Date(alert.created_at);
+          return date.getFullYear() === targetYear && date.getMonth() === targetMonth;
+        });
+      }
+    }
+
+    return list;
+  }, [alertsForMap, onlyActiveAlerts, alertPeriodFilter, selectedMonthYear]);
   const [showHuntingReports, setShowHuntingReports] = useState(false);
   const [huntingReportsData, setHuntingReportsData] = useState<Array<{ lat: number; lon: number; species?: string | null; quantity?: number | null; date?: string | null; location?: string | null; photoUrl?: string | null; region?: string | null; departement?: string | null }>>([]);
   const [huntingReportsCount, setHuntingReportsCount] = useState<number>(0);
@@ -1261,46 +1382,44 @@ const MapPage: React.FC = () => {
           </button>
           {/* Alertes en premier (désormais visible pour tous les rôles) */}
           {true && (
-            <button
-              className={`map-control-button alertes ${showAlerts ? 'active' : ''}`}
-              onClick={async () => {
-                if (!showAlerts) {
-                  await fetchAlerts();
+            <>
+              <button
+                className={`map-control-button alertes ${showAlerts ? 'active' : ''}`}
+                onClick={async () => {
+                  if (!showAlerts) {
+                    await fetchAlerts();
+                  }
+                  setShowAlerts(!showAlerts);
+                }}
+                title={
+                  isSupervisor
+                    ? "Alertes de votre zone administrative (région, département, commune ou arrondissement)"
+                    : "Afficher/Masquer les alertes"
                 }
-                setShowAlerts(!showAlerts);
-              }}
-              title={
-                isSupervisor
-                  ? "Alertes de votre zone administrative (région, département, commune ou arrondissement)"
-                  : "Afficher/Masquer les alertes"
-              }
-            >
-              {/* Icône sirène avec badge circulaire conditionnel */}
-              <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
-                <svg className="siren-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-                  <defs>
-                    <linearGradient id="sirenGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#fecaca"/>
-                      <stop offset="100%" stopColor="#ef4444"/>
-                    </linearGradient>
-                    <filter id="sirenShadow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="0" dy="1" stdDeviation="1.2" floodColor="rgba(0,0,0,0.35)"/>
-                    </filter>
-                  </defs>
-                  <g filter="url(#sirenShadow)">
-                    <path d="M6 12a6 6 0 1 1 12 0v2H6v-2z" fill="url(#sirenGrad)" stroke="#991b1b" strokeWidth="1"/>
-                    <rect x="5" y="14" width="14" height="3.5" rx="1.2" fill="#f3f4f6" stroke="#9ca3af" strokeWidth="1"/>
-                    <circle cx="12" cy="9" r="2.4" fill="#fee2e2"/>
-                  </g>
-                  <g stroke="#ef4444" strokeWidth="1.4" strokeLinecap="round">
-                    <path d="M3.5 8.5 L6 10"/>
-                    <path d="M20.5 8.5 L18 10"/>
-                  </g>
-                </svg>
-                {(() => {
-                  const totalCount = (alertsForMap || []).length;
-                  if (!totalCount || totalCount <= 0) return null;
-                  return (
+              >
+                {/* Icône sirène avec badge rouge pour les alertes quotidiennes (actives) */}
+                <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
+                  <svg className="siren-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="sirenGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#fecaca"/>
+                        <stop offset="100%" stopColor="#ef4444"/>
+                      </linearGradient>
+                      <filter id="sirenShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="1" stdDeviation="1.2" floodColor="rgba(0,0,0,0.35)"/>
+                      </filter>
+                    </defs>
+                    <g filter="url(#sirenShadow)">
+                      <path d="M6 12a6 6 0 1 1 12 0v2H6v-2z" fill="url(#sirenGrad)" stroke="#991b1b" strokeWidth="1"/>
+                      <rect x="5" y="14" width="14" height="3.5" rx="1.2" fill="#f3f4f6" stroke="#9ca3af" strokeWidth="1"/>
+                      <circle cx="12" cy="9" r="2.4" fill="#fee2e2"/>
+                    </g>
+                    <g stroke="#ef4444" strokeWidth="1.4" strokeLinecap="round">
+                      <path d="M3.5 8.5 L6 10"/>
+                      <path d="M20.5 8.5 L18 10"/>
+                    </g>
+                  </svg>
+                  {activeAlertsCount > 0 && (
                     <span
                       style={{
                         position: 'absolute',
@@ -1308,22 +1427,135 @@ const MapPage: React.FC = () => {
                         right: -10,
                         width: 20,
                         height: 20,
-                        background: '#065f46',
+                        background: '#dc2626',
                         color: 'white',
                         borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: 12,
-                        lineHeight: '20px'
+                        fontSize: 11,
+                        fontWeight: 'bold',
+                        lineHeight: '20px',
+                        boxShadow: '0 2px 4px rgba(220,38,38,0.4)'
                       }}
-                      aria-label="Total des alertes"
-                    >{totalCount}</span>
-                  );
-                })()}
-              </span>
-              <span className="alertes-label">Alertes</span>
-            </button>
+                      title={`${activeAlertsCount} active(s) aujourd'hui`}
+                    >{activeAlertsCount}</span>
+                  )}
+                </span>
+                <span className="alertes-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                  <span>Alertes</span>
+                  {alertsForMap.length > 0 && (
+                    <span style={{
+                      marginLeft: 'auto',
+                      background: '#64748b',
+                      color: 'white',
+                      borderRadius: '10px',
+                      padding: '1px 6px',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      lineHeight: '1.2'
+                    }}
+                    title={`${alertsForMap.length} alertes au total`}
+                    >
+                      {alertsForMap.length}
+                    </span>
+                  )}
+                </span>
+              </button>
+              {showAlerts && !controlsCollapsed && (
+                <div style={{
+                  padding: '8px 10px',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  marginTop: '-2px',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)'
+                }}>
+                  {/* Option A: Quick Toggle for hiding inactive (grayed-out) alerts */}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer', fontWeight: 600, color: '#334155', userSelect: 'none' }}>
+                    <input
+                      type="checkbox"
+                      checked={onlyActiveAlerts}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setOnlyActiveAlerts(checked);
+                        if (checked) {
+                          setAlertPeriodFilter('24h');
+                        } else if (alertPeriodFilter === '24h') {
+                          setAlertPeriodFilter('all');
+                        }
+                      }}
+                      style={{ cursor: 'pointer', accentColor: '#007bff' }}
+                    />
+                    {"Masquer les désactivées (" + (alertsForMap.length - activeAlertsCount) + ")"}
+                  </label>
+
+                  {/* Option B: Period Selector */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Période</span>
+                    <select
+                      value={alertPeriodFilter}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAlertPeriodFilter(val);
+                        if (val === '24h') {
+                          setOnlyActiveAlerts(true);
+                        } else {
+                          setOnlyActiveAlerts(false);
+                        }
+                      }}
+                      style={{
+                        fontSize: '11px',
+                        padding: '4px 6px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        backgroundColor: 'white',
+                        color: '#1e293b',
+                        cursor: 'pointer',
+                        outline: 'none',
+                        fontWeight: 500,
+                        width: '100%'
+                      }}
+                    >
+                      <option value="24h">Dernières 24h (Actives) ({activeAlertsCount})</option>
+                      <option value="3d">Derniers 3 jours ({threeDaysAlertsCount})</option>
+                      <option value="1w">Dernière semaine ({oneWeekAlertsCount})</option>
+                      <option value="all">Tout l'historique ({alertsForMap.length})</option>
+                    </select>
+                  </div>
+
+                  {/* Option B sub-dropdown: Month/Year classification if "all" is selected */}
+                  {alertPeriodFilter === 'all' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Mois & Année</span>
+                      <select
+                        value={selectedMonthYear}
+                        onChange={(e) => setSelectedMonthYear(e.target.value)}
+                        style={{
+                          fontSize: '11px',
+                          padding: '4px 6px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          backgroundColor: 'white',
+                          color: '#1e293b',
+                          cursor: 'pointer',
+                          outline: 'none',
+                          fontWeight: 500,
+                          width: '100%'
+                        }}
+                      >
+                        <option value="all">Tous les mois ({alertsForMap.length})</option>
+                        <option value={currentMonthYear.value}>{currentMonthYear.label}</option>
+                        <option value={previousMonthYear.value}>{previousMonthYear.label}</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
           {/* Infractions: badge total + bascule d'étiquettes par région */}
           <span ref={infractionsButtonRef as any}>
@@ -2038,7 +2270,7 @@ const MapPage: React.FC = () => {
           showAutre={showAutre}
           showRegionalAgents={showAgents}
           showAlerts={showAlerts}
-          alerts={alertsForMap}
+          alerts={filteredAlertsForMap}
           agents={agentsForMap}
           selectedMarkerType={selectedMarkerType}
           onMarkerPlaced={() => {}}
