@@ -840,8 +840,12 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           console.log(`Suppression des pushSubscriptions de l'utilisateur ${id}`);
           await db.delete(pushSubscriptions)
             .where(eq(pushSubscriptions.userId, id));
-        } catch (err) {
-          console.log(`Erreur lors de la suppression des pushSubscriptions:`, err);
+        } catch (err: any) {
+          if (err.code === '42P01') {
+            console.log(`Info: La table push_subscriptions n'existe pas encore (ignoré)`);
+          } else {
+            console.log(`Erreur lors de la suppression des pushSubscriptions:`, err);
+          }
         }
 
         // Supprimer toutes les demandes de permis créées par cet utilisateur
