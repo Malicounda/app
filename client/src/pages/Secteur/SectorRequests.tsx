@@ -9,7 +9,13 @@ import { useHunters } from "@/lib/hooks/useHunters";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
+
+const safeFormatDate = (dateVal: any) => {
+  if (!dateVal) return "N/A";
+  const d = new Date(dateVal);
+  return isValid(d) ? format(d, 'dd/MM/yyyy') : "N/A";
+};
 import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { PdfLibraryLoader, generatePdf } from "@/utils/pdfGenerator";
@@ -145,7 +151,7 @@ export default function SectorRequests() {
       return {
         'Chasseur': hunter ? `${hunter.firstName} ${hunter.lastName}` : 'Inconnu',
         'ID Chasseur': hunter?.idNumber || 'N/A',
-        'Date demande': format(new Date(request.requestDate), 'dd/MM/yyyy'),
+        'Date demande': safeFormatDate(request.requestDate),
         'Type': request.type || '-',
         'Catégorie': request.category || '-',
         'Département': request.zone || '-',
@@ -313,7 +319,7 @@ export default function SectorRequests() {
                             </td>
                             <td className="py-2 px-2">{hunter?.phone || "N/A"}</td>
                             <td className="py-2 px-2">
-                              {format(new Date(request.requestDate), 'dd/MM/yyyy')}
+                              {safeFormatDate(request.requestDate)}
                             </td>
                             <td className="py-2 px-2">{request.type || "Standard"}</td>
                             <td className="py-2 px-2">{request.pickupLocation || "Non défini"}</td>
@@ -431,7 +437,7 @@ export default function SectorRequests() {
                               {hunter ? `${hunter.firstName} ${hunter.lastName}` : "Inconnu"}
                             </td>
                             <td className="py-2 px-2">
-                              {format(new Date(request.requestDate), 'dd/MM/yyyy')}
+                              {safeFormatDate(request.requestDate)}
                             </td>
                             <td className="py-2 px-2">{request.type || "Standard"}</td>
                             <td className="py-2 px-2">{request.zone || "Non définie"}</td>
