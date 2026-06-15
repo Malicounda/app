@@ -615,13 +615,16 @@ function AlertsPage() {
     normalizedRole.includes('secteur-agent') ||
     normalizedRole.includes('sector-agent');
 
+  const _currentDomain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
+  const isAlerteDomain = _currentDomain === 'ALERTE' || (_currentDomain !== 'CHASSE' && _currentDomain !== 'REBOISEMENT');
+
   const isAdmin = user.role === 'admin';
   const isDefaultRole = !!(user as any)?.isDefaultRole;
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
   // Lecture seule: admin ou rôle métier superviseur
   const isReadOnlyUser = isAdmin || isSupervisorRole;
   /** Superviseur / default domaine Alerte : nav basse fixe, pied de page collé */
-  const isAlertMobileChromeless = isDefaultRole || isSupervisorRole;
+  const isAlertMobileChromeless = (isDefaultRole || isSupervisorRole) && isAlerteDomain;
   const isHunter = user.role === 'hunter';
   const isGuide = normalizedRole === 'hunting-guide' || normalizedRole.includes('guide');
 
@@ -921,16 +924,11 @@ function AlertsPage() {
   }, [showAlertForm, location, isLoadingLocation, locationPermissionDenied]);
 
   useEffect(() => {
+    // Admins only have an inbox.
     if (isAdmin && activeTab !== "inbox") {
       setActiveTab("inbox");
     }
-  }, [isAdmin, activeTab, setActiveTab]);
-
-  useEffect(() => {
-    if (!isReadOnlyUser && !isHunter && !isGuide && activeTab !== 'outbox') {
-      setActiveTab('outbox');
-    }
-  }, [isReadOnlyUser, isHunter, isGuide, activeTab]);
+  }, [isAdmin, activeTab]);
 
   // (moved below queries) Effects that call refetch/refetchSent must be declared after the queries
 
@@ -1668,7 +1666,7 @@ function AlertsPage() {
   };
 
   // Déterminer si l'utilisateur peut envoyer des alertes
-  const canSendAlerts = (isSectorAgent || isRegionalAgent || isHunter || isGuide || isDefaultRole || isSupervisorRole) && !isAdmin;
+  const canSendAlerts = (isSectorAgent || isRegionalAgent || isHunter || isGuide || isDefaultRole || isSupervisorRole) && !isAdmin && isAlerteDomain;
 
   // Effet pour gérer la configuration initiale en fonction du type d'utilisateur
   useEffect(() => {
@@ -1960,7 +1958,7 @@ function AlertsPage() {
   const showLeftColumn = canSendAlerts && !((isHunter || isGuide) && activeTab === 'outbox') && !(activeTab === 'inbox' && (isRegionalAgent || isSectorAgent));
 
   return (
-    <div className={isHunter || isGuide || isAlertMobileChromeless ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50" : `flex flex-col overflow-hidden bg-[#2d6a4f] h-[100dvh]`}>
+    <div className={isHunter || isGuide || isAlertMobileChromeless ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50" : `flex flex-col overflow-hidden bg-[#2d6a4f] h-full`}>
       {(isHunter || isGuide || isAlertMobileChromeless) && <AgentTopHeader />}
       <div className={isHunter || isGuide ? "flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain pb-24" : isAlertMobileChromeless ? "flex-1 flex flex-col min-h-0 overflow-hidden" : `w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 py-2 sm:py-3 lg:py-4`}>
         <div className={isHunter || isGuide ? "w-full max-w-3xl flex flex-col flex-1 min-h-0 mx-auto px-2 sm:px-4 py-4" : `w-full flex flex-col flex-1 min-h-0 mx-auto`}>
@@ -2239,7 +2237,7 @@ function AlertsPage() {
                       : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 flex flex-col min-h-0 flex-1"
                 }
               >
-                {isSupervisorRole && (
+                {!isAdmin && (
                   <div className="shrink-0 px-4 py-3 border-b flex items-center justify-between bg-slate-50">
                     <div className="flex gap-2">
                       <button
