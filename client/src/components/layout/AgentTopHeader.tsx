@@ -116,7 +116,7 @@ export default function AgentTopHeader() {
                     <div className="relative">
                       <Bell className="h-5 w-5" />
                       {unread > 0 && (
-                        <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center shadow-sm">{unread}</span>
+                        <span className="absolute -top-1.5 -right-2 bg-red-100/80 text-red-700 border border-red-200/50 text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center shadow-sm">{unread}</span>
                       )}
                     </div>
                     <span className="text-sm font-bold uppercase tracking-wide">Alertes</span>
@@ -129,7 +129,7 @@ export default function AgentTopHeader() {
                     <div className="relative">
                       <MessageSquare className="h-5 w-5" />
                       {unreadMsg > 0 && (
-                        <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center shadow-sm animate-pulse">{unreadMsg}</span>
+                        <span className="absolute -top-1.5 -right-2 bg-blue-100/80 text-blue-700 border border-blue-200/50 text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center shadow-sm animate-pulse">{unreadMsg}</span>
                       )}
                     </div>
                     <span className="text-sm font-bold uppercase tracking-wide">Messages</span>

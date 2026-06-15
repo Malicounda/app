@@ -469,7 +469,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
               <div className="relative">
                 <MessageSquare className={`h-5 w-5 ${location === '/sms' ? 'text-green-700' : 'text-gray-500'}`} />
                 {unreadMsg > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
+                  <span className="absolute -top-1 -right-1 bg-blue-100/80 text-blue-700 border border-blue-200/50 text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
                 )}
               </div>
               <span className={`text-[9px] font-medium ${location === '/sms' ? 'text-green-700' : 'text-gray-500'}`}>Messages</span>
@@ -518,7 +518,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
                 <div className="relative">
                   <MessageSquare className="w-5 h-5 mb-1" />
                   {unreadMsg > 0 && (
-                    <span className="absolute -top-1 -right-2 bg-emerald-500 text-white text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
+                    <span className="absolute -top-1 -right-2 bg-blue-100/80 text-blue-700 border border-blue-200/50 text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
                   )}
                 </div>
                 <span className="text-[10px] font-bold">Messagerie</span>
@@ -550,7 +550,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
                 <div className="relative">
                   <MessageSquare className="w-5 h-5 mb-1" />
                   {unreadMsg > 0 && (
-                    <span className="absolute -top-1 -right-2 bg-emerald-500 text-white text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
+                    <span className="absolute -top-1 -right-2 bg-blue-100/80 text-blue-700 border border-blue-200/50 text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
                   )}
                 </div>
                 <span className="text-[10px] font-bold">Messagerie</span>

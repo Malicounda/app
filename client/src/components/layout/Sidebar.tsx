@@ -374,7 +374,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-green-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -382,7 +382,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-green-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -397,7 +397,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <AlertsIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unread > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
                     {unreadDisplay}
                   </span>
                 )}
@@ -405,7 +405,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Alertes
                 {!collapsed && unread > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
                     {unreadDisplay}
                   </span>
                 )}
@@ -699,7 +699,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-green-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -707,7 +707,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-green-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -719,14 +719,19 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               onClick={handleLinkClick}
               className={location === '/alerts' ? activeLinkStyle : linkStyle}
             >
-              <span className={iconWrapCls}>
+              <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <AlertsIcon className={cn('text-gray-600', iconSize)} />
+                {collapsed && unread > 0 && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
+                    {unreadDisplay}
+                  </span>
+                )}
               </span>
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Alertes
-                {unread > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
-                    {unread}
+                {!collapsed && unread > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
+                    {unreadDisplay}
                   </span>
                 )}
               </span>
@@ -878,7 +883,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -886,7 +891,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -898,14 +903,19 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               onClick={handleLinkClick}
               className={location === '/alerts' ? activeLinkStyle : linkStyle}
             >
-              <span className={iconWrapCls}>
+              <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <AlertsIcon className={cn('text-gray-600', iconSize)} />
+                {collapsed && unread > 0 && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
+                    {unreadDisplay}
+                  </span>
+                )}
               </span>
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Alertes
-                {unread > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
-                    {unread}
+                {!collapsed && unread > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
+                    {unreadDisplay}
                   </span>
                 )}
               </span>
@@ -968,7 +978,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -976,7 +986,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1010,14 +1020,19 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               onClick={handleLinkClick}
               className={location === '/sous-secteur/alertes' ? activeLinkStyle : linkStyle}
             >
-              <span className={iconWrapCls}>
+              <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <AlertsIcon className={cn('text-gray-600', iconSize)} />
+                {collapsed && unread > 0 && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
+                    {unreadDisplay}
+                  </span>
+                )}
               </span>
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Alertes
-                {unread > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
-                    {unread}
+                {!collapsed && unread > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
+                    {unreadDisplay}
                   </span>
                 )}
               </span>
@@ -1058,7 +1073,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1066,7 +1081,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1108,7 +1123,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1116,7 +1131,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1158,7 +1173,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1166,7 +1181,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1187,17 +1202,29 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
         )}
 
         {/* Agent avec rôle métier par défaut : Profil, Alertes, Messages uniquement */}
-        {(user as any)?.isDefaultRole && !isUserSuperAdmin(user) && (
+        {(user as any)?.isDefaultRole && !isUserSuperAdmin(user) && !['admin', 'agent', 'sub-agent', 'hunter', 'hunting-guide'].includes(user?.role || "") && (
           <>
             <Link
               href="/default-home"
               onClick={handleLinkClick}
               className={location === '/default-home' ? activeLinkStyle : linkStyle}
             >
-              <span className={iconWrapCls}>
+              <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <AlertsIcon className={cn('text-amber-600', iconSize)} />
+                {collapsed && unread > 0 && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
+                    {unreadDisplay}
+                  </span>
+                )}
               </span>
-              <span className={labelCls}>Mes Alertes</span>
+              <span className={cn(labelCls, 'flex items-center gap-2')}>
+                Mes Alertes
+                {!collapsed && unread > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
+                    {unreadDisplay}
+                  </span>
+                )}
+              </span>
             </Link>
 
             <Link
@@ -1219,7 +1246,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-green-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1227,7 +1254,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-green-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1237,7 +1264,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
         )}
 
         {/* Superviseur : Alertes, Messages, Carte */}
-        {(user as any)?.isSupervisorRole && !isUserSuperAdmin(user) && !(user as any)?.isDefaultRole && (
+        {(user as any)?.isSupervisorRole && !isUserSuperAdmin(user) && !(user as any)?.isDefaultRole && !['admin', 'agent', 'sub-agent', 'hunter', 'hunting-guide'].includes(user?.role || "") && (
           <>
             <Link
               href="/supervisor"
@@ -1258,7 +1285,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <AlertsIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unread > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
                     {unreadDisplay}
                   </span>
                 )}
@@ -1266,7 +1293,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Alertes
                 {!collapsed && unread > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
                     {unreadDisplay}
                   </span>
                 )}
@@ -1281,7 +1308,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-gray-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-green-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1289,7 +1316,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-green-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1331,7 +1358,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-amber-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1339,7 +1366,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1439,7 +1466,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <MessagingIcon className={cn('text-blue-600', iconSize)} />
                 {collapsed && unreadMsg > 0 && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
@@ -1447,7 +1474,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={cn(labelCls, 'flex items-center gap-2')}>
                 Messagerie
                 {!collapsed && unreadMsg > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                     {unreadMsgDisplay}
                   </span>
                 )}
