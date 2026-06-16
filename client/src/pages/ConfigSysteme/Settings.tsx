@@ -217,34 +217,7 @@ export default function Settings() {
     label: string;
     isActive: boolean;
   };
-  const [protectedZoneTypes, setProtectedZoneTypes] = useState<ProtectedZoneTypeItem[]>(() => {
-    try {
-      const hiddenStr = localStorage.getItem('hiddenDefaultProtectedTypes');
-      const hiddenKeys = hiddenStr ? JSON.parse(hiddenStr) : [];
-      const defaultTypes: ProtectedZoneTypeItem[] = [
-        // Types de zones de chasse (affichage via boutons Carte)
-        { key: 'amodiee', label: 'Amodiée', isActive: true },
-        { key: 'zic', label: 'ZIC', isActive: true },
-        { key: 'parc_visite', label: 'Parc de visite', isActive: true },
-        { key: 'regulation', label: 'Régulation', isActive: true },
-        // Types de zones protégées génériques
-        { key: 'foret_classee', label: 'Forêt classée', isActive: true },
-        { key: 'reserve', label: 'Réserve', isActive: true },
-        { key: 'parc_national', label: 'Parc national', isActive: true },
-        { key: 'aire_communautaire', label: 'Aire communautaire', isActive: true },
-        { key: 'zone_tampon', label: 'Zone tampon', isActive: true },
-        { key: 'amp', label: 'Aire marine protégée (AMP)', isActive: true },
-        { key: 'empietement', label: 'Empiétement', isActive: true },
-        { key: 'feux_brousse', label: 'Feux de brousse', isActive: true },
-        { key: 'carriere', label: 'Carrière', isActive: true },
-        { key: 'concession_miniere', label: 'Concession minière', isActive: true },
-        { key: 'autre', label: 'Autre', isActive: true },
-      ];
-      return defaultTypes.filter(t => !hiddenKeys.includes(t.key));
-    } catch (e) {
-      return [];
-    }
-  });
+  const [protectedZoneTypes, setProtectedZoneTypes] = useState<ProtectedZoneTypeItem[]>([]);
   const [newProtectedTypeOpen, setNewProtectedTypeOpen] = useState<boolean>(false);
   const [editProtectedTypeOpen, setEditProtectedTypeOpen] = useState<boolean>(false);
   const [selectedProtectedType, setSelectedProtectedType] = useState<ProtectedZoneTypeItem | null>(null);
@@ -1248,15 +1221,7 @@ export default function Settings() {
           label: String(r.label),
           isActive: !!(r.isActive ?? r.is_active),
         })) as ProtectedZoneTypeItem[];
-        // Fusionner avec les valeurs par défaut pour garantir la présence des types de chasse (amodiée, zic, parc_visite, regulation)
-        setProtectedZoneTypes((prevDefaults) => {
-          const byKey: Record<string, ProtectedZoneTypeItem> = {};
-          // commencer par les valeurs par défaut actuelles
-          for (const t of prevDefaults) byKey[t.key] = t;
-          // écraser/ajouter avec celles du serveur
-          for (const t of mapped) byKey[t.key] = t;
-          return Object.values(byKey);
-        });
+        setProtectedZoneTypes(mapped);
       }
     } catch (e: any) {
       console.error('[SETTINGS] load protected zone types error:', e);
@@ -1451,24 +1416,7 @@ export default function Settings() {
   };
 
   // Supprimer un type de zone protégée
-  const deleteProtectedZoneType = async (id?: number, key?: string) => {
-    if (!id && key) {
-      // It's a hardcoded default that was never saved to DB. Just hide it from UI permanently.
-      try {
-        const hiddenStr = localStorage.getItem('hiddenDefaultProtectedTypes');
-        const hiddenKeys = hiddenStr ? JSON.parse(hiddenStr) : [];
-        if (!hiddenKeys.includes(key)) {
-          hiddenKeys.push(key);
-          localStorage.setItem('hiddenDefaultProtectedTypes', JSON.stringify(hiddenKeys));
-        }
-        setProtectedZoneTypes(prev => prev.filter(t => t.key !== key));
-        toast({ title: 'Succès', description: 'Type de zone protégé masqué' });
-      } catch (e) {
-        console.error('Error hiding default type', e);
-      }
-      return;
-    }
-
+  const deleteProtectedZoneType = async (id?: number) => {
     if (!id) return;
 
     try {
@@ -1502,40 +1450,24 @@ export default function Settings() {
 
       for (const key of selectedProtectedTypesToDelete) {
         const type = protectedZoneTypes.find(t => t.key === key);
-        if (type) {
-          if (!type.id) {
-             // Hide from UI
-             try {
-                const hiddenStr = localStorage.getItem('hiddenDefaultProtectedTypes');
-                const hiddenKeys = hiddenStr ? JSON.parse(hiddenStr) : [];
-                if (!hiddenKeys.includes(type.key)) {
-                  hiddenKeys.push(type.key);
-                  localStorage.setItem('hiddenDefaultProtectedTypes', JSON.stringify(hiddenKeys));
-                }
-                setProtectedZoneTypes(prev => prev.filter(t => t.key !== type.key));
-                successCount++;
-             } catch (e) {
-                errorCount++;
-             }
-          } else {
-            try {
-              const resp = await apiRequest<any>('DELETE', `/settings/protected-zone-types/${type.id}`);
-              if (resp.ok) {
-                successCount++;
-              } else {
-                errorCount++;
-                if (resp.error?.includes('utilisé par')) {
-                  setProtectedTypeUsageError({ isOpen: true, message: resp.error });
-                  break;
-                }
-              }
-            } catch (e: any) {
+        if (type?.id) {
+          try {
+            const resp = await apiRequest<any>('DELETE', `/settings/protected-zone-types/${type.id}`);
+            if (resp.ok) {
+              successCount++;
+            } else {
               errorCount++;
-              console.error(`Erreur suppression type ${key}:`, e);
-              if (e?.message?.includes('utilisé par')) {
-                setProtectedTypeUsageError({ isOpen: true, message: e.message });
+              if (resp.error?.includes('utilisé par')) {
+                setProtectedTypeUsageError({ isOpen: true, message: resp.error });
                 break;
               }
+            }
+          } catch (e: any) {
+            errorCount++;
+            console.error(`Erreur suppression type ${key}:`, e);
+            if (e?.message?.includes('utilisé par')) {
+              setProtectedTypeUsageError({ isOpen: true, message: e.message });
+              break;
             }
           }
         }
@@ -5605,7 +5537,7 @@ export default function Settings() {
                                       <Button
                                         variant="destructive"
                                         size="sm"
-                                        onClick={() => deleteProtectedZoneType(type.id, type.key)}
+                                        onClick={() => deleteProtectedZoneType(type.id)}
                                         className="flex items-center gap-1"
                                       >
                                         <Trash2 className="h-3 w-3" />

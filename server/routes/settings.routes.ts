@@ -1104,6 +1104,34 @@ router.put('/agent-permit-access', isAuthenticated, async (req, res) => {
 // GET /api/settings/protected-zone-types
 router.get('/protected-zone-types', isAuthenticated, async (req, res) => {
   try {
+    // 1. Auto-seed : Créer dynamiquement les types qui sont utilisés dans protected_zones mais manquants dans protected_zone_types
+    await db.execute(sql`
+      INSERT INTO protected_zone_types (key, label, is_active)
+      SELECT DISTINCT type, 
+             -- Formater la clé en label lisible (ex: concession_miniere -> Concession miniere)
+             INITCAP(REPLACE(type, '_', ' ')), 
+             true
+      FROM protected_zones
+      WHERE type IS NOT NULL AND type != ''
+        AND type NOT IN (SELECT key FROM protected_zone_types)
+    `);
+
+    // 2. S'assurer que les 4 types vitaux (chasse) sont toujours présents
+    const coreTypes = [
+      { key: 'amodiee', label: 'Amodiée' },
+      { key: 'zic', label: 'ZIC' },
+      { key: 'parc_visite', label: 'Parc de visite' },
+      { key: 'regulation', label: 'Régulation' }
+    ];
+    for (const t of coreTypes) {
+      await db.execute(sql`
+        INSERT INTO protected_zone_types (key, label, is_active)
+        VALUES (${t.key}, ${t.label}, true)
+        ON CONFLICT (key) DO NOTHING
+      `);
+    }
+
+    // 3. Récupérer la liste complète
     const result = await db.execute(sql`
       SELECT id, key, label, is_active AS "isActive", created_at, updated_at
       FROM protected_zone_types
