@@ -162,7 +162,7 @@ export async function uploadShapefile(req: Request, res: Response) {
     }
 
     // Validation de la table de destination
-    const validTables = ['regions', 'departements', 'communes', 'arrondissements', 'protected_zones', 'eco_geographie_zones'];
+    const validTables = ['regions', 'departements', 'communes', 'arrondissements', 'protected_zones', 'eco_geographie_zones', 'zones'];
     if (!validTables.includes(destTable)) {
       return res.status(400).json({
         ok: false,
@@ -293,6 +293,33 @@ export async function uploadShapefile(req: Request, res: Response) {
               ${surfaceHa},
               ${perimetreM},
               ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628),
+              NOW(),
+              NOW()
+            )
+          `);
+        } else if (destTable === 'zones') {
+          if (!safeLayerName) {
+            return res.status(400).json({ ok: false, error: 'Le champ "Nom de la couche" est requis pour zones d\'exploitation' });
+          }
+          if (!protectedZoneType || (typeof protectedZoneType === 'string' && protectedZoneType.trim().length === 0)) {
+            return res.status(400).json({ ok: false, error: 'Le champ "Type" est requis' });
+          }
+          // zones attend un SRID 4326 pour geometry
+          const createdBy = (req as any)?.user?.username || 'system';
+          await db.execute(sql`
+            INSERT INTO zones (
+              name, "type", status,
+              geometry,
+              centroid_lat, centroid_lon, area_sq_km, created_by, created_at, updated_at
+            ) VALUES (
+              ${safeLayerName},
+              ${protectedZoneType},
+              'active',
+              ST_Force2D(ST_Transform(ST_GeomFromText(${wkt}, 32628), 4326)),
+              ${centroid.lat},
+              ${centroid.lon},
+              ST_Area(Geography(ST_Transform(ST_GeomFromText(${wkt}, 32628), 4326)))/1000000.0,
+              ${createdBy},
               NOW(),
               NOW()
             )

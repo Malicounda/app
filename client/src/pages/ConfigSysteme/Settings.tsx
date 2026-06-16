@@ -1067,6 +1067,9 @@ export default function Settings() {
         case 'protected_zones':
           endpoint = '/api/protected-zones';
           break;
+        case 'zones':
+          endpoint = '/api/zones';
+          break;
         default:
           throw new Error('Table non supportée');
       }
@@ -1163,6 +1166,9 @@ export default function Settings() {
           break;
         case 'protected_zones':
           endpoint = '/api/protected-zones';
+          break;
+        case 'zones':
+          endpoint = '/api/zones';
           break;
         default:
           throw new Error('Table non supportée');
@@ -4526,6 +4532,12 @@ export default function Settings() {
                               <span>Zones Éco-Géographiques</span>
                             </div>
                           </SelectItem>
+                          <SelectItem value="zones">
+                            <div className="flex items-center gap-2">
+                              <FaTree className="w-4 h-4 text-orange-600" />
+                              <span>Zones d'Exploitation (Chasse)</span>
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -4542,10 +4554,10 @@ export default function Settings() {
                       />
                     </div>
 
-                    {/* Type (uniquement pour zones protégées) */}
-                    {shapefileDestTable === 'protected_zones' && (
+                    {/* Type (uniquement pour zones protégées et zones d'exploitation) */}
+                    {(shapefileDestTable === 'protected_zones' || shapefileDestTable === 'zones') && (
                       <div className="space-y-2">
-                        <Label className="text-base font-semibold">Type (zones protégées)</Label>
+                        <Label className="text-base font-semibold">Type de Zone</Label>
                         <Select value={protectedZoneType} onValueChange={setProtectedZoneType}>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="Sélectionner un type normalisé" />
@@ -4558,7 +4570,7 @@ export default function Settings() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-gray-500">Requis lorsque la table de destination est "Zones Protégées".</p>
+                        <p className="text-xs text-gray-500">Requis pour cette table.</p>
                       </div>
                     )}
 
@@ -4714,7 +4726,7 @@ export default function Settings() {
                       <Button
                         type="button"
                         className="flex-1"
-                        disabled={!uploadedFiles.shp || !uploadedFiles.shx || !uploadedFiles.dbf || !shapefileDestTable || !shapefileLayerName || (shapefileDestTable === 'protected_zones' && !protectedZoneType)}
+                        disabled={!uploadedFiles.shp || !uploadedFiles.shx || !uploadedFiles.dbf || !shapefileDestTable || !shapefileLayerName || ((shapefileDestTable === 'protected_zones' || shapefileDestTable === 'zones') && !protectedZoneType)}
                         onClick={async () => {
                           if (!uploadedFiles.shp || !uploadedFiles.shx || !uploadedFiles.dbf) {
                             toast({
@@ -4734,10 +4746,10 @@ export default function Settings() {
                             return;
                           }
 
-                          if (shapefileDestTable === 'protected_zones' && !protectedZoneType) {
+                          if ((shapefileDestTable === 'protected_zones' || shapefileDestTable === 'zones') && !protectedZoneType) {
                             toast({
                               title: "Type requis",
-                              description: "Veuillez préciser le type pour la zone protégée (ex: Forêt classée).",
+                              description: "Veuillez préciser le type de la zone.",
                               variant: "destructive"
                             });
                             return;
@@ -4754,7 +4766,7 @@ export default function Settings() {
                             if (uploadedFiles.prj) formData.append('prj', uploadedFiles.prj);
                             formData.append('destTable', shapefileDestTable);
                             formData.append('layerName', shapefileLayerName);
-                            if (shapefileDestTable === 'protected_zones' && protectedZoneType) {
+                            if ((shapefileDestTable === 'protected_zones' || shapefileDestTable === 'zones') && protectedZoneType) {
                               formData.append('protectedZoneType', protectedZoneType);
                             }
 
@@ -5090,11 +5102,17 @@ export default function Settings() {
                                 <span>Zones Protégées</span>
                               </div>
                             </SelectItem>
+                            <SelectItem value="zones">
+                              <div className="flex items-center gap-2">
+                                <FaTree className="w-4 h-4 text-orange-600" />
+                                <span>Zones d'Exploitation (Chasse)</span>
+                              </div>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
-                      {deleteLayerTable === 'protected_zones' && (
+                      {(deleteLayerTable === 'protected_zones' || deleteLayerTable === 'zones') && (
                         <div className="space-y-2 mt-4">
                           <Label className="text-sm font-semibold text-gray-700">Filtrer par Type de Zone</Label>
                           <Select
@@ -5169,7 +5187,7 @@ export default function Settings() {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                       Nom
                                     </th>
-                                    {deleteLayerTable === 'protected_zones' && (
+                                    {(deleteLayerTable === 'protected_zones' || deleteLayerTable === 'zones') && (
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Type
                                       </th>
