@@ -18,7 +18,7 @@ import { format } from "date-fns";
 import { AlertTriangle, CalendarIcon, CheckCircle2, Edit, FileText, Info, Loader2, MapPin, Plus, Trash2, Upload, Search, Filter } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaGlobeEurope, FaLeaf, FaMapMarkedAlt, FaTree, FaPaw } from "react-icons/fa";
+import { FaDrawPolygon, FaGlobeEurope, FaLeaf, FaMapMarkedAlt, FaTree, FaPaw } from "react-icons/fa";
 // removed RadioGroup import; using Switch toggles for status controls
 
 
