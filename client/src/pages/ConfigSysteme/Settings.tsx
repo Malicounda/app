@@ -4880,7 +4880,7 @@ export default function Settings() {
                         <SelectContent>
                           <SelectItem value="regions">
                             <div className="flex items-center gap-2">
-                              <FaGlobeEurope className="w-4 h-4 text-blue-600" />
+                              <img src="/icone_Senegal.ico" alt="Sénégal" style={{ width: 18, height: 18, mixBlendMode: 'multiply' }} />
                               <span>Régions</span>
                             </div>
                           </SelectItem>
