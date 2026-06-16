@@ -186,20 +186,29 @@ export default function Settings() {
 
   // États pour la suppression de couches
   const [deleteLayerTable, setDeleteLayerTable] = useState<string>("");
+  const [deleteLayerFilterType, setDeleteLayerFilterType] = useState<string>("all");
   const [deleteLayerEntities, setDeleteLayerEntities] = useState<any[]>([]);
   const [selectedDeleteEntities, setSelectedDeleteEntities] = useState<number[]>([]);
   const [loadingDeleteEntities, setLoadingDeleteEntities] = useState<boolean>(false);
   const [deletingEntities, setDeletingEntities] = useState<boolean>(false);
   const [deleteEntitiesConfirmOpen, setDeleteEntitiesConfirmOpen] = useState<boolean>(false);
+
+  const filteredDeleteLayerEntities = useMemo(() => {
+    if (deleteLayerTable !== 'protected_zones' || deleteLayerFilterType === 'all') {
+      return deleteLayerEntities;
+    }
+    return deleteLayerEntities.filter(e => e.type === deleteLayerFilterType);
+  }, [deleteLayerEntities, deleteLayerTable, deleteLayerFilterType]);
+
   // Compteur cohérent des sélections sur la liste visible
   const selectedDeleteCountInView = useMemo(() => {
     try {
-      if (!Array.isArray(deleteLayerEntities) || !Array.isArray(selectedDeleteEntities)) return 0;
-      return deleteLayerEntities.reduce((acc, e) => acc + (selectedDeleteEntities.includes(e.id) ? 1 : 0), 0);
+      if (!Array.isArray(filteredDeleteLayerEntities) || !Array.isArray(selectedDeleteEntities)) return 0;
+      return filteredDeleteLayerEntities.reduce((acc, e) => acc + (selectedDeleteEntities.includes(e.id) ? 1 : 0), 0);
     } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
       return selectedDeleteEntities.length;
      }
-  }, [deleteLayerEntities, selectedDeleteEntities]);
+  }, [filteredDeleteLayerEntities, selectedDeleteEntities]);
 
   // États pour la gestion des types de zones protégées
   type ProtectedZoneTypeItem = {
@@ -5061,6 +5070,7 @@ export default function Settings() {
                           onValueChange={(v) => {
                             setDeleteLayerTable(v);
                             setSelectedDeleteEntities([]);
+                            setDeleteLayerFilterType("all");
                             loadDeleteLayerEntities(v);
                           }}
                         >
@@ -5108,12 +5118,34 @@ export default function Settings() {
                         </Select>
                       </div>
 
+                      {deleteLayerTable === 'protected_zones' && (
+                        <div className="space-y-2 mt-4">
+                          <Label className="text-sm font-semibold text-gray-700">Filtrer par Type de Zone</Label>
+                          <Select
+                            value={deleteLayerFilterType}
+                            onValueChange={(v) => setDeleteLayerFilterType(v)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Tous les types" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Tous les types</SelectItem>
+                              {protectedZoneTypes.map((type) => (
+                                <SelectItem key={type.key} value={type.key}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
                       {/* Liste des entités */}
                       {deleteLayerTable && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label className="text-base font-semibold">
-                              Entités disponibles ({deleteLayerEntities.length})
+                              Entités disponibles ({filteredDeleteLayerEntities.length})
                             </Label>
                             {selectedDeleteEntities.length > 0 && (
                               <Badge variant="destructive">
@@ -5127,7 +5159,7 @@ export default function Settings() {
                               <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400" />
                               <p className="text-sm text-gray-500 mt-2">Chargement des entités...</p>
                             </div>
-                          ) : deleteLayerEntities.length === 0 ? (
+                          ) : filteredDeleteLayerEntities.length === 0 ? (
                             <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
                               <p className="text-sm text-gray-500">Aucune entité trouvée dans cette table</p>
                             </div>
@@ -5141,9 +5173,9 @@ export default function Settings() {
                                       <input
                                         type="checkbox"
                                         className="h-4 w-4 rounded border-gray-300 cursor-pointer"
-                                        checked={deleteLayerEntities.length > 0 && selectedDeleteCountInView === deleteLayerEntities.length}
+                                        checked={filteredDeleteLayerEntities.length > 0 && selectedDeleteCountInView === filteredDeleteLayerEntities.length}
                                         onChange={(e) => {
-                                          const idsInView = deleteLayerEntities.map((x:any) => x.id);
+                                          const idsInView = filteredDeleteLayerEntities.map((x:any) => x.id);
                                           if (e.currentTarget.checked) {
                                             // Ajouter tous les ids visibles
                                             setSelectedDeleteEntities(prev => {
@@ -5169,7 +5201,7 @@ export default function Settings() {
                                   </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                  {deleteLayerEntities.map((entity) => (
+                                  {filteredDeleteLayerEntities.map((entity) => (
                                     <tr
                                       key={entity.id}
                                       className={`hover:bg-gray-50 ${
@@ -5207,7 +5239,7 @@ export default function Settings() {
                           )}
 
                           {/* Bouton de suppression */}
-                          {deleteLayerEntities.length > 0 && (
+                          {filteredDeleteLayerEntities.length > 0 && (
                             <div className="flex justify-end pt-2">
                               <Button
                                 variant="destructive"
