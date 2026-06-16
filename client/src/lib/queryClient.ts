@@ -242,9 +242,9 @@ export async function apiRequest<T>({
         console.log('[API Auth] Token found in localStorage, adding to request');
       }
     } else {
-      // Ne pas afficher d'avertissement pour les routes d'authentification publiques
-      const isPublicAuthRoute = fullUrl.includes('/api/auth/login') || fullUrl.includes('/api/auth/register');
-      if (!isPublicAuthRoute && process.env.NODE_ENV === 'development') {
+      // Ne pas afficher d'avertissement pour les routes publiques ou d'authentification
+      const isPublicRoute = fullUrl.includes('/api/auth/login') || fullUrl.includes('/api/auth/register') || fullUrl.includes('/public/');
+      if (!isPublicRoute && process.env.NODE_ENV === 'development') {
         console.warn('[API Auth] ⚠️ No token in localStorage for', method, fullUrl);
       }
     }

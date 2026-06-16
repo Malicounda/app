@@ -99,15 +99,7 @@ export default function AlerteLogin() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
-      // Vérifier la connexion Internet avant de tenter le login
-      if (!navigator.onLine) {
-        toast({
-          title: "Pas de connexion",
-          description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
-          variant: "destructive",
-        });
-        return;
-      }
+      // La vérification de navigator.onLine a été retirée car elle bloque l'accès à localhost si hors-ligne.
 
       localStorage.setItem("domain", "ALERTE");
 

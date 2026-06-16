@@ -58,14 +58,7 @@ export default function ReboisementLogin() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
-      if (!navigator.onLine) {
-        toast({
-          title: "Pas de connexion",
-          description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
-          variant: "destructive",
-        });
-        return;
-      }
+      // La vérification de navigator.onLine a été retirée car elle bloque l'accès à localhost si hors-ligne.
 
       localStorage.setItem("domain", "REBOISEMENT");
       await login(values.identifier, values.password);

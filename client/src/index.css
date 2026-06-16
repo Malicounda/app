@@ -1,5 +1,5 @@
-/* Import des polices Material Icons */
-@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+/* Import des polices Material Icons depuis le package npm local */
+@import 'material-icons/iconfont/material-icons.css';
 
 @tailwind base;
 @tailwind components;

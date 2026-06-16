@@ -82,14 +82,10 @@ export default function Login() {
 
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     try {
-      if (!navigator.onLine) {
-        toast({
-          title: "Pas de connexion",
-          description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
-          variant: "destructive",
-        });
-        return;
-      }
+      // La vérification de navigator.onLine a été retirée car elle bloque
+      // l'accès à localhost si l'ordinateur n'a aucune connexion réseau.
+      // Si le serveur backend n'est pas joignable, le fetch échouera et
+      // l'erreur sera interceptée par le catch en bas.
 
       await login(values.identifier, values.password || '');
 
