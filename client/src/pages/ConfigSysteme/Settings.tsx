@@ -4904,8 +4904,8 @@ export default function Settings() {
                           </SelectItem>
                           <SelectItem value="protected_zones">
                             <div className="flex items-center gap-2">
-                              <FaTree className="w-4 h-4 text-green-700" />
-                              <span>Zones Protégées (Forêts)</span>
+                              <FaDrawPolygon className="w-4 h-4 text-green-700" />
+                              <span>Zones Protégées</span>
                             </div>
                           </SelectItem>
                           <SelectItem value="eco_geographie_zones">
