@@ -11,6 +11,7 @@ import { mapCache } from '@/lib/mapCache';
 import { apiRequest } from '@/lib/queryClient';
 import { filterAlertsForSupervisor } from '@/utils/alertZoneScope';
 import { resolveApiUrl } from '@/utils/environment';
+import { isUserSuperAdmin } from '@/utils/navigation';
 import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 
@@ -518,7 +519,8 @@ const MapPage: React.FC = () => {
     .trim();
   const userRegion = normalize((user as any)?.region);
   const userDep = normalize((user as any)?.departement || (user as any)?.zone);
-  const isAdmin = user?.role === 'admin';
+  const isSuperAdminFlag = isUserSuperAdmin(user);
+  const isAdmin = user?.role === 'admin' || isSuperAdminFlag;
   const isRegionalAgent = user?.role === 'agent' && (user as any)?.type !== 'secteur' && !!userRegion;
   const isSectorAgent = (user?.role === 'agent' && (user as any)?.type === 'secteur' && !!userDep) || (user?.role === 'sub-agent' && !!userDep);
   const isSupervisor = !!(user as any)?.isSupervisorRole;
@@ -1159,7 +1161,7 @@ const MapPage: React.FC = () => {
       try {
         const qs: string[] = [];
         const role = (user?.role || '').toLowerCase();
-        const isAdmin = role.includes('admin');
+        const isAdmin = role.includes('admin') || isUserSuperAdmin(user);
 
         // Détection correcte des agents régionaux et secteur
         const isAgentGeneric = role === 'agent';
@@ -1311,7 +1313,7 @@ const MapPage: React.FC = () => {
       try {
         const qs: string[] = [];
         const role = (user?.role || '').toLowerCase();
-        const isAdmin = role.includes('admin');
+        const isAdmin = role.includes('admin') || isUserSuperAdmin(user);
         const isRegional = role.includes('regional');
         const isAgentGeneric = role.includes('agent');
         const isSector = role.includes('sector') || role.includes('secteur') || role.includes('sub-agent') || (isAgentGeneric && !!(user as any)?.departement);
@@ -2196,7 +2198,7 @@ const MapPage: React.FC = () => {
                   try {
                     const qs: string[] = [];
                     const role = (user?.role || '').toLowerCase();
-                    const isAdmin = role.includes('admin');
+                    const isAdmin = role.includes('admin') || isUserSuperAdmin(user);
 
                     // Détection correcte des agents régionaux et secteur
                     const isAgentGeneric = role === 'agent';

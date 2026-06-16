@@ -530,6 +530,17 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
             </Link>
 
             <Link
+              href="/map"
+              onClick={handleLinkClick}
+              className={location === '/map' ? activeLinkStyle : linkStyle}
+            >
+              <span className={iconWrapCls}>
+                <MapIcon className={cn('text-slate-400', iconSize)} />
+              </span>
+              <span className={labelCls}>Carte Nationale</span>
+            </Link>
+
+            <Link
               href="/accounts"
               onClick={handleLinkClick}
               className={location === '/accounts' ? activeLinkStyle : linkStyle}

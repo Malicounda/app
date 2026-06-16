@@ -161,13 +161,12 @@ export async function uploadShapefile(req: Request, res: Response) {
       });
     }
 
-    // Validation de la table de destination (alignée avec le schéma actuel)
-    // Note: communes/arrondissements ne sont pas présents dans le schéma Prisma actuel
-    const validTables = ['regions', 'departements', 'protected_zones'];
+    // Validation de la table de destination
+    const validTables = ['regions', 'departements', 'communes', 'arrondissements', 'protected_zones', 'eco_geographie_zones'];
     if (!validTables.includes(destTable)) {
       return res.status(400).json({
         ok: false,
-        error: 'Table de destination invalide'
+        error: `Table de destination invalide: "${destTable}". Tables acceptées: ${validTables.join(', ')}`
       });
     }
 
@@ -244,23 +243,23 @@ export async function uploadShapefile(req: Request, res: Response) {
         const properties = feature.properties || {};
 
         if (destTable === 'regions') {
-          // Schéma actuel (Prisma baseline): regions(name, status, surface_km2, perimetre_km, zone_geo, geom, center)
+          // Schéma réel: regions(nom, geom, centre_geometrique) — SRID 32628
           await db.execute(sql`
-            INSERT INTO regions (name, geom, center)
+            INSERT INTO regions (nom, geom, centre_geometrique)
             VALUES (
               ${layerName},
               ST_GeomFromText(${wkt}, 32628),
-              ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326)
+              ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
             )
           `);
         } else if (destTable === 'departements') {
-          // Schéma actuel (Prisma baseline): departements(name, status, surface_km2, perimetre_km, zone_geo, geom, center)
+          // Schéma réel: departements(nom, geom, centre_geometrique) — SRID 32628
           await db.execute(sql`
-            INSERT INTO departements (name, geom, center)
+            INSERT INTO departements (nom, geom, centre_geometrique)
             VALUES (
               ${layerName || properties.nom || properties.name || properties.NAME || `Département ${insertedCount + 1}`},
               ST_GeomFromText(${wkt}, 32628),
-              ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326)
+              ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
             )
           `);
         } else if (destTable === 'protected_zones') {
@@ -296,6 +295,36 @@ export async function uploadShapefile(req: Request, res: Response) {
               ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628),
               NOW(),
               NOW()
+            )
+          `);
+        } else if (destTable === 'communes') {
+          // Schéma réel: communes(nom, geom, centre_geometrique)
+          await db.execute(sql`
+            INSERT INTO communes (nom, geom, centre_geometrique)
+            VALUES (
+              ${layerName || properties.nom || properties.name || properties.NAME || `Commune ${insertedCount + 1}`},
+              ST_GeomFromText(${wkt}, 32628),
+              ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
+            )
+          `);
+        } else if (destTable === 'arrondissements') {
+          // Schéma réel: arrondissements(nom, geom, centre_geometrique)
+          await db.execute(sql`
+            INSERT INTO arrondissements (nom, geom, centre_geometrique)
+            VALUES (
+              ${layerName || properties.nom || properties.name || properties.NAME || `Arrondissement ${insertedCount + 1}`},
+              ST_GeomFromText(${wkt}, 32628),
+              ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
+            )
+          `);
+        } else if (destTable === 'eco_geographie_zones') {
+          // Table éco-géographique
+          await db.execute(sql`
+            INSERT INTO eco_geographie_zones (nom, geom, centre_geometrique)
+            VALUES (
+              ${layerName || properties.nom || properties.name || properties.NAME || `Zone éco ${insertedCount + 1}`},
+              ST_GeomFromText(${wkt}, 32628),
+              ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
             )
           `);
         }
@@ -339,6 +368,13 @@ export async function uploadShapefile(req: Request, res: Response) {
     }
 
     console.log(`✅ ${insertedCount} entités insérées dans ${destTable}`);
+
+    if (insertedCount === 0) {
+      return res.status(400).json({
+        ok: false,
+        error: `Aucune entité n'a pu être insérée dans ${destTable}. Vérifiez le format et la validité des géométries du shapefile.`
+      });
+    }
 
     res.json({
       ok: true,
