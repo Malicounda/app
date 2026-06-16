@@ -1114,6 +1114,7 @@ router.get('/protected-zone-types', isAuthenticated, async (req, res) => {
       FROM protected_zones
       WHERE type IS NOT NULL AND type != ''
         AND type NOT IN (SELECT key FROM protected_zone_types)
+        AND type NOT IN ('amodiee', 'zic', 'parc_visite', 'regulation')
     `);
 
     // 2. Récupérer la liste complète
