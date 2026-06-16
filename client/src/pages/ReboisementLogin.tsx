@@ -28,6 +28,22 @@ const schema = z.object({
 export default function ReboisementLogin() {
   const { login, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const [loginTheme, setLoginTheme] = useState<{ bgImage?: string; bgColor?: string; primary?: string }>({});
+
+  useEffect(() => {
+    try {
+      const cfgStr = localStorage.getItem('theme:superadmin');
+      if (cfgStr) {
+        const cfg = JSON.parse(cfgStr);
+        const dTheme = cfg?.domains?.REBOISEMENT || {};
+        setLoginTheme({
+          bgImage: dTheme.loginBgImage,
+          bgColor: dTheme.loginBgColor,
+          primary: dTheme.loginPrimaryColor
+        });
+      }
+    } catch (e) {}
+  }, []);
   const [showPassword, setShowPassword] = useState(false);
   const { icon: DomainIcon, logoUrl } = useDomainVisual('REBOISEMENT');
 
@@ -79,12 +95,13 @@ export default function ReboisementLogin() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-gradient-to-br from-lime-50 via-green-50 to-emerald-100 flex items-center justify-center overflow-auto p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-auto p-4 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: loginTheme.bgImage ? `url("${loginTheme.bgImage}")` : "none", backgroundColor: loginTheme.bgColor || undefined, ...(loginTheme.bgImage || loginTheme.bgColor ? {} : { background: "linear-gradient(to bottom right, #f7fee7, #f0fdf4, #d1fae5)" }) }}>
       <div className="w-full max-w-md bg-white/70 backdrop-blur rounded-2xl shadow-xl p-6">
         <button
           type="button"
           onClick={() => setLocation('/?showModules=1')}
-          className="mb-3 inline-flex items-center gap-2 text-green-700 hover:text-green-800"
+          className="mb-3 inline-flex items-center gap-2 text-green-700 hover:text-green-800" style={loginTheme.primary ? { color: loginTheme.primary } : {}}
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Retour</span>
@@ -93,7 +110,7 @@ export default function ReboisementLogin() {
           {logoUrl ? (
             <img src={logoUrl} alt="Reboisement" className="w-10 h-10 object-contain" />
           ) : (
-            <DomainIcon className="w-10 h-10 text-green-600" />
+            <DomainIcon className="w-10 h-10 text-green-600" style={loginTheme.primary ? { color: loginTheme.primary } : {}} />
           )}
         </div>
         <h1 className="text-2xl font-bold text-center text-gray-800">Connexion Reboisement</h1>
@@ -110,7 +127,7 @@ export default function ReboisementLogin() {
                     <FormControl>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <User className="h-5 w-5 text-green-600" />
+                          <User className="h-5 w-5 text-green-600" style={loginTheme.primary ? { color: loginTheme.primary } : {}} />
                         </div>
                         <Input
                           placeholder="nom_utilisateur ou e-mail"
@@ -133,7 +150,7 @@ export default function ReboisementLogin() {
                     <FormControl>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Lock className="h-5 w-5 text-green-600" />
+                          <Lock className="h-5 w-5 text-green-600" style={loginTheme.primary ? { color: loginTheme.primary } : {}} />
                         </div>
                         <Input
                           type={showPassword ? "text" : "password"}

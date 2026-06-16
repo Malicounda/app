@@ -41,6 +41,22 @@ const isApkMode = (): boolean => {
 export default function AlerteLogin() {
   const { login, isLoading, isAuthenticated, user } = useAuth();
   const [, setLocation] = useLocation();
+  const [loginTheme, setLoginTheme] = useState<{ bgImage?: string; bgColor?: string; primary?: string }>({});
+
+  useEffect(() => {
+    try {
+      const cfgStr = localStorage.getItem('theme:superadmin');
+      if (cfgStr) {
+        const cfg = JSON.parse(cfgStr);
+        const dTheme = cfg?.domains?.ALERTE || {};
+        setLoginTheme({
+          bgImage: dTheme.loginBgImage,
+          bgColor: dTheme.loginBgColor,
+          primary: dTheme.loginPrimaryColor
+        });
+      }
+    } catch (e) {}
+  }, []);
   const { icon: DomainIcon, logoUrl } = useDomainVisual("ALERTE");
   const [showLicense, setShowLicense] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -134,14 +150,15 @@ export default function AlerteLogin() {
   if (isAuthenticated) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#2d6a4f] flex items-center justify-center overflow-auto p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-auto p-4 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: loginTheme.bgImage ? `url("${loginTheme.bgImage}")` : undefined, backgroundColor: loginTheme.bgColor || "#2d6a4f" }}>
 
       <div className="w-full max-w-md bg-white/70 backdrop-blur rounded-2xl shadow-xl p-6">
 
         {!isApk && (
           <button
             onClick={() => setLocation("/")}
-            className="mb-3 inline-flex items-center gap-2 text-amber-700"
+            className="mb-3 inline-flex items-center gap-2 text-amber-700" style={loginTheme.primary ? { color: loginTheme.primary } : {}}
           >
             <ArrowLeft className="w-4 h-4" />
             Retour
@@ -152,7 +169,7 @@ export default function AlerteLogin() {
           {logoUrl && !isApk ? (
             <img src={logoUrl} className="w-10 h-10" />
           ) : (
-            <Bell className="w-10 h-10 text-amber-600" />
+            <Bell className="w-10 h-10 text-amber-600" style={loginTheme.primary ? { color: loginTheme.primary } : {}} />
           )}
         </div>
 
@@ -171,7 +188,7 @@ export default function AlerteLogin() {
                 <FormItem>
                   <FormControl>
                     <div className="relative">
-                      <User className="absolute left-3 top-3 text-amber-600" />
+                      <User className="absolute left-3 top-3 text-amber-600" style={loginTheme.primary ? { color: loginTheme.primary } : {}} />
                       <Input
                         {...field}
                         placeholder="matricule"
@@ -192,7 +209,7 @@ export default function AlerteLogin() {
                 <FormItem>
                   <FormControl>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 text-amber-600" />
+                      <Lock className="absolute left-3 top-3 text-amber-600" style={loginTheme.primary ? { color: loginTheme.primary } : {}} />
                       <Input
                         {...field}
                         type={showPassword ? "text" : "password"}
@@ -216,7 +233,7 @@ export default function AlerteLogin() {
 
             <Button
               type="submit"
-              className="w-full bg-amber-600"
+              className="w-full bg-amber-600" style={loginTheme.primary ? { backgroundColor: loginTheme.primary } : {}}
               disabled={isLoading}
             >
               {isLoading ? "Connexion..." : "Se connecter"}

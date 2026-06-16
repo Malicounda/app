@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { TaxesIcon } from "@/components/icons/CustomIcons";
 import { useUnreadMessagesCount } from "@/lib/hooks/useUnreadMessages";
 import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
 import {
@@ -8,7 +9,6 @@ import {
     Home,
     LogOut,
     MessageSquare,
-    Receipt,
     Settings,
     UserCircle,
     Users
@@ -54,7 +54,7 @@ export default function Navbar() {
     { path: "/hunters", label: "Chasseurs", icon: <Users className="h-6 w-6 mr-1" /> },
     { path: "/permits", label: "Permis", icon: <FileText className="h-6 w-6 mr-1" /> },
     { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
-    { path: "/taxes", label: "Taxes d'Abattage", icon: <Receipt className="h-6 w-6 mr-1" /> },
+    { path: "/taxes", label: "Taxes d'Abattage", icon: <TaxesIcon className="h-6 w-6 mr-1" /> },
     { path: "/regional-sms", label: "SMS", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
     { path: "/history", label: "Historique", icon: <History className="h-6 w-6 mr-1" /> },
   ];
@@ -64,7 +64,7 @@ export default function Navbar() {
     { path: "/sector-hunters", label: "Chasseurs", icon: <Users className="h-6 w-6 mr-1" /> },
     { path: "/sector-permits", label: "Permis", icon: <FileText className="h-6 w-6 mr-1" /> },
     { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
-    { path: "/taxes", label: "Taxes d'Abattage", icon: <Receipt className="h-6 w-6 mr-1" /> },
+    { path: "/taxes", label: "Taxes d'Abattage", icon: <TaxesIcon className="h-6 w-6 mr-1" /> },
     { path: "/sector-sms", label: "SMS", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
     { path: "/history", label: "Historique", icon: <History className="h-6 w-6 mr-1" /> },
   ];
@@ -127,12 +127,12 @@ export default function Navbar() {
                       {item.icon}
                       <span className="hidden md:inline flex items-center gap-2">
                         {item.path === "/alerts" && unreadAlerts > 0 && (
-                          <span className="inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                          <span className="inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
                             {unreadAlerts}
                           </span>
                         )}
                         {(item.path === "/sms" || item.path === "/regional-sms" || item.path === "/sector-sms") && unreadMessages > 0 && (
-                          <span className="inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-500 text-white text-xs font-semibold">
+                          <span className="inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                             {unreadMessages}
                           </span>
                         )}

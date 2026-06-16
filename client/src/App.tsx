@@ -1088,12 +1088,32 @@ function applyTheme(cfg: any, user: any, location: string) {
 
   const lowerLoc = location.toLowerCase();
   let pathDomain = '';
-  if (lowerLoc.startsWith('/reboisement') || lowerLoc.startsWith('/pepinieres') || lowerLoc.startsWith('/zones-reboisees') || lowerLoc.startsWith('/declarations')) {
-    pathDomain = 'REBOISEMENT';
-  } else if (lowerLoc.startsWith('/alerte') || lowerLoc.startsWith('/alertes')) {
-    pathDomain = 'ALERTE';
-  } else if (lowerLoc.startsWith('/chasse') || lowerLoc.startsWith('/permits') || lowerLoc.startsWith('/guides') || lowerLoc === '/login') {
-    pathDomain = 'CHASSE';
+  // --- Du00e9tection APK synchrone (prioritu00e9 absolue) ---
+  try {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    if (ua.includes('ChasseAPK')) pathDomain = 'CHASSE';
+    else if (ua.includes('AlerteAPK')) pathDomain = 'ALERTE';
+  } catch (e) {}
+  if (!pathDomain) {
+    if (lowerLoc.startsWith('/reboisement') || lowerLoc.startsWith('/pepinieres') || lowerLoc.startsWith('/zones-reboisees') || lowerLoc.startsWith('/declarations') || lowerLoc.startsWith('/reboisement-login')) {
+      pathDomain = 'REBOISEMENT';
+    } else if (lowerLoc.startsWith('/alerte') || lowerLoc.startsWith('/alertes') || lowerLoc.startsWith('/supervisor') || lowerLoc.startsWith('/default-home')) {
+      pathDomain = 'ALERTE';
+    } else if (
+      lowerLoc === '/login' || lowerLoc.startsWith('/hunter') || lowerLoc.startsWith('/guide') ||
+      lowerLoc.startsWith('/admin') || lowerLoc.startsWith('/regional') || lowerLoc.startsWith('/sector') ||
+      lowerLoc.startsWith('/sous-secteur') || lowerLoc.startsWith('/brigade') || lowerLoc.startsWith('/triage') ||
+      lowerLoc.startsWith('/poste-control') || lowerLoc.startsWith('/dashboard') || lowerLoc.startsWith('/permits') ||
+      lowerLoc.startsWith('/permit-request') || lowerLoc.startsWith('/gestion-permis') || lowerLoc.startsWith('/taxes') ||
+      lowerLoc.startsWith('/guides') || lowerLoc.startsWith('/agents') || lowerLoc.startsWith('/hunters') ||
+      lowerLoc.startsWith('/chasse') || lowerLoc.startsWith('/especes') || lowerLoc.startsWith('/infractions') ||
+      lowerLoc.startsWith('/history') || lowerLoc.startsWith('/sms') || lowerLoc.startsWith('/alerts') ||
+      lowerLoc.startsWith('/map') || lowerLoc.startsWith('/statistics') || lowerLoc.startsWith('/hunting') ||
+      lowerLoc.startsWith('/profile') || lowerLoc.startsWith('/changeprofil') || lowerLoc.startsWith('/regions-zones') ||
+      lowerLoc.startsWith('/accounts') || lowerLoc.startsWith('/settings') || lowerLoc.startsWith('/subaccounts')
+    ) {
+      pathDomain = 'CHASSE';
+    }
   }
 
   if (pathDomain && pathDomain !== domainKey) {
@@ -1108,8 +1128,13 @@ function applyTheme(cfg: any, user: any, location: string) {
   html.classList.remove('superadmin-theme', 'domain-theme', 'dark-superadmin');
 
   let activeTheme: any = {};
+  const isLoginPage = lowerLoc === '/login' || lowerLoc === '/alerte-login' || lowerLoc === '/reboisement-login';
   
-  if (shouldApplySuperAdminTheme) {
+  if (isLoginPage) {
+    // Ne pas injecter les variables CSS globales du domaine sur les pages de login
+    // car elles ont leur propre système de personnalisation via inline styles.
+    activeTheme = {};
+  } else if (shouldApplySuperAdminTheme) {
     activeTheme = cfg?.superAdmin || {};
     html.classList.add('superadmin-theme');
     if (cfg?.superAdmin?.useLegacyDark === true) {

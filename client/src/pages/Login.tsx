@@ -31,6 +31,22 @@ export default function Login() {
   const { login, isLoading, isAuthenticated, user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [, setLocation] = useLocation();
+  const [loginTheme, setLoginTheme] = useState<{ bgImage?: string; bgColor?: string; primary?: string }>({});
+
+  useEffect(() => {
+    try {
+      const cfgStr = localStorage.getItem('theme:superadmin');
+      if (cfgStr) {
+        const cfg = JSON.parse(cfgStr);
+        const dTheme = cfg?.domains?.CHASSE || {};
+        setLoginTheme({
+          bgImage: dTheme.loginBgImage,
+          bgColor: dTheme.loginBgColor,
+          primary: dTheme.loginPrimaryColor
+        });
+      }
+    } catch (e) {}
+  }, []);
   const { icon: DomainIcon, logoUrl } = useDomainVisual('CHASSE');
 
   useEffect(() => {
@@ -130,14 +146,14 @@ export default function Login() {
   return (
     <div 
       className="fixed inset-0 z-[100] flex items-center justify-center overflow-auto p-4 bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: 'url("/login_bg_chasse.png")' }}
+      style={{ backgroundImage: loginTheme.bgImage ? `url("${loginTheme.bgImage}")` : 'url("/login_bg_chasse.png")', backgroundColor: loginTheme.bgColor || undefined }}
     >
       <div className="w-full max-w-md bg-white/30 backdrop-blur-lg border-2 border-white/80 rounded-3xl shadow-2xl p-8 relative">
         {typeof navigator !== 'undefined' && !navigator.userAgent.includes('ChasseAPK') && (
           <button
             type="button"
             onClick={() => setLocation('/?showModules=1')}
-            className="mb-3 inline-flex items-center gap-2 text-green-700 hover:text-green-800"
+            className="mb-3 inline-flex items-center gap-2 text-green-700 hover:text-green-800" style={loginTheme.primary ? { color: loginTheme.primary } : {}}
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Retour</span>
@@ -160,7 +176,7 @@ export default function Login() {
                     <FormControl>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <User className="h-5 w-5 text-green-600" />
+                          <User className="h-5 w-5 text-green-600" style={loginTheme.primary ? { color: loginTheme.primary } : {}} />
                         </div>
                         <Input
                           placeholder="Nom d'utilisateur"
@@ -183,7 +199,7 @@ export default function Login() {
                     <FormControl>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Lock className="h-5 w-5 text-green-600" />
+                          <Lock className="h-5 w-5 text-green-600" style={loginTheme.primary ? { color: loginTheme.primary } : {}} />
                         </div>
                         <Input
                           type={showPassword ? "text" : "password"}
@@ -231,6 +247,7 @@ export default function Login() {
                   type="button"
                   onClick={() => setLocation('/register')}
                   className={`font-medium hover:underline ${isLoading ? "opacity-50 cursor-not-allowed text-gray-400" : "text-green-700"}`}
+                  style={loginTheme.primary && !isLoading ? { color: loginTheme.primary } : {}}
                   disabled={isLoading}
                   aria-disabled={isLoading}
                 >

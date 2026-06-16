@@ -40,6 +40,10 @@ type SuperAdminTheme = {
   border?: string;
   accent?: string;
   inputBg?: string;
+  // Login page customization
+  loginBgImage?: string;
+  loginBgColor?: string;
+  loginPrimaryColor?: string;
 };
 
 type DomainTheme = {
@@ -56,6 +60,10 @@ type DomainTheme = {
   border?: string;
   accent?: string;
   inputBg?: string;
+  // Login page customization
+  loginBgImage?: string;
+  loginBgColor?: string;
+  loginPrimaryColor?: string;
 };
 
 type ThemeConfig = {
@@ -370,6 +378,16 @@ export default function ThemePage() {
     setDraftCfg(normalizeCfg(DEFAULT_CFG));
   };
 
+  const resetDomainDraft = (domainSlug: string) => {
+    setDraftCfg((prev) => ({
+      ...prev,
+      domains: {
+        ...prev.domains,
+        [domainSlug]: DEFAULT_CFG.domains[domainSlug] || {}
+      }
+    }));
+  };
+
   const applyPalette = (p: (typeof SUPERADMIN_PALETTES)[number]) => {
     setDraftCfg((prev) => ({
       ...prev,
@@ -436,19 +454,19 @@ export default function ThemePage() {
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline">
-                Réinitialiser
+                Tout Réinitialiser (Défaut)
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Confirmer la réinitialisation</AlertDialogTitle>
+                <AlertDialogTitle>Confirmer la réinitialisation globale</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Voulez-vous réinitialiser le thème ? Vous devrez cliquer sur "Appliquer" pour prendre effet.
+                  Voulez-vous réinitialiser les thèmes de tous les domaines ainsi que le thème SuperAdmin aux valeurs par défaut ? Vous devrez cliquer sur "Appliquer" pour prendre effet.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Annuler</AlertDialogCancel>
-                <AlertDialogAction onClick={resetDraft}>Réinitialiser</AlertDialogAction>
+                <AlertDialogAction onClick={resetDraft}>Réinitialiser tout</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -576,13 +594,19 @@ export default function ThemePage() {
           {activeTab !== "superadmin" && (
             <TabsContent value={activeTab} className="mt-0">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Configuration: {activeTab}</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => resetDomainDraft(activeTab)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                    Réinitialiser ce domaine
+                  </Button>
                 </CardHeader>
-                <CardContent className="grid gap-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Couleur prédéfinie (Couleur du card)</Label>
+                <CardContent className="space-y-8">
+                  {/* --- SECTION: THEME RAPIDE --- */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2 text-primary">Thème Rapide</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Couleur prédéfinie (Couleur du card)</Label>
                 <select
                   className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   onChange={(e) => {
@@ -622,7 +646,11 @@ export default function ThemePage() {
                 </select>
               </div>
             </div>
+          </div>
 
+          {/* --- SECTION: DETAILS DOMAINE --- */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2 text-primary">Interface du Domaine</h3>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Dégradé - début</Label>
@@ -662,9 +690,9 @@ export default function ThemePage() {
                 <Input value={domainTheme.logoUrl || ""} onChange={(e) => updateDomain({ logoUrl: e.target.value })} placeholder="/logo.png" />
               </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <div className="text-sm font-semibold mt-4 mb-2 border-b pb-2">Couleurs globales du thème pour ce domaine</div>
-                <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2 mt-4">
+                <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Couleurs globales</div>
+                <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
                   <div className="space-y-2">
                     <Label>Couleur de fond (Page)</Label>
                     <ColorField
@@ -740,8 +768,10 @@ export default function ThemePage() {
                 </div>
               </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <Label>Téléverser un logo / icône</Label>
+              <div className="grid gap-4 md:grid-cols-2 md:col-span-2 mt-4">
+                <div className="space-y-2">
+                  <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Médias & Fond (Logo)</div>
+                  <Label>Téléverser un logo / icône</Label>
                 <input
                   type="file"
                   accept="image/*"
@@ -758,7 +788,8 @@ export default function ThemePage() {
                 ) : null}
               </div>
 
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2">
+                <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Image de fond</div>
                 <Label>Image de fond personnalisée (Remplace les couleurs)</Label>
                 <input
                   type="file"
@@ -788,8 +819,68 @@ export default function ThemePage() {
                 ) : null}
               </div>
             </div>
+          </div>
 
-            <div className="text-sm text-muted-foreground">
+          {/* --- SECTION: LOGIN PAGE --- */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2 text-primary">Page de Connexion (Login)</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Couleur de fond (Login)</Label>
+                    <ColorField
+                      id="dom-login-bg"
+                      value={domainTheme.loginBgColor || ""}
+                      placeholder="#2d6a4f"
+                      onChange={(next) => updateDomain({ loginBgColor: next })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Couleur principale (Login)</Label>
+                    <ColorField
+                      id="dom-login-primary"
+                      value={domainTheme.loginPrimaryColor || ""}
+                      placeholder="#16a34a"
+                      onChange={(next) => updateDomain({ loginPrimaryColor: next })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2 mt-3">
+                  <Label>Image de fond de la page de connexion</Label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-2 file:text-sm"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const dataUrl = await new Promise<string>((resolve, reject) => {
+                          const reader = new FileReader();
+                          reader.onerror = () => reject(new Error('read-failed'));
+                          reader.onload = () => resolve(String(reader.result || ''));
+                          reader.readAsDataURL(file);
+                        });
+                        updateDomain({ loginBgImage: dataUrl });
+                      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e); }
+                    }}
+                  />
+                  {(domainTheme.loginBgImage || activeTab === 'CHASSE') ? (
+                    <div className="mt-2 flex items-center gap-3">
+                      <img src={domainTheme.loginBgImage || (activeTab === 'CHASSE' ? '/login_bg_chasse.png' : '')} alt="preview login bg" className="h-20 w-32 rounded bg-white object-cover shadow-sm" />
+                      {domainTheme.loginBgImage ? (
+                        <Button type="button" variant="outline" onClick={() => updateDomain({ loginBgImage: '' })}>
+                          Enlever l'image de fond
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">Image par défaut du domaine</span>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="text-sm text-muted-foreground mt-6">
               Les changements s'appliquent automatiquement sur la page d'accueil.
             </div>
               </CardContent>
