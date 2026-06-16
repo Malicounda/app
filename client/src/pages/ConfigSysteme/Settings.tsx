@@ -5288,7 +5288,7 @@ export default function Settings() {
                   {/* Section 2: Gérer les types de zones protégées */}
                   <Card className="border-2 border-green-100">
                     <CardHeader>
-                      <div className="flex items-start justify-between">
+                      <div className="flex flex-col xl:flex-row items-start justify-between gap-4">
                         <div>
                           <CardTitle className="text-lg flex items-center gap-2">
                             <FaTree className="h-5 w-5 text-green-700" />
@@ -5421,7 +5421,7 @@ export default function Settings() {
                         </div>
                       )}
                       {/* Liste des types en tableau */}
-                      <div className="border rounded-lg overflow-hidden">
+                      <div className="border rounded-lg overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50 sticky top-0">
                             <tr>
@@ -5430,6 +5430,12 @@ export default function Settings() {
                               </th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Nom
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Clé
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Statut
                               </th>
                               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Actions
