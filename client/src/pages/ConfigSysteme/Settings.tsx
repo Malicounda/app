@@ -287,6 +287,7 @@ export default function Settings() {
   const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
   const [editingUnit, setEditingUnit] = useState<{ key: string; label: string }>({ key: '', label: '' });
   const [codesSubTab, setCodesSubTab] = useState<'items' | 'saisie'>('items');
+  const [deleteZoneSubTab, setDeleteZoneSubTab] = useState<'supprimer-couches' | 'types-zones-protegees'>('supprimer-couches');
 
   // Configuration des unités par item (dialog)
   const [unitConfigOpen, setUnitConfigOpen] = useState<boolean>(false);
@@ -5004,20 +5005,30 @@ export default function Settings() {
 
                 {/* Supprimer une zone */}
                 <TabsContent value="delete-zone" className="pt-4 space-y-4">
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
-                    <p className="text-red-700 font-semibold flex items-center gap-2">
-                      <Trash2 className="h-5 w-5" />
-                      Attention : Action irréversible
-                    </p>
-                    <p className="text-sm text-red-600">
-                      La suppression de couches est définitive et peut affecter les données liées.
-                    </p>
-                  </div>
+                  {/* Sous-onglets pour Paramètres */}
+                  <Tabs value={deleteZoneSubTab} onValueChange={(v) => setDeleteZoneSubTab(v as 'supprimer-couches' | 'types-zones-protegees')}>
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                      <TabsTrigger value="supprimer-couches" className="flex items-center gap-2">
+                        <Trash2 className="h-4 w-4" />
+                        Supprimer des Couches
+                      </TabsTrigger>
+                      <TabsTrigger value="types-zones-protegees" className="flex items-center gap-2">
+                        <FaTree className="h-4 w-4" />
+                        Types de Zones Protégées
+                      </TabsTrigger>
+                    </TabsList>
 
-                  {/* Layout en deux colonnes */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Section 1: Supprimer des couches */}
-                    <Card className="border-2 border-red-100">
+                    <TabsContent value="supprimer-couches">
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2 mb-4">
+                        <p className="text-red-700 font-semibold flex items-center gap-2">
+                          <Trash2 className="h-5 w-5" />
+                          Attention : Action irréversible
+                        </p>
+                        <p className="text-sm text-red-600">
+                          La suppression de couches est définitive et peut affecter les données liées.
+                        </p>
+                      </div>
+                      <Card className="border-2 border-red-100">
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Trash2 className="h-5 w-5 text-red-600" />
@@ -5283,10 +5294,12 @@ export default function Settings() {
                         </div>
                       )}
                     </CardContent>
-                  </Card>
+                      </Card>
+                    </TabsContent>
 
-                  {/* Section 2: Gérer les types de zones protégées */}
-                  <Card className="border-2 border-green-100">
+                    <TabsContent value="types-zones-protegees">
+                      {/* Section 2: Gérer les types de zones protégées */}
+                      <Card className="border-2 border-green-100">
                     <CardHeader>
                       <div className="flex flex-col xl:flex-row items-start justify-between gap-4">
                         <div>
@@ -5644,7 +5657,8 @@ export default function Settings() {
                       </Dialog>
                     </CardContent>
                   </Card>
-                  </div>
+                    </TabsContent>
+                  </Tabs>
                 </TabsContent>
               </Tabs>
             </CardContent>
