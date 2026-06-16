@@ -3989,7 +3989,7 @@ export default function Settings() {
               <Tabs value={zonesConfigSubTab} onValueChange={(v) => setZonesConfigSubTab(v as 'types-zones-protegees' | 'zones-chasse')}>
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                   <TabsTrigger value="types-zones-protegees" className="flex items-center gap-2">
-                    <FaTree className="h-4 w-4" />
+                    <FaDrawPolygon className="h-4 w-4" />
                     Types de Zones Protégées
                   </TabsTrigger>
                   <TabsTrigger value="zones-chasse" className="flex items-center gap-2">
@@ -4508,7 +4508,7 @@ export default function Settings() {
                   <Card className="border-2 border-green-100">
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center gap-2">
-                        <FaTree className="h-5 w-5 text-green-700" />
+                        <FaDrawPolygon className="h-5 w-5 text-green-700" />
                         Types de Zones Protégées
                       </CardTitle>
                       <CardDescription>
@@ -5468,7 +5468,7 @@ export default function Settings() {
                             </SelectItem>
                             <SelectItem value="protected_zones">
                               <div className="flex items-center gap-2">
-                                <FaTree className="w-4 h-4 text-green-700" />
+                                <FaDrawPolygon className="w-4 h-4 text-green-700" />
                                 <span>Zones Protégées</span>
                               </div>
                             </SelectItem>
