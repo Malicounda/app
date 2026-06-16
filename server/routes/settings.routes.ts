@@ -1116,22 +1116,7 @@ router.get('/protected-zone-types', isAuthenticated, async (req, res) => {
         AND type NOT IN (SELECT key FROM protected_zone_types)
     `);
 
-    // 2. S'assurer que les 4 types vitaux (chasse) sont toujours présents
-    const coreTypes = [
-      { key: 'amodiee', label: 'Amodiée' },
-      { key: 'zic', label: 'ZIC' },
-      { key: 'parc_visite', label: 'Parc de visite' },
-      { key: 'regulation', label: 'Régulation' }
-    ];
-    for (const t of coreTypes) {
-      await db.execute(sql`
-        INSERT INTO protected_zone_types (key, label, is_active)
-        VALUES (${t.key}, ${t.label}, true)
-        ON CONFLICT (key) DO NOTHING
-      `);
-    }
-
-    // 3. Récupérer la liste complète
+    // 2. Récupérer la liste complète
     const result = await db.execute(sql`
       SELECT id, key, label, is_active AS "isActive", created_at, updated_at
       FROM protected_zone_types
