@@ -3753,7 +3753,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         showConcessionMiniere || false,
         '#9333ea', // violet foncé
         '635',
-        'Concession minière'
+        'Concession'
       );
     }, [concessionMiniereGeoJSON, showConcessionMiniere]);
 

@@ -2016,15 +2016,15 @@ const MapPage: React.FC = () => {
                     {renderProtectedZoneCount(carriereGeoJSON)}
                   </button>
 
-                  {/* Concession minière */}
+                  {/* Concession */}
                   <button
                     className={`map-control-button ${showConcessionMiniere ? 'active' : ''}`}
                     onClick={() => setShowConcessionMiniere(!showConcessionMiniere)}
                     style={{ fontSize: '13px', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap', minWidth: 'auto' }}
-                    title="Concession minière"
+                    title="Concession"
                   >
                     <FaIndustry style={{ color: '#9333ea', fontSize: '16px' }} />
-                    <span className="protected-label">Concession minière</span>
+                    <span className="protected-label">Concession</span>
                     {renderProtectedZoneCount(concessionMiniereGeoJSON)}
                   </button>
 

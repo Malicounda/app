@@ -4794,7 +4794,9 @@ export default function Settings() {
                                 <Label>Clé (identifiant technique) *</Label>
                                 <Input
                                   value={selectedProtectedType.key}
-                                  onChange={(e) => setSelectedProtectedType(prev => prev ? ({ ...prev, key: e.target.value }) : null)}
+                                  readOnly
+                                  disabled
+                                  className="bg-gray-100 cursor-not-allowed opacity-70"
                                 />
                               </div>
                               <div>
