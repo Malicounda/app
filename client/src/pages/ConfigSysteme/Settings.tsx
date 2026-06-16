@@ -4563,7 +4563,9 @@ export default function Settings() {
                             <SelectValue placeholder="Sélectionner un type normalisé" />
                           </SelectTrigger>
                           <SelectContent>
-                            {protectedZoneTypes.filter(t => t.isActive).map(type => (
+                            {(shapefileDestTable === 'zones' ? zoneTypes : protectedZoneTypes)
+                              .filter(t => t.isActive)
+                              .map(type => (
                               <SelectItem key={type.key} value={type.key}>
                                 {type.label}
                               </SelectItem>
@@ -5124,7 +5126,7 @@ export default function Settings() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">Tous les types</SelectItem>
-                              {protectedZoneTypes.map((type) => (
+                              {(deleteLayerTable === 'zones' ? zoneTypes : protectedZoneTypes).map((type) => (
                                 <SelectItem key={type.key} value={type.key}>
                                   {type.label}
                                 </SelectItem>
@@ -5220,9 +5222,9 @@ export default function Settings() {
                                       <td className="px-4 py-3 text-sm text-gray-900">
                                         {entity.name}
                                       </td>
-                                      {deleteLayerTable === 'protected_zones' && (
+                                      {(deleteLayerTable === 'protected_zones' || deleteLayerTable === 'zones') && (
                                         <td className="px-4 py-3 text-sm text-gray-500">
-                                          {protectedZoneTypes.find(t => t.key === entity.type)?.label || entity.type || 'Non défini'}
+                                          {(deleteLayerTable === 'zones' ? zoneTypes : protectedZoneTypes).find(t => t.key === entity.type)?.label || entity.type || 'Non défini'}
                                         </td>
                                       )}
                                     </tr>
