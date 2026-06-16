@@ -318,12 +318,16 @@ export default function HunterCarnetModal({ hunterId, hunterName, open, onClose 
                           {activity.photo_data && (
                             <div
                               className="relative w-32 rounded border border-green-200 overflow-hidden cursor-pointer hover:border-green-400 transition-colors shadow-sm bg-white"
-                              onClick={() => setSelectedPhoto(`data:${activity.photo_mime || 'image/jpeg'};base64,${activity.photo_data}`)}
+                              onClick={() => setSelectedPhoto(`/api/hunting-activities/${activity.id}/photo?source_type=${activity.source_type || ''}`)}
                             >
                               <img
-                                src={`data:${activity.photo_mime || 'image/jpeg'};base64,${activity.photo_data}`}
+                                src={`/api/hunting-activities/${activity.id}/photo?source_type=${activity.source_type || ''}`}
                                 alt={`Photo de ${activity.species_name}`}
-                                className="w-full h-20 object-contain hover:opacity-90 transition-opacity"
+                                className="w-full h-20 object-cover hover:opacity-90 transition-opacity"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/fallback-image-url.png'; // Optionnel: image de secours si la photo ne charge pas
+                                  (e.target as HTMLImageElement).style.display = 'none'; // Ou masquer l'image
+                                }}
                               />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-colors">
                                 <ImageIcon className="h-5 w-5 text-white opacity-0 hover:opacity-100 transition-opacity" />

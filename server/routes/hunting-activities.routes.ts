@@ -496,9 +496,30 @@ router.get('/guide/:guideId', isAuthenticated, async (req, res) => {
 router.get('/:id/photo', isAuthenticated, async (req, res) => {
   try {
     const activityId = Number(req.params.id);
+    const sourceType = req.query.source_type as string;
     
     if (Number.isNaN(activityId)) {
       return res.status(400).json({ message: 'ID d\'activité invalide' });
+    }
+
+    // Si on sait que c'est une déclaration, on cherche directement dans declaration_especes
+    if (sourceType === 'guide_declaration' || sourceType === 'direct_declaration') {
+      const declarationResult = await db.execute(sql`
+        SELECT photo_data, photo_mime, photo_name 
+        FROM declaration_especes 
+        WHERE id = ${activityId}
+      `);
+      const declarationPhoto = Array.isArray(declarationResult) ? declarationResult[0] : declarationResult;
+
+      if (declarationPhoto?.photo_data) {
+        const mime = String(declarationPhoto.photo_mime || 'application/octet-stream');
+        res.setHeader('Content-Type', mime);
+        if (declarationPhoto.photo_name) {
+          res.setHeader('Content-Disposition', `inline; filename="${String(declarationPhoto.photo_name)}"`);
+        }
+        return res.end(declarationPhoto.photo_data);
+      }
+      return res.status(404).json({ message: 'Photo non trouvée dans les déclarations' });
     }
 
     // Chercher d'abord dans hunting_activities
@@ -518,7 +539,7 @@ router.get('/:id/photo', isAuthenticated, async (req, res) => {
       return res.end(activityPhoto.photo_data);
     }
 
-    // Sinon chercher dans declaration_especes
+    // Sinon chercher dans declaration_especes (fallback au cas où le source_type n'est pas fourni)
     const declarationResult = await db.execute(sql`
       SELECT photo_data, photo_mime, photo_name 
       FROM declaration_especes 

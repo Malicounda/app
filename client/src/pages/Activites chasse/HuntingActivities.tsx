@@ -225,7 +225,8 @@ export default function HuntingActivities() {
       type: calculatedType,
       photoAvailable: !!activity.photo_data,
       reportId: activity.is_validated_activity ? (activity as any).id : activity.source_id,
-      activityNumber: activity.activity_number
+      activityNumber: activity.activity_number,
+      source_type: activity.source_type
     };
   });
 
@@ -528,9 +529,13 @@ export default function HuntingActivities() {
                                     <div className="flex flex-col items-center">
                                       {activity.photoAvailable && activity.reportId ? (
                                         <img
-                                          src={resolveApiUrl(`/api/hunting-activities/${activity.reportId}/photo${token ? `?token=${token}` : ''}`)}
+                                          src={resolveApiUrl(`/api/hunting-activities/${activity.reportId}/photo?source_type=${(activity as any).source_type || ''}${token ? `&token=${token}` : ''}`)}
                                           alt={activity.species[0]?.name && activity.species[0].name !== 'null' ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
                                           className="w-24 h-24 object-cover rounded-md border-2 border-amber-300 bg-white shadow-sm mb-2"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).src = '/fallback-image-url.png';
+                                            (e.target as HTMLImageElement).style.display = 'none';
+                                          }}
                                         />
                                       ) : null}
                                       <div className="w-full">
