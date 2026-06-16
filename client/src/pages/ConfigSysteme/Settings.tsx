@@ -238,6 +238,7 @@ export default function Settings() {
   const [selectedProtectedTypesToDelete, setSelectedProtectedTypesToDelete] = useState<string[]>([]);
   const [deleteProtectedTypesConfirmOpen, setDeleteProtectedTypesConfirmOpen] = useState<boolean>(false);
   const [deletingProtectedTypes, setDeletingProtectedTypes] = useState<boolean>(false);
+  const [protectedTypeUsageError, setProtectedTypeUsageError] = useState<{ isOpen: boolean, message: string }>({ isOpen: false, message: '' });
 
   // État pour le filtrage régional des zones protégées
   const [enableRegionalFilterProtectedZones, setEnableRegionalFilterProtectedZones] = useState<boolean>(false);
@@ -1441,11 +1442,15 @@ export default function Settings() {
       await loadProtectedZoneTypes();
     } catch (e: any) {
       console.error('[SETTINGS] delete protected zone type error:', e);
-      toast({
-        title: 'Erreur',
-        description: e?.message || 'Suppression impossible',
-        variant: 'destructive'
-      });
+      if (e?.message?.includes('utilisé par')) {
+        setProtectedTypeUsageError({ isOpen: true, message: e.message });
+      } else {
+        toast({
+          title: 'Erreur',
+          description: e?.message || 'Suppression impossible',
+          variant: 'destructive'
+        });
+      }
     }
   };
 
@@ -1467,10 +1472,18 @@ export default function Settings() {
               successCount++;
             } else {
               errorCount++;
+              if (resp.error?.includes('utilisé par')) {
+                setProtectedTypeUsageError({ isOpen: true, message: resp.error });
+                break;
+              }
             }
-          } catch (e) {
+          } catch (e: any) {
             errorCount++;
             console.error(`Erreur suppression type ${key}:`, e);
+            if (e?.message?.includes('utilisé par')) {
+              setProtectedTypeUsageError({ isOpen: true, message: e.message });
+              break;
+            }
           }
         }
       }
@@ -5183,7 +5196,7 @@ export default function Settings() {
                                       </td>
                                       {deleteLayerTable === 'protected_zones' && (
                                         <td className="px-4 py-3 text-sm text-gray-500">
-                                          {entity.type || 'Non défini'}
+                                          {protectedZoneTypes.find(t => t.key === entity.type)?.label || entity.type || 'Non défini'}
                                         </td>
                                       )}
                                     </tr>
@@ -7093,6 +7106,27 @@ export default function Settings() {
           </DialogContent>
         </Dialog>
       </TabsContent>
+
+      {/* Modal d'erreur de suppression de Type de Zone Protégée */}
+      <Dialog open={protectedTypeUsageError.isOpen} onOpenChange={(open) => !open && setProtectedTypeUsageError({ isOpen: false, message: '' })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Suppression impossible
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-700 mb-4">{protectedTypeUsageError.message}</p>
+            <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-md border border-gray-100">
+              <strong>Action requise :</strong> Avant de pouvoir supprimer ce Type de Zone, vous devez d'abord vous rendre dans l'onglet <strong>"Supprimer des Couches"</strong>, sélectionner la table <strong>"Zones Protégées"</strong>, et supprimer toutes les entités qui utilisent ce type précis.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProtectedTypeUsageError({ isOpen: false, message: '' })}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
         </Tabs>
     </div>

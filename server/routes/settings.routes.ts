@@ -1178,11 +1178,27 @@ router.put('/protected-zone-types/:id', isAuthenticated, async (req, res) => {
       return res.status(400).json({ ok: false, error: "Cette clé existe déjà" });
     }
 
+    // Retrieve the old key to propagate changes to protected_zones
+    const oldRows = await db.execute(sql`
+      SELECT key FROM protected_zone_types WHERE id = ${Number(id)}
+    `);
+    const oldKey = Array.isArray(oldRows) && oldRows.length > 0 ? (oldRows[0] as any).key : null;
+
     await db.execute(sql`
       UPDATE protected_zone_types
       SET key = ${key}, label = ${label}, is_active = ${isActive !== false}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ${Number(id)}
     `);
+
+    // Propagate the key change to existing zones
+    if (oldKey && oldKey !== key) {
+      await db.execute(sql`
+        UPDATE protected_zones
+        SET type = ${key}
+        WHERE type = ${oldKey}
+      `);
+    }
+
 
     return res.json({ ok: true });
   } catch (error) {
