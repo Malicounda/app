@@ -4857,7 +4857,7 @@ export default function Settings() {
                 <TabsList className="grid w-full grid-cols-2 md:grid-cols-3">
                   <TabsTrigger value="add-shapefile">Ajouter une couche .shp (shapefile)</TabsTrigger>
                   <TabsTrigger value="modify-statuses">Modifier Statuts</TabsTrigger>
-                  <TabsTrigger value="delete-zone">Parametres</TabsTrigger>
+                  <TabsTrigger value="delete-zone">Supprimer Couches</TabsTrigger>
                 </TabsList>
 
                 {/* Ajouter une couche shapefile */}
