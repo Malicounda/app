@@ -248,7 +248,7 @@ export async function uploadShapefile(req: Request, res: Response) {
             INSERT INTO regions (nom, geom, centre_geometrique)
             VALUES (
               ${layerName},
-              ST_GeomFromText(${wkt}, 32628),
+              ST_Multi(ST_GeomFromText(${wkt}, 32628)),
               ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
             )
           `);
@@ -258,7 +258,7 @@ export async function uploadShapefile(req: Request, res: Response) {
             INSERT INTO departements (nom, geom, centre_geometrique)
             VALUES (
               ${layerName || properties.nom || properties.name || properties.NAME || `Département ${insertedCount + 1}`},
-              ST_GeomFromText(${wkt}, 32628),
+              ST_Multi(ST_GeomFromText(${wkt}, 32628)),
               ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
             )
           `);
@@ -289,7 +289,7 @@ export async function uploadShapefile(req: Request, res: Response) {
             VALUES (
               ${safeLayerName},
               ${protectedZoneType},
-              ST_Force3D(ST_GeomFromText(${wkt}, 32628)),
+              ST_Multi(ST_Force3D(ST_GeomFromText(${wkt}, 32628))),
               ${surfaceHa},
               ${perimetreM},
               ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628),
@@ -303,7 +303,7 @@ export async function uploadShapefile(req: Request, res: Response) {
             INSERT INTO communes (nom, geom, centre_geometrique)
             VALUES (
               ${layerName || properties.nom || properties.name || properties.NAME || `Commune ${insertedCount + 1}`},
-              ST_GeomFromText(${wkt}, 32628),
+              ST_Multi(ST_GeomFromText(${wkt}, 32628)),
               ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
             )
           `);
@@ -313,7 +313,7 @@ export async function uploadShapefile(req: Request, res: Response) {
             INSERT INTO arrondissements (nom, geom, centre_geometrique)
             VALUES (
               ${layerName || properties.nom || properties.name || properties.NAME || `Arrondissement ${insertedCount + 1}`},
-              ST_GeomFromText(${wkt}, 32628),
+              ST_Multi(ST_GeomFromText(${wkt}, 32628)),
               ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
             )
           `);
@@ -323,7 +323,7 @@ export async function uploadShapefile(req: Request, res: Response) {
             INSERT INTO eco_geographie_zones (nom, geom, centre_geometrique)
             VALUES (
               ${layerName || properties.nom || properties.name || properties.NAME || `Zone éco ${insertedCount + 1}`},
-              ST_GeomFromText(${wkt}, 32628),
+              ST_Multi(ST_GeomFromText(${wkt}, 32628)),
               ST_Transform(ST_SetSRID(ST_MakePoint(${centroid.lon}, ${centroid.lat}), 4326), 32628)
             )
           `);
