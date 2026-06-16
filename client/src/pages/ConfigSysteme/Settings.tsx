@@ -194,7 +194,7 @@ export default function Settings() {
   const [deleteEntitiesConfirmOpen, setDeleteEntitiesConfirmOpen] = useState<boolean>(false);
 
   const filteredDeleteLayerEntities = useMemo(() => {
-    if (deleteLayerTable !== 'protected_zones' || deleteLayerFilterType === 'all') {
+    if ((deleteLayerTable !== 'protected_zones' && deleteLayerTable !== 'zones') || deleteLayerFilterType === 'all') {
       return deleteLayerEntities;
     }
     return deleteLayerEntities.filter(e => e.type === deleteLayerFilterType);
