@@ -3956,10 +3956,34 @@ export default function Settings() {
         <TabsContent value="zones-config">
           <Card className="bg-green-50 border-green-200">
             <CardHeader>
-              <CardTitle>Types de Zones</CardTitle>
-              <CardDescription>
-                Gérez les types de zones protégées et les paramètres des zones de chasse.
-              </CardDescription>
+              <div className="flex flex-col xl:flex-row items-start justify-between gap-4">
+                <div>
+                  <CardTitle>Types de Zones</CardTitle>
+                  <CardDescription>
+                    Gérez les types de zones protégées et les paramètres des zones de chasse.
+                  </CardDescription>
+                </div>
+                {/* Bouton de filtrage régional */}
+                <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                  <div className="flex flex-col">
+                    <Label htmlFor="regional-filter-toggle" className="text-sm font-semibold text-blue-900 cursor-pointer">
+                      Filtrage régional
+                    </Label>
+                    <span className="text-xs text-blue-700">
+                      {enableRegionalFilterProtectedZones
+                        ? 'Agents voient leur région uniquement'
+                        : 'Tous les agents voient toutes les zones'}
+                    </span>
+                  </div>
+                  <Switch
+                    id="regional-filter-toggle"
+                    checked={enableRegionalFilterProtectedZones}
+                    onCheckedChange={saveRegionalFilterSetting}
+                    disabled={loadingRegionalFilter}
+                    className="data-[state=checked]:bg-blue-600"
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <Tabs value={zonesConfigSubTab} onValueChange={(v) => setZonesConfigSubTab(v as 'types-zones-protegees' | 'zones-chasse')}>
@@ -4483,38 +4507,13 @@ export default function Settings() {
                   {/* Section: Gérer les types de zones protégées */}
                   <Card className="border-2 border-green-100">
                     <CardHeader>
-                      <div className="flex flex-col xl:flex-row items-start justify-between gap-4">
-                        <div>
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            <FaTree className="h-5 w-5 text-green-700" />
-                            Types de Zones Protégées
-                          </CardTitle>
-                          <CardDescription>
-                            Gérer la liste des types disponibles pour les zones protégées
-                          </CardDescription>
-                        </div>
-
-                        {/* Bouton de filtrage régional */}
-                        <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-                          <div className="flex flex-col">
-                            <Label htmlFor="regional-filter-toggle" className="text-sm font-semibold text-blue-900 cursor-pointer">
-                              Filtrage régional
-                            </Label>
-                            <span className="text-xs text-blue-700">
-                              {enableRegionalFilterProtectedZones
-                                ? 'Agents voient leur région uniquement'
-                                : 'Tous les agents voient toutes les zones'}
-                            </span>
-                          </div>
-                          <Switch
-                            id="regional-filter-toggle"
-                            checked={enableRegionalFilterProtectedZones}
-                            onCheckedChange={saveRegionalFilterSetting}
-                            disabled={loadingRegionalFilter}
-                            className="data-[state=checked]:bg-blue-600"
-                          />
-                        </div>
-                      </div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <FaTree className="h-5 w-5 text-green-700" />
+                        Types de Zones Protégées
+                      </CardTitle>
+                      <CardDescription>
+                        Gérer la liste des types disponibles pour les zones protégées
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {/* Bouton d'ajout */}
