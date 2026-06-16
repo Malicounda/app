@@ -1408,8 +1408,9 @@ export default function Settings() {
   // Sauvegarder un type de zone protégée
   const saveProtectedZoneType = async (typeData: Partial<ProtectedZoneTypeItem>, isEdit = false) => {
     try {
-      const method = isEdit ? 'PUT' : 'POST';
-      const url = isEdit ? `/settings/protected-zone-types/${typeData.id}` : '/settings/protected-zone-types';
+      const actualIsEdit = isEdit && typeData.id;
+      const method = actualIsEdit ? 'PUT' : 'POST';
+      const url = actualIsEdit ? `/settings/protected-zone-types/${typeData.id}` : '/settings/protected-zone-types';
       const resp = await apiRequest<any>(method, url, typeData);
       if (!resp.ok) throw new Error(resp.error || 'Erreur sauvegarde type de zone protégée');
 
