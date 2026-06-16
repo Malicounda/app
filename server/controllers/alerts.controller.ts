@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { NextFunction, Request, Response } from 'express';
 import { agents, alerts, notifications, rolesMetier, users } from '../../shared/schema.js';
 import { db } from '../db.js';
+import { persistMessageAttachment, readMessageAttachment } from '../lib/messageAttachmentStorage.js';
 import { alertMatchesSupervisorZone, supervisorReceivesAlert } from '../lib/alertZoneScope.js';
 import { resolveAdministrativeAreas } from '../lib/resolveAdminAreas.js';
 const DEBUG_LOGS = process.env.DEBUG_GEO === '1';
@@ -342,6 +343,8 @@ export interface AlertResponse {
     commune?: string | null;
     arrondissement?: string | null;
     localite?: string | null;
+    imagePath?: string | null;
+    audioPath?: string | null;
     is_read: boolean | null; // Pertinent surtout pour les notifications d'alertes reçues
     created_at: Date | null;
     updated_at: Date | null;
@@ -378,7 +381,7 @@ const formatCoordinate = (coord: any): string | null => {
 
 export const createAlert = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { title, message, nature, location, region, zone, latitude, longitude } = req.body as {
+        const { title, message, nature, location, region, zone, latitude, longitude, force } = req.body as {
             title: string,
             message: string,
             nature: string,
@@ -386,8 +389,13 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
             region?: string,
             zone?: string,
             latitude?: number,
-            longitude?: number
+            longitude?: number,
+            force?: boolean | string
         };
+        const forceVal = req.body.force;
+        const isForce = forceVal === 'true' || forceVal === true || forceVal === 1 || forceVal === '1';
+        
+        console.log(`[createAlert] Received request - Nature: ${nature}, Force: ${isForce} (raw: ${forceVal})`);
 
         const authenticatedUser = req.user as unknown as AuthenticatedUser;
 
@@ -713,7 +721,7 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
 
         // Vérification de doublon: même nature, même titre et position (rayon variable selon nature),
         // même si l'expéditeur est différent. Retourner des détails utiles au frontend.
-        if (lat !== null && lon !== null) {
+        if (lat !== null && lon !== null && !isForce) {
             try {
                 // Rayon par nature
                 let radiusMeters = 5; // par défaut pour 'autre' / information
@@ -737,6 +745,7 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
                             ST_SetSRID(ST_MakePoint(${lon!}, ${lat!}), 4326)::geography,
                             ${radiusMeters}
                         )
+                      AND a.created_at >= NOW() - INTERVAL '24 HOURS'
                     ORDER BY a.created_at DESC
                     LIMIT 1
                 `);
@@ -796,6 +805,80 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
             console.error('[createAlert] resolveAdministrativeAreas failed', { lat, lon, err });
         }
 
+        // Traiter les pièces jointes si fournies directement (en ligne / multipart)
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+        let audioAttachment = null;
+        let imageAttachment = null;
+
+        if (files) {
+            const audioFile = files['audio']?.[0];
+            const imageFile = files['image']?.[0];
+
+            if (audioFile?.buffer?.length) {
+                audioAttachment = await persistMessageAttachment({
+                    buffer: audioFile.buffer,
+                    originalName: audioFile.originalname,
+                    mimeType: audioFile.mimetype,
+                });
+            }
+
+            if (imageFile?.buffer?.length) {
+                imageAttachment = await persistMessageAttachment({
+                    buffer: imageFile.buffer,
+                    originalName: imageFile.originalname,
+                    mimeType: imageFile.mimetype,
+                });
+            }
+        }
+
+        // Traiter les pièces jointes si fournies via offline sync (JSON)
+        const { offlineAudioAttachment, offlineImageAttachment } = req.body as {
+            offlineAudioAttachment?: any;
+            offlineImageAttachment?: any;
+        };
+
+        let parsedOfflineAudio = null;
+        if (offlineAudioAttachment) {
+            try {
+                parsedOfflineAudio = typeof offlineAudioAttachment === 'string' ? JSON.parse(offlineAudioAttachment) : offlineAudioAttachment;
+            } catch (e) {
+                console.warn('[createAlert] Failed to parse offlineAudioAttachment JSON', e);
+            }
+        }
+
+        let parsedOfflineImage = null;
+        if (offlineImageAttachment) {
+            try {
+                parsedOfflineImage = typeof offlineImageAttachment === 'string' ? JSON.parse(offlineImageAttachment) : offlineImageAttachment;
+            } catch (e) {
+                console.warn('[createAlert] Failed to parse offlineImageAttachment JSON', e);
+            }
+        }
+
+        if (!audioAttachment && parsedOfflineAudio?.attachId) {
+            const fileData = await readMessageAttachment(parsedOfflineAudio.attachId);
+            if (fileData) {
+                audioAttachment = {
+                    key: parsedOfflineAudio.attachId,
+                    name: parsedOfflineAudio.fileName || 'audio.mp3',
+                    mime: parsedOfflineAudio.fileMime || 'audio/mp3',
+                    size: Number(parsedOfflineAudio.fileSize) || fileData.size
+                };
+            }
+        }
+
+        if (!imageAttachment && parsedOfflineImage?.attachId) {
+            const fileData = await readMessageAttachment(parsedOfflineImage.attachId);
+            if (fileData) {
+                imageAttachment = {
+                    key: parsedOfflineImage.attachId,
+                    name: parsedOfflineImage.fileName || 'photo.jpg',
+                    mime: parsedOfflineImage.fileMime || 'image/jpeg',
+                    size: Number(parsedOfflineImage.fileSize) || fileData.size
+                };
+            }
+        }
+
         // Créer l'alerte dans la base de données: conserver la région telle quelle (avec accents/casse) pour l'affichage.
         const [newAlert] = await db.insert(alerts as any).values({
             title: titleToPersist,
@@ -811,6 +894,14 @@ export const createAlert = async (req: Request, res: Response, next: NextFunctio
             lat: lat!,
             lon: lon!,
             isRead: false,
+            audioPath: audioAttachment?.key || null,
+            audioName: audioAttachment?.name || null,
+            audioMime: audioAttachment?.mime || null,
+            audioSize: audioAttachment?.size || null,
+            imagePath: imageAttachment?.key || null,
+            imageName: imageAttachment?.name || null,
+            imageMime: imageAttachment?.mime || null,
+            imageSize: imageAttachment?.size || null,
             createdAt: new Date(),
             updatedAt: new Date()
         }).returning();
@@ -1190,7 +1281,7 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
             SELECT
                 n.id, n.user_id, n.alert_id, n.message, n.type, n.status, n.is_read, n.created_at,
                 a.id as alert_id_full, a.title, a.message as alert_message, a.nature, a.region, a.zone,
-                a.lat, a.lon, a.departement, a.commune, a.arrondissement, a.localite, a.sender_id, a.created_at as alert_created_at, a.updated_at as alert_updated_at,
+                a.lat, a.lon, a.departement, a.commune, a.arrondissement, a.localite, a.sender_id, a.created_at as alert_created_at, a.updated_at as alert_updated_at, a.audio_path, a.image_path,
                 u.id as sender_id_full, u.username, u.first_name, u.last_name, u.phone as sender_phone, u.role, u.region as sender_region, u.departement as sender_departement,
                 ag.grade as sender_grade, rm.label_fr as sender_role_metier
             FROM notifications n
@@ -1227,6 +1318,8 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                 commune: n.commune ?? null,
                 arrondissement: n.arrondissement ?? null,
                 localite: n.localite ?? null,
+                audioPath: n.audio_path ?? null,
+                imagePath: n.image_path ?? null,
                 sender_id: n.sender_id,
                 created_at: n.alert_created_at,
                 updated_at: n.alert_updated_at,
@@ -1303,6 +1396,8 @@ export const getReceivedAlerts = async (req: Request, res: Response, next: NextF
                     commune: computedCommune,
                     arrondissement: computedArrondissement,
                     localite: computedLocalite,
+                    imagePath: (notif.alert as any).imagePath,
+                    audioPath: (notif.alert as any).audioPath,
                     is_read: !!notif.is_read,
                     created_at: (notif.alert as any).created_at,
                     updated_at: (notif.alert as any).updated_at,
@@ -1373,7 +1468,7 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
             sentAlertsFromDb = await db.execute(sql`
                 SELECT a.id, a.title, a.message, a.nature, a.region, a.zone,
                        a.lat, a.lon, a.departement, a.sender_id, a.is_read,
-                       a.created_at, a.updated_at,
+                       a.created_at, a.updated_at, a.audio_path, a.image_path,
                        u.username, u.first_name, u.last_name, u.role,
                        u.region as user_region, u.departement as user_departement,
                        ag.grade, rm.label_fr as role_metier_label
@@ -1390,7 +1485,7 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
             sentAlertsFromDb = await db.execute(sql`
                 SELECT a.id, a.title, a.message, a.nature, a.region, a.zone,
                        a.lat, a.lon, a.departement, a.sender_id, a.is_read,
-                       a.created_at, a.updated_at,
+                       a.created_at, a.updated_at, a.audio_path, a.image_path,
                        u.username, u.first_name, u.last_name, u.role,
                        u.region as user_region, u.departement as user_departement,
                        ag.grade, rm.label_fr as role_metier_label
@@ -1415,6 +1510,8 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
             lat: a.lat,
             lon: a.lon,
             departement: a.departement,
+            imagePath: a.image_path,
+            audioPath: a.audio_path,
             sender_id: a.sender_id,
             created_at: a.created_at,
             updated_at: a.updated_at,
@@ -1520,6 +1617,8 @@ export const getSentAlerts = async (req: Request, res: Response, next: NextFunct
                 arrondissement: computedArrondissement,
                 commune: computedCommune,
                 localite: computedLocalite,
+                imagePath: alertData.imagePath,
+                audioPath: alertData.audioPath,
                 is_read: true,
                 created_at: alertData.created_at,
                 updated_at: alertData.updated_at,

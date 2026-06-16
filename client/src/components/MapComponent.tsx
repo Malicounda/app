@@ -1622,7 +1622,6 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
       feux_de_brousse: true,
       'trafic-bois': true,
       braconnage: true,
-      autre: true,
     });
 
     // --- Panneau filtre alertes déplaçable ---
@@ -1667,7 +1666,7 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         if (n.includes('feu') || n.includes('brousse')) return alertTypeFilters.feux_de_brousse;
         if (n.includes('trafic') || n.includes('bois')) return alertTypeFilters['trafic-bois'];
         if (n.includes('braconn')) return alertTypeFilters.braconnage;
-        return alertTypeFilters.autre;
+        return false;
       });
 
       // Nettoyer les anciens clusters
@@ -1701,6 +1700,9 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         const isFire = n.includes('feu') || n.includes('incendi') || n.includes('fire') || n.includes('brousse');
         const isWoodTraffic = n.includes('trafic') || n.includes('traffic') || n.includes('bois') || n.includes('wood');
         const isPoaching = n.includes('braconn') || n.includes('poach');
+        const isDefrichement = n.includes('defriche');
+        const isEmpietement = n.includes('empiete');
+        const isSpotrep = n.includes('spotrep');
 
         if (isWoodTraffic) {
           // Icône "bûches" (coupe de bois) avec anneau marron. Pulse si <24h, gris/no pulse si >24h
@@ -1883,6 +1885,110 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           });
         }
 
+        if (isDefrichement) {
+          const grayFilter = isOld ? 'grayscale(1) opacity(0.85)' : 'none';
+          return L.divIcon({
+            className: 'custom-marker',
+            html: `
+              <div class="marker-container" style="position: relative; width:34px; height:34px;">
+                <div style="
+                  position:absolute; inset:0;
+                  border-radius: 50%;
+                  background: transparent; border: 4px solid ${isOld ? '#9CA3AF' : '#10B981'};
+                  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+                "></div>
+                ${isOld ? '' : `
+                <!-- Pulsation verte -->
+                <svg viewBox="0 0 32 32" width="32" height="32" style="position:absolute; inset:0;">
+                  <circle cx="16" cy="16" r="8" fill="none" stroke="#10B981" stroke-width="2" opacity="0.7">
+                    <animate attributeName="r" values="8;13;8" dur="1.6s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.7;0;0.7" dur="1.6s" repeatCount="indefinite"/>
+                  </circle>
+                </svg>`}
+                <div style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); filter:${grayFilter};">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="${isOld ? '#9CA3AF' : '#10B981'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 22h20L12 2z"></path>
+                    <path d="M12 18v-8"></path>
+                  </svg>
+                </div>
+              </div>
+            `,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+            popupAnchor: [0, -20]
+          });
+        }
+
+        if (isEmpietement) {
+          const grayFilter = isOld ? 'grayscale(1) opacity(0.85)' : 'none';
+          return L.divIcon({
+            className: 'custom-marker',
+            html: `
+              <div class="marker-container" style="position: relative; width:34px; height:34px;">
+                <div style="
+                  position:absolute; inset:0;
+                  border-radius: 50%;
+                  background: transparent; border: 4px solid ${isOld ? '#9CA3AF' : '#8B5CF6'};
+                  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+                "></div>
+                ${isOld ? '' : `
+                <!-- Pulsation violette -->
+                <svg viewBox="0 0 32 32" width="32" height="32" style="position:absolute; inset:0;">
+                  <circle cx="16" cy="16" r="8" fill="none" stroke="#8B5CF6" stroke-width="2" opacity="0.7">
+                    <animate attributeName="r" values="8;13;8" dur="1.6s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.7;0;0.7" dur="1.6s" repeatCount="indefinite"/>
+                  </circle>
+                </svg>`}
+                <div style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); filter:${grayFilter};">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="${isOld ? '#9CA3AF' : '#8B5CF6'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <path d="M9 9h6v6H9z"></path>
+                  </svg>
+                </div>
+              </div>
+            `,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+            popupAnchor: [0, -20]
+          });
+        }
+
+        if (isSpotrep) {
+          const grayFilter = isOld ? 'grayscale(1) opacity(0.85)' : 'none';
+          return L.divIcon({
+            className: 'custom-marker',
+            html: `
+              <div class="marker-container" style="position: relative; width:34px; height:34px;">
+                <div style="
+                  position:absolute; inset:0;
+                  border-radius: 50%;
+                  background: transparent; border: 4px solid ${isOld ? '#9CA3AF' : '#06B6D4'};
+                  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+                "></div>
+                ${isOld ? '' : `
+                <!-- Pulsation cyan -->
+                <svg viewBox="0 0 32 32" width="32" height="32" style="position:absolute; inset:0;">
+                  <circle cx="16" cy="16" r="8" fill="none" stroke="#06B6D4" stroke-width="2" opacity="0.7">
+                    <animate attributeName="r" values="8;13;8" dur="1.6s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.7;0;0.7" dur="1.6s" repeatCount="indefinite"/>
+                  </circle>
+                </svg>`}
+                <div style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); filter:${grayFilter};">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="${isOld ? '#9CA3AF' : '#06B6D4'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                  </svg>
+                </div>
+              </div>
+            `,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+            popupAnchor: [0, -20]
+          });
+        }
+
         // Icône pour les informations ("autre" ou par défaut)
         const grayFilter = isOld ? 'grayscale(1) opacity(0.85)' : 'none';
         const bgColor = isOld ? '#9CA3AF' : '#3b82f6'; // Bleu
@@ -1963,6 +2069,9 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         if (title === 'ALERTE FEUX_DE_BROUSSE') title = 'Alerte Feux de Brousse';
         else if (title === 'ALERTE TRAFIC_BOIS' || title === 'ALERTE TRAFIC-BOIS') title = 'Alerte Coupe de Bois';
         else if (title === 'ALERTE BRACONNAGE') title = 'Alerte Braconnage';
+        else if (title === 'ALERTE DEFRICHEMENT') title = 'Alerte Défrichement';
+        else if (title === 'ALERTE EMPIETEMENT') title = 'Alerte Empiètement';
+        else if (title === 'ALERTE SPOTREP') title = 'Rapport SPOTREP';
         const msg = a.message || '';
         const when = new Date(a.created_at).toLocaleString();
         const region = a.region || 'N/A';
@@ -2003,6 +2112,9 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         if (displayNature === 'feux_de_brousse') displayNature = 'Feux de brousse';
         else if (displayNature === 'trafic-bois' || displayNature === 'trafic_bois') displayNature = 'Coupe de bois';
         else if (displayNature === 'braconnage') displayNature = 'Braconnage';
+        else if (displayNature === 'defrichement') displayNature = 'Défrichement';
+        else if (displayNature === 'empietement') displayNature = 'Empiètement';
+        else if (displayNature === 'spotrep') displayNature = 'SPOTREP';
         else if (displayNature === 'autre') displayNature = 'Autre / Information';
         else if (displayNature) displayNature = displayNature.charAt(0).toUpperCase() + displayNature.slice(1);
 
@@ -2047,15 +2159,31 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
               </div>
               ` : ''}
               ${senderPhone ? `
-              <div class="popup-row phone-info">
-                <span class="popup-icon">📞</span>
+              <div class="popup-row phone-info" style="align-items: center;">
+                <span class="popup-icon">📱</span>
                 <span class="popup-label">Tél :</span>
-                <span class="popup-value"><a href="tel:${senderPhone}" class="popup-phone-link">${senderPhone}</a></span>
+                <span class="popup-value" style="display: flex; gap: 8px; align-items: center;">
+                  <span style="font-weight: 600; color: #0284c7;">${senderPhone}</span>
+                  <a href="tel:${String(senderPhone).replace(/\s/g, '')}" title="Appeler" style="background: #dcfce7; color: #166534; padding: 3px 6px; border-radius: 4px; text-decoration: none; font-size: 12px; display: inline-flex; align-items: center;">📞</a>
+                  <button onclick="window.dispatchEvent(new CustomEvent('open-quick-sms', { detail: { id: '${(s as any)?.id || (a as any).sender_id || senderPhone || ''}', name: '${senderName.replace(/'/g, "\\'")}', phone: '${senderPhone}' } }))" title="Message interne" style="background: #e0f2fe; color: #075985; padding: 3px 6px; border-radius: 4px; text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; border: none; cursor: pointer;">💬</button>
+                </span>
               </div>
               ` : ''}
               ${lastLineContent ? `
               <div class="popup-message">
                 ${isAgent && roleMetierLabel ? `<strong style="color:#3b82f6;">🏷️ ${lastLineContent}</strong>` : lastLineContent}
+              </div>
+              ` : ''}
+              ${(a as any).imagePath ? `
+              <div class="popup-image" style="margin-top: 8px; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; background: #f8fafc;">
+                <a href="/api/alerts/attachment/${(a as any).imagePath}" target="_blank" rel="noopener noreferrer">
+                  <img src="/api/alerts/attachment/${(a as any).imagePath}" style="width: 100%; max-height: 100px; object-fit: cover;" />
+                </a>
+              </div>
+              ` : ''}
+              ${(a as any).audioPath ? `
+              <div class="popup-audio" style="margin-top: 8px; background: #f8fafc; border-radius: 6px; padding: 4px; border: 1px solid #e2e8f0;">
+                <audio src="/api/alerts/attachment/${(a as any).audioPath}" controls style="width: 100%; height: 26px;" />
               </div>
               ` : ''}
             </div>
@@ -4377,7 +4505,6 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           </div>
         )}
 
-        {/* Boutons de filtrage des alertes par type */}
         {props.showAlerts && !props.minimal && (() => {
           const allAlerts = props.alerts || [];
           // Compter les alertes par type
@@ -4393,13 +4520,6 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
             braconnage: allAlerts.filter(a => {
               const n = (a.nature || '').toLowerCase();
               return n.includes('braconn');
-            }).length,
-            autre: allAlerts.filter(a => {
-              const n = (a.nature || '').toLowerCase();
-              const isFire = n.includes('feu') || n.includes('brousse');
-              const isTraffic = n.includes('trafic') || n.includes('bois');
-              const isPoaching = n.includes('braconn');
-              return !isFire && !isTraffic && !isPoaching;
             }).length,
           };
 
@@ -4424,7 +4544,6 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                   { key: 'feux_de_brousse', label: 'Feux', color: '#ea580c', icon: '🔥' },
                   { key: 'trafic-bois', label: 'Bois', color: '#8B5A2B', icon: '🪵' },
                   { key: 'braconnage', label: 'Braconn.', color: '#dc2626', icon: '🎯' },
-                  { key: 'autre', label: 'Info', color: '#6b7280', icon: 'ℹ️' },
                 ].map(({ key, label, color, icon }) => {
                   const count = counts[key as keyof typeof counts];
                   const isActive = alertTypeFilters[key as keyof typeof alertTypeFilters];
@@ -4495,7 +4614,6 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                 { key: 'feux_de_brousse', label: 'Feux de brousse', color: '#ef4444', icon: '🔥' },
                 { key: 'trafic-bois', label: 'Coupe de bois', color: '#8B5A2B', icon: '🪵' },
                 { key: 'braconnage', label: 'Braconnage', color: '#FF1F3D', icon: '🎯' },
-                { key: 'autre', label: 'Information', color: '#6b7280', icon: 'ℹ️' },
               ].map(({ key, label, color, icon }) => {
                 const count = counts[key as keyof typeof counts];
                 return (

@@ -7,12 +7,18 @@ import { logAudit, calculateHash } from './auditLogger';
  * Construit un DAG de dépendances pour le SyncEngine
  */
 
-export async function createOfflineAlert(payload: any, priority: 0 | 1 | 2 | 3 = 3, attachments: File[] = []): Promise<string> {
+export async function createOfflineAlert(
+  payload: any,
+  priority: 0 | 1 | 2 | 3 = 3,
+  attachments: { file: File, fieldName: 'audio' | 'image' }[] = []
+): Promise<string> {
   const alertId = generateUUID();
   const attachmentTaskIds: string[] = [];
+  const updatedPayload = { ...payload };
 
   // 1. Stocker les pièces jointes d'abord
-  for (const file of attachments) {
+  for (const item of attachments) {
+    const { file, fieldName } = item;
     const attachId = generateUUID();
     const arrayBuffer = await file.arrayBuffer();
     
@@ -34,6 +40,23 @@ export async function createOfflineAlert(payload: any, priority: 0 | 1 | 2 | 3 =
     };
     
     await storeData('attachments', attachmentRecord);
+
+    // Associer les IDs de pièces jointes hors ligne au payload
+    if (fieldName === 'audio') {
+      updatedPayload.offlineAudioAttachment = {
+        attachId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileMime: file.type
+      };
+    } else if (fieldName === 'image') {
+      updatedPayload.offlineImageAttachment = {
+        attachId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileMime: file.type
+      };
+    }
 
     // Mettre la tâche d'upload en file d'attente
     const uploadTaskId = generateUUID();
@@ -59,7 +82,7 @@ export async function createOfflineAlert(payload: any, priority: 0 | 1 | 2 | 3 =
     id: alertId,
     version: 1,
     createdAtLocal: Date.now(),
-    payload,
+    payload: updatedPayload,
     priority: priority === 0 ? 'EMERGENCY' : priority === 1 ? 'CRITICAL' : priority === 2 ? 'HIGH' : 'NORMAL',
     status: 'DRAFT'
   };
@@ -72,14 +95,14 @@ export async function createOfflineAlert(payload: any, priority: 0 | 1 | 2 | 3 =
     id: alertTaskId,
     action: 'CREATE_ALERT',
     priority,
-    payload,
+    payload: updatedPayload,
     entityId: alertId,
     createdAt: Date.now(),
     attempts: 0,
     lastAttempt: undefined,
     status: 'PENDING',
     dependencies: attachmentTaskIds, // Ne sera traitée qu'une fois ces tâches résolues
-    idempotencyKey: `${alertId}-${await calculateHash(JSON.stringify(payload))}`
+    idempotencyKey: `${alertId}-${await calculateHash(JSON.stringify(updatedPayload))}`
   };
 
   await storeData('pendingSync', alertTask);

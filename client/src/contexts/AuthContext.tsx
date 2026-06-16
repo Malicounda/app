@@ -137,6 +137,10 @@ async function saveSession(u: User) {
         username: u.username,
         guideId: u.guideId,
         hunterId: u.hunterId,
+        region: u.region,
+        departement: u.departement,
+        commune: u.commune,
+        arrondissement: u.arrondissement,
       })
     );
   } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }

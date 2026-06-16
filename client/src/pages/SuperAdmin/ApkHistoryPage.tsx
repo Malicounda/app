@@ -40,8 +40,26 @@ type MessageItem = {
 };
 
 // ═══════════════ Helpers ═══════════════
-const natureLabels: Record<string, string> = { braconnage: "Braconnage", feux_de_brousse: "Feux de brousse", "trafic-bois": "Coupe de bois", trafic_bois: "Coupe de bois", autre: "Autre / Information" };
-const natureColors: Record<string, string> = { braconnage: "bg-red-100 text-red-700", feux_de_brousse: "bg-orange-100 text-orange-700", "trafic-bois": "bg-amber-100 text-amber-800", trafic_bois: "bg-amber-100 text-amber-800", autre: "bg-gray-100 text-gray-700" };
+const natureLabels: Record<string, string> = { 
+  braconnage: "Braconnage", 
+  feux_de_brousse: "Feux de brousse", 
+  "trafic-bois": "Coupe de bois", 
+  trafic_bois: "Coupe de bois", 
+  defrichement: "Défrichement",
+  empietement: "Empiètement",
+  spotrep: "SPOTREP",
+  autre: "Autre / Information" 
+};
+const natureColors: Record<string, string> = { 
+  braconnage: "bg-red-100 text-red-700", 
+  feux_de_brousse: "bg-orange-100 text-orange-700", 
+  "trafic-bois": "bg-amber-100 text-amber-800", 
+  trafic_bois: "bg-amber-100 text-amber-800", 
+  defrichement: "bg-emerald-100 text-emerald-700",
+  empietement: "bg-purple-100 text-purple-700",
+  spotrep: "bg-cyan-100 text-cyan-700",
+  autre: "bg-gray-100 text-gray-700" 
+};
 
 function agentName(s: any) {
   if (!s) return "—";
@@ -430,6 +448,9 @@ function AlertesTab() {
               <option value="braconnage">Braconnage</option>
               <option value="feux_de_brousse">Feux de brousse</option>
               <option value="trafic_bois">Coupe de bois</option>
+              <option value="defrichement">Défrichement</option>
+              <option value="empietement">Empiètement</option>
+              <option value="spotrep">SPOTREP</option>
               <option value="autre">Autre / Information</option>
             </select>
           </div>

@@ -1,6 +1,6 @@
 import React from "react";
 
-export type AlertNature = "braconnage" | "trafic-bois" | "feux_de_brousse" | "autre";
+export type AlertNature = "braconnage" | "trafic-bois" | "feux_de_brousse" | "defrichement" | "empietement" | "spotrep" | "autre";
 
 interface IconProps {
   size?: number;
@@ -27,12 +27,6 @@ export const WoodTrafficIcon: React.FC<IconProps> = ({ size = 24, dimmed = false
       <title>{title}</title>
       {ring}
       <g transform="translate(0,0)" style={{ filter }}>
-        {/* Icône bûches (repris de MapComponent) */}
-        {/**
-         * Center the logs inside the 32x32 icon.
-         * Original logs coordinates roughly span x:[12..68], y:[12..44] with center at (40,28).
-         * We move to the icon center (16,16), scale, then translate by the negative original center.
-         */}
         <g transform="translate(16,16) scale(0.28) translate(-40,-28)">
           <defs>
             <linearGradient id="woodGradIcon" x1="0" y1="0" x2="1" y2="0">
@@ -72,7 +66,6 @@ export const PoachingIcon: React.FC<IconProps> = ({ size = 24, dimmed = false, c
       <title>{title}</title>
       <circle cx="32" cy="32" r="28" fill="none" stroke={borderColor} strokeWidth="5" />
       <g style={{ filter }}>
-        {/* viseur + cervidé (repris de MapComponent) */}
         <defs>
           <linearGradient id="sightGradIcon" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#ff6b6b" />
@@ -114,7 +107,60 @@ export const FireIcon: React.FC<IconProps> = ({ size = 24, dimmed = false, class
   );
 };
 
-export const NatureIcon: React.FC<{ nature?: AlertNature | null; size?: number; dimmed?: boolean; className?: string }>
+export const DefrichementIcon: React.FC<IconProps> = ({ size = 24, dimmed = false, className = "", title = "Défrichement" }) => {
+  const borderColor = dimmed ? "#9CA3AF" : "#16A34A"; // gris vs vert
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" role="img" aria-label={title} className={className}>
+      <title>{title}</title>
+      <circle cx="16" cy="16" r="14" fill="none" stroke={borderColor} strokeWidth="4" />
+      <g transform="translate(6,6)" style={{ filter: dimmed ? "grayscale(1) opacity(0.85)" : "none" }}>
+        <path d="M10 2 L17 14 L13 14 L19 22 L1 22 L7 14 L3 14 Z" fill={borderColor} />
+        <rect x="8.5" y="22" width="3" height="4" fill="#78350F" />
+      </g>
+    </svg>
+  );
+};
+
+export const EmpietementIcon: React.FC<IconProps> = ({ size = 24, dimmed = false, className = "", title = "Empiètement" }) => {
+  const borderColor = dimmed ? "#9CA3AF" : "#7C3AED"; // gris vs violet
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" role="img" aria-label={title} className={className}>
+      <title>{title}</title>
+      <circle cx="16" cy="16" r="14" fill="none" stroke={borderColor} strokeWidth="4" />
+      <g transform="translate(6,6)" style={{ filter: dimmed ? "grayscale(1) opacity(0.85)" : "none" }}>
+        <path d="M2 6 H18 M2 14 H18 M4 3 V17 M9 3 V17 M14 3 V17" stroke={borderColor} strokeWidth="2.5" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+};
+
+export const SpotrepIcon: React.FC<IconProps> = ({ size = 24, dimmed = false, className = "", title = "SPOTREP" }) => {
+  const borderColor = dimmed ? "#9CA3AF" : "#0891B2"; // gris vs cyan
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" role="img" aria-label={title} className={className}>
+      <title>{title}</title>
+      <circle cx="16" cy="16" r="14" fill="none" stroke={borderColor} strokeWidth="4" />
+      <g transform="translate(6,6)" style={{ filter: dimmed ? "grayscale(1) opacity(0.85)" : "none" }}>
+        <path d="M3 13 V7 H7 L13 3 V17 L7 13 Z" fill={borderColor} />
+        <path d="M15 7 A 3 3 0 0 1 15 13 M17 5 A 5 5 0 0 1 17 15" stroke={borderColor} strokeWidth="2" strokeLinecap="round" fill="none" />
+      </g>
+    </svg>
+  );
+};
+
+export const InfoIcon: React.FC<IconProps> = ({ size = 24, dimmed = false, className = "", title = "Autre" }) => {
+  const borderColor = dimmed ? "#9CA3AF" : "#6B7280"; // gris vs gris-foncé
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" role="img" aria-label={title} className={className}>
+      <title>{title}</title>
+      <circle cx="16" cy="16" r="14" fill="none" stroke={borderColor} strokeWidth="4" />
+      <circle cx="16" cy="10" r="2.2" fill={borderColor} />
+      <rect x="14.5" y="14" width="3" height="10" rx="1.5" fill={borderColor} />
+    </svg>
+  );
+};
+
+export const NatureIcon: React.FC<{ nature?: string | null; size?: number; dimmed?: boolean; className?: string }>
   = ({ nature, size = 20, dimmed = false, className = "" }) => {
   const n = (nature || "").toLowerCase();
   if (n.includes("bois") || n.includes("trafic")) {
@@ -125,6 +171,18 @@ export const NatureIcon: React.FC<{ nature?: AlertNature | null; size?: number; 
   }
   if (n.includes("feu") || n.includes("brousse") || n.includes("incendi")) {
     return <FireIcon size={size} dimmed={dimmed} className={className} />;
+  }
+  if (n.includes("defrich")) {
+    return <DefrichementIcon size={size} dimmed={dimmed} className={className} />;
+  }
+  if (n.includes("empiet")) {
+    return <EmpietementIcon size={size} dimmed={dimmed} className={className} />;
+  }
+  if (n.includes("spotrep")) {
+    return <SpotrepIcon size={size} dimmed={dimmed} className={className} />;
+  }
+  if (n.includes("autre") || n.includes("info")) {
+    return <InfoIcon size={size} dimmed={dimmed} className={className} />;
   }
   return null;
 };

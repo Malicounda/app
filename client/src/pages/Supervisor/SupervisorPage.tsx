@@ -1,9 +1,13 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import L from "leaflet";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Info, BookOpen, X, BarChart3, MapPin, HelpCircle } from "lucide-react";
-import { NatureIcon, FireIcon, PoachingIcon, WoodTrafficIcon } from "@/components/icons/AlertNatureIcons";
+import { NatureIcon, FireIcon, PoachingIcon, WoodTrafficIcon, DefrichementIcon, EmpietementIcon, SpotrepIcon } from "@/components/icons/AlertNatureIcons";
 import { useLocation } from "wouter";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
 import AlerteDomainActionCard from "@/components/alerte/AlerteDomainActionCard";
@@ -43,13 +47,16 @@ function renderTickerItem(n: any) {
 }
 
 // All known alert types in the system
-const ALL_ALERT_TYPES = ['Feux de brousse', 'Braconnage', 'Coupe de bois', 'Autre'];
+const ALL_ALERT_TYPES = ['Feux de brousse', 'Braconnage', 'Coupe de bois', 'Défrichement', 'Empiètement', 'SPOTREP', 'Autre'];
 
 // Color palette for alert type badges
 const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   'Feux de brousse': { bg: 'bg-orange-50', text: 'text-orange-800', border: 'border-orange-200' },
   'Braconnage': { bg: 'bg-red-50', text: 'text-red-800', border: 'border-red-200' },
   'Coupe de bois': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' },
+  'Défrichement': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200' },
+  'Empiètement': { bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-200' },
+  'SPOTREP': { bg: 'bg-cyan-50', text: 'text-cyan-800', border: 'border-cyan-200' },
   'Autre': { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' },
 };
 
@@ -64,8 +71,296 @@ const TypeIcon: React.FC<{ name: string; size?: number }> = ({ name, size = 18 }
   if (n.includes('feu') || n.includes('brousse')) return <FireIcon size={size} />;
   if (n.includes('braconn')) return <PoachingIcon size={size} />;
   if (n.includes('coupe') || n.includes('bois') || n.includes('trafic')) return <WoodTrafficIcon size={size} />;
+  if (n.includes('defriche')) return <DefrichementIcon size={size} />;
+  if (n.includes('empiete')) return <EmpietementIcon size={size} />;
+  if (n.includes('spotrep')) return <SpotrepIcon size={size} />;
   return <HelpCircle className="h-4 w-4 text-slate-400" />;
 };
+
+
+
+interface AlertMapModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  alerts: any[];
+  title: string;
+}
+
+function AlertMapModal({ isOpen, onClose, alerts, title }: AlertMapModalProps) {
+  const mapRef = useRef<L.Map | null>(null);
+  const [useSatellite, setUseSatellite] = useState(true);
+  const osmLayerRef = useRef<L.TileLayer | null>(null);
+  const satelliteLayerRef = useRef<L.TileLayer | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        const container = document.getElementById("alert-modal-map");
+        if (!container) return;
+
+        // Clean up previous map instance
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+
+        const defaultCenter: [number, number] = [14.4974, -14.4524];
+        const defaultZoom = 7;
+
+        const map = L.map("alert-modal-map", {
+          zoomControl: false
+        }).setView(defaultCenter, defaultZoom);
+
+        L.control.zoom({ position: "topright" }).addTo(map);
+
+        // Offline layer first
+        L.tileLayer('/tiles/osm/{z}/{x}/{y}.png', {
+          minZoom: 5,
+          maxNativeZoom: 9,
+          maxZoom: 18,
+          zIndex: 1
+        }).addTo(map);
+
+        // Online Osm layer
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          minZoom: 5,
+          maxZoom: 18,
+          attribution: '© OpenStreetMap contributors',
+          zIndex: 2,
+          crossOrigin: true
+        });
+
+        // Online Satellite layer
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          minZoom: 5,
+          maxZoom: 17,
+          attribution: '© Esri',
+          zIndex: 2,
+          crossOrigin: true
+        });
+
+        osmLayerRef.current = osmLayer;
+        satelliteLayerRef.current = satelliteLayer;
+
+        if (useSatellite) {
+          satelliteLayer.addTo(map);
+        } else {
+          osmLayer.addTo(map);
+        }
+
+        mapRef.current = map;
+
+        // Create MarkerClusterGroup for clustering points dynamically
+        const clusterGroup = (L as any).markerClusterGroup({
+          maxClusterRadius: 35,
+          disableClusteringAtZoom: 18,
+          showCoverageOnHover: false,
+          iconCreateFunction: (cluster: any) => {
+            const childCount = cluster.getChildCount();
+            return L.divIcon({
+              html: `
+                <div class="flex items-center justify-center rounded-full border-2 border-white shadow-lg font-black text-xs text-white" 
+                     style="background-color: rgba(248, 113, 113, 0.9); width: 32px; height: 32px;">
+                  ${childCount}
+                </div>
+              `,
+              className: "custom-cluster-marker-red",
+              iconSize: [32, 32],
+              iconAnchor: [16, 16]
+            });
+          }
+        });
+
+        const bounds: L.LatLngExpression[] = [];
+
+        alerts.forEach((alert) => {
+          if (alert.lat && alert.lon) {
+            const norm = (alert.nature || "").toLowerCase();
+            let color = "#3b82f6"; // Bleu par défaut
+            if (norm.includes("feu") || norm.includes("brousse")) {
+              color = "#ea580c"; // Orange
+            } else if (norm.includes("braconn")) {
+              color = "#dc2626"; // Rouge
+            } else if (norm.includes("coupe") || norm.includes("bois") || norm.includes("trafic")) {
+              color = "#d97706"; // Amber
+            }
+
+            // Real L.marker with DivIcon for full clustering capability
+            const marker = L.marker([alert.lat, alert.lon], {
+              icon: L.divIcon({
+                className: "custom-leaflet-marker",
+                html: `
+                  <div class="h-4 w-4 rounded-full border-2 border-white shadow-md flex items-center justify-center" style="background-color: ${color};">
+                    <div class="h-1.5 w-1.5 rounded-full bg-white opacity-80"></div>
+                  </div>
+                `,
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
+                popupAnchor: [0, -8]
+              })
+            });
+
+            const dateStr = alert.created_at ? new Date(alert.created_at).toLocaleDateString("fr-FR", {
+              day: "numeric",
+              month: "short",
+              year: "numeric"
+            }) : "";
+
+            const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${alert.lat},${alert.lon}`;
+
+            const cleanNature = (alert.nature || "Alerte").replace(/_/g, " ");
+
+            const popupContent = `
+              <div class="p-1 max-w-[170px] font-sans text-slate-900 leading-snug">
+                <h4 class="text-xs font-black text-slate-950 border-b border-slate-100 pb-1 mb-1.5 capitalize">${cleanNature}</h4>
+                <p class="text-[10px] text-slate-700 font-semibold mb-1.5 leading-tight">${alert.title || ""}</p>
+                <div class="text-[9px] text-slate-600 space-y-0.5 mb-2.5">
+                  <p class="m-0">Localité : <span class="capitalize text-slate-900 font-bold">${alert.localite || "N/A"}</span></p>
+                  <p class="m-0">Date : <span class="text-slate-900 font-bold">${dateStr}</span></p>
+                </div>
+                <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" 
+                   style="background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #0f172a;"
+                   class="flex items-center justify-center gap-1 w-full rounded-lg py-1.5 text-center text-[9px] font-bold shadow-sm transition-all hover:bg-opacity-25 active:scale-95">
+                  🗺️ Google Maps (Itinéraire)
+                </a>
+              </div>
+            `;
+            marker.bindPopup(popupContent, {
+              maxWidth: 180,
+              minWidth: 150
+            });
+            clusterGroup.addLayer(marker);
+            bounds.push([alert.lat, alert.lon]);
+          }
+        });
+
+        map.addLayer(clusterGroup);
+
+        if (bounds.length === 1) {
+          map.setView(bounds[0], 12);
+        } else if (bounds.length > 1) {
+          try {
+            map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40], maxZoom: 14 });
+          } catch (e) {
+            // Ignore bounds errors
+          }
+        }
+
+        // Force a layout recaculation for Leaflet to show up correctly at 100% size
+        map.invalidateSize();
+      }, 150);
+
+      return () => clearTimeout(timer);
+    } else {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    }
+  }, [isOpen, alerts]);
+
+  // Handle Satellite toggle dynamically without re-initializing the whole map
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+
+    if (useSatellite) {
+      if (osmLayerRef.current && map.hasLayer(osmLayerRef.current)) {
+        map.removeLayer(osmLayerRef.current);
+      }
+      if (satelliteLayerRef.current) {
+        satelliteLayerRef.current.addTo(map);
+      }
+    } else {
+      if (satelliteLayerRef.current && map.hasLayer(satelliteLayerRef.current)) {
+        map.removeLayer(satelliteLayerRef.current);
+      }
+      if (osmLayerRef.current) {
+        osmLayerRef.current.addTo(map);
+      }
+    }
+  }, [useSatellite]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 top-[calc(52px+env(safe-area-inset-top,0px))] sm:inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 sm:p-4 backdrop-blur-sm">
+      <div className="relative w-full h-full sm:h-auto sm:max-w-2xl rounded-none sm:rounded-2xl border-0 sm:border border-slate-100 bg-white p-4 sm:p-5 shadow-2xl flex flex-col justify-between">
+        <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-emerald-600" />
+              Localisation des Alertes
+            </h3>
+            <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
+              {title}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="relative flex-1 sm:h-[400px] min-h-[300px] w-full rounded-xl border border-slate-200 overflow-hidden z-0">
+          <div id="alert-modal-map" className="h-full w-full" />
+          
+          {/* Toggle Satellite / Plan view inside the map container */}
+          <div className="absolute bottom-3 left-3 z-[400] flex gap-1 rounded-lg bg-white p-1 shadow-md border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setUseSatellite(false)}
+              className={`rounded px-2.5 py-1 text-[9px] font-bold transition-all ${!useSatellite ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              Plan
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseSatellite(true)}
+              className={`rounded px-2.5 py-1 text-[9px] font-bold transition-all ${useSatellite ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              Satellite
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-4 text-xs font-semibold justify-center text-slate-600 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-orange-500" />
+            Feux de brousse
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-red-500" />
+            Braconnage
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-amber-500" />
+            Coupe de bois
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-[#10B981]" />
+            Défrichement
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-[#8B5CF6]" />
+            Empiètement
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-[#06B6D4]" />
+            SPOTREP
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-gray-500" />
+            Autre
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SupervisorPage() {
   const { user } = useAuth();
@@ -73,12 +368,13 @@ export default function SupervisorPage() {
   const queryClient = useQueryClient();
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [monthFilter, setMonthFilter] = useState<string>('all');
   const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'year' | 'all'>('all');
 
   // Fetch all alerts in the system for complete stats, filtered by the supervisor's zone
   const { data: allReceivedAlerts } = useQuery({
-    queryKey: ["supervisor-all-alerts", user?.id],
+    queryKey: ["supervisor-all-alerts", user?.id, user?.region, user?.departement, user?.commune, user?.arrondissement],
     queryFn: async () => {
       try {
         const res = await apiRequest<any[]>("GET", `/alerts/map`);
@@ -142,6 +438,23 @@ export default function SupervisorPage() {
     if (user?.region) return { level: 'region', name: user.region };
     return { level: 'none', name: '' };
   }, [user]);
+
+  const currentYearAlerts = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return (allReceivedAlerts || []).filter((a: any) => {
+      if (!a.created_at) return false;
+      const d = new Date(a.created_at);
+      return !isNaN(d.getTime()) && d.getFullYear() === currentYear;
+    });
+  }, [allReceivedAlerts]);
+
+  const currentYearTitle = useMemo(() => {
+    const levelName = adminScope.level === 'region' ? 'Région' : 
+                      adminScope.level === 'departement' ? 'Département' :
+                      adminScope.level === 'arrondissement' ? 'Arrondissement' :
+                      adminScope.level === 'commune' ? 'Commune' : 'Zone';
+    return `${levelName} ${adminScope.name || "administrative"} — Année ${new Date().getFullYear()}`;
+  }, [adminScope]);
 
   const normEqual = (a: string | null | undefined, b: string | null | undefined) => {
     const norm = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -246,11 +559,18 @@ export default function SupervisorPage() {
 
     // Normalize a nature string to match known types
     const normalizeNature = (nat: string) => {
-      let cleaned = (nat || 'autre').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-      if (cleaned.toLowerCase().includes('trafic') || cleaned.toLowerCase() === 'trafic bois') {
-        cleaned = 'Coupe de bois';
+      const norm = (s: string) => (s || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+      const cleanedNorm = norm(nat).replace(/_/g, ' ');
+      
+      if (cleanedNorm.includes('trafic') || cleanedNorm === 'trafic bois' || cleanedNorm.includes('coupe')) {
+        return 'Coupe de bois';
       }
-      return ALL_ALERT_TYPES.find(t => t.toLowerCase() === cleaned.toLowerCase()) || cleaned;
+      
+      const found = ALL_ALERT_TYPES.find(t => norm(t) === cleanedNorm);
+      if (found) return found;
+
+      // Fallback for unknown types: capitalize words and replace underscores
+      return (nat || 'Autre').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     };
 
     // 1. Count per type - always include all known types, even if 0
@@ -576,7 +896,7 @@ export default function SupervisorPage() {
       <LicenseDialog isOpen={showLicense} onClose={() => setShowLicense(false)} />
 
       {showStatsModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 pt-10 pb-16 backdrop-blur-sm">
+        <div className="fixed inset-x-0 bottom-0 top-[calc(52px+env(safe-area-inset-top,0px))] sm:inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 pt-4 pb-16 backdrop-blur-sm">
           <div className="relative w-full max-w-lg rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl">
             {/* Header */}
             <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
@@ -688,8 +1008,8 @@ export default function SupervisorPage() {
               )}
             </div>
 
-            {/* Navigation filter tabs (Week, Month, Year, All) */}
-            <div className="flex border-t border-slate-100 pt-4 mt-5 justify-center">
+            {/* Navigation filter tabs (Week, Month, Year, All) + Map Button */}
+            <div className="flex border-t border-slate-100 pt-4 mt-5 justify-center items-center gap-3">
               <div className="inline-flex rounded-xl bg-slate-100 p-1">
                 <button
                   type="button"
@@ -720,10 +1040,26 @@ export default function SupervisorPage() {
                   Tout
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setShowMapModal(true)}
+                className="flex h-[34px] w-[34px] items-center justify-center rounded-xl border border-slate-200 bg-white text-emerald-600 shadow-sm transition-all hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 active:scale-90 shrink-0"
+                title="Afficher la carte des alertes de l'année en cours"
+              >
+                <MapPin className="h-4.5 w-4.5" />
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      <AlertMapModal
+        isOpen={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        alerts={currentYearAlerts}
+        title={currentYearTitle}
+      />
     </div>
   );
 }

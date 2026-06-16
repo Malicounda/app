@@ -11,6 +11,7 @@ import { mapCache } from '@/lib/mapCache';
 import { apiRequest } from '@/lib/queryClient';
 import { filterAlertsForSupervisor } from '@/utils/alertZoneScope';
 import { resolveApiUrl } from '@/utils/environment';
+import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 
 import {
@@ -47,11 +48,28 @@ const MapPage: React.FC = () => {
   const [showRegulation, setShowRegulation] = useState(false);
   const [useSatellite, setUseSatellite] = useState(false);
   const { user } = useAuth();
+  
+  const { data: unreadData } = useUnreadNotificationsCount();
+  const unreadAlertsCount = unreadData?.count ?? 0;
 
   // --- Toolbar drag state ---
   const [toolbarPos, setToolbarPos] = useState<{ y: number } | null>(null);
   const toolbarDragRef = useRef<{ startY: number; origY: number; dragging: boolean }>({ startY: 0, origY: 0, dragging: false });
   const toolbarRef = useRef<HTMLDivElement>(null);
+
+  const [quickSmsData, setQuickSmsData] = useState<{ id: string, name: string, phone: string } | null>(null);
+  const [quickSmsText, setQuickSmsText] = useState("");
+  const [sendingQuickSms, setSendingQuickSms] = useState(false);
+
+  useEffect(() => {
+    const handleOpenQuickSms = (e: any) => {
+      const detail = e.detail;
+      setQuickSmsData(detail);
+      setQuickSmsText("");
+    };
+    window.addEventListener('open-quick-sms', handleOpenQuickSms);
+    return () => window.removeEventListener('open-quick-sms', handleOpenQuickSms);
+  }, []);
 
   const onToolbarPointerDown = (e: React.PointerEvent) => {
     const target = e.target as HTMLElement;
@@ -126,6 +144,7 @@ const MapPage: React.FC = () => {
   const [controlsCollapsed, setControlsCollapsed] = useState(true);
   const [showInfractions, setShowInfractions] = useState(false);
   const [departementsExpanded, setDepartementsExpanded] = useState(false);
+  const [regionsExpanded, setRegionsExpanded] = useState(false);
   const [infractionsForMap, setInfractionsForMap] = useState<any[]>([]);
   const [infractionsCountsByRegion, setInfractionsCountsByRegion] = useState<Record<string, number>>({});
   const [infractionsPanel, setInfractionsPanel] = useState<null | {
@@ -199,12 +218,38 @@ const MapPage: React.FC = () => {
     }).length;
   }, [alertsForMap]);
 
+  const criticalAlertsCount = useMemo(() => {
+    const now = new Date().getTime();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    return (alertsForMap || []).filter(alert => {
+      const time = new Date(alert.created_at).getTime();
+      const nature = (alert.nature || '').toLowerCase();
+      const isCriticalNature = nature.includes('feu') || nature.includes('brousse') || 
+             nature.includes('braconn') || 
+             nature.includes('coupe') || nature.includes('bois') || nature.includes('trafic');
+      return isCriticalNature && (now - time) < twentyFourHours;
+    }).length;
+  }, [alertsForMap]);
+
+  const totalCriticalAlertsCount = useMemo(() => {
+    return (alertsForMap || []).filter(alert => {
+      const nature = (alert.nature || '').toLowerCase();
+      return nature.includes('feu') || nature.includes('brousse') || 
+             nature.includes('braconn') || 
+             nature.includes('coupe') || nature.includes('bois') || nature.includes('trafic');
+    }).length;
+  }, [alertsForMap]);
+
   const threeDaysAlertsCount = useMemo(() => {
     const now = new Date().getTime();
     const threeDays = 3 * 24 * 60 * 60 * 1000;
     return (alertsForMap || []).filter(alert => {
       const time = new Date(alert.created_at).getTime();
-      return (now - time) < threeDays;
+      const nature = (alert.nature || '').toLowerCase();
+      const isCriticalNature = nature.includes('feu') || nature.includes('brousse') || 
+             nature.includes('braconn') || 
+             nature.includes('coupe') || nature.includes('bois') || nature.includes('trafic');
+      return isCriticalNature && (now - time) < threeDays;
     }).length;
   }, [alertsForMap]);
 
@@ -213,7 +258,11 @@ const MapPage: React.FC = () => {
     const oneWeek = 7 * 24 * 60 * 60 * 1000;
     return (alertsForMap || []).filter(alert => {
       const time = new Date(alert.created_at).getTime();
-      return (now - time) < oneWeek;
+      const nature = (alert.nature || '').toLowerCase();
+      const isCriticalNature = nature.includes('feu') || nature.includes('brousse') || 
+             nature.includes('braconn') || 
+             nature.includes('coupe') || nature.includes('bois') || nature.includes('trafic');
+      return isCriticalNature && (now - time) < oneWeek;
     }).length;
   }, [alertsForMap]);
 
@@ -230,7 +279,11 @@ const MapPage: React.FC = () => {
     const count = (alertsForMap || []).filter(alert => {
       if (!alert.created_at) return false;
       const ad = new Date(alert.created_at);
-      return ad.getFullYear() === year && ad.getMonth() === month;
+      const nature = (alert.nature || '').toLowerCase();
+      const isCriticalNature = nature.includes('feu') || nature.includes('brousse') || 
+             nature.includes('braconn') || 
+             nature.includes('coupe') || nature.includes('bois') || nature.includes('trafic');
+      return isCriticalNature && ad.getFullYear() === year && ad.getMonth() === month;
     }).length;
 
     return {
@@ -254,7 +307,11 @@ const MapPage: React.FC = () => {
     const count = (alertsForMap || []).filter(alert => {
       if (!alert.created_at) return false;
       const ad = new Date(alert.created_at);
-      return ad.getFullYear() === year && ad.getMonth() === month;
+      const nature = (alert.nature || '').toLowerCase();
+      const isCriticalNature = nature.includes('feu') || nature.includes('brousse') || 
+             nature.includes('braconn') || 
+             nature.includes('coupe') || nature.includes('bois') || nature.includes('trafic');
+      return isCriticalNature && ad.getFullYear() === year && ad.getMonth() === month;
     }).length;
 
     return {
@@ -265,6 +322,14 @@ const MapPage: React.FC = () => {
 
   const filteredAlertsForMap = useMemo(() => {
     let list = alertsForMap || [];
+
+    // Ne garder que les alertes critiques (Feux de brousse, Braconnage, Coupe de bois, Trafic)
+    list = list.filter(alert => {
+      const nature = (alert.nature || '').toLowerCase();
+      return nature.includes('feu') || nature.includes('brousse') || 
+             nature.includes('braconn') || 
+             nature.includes('coupe') || nature.includes('bois') || nature.includes('trafic');
+    });
 
     const now = new Date().getTime();
     const twentyFourHours = 24 * 60 * 60 * 1000;
@@ -439,10 +504,11 @@ const MapPage: React.FC = () => {
   }, [showRegions, showDepartements, showCommunes, showArrondissements, showZics, showAmodiees, showParcVisite, showRegulation, showEcoZones, showProtectedZones, showAgents, colorizeRegionsByStatus, showInfractions, showExploitationForestiere, useSatellite]);
 
   useEffect(() => {
-    if (controlsCollapsed && departementsExpanded) {
-      setDepartementsExpanded(false);
+    if (controlsCollapsed) {
+      if (departementsExpanded) setDepartementsExpanded(false);
+      if (regionsExpanded) setRegionsExpanded(false);
     }
-  }, [controlsCollapsed, departementsExpanded]);
+  }, [controlsCollapsed, departementsExpanded, regionsExpanded]);
 
   // Helpers de normalisation + filtrage selon le rôle agent
   const normalize = (s?: string | null) => String(s || '')
@@ -1398,7 +1464,7 @@ const MapPage: React.FC = () => {
                 }
               >
                 {/* Icône sirène avec badge rouge pour les alertes quotidiennes (actives) */}
-                <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
+                <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: controlsCollapsed ? 0 : 6 }}>
                   <svg className="siren-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
                     <defs>
                       <linearGradient id="sirenGrad" x1="0" y1="0" x2="0" y2="1">
@@ -1419,7 +1485,7 @@ const MapPage: React.FC = () => {
                       <path d="M20.5 8.5 L18 10"/>
                     </g>
                   </svg>
-                  {activeAlertsCount > 0 && (
+                  {criticalAlertsCount > 0 && (
                     <span
                       style={{
                         position: 'absolute',
@@ -1438,13 +1504,13 @@ const MapPage: React.FC = () => {
                         lineHeight: '20px',
                         boxShadow: '0 2px 4px rgba(220,38,38,0.4)'
                       }}
-                      title={`${activeAlertsCount} active(s) aujourd'hui`}
-                    >{activeAlertsCount}</span>
+                      title={`${criticalAlertsCount} alerte(s) critique(s)`}
+                    >{criticalAlertsCount}</span>
                   )}
                 </span>
                 <span className="alertes-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
                   <span>Alertes</span>
-                  {alertsForMap.length > 0 && (
+                  {totalCriticalAlertsCount > 0 && (
                     <span style={{
                       marginLeft: 'auto',
                       background: '#64748b',
@@ -1455,9 +1521,9 @@ const MapPage: React.FC = () => {
                       fontWeight: 600,
                       lineHeight: '1.2'
                     }}
-                    title={`${alertsForMap.length} alertes au total`}
+                    title={`${totalCriticalAlertsCount} alertes critiques au total`}
                     >
-                      {alertsForMap.length}
+                      {totalCriticalAlertsCount}
                     </span>
                   )}
                 </span>
@@ -1490,7 +1556,7 @@ const MapPage: React.FC = () => {
                       }}
                       style={{ cursor: 'pointer', accentColor: '#007bff' }}
                     />
-                    {"Masquer les désactivées (" + (alertsForMap.length - activeAlertsCount) + ")"}
+                    {"Masquer les désactivées (" + (totalCriticalAlertsCount - criticalAlertsCount) + ")"}
                   </label>
 
                   {/* Option B: Period Selector */}
@@ -1520,10 +1586,10 @@ const MapPage: React.FC = () => {
                         width: '100%'
                       }}
                     >
-                      <option value="24h">Dernières 24h (Actives) ({activeAlertsCount})</option>
+                      <option value="24h">Dernières 24h (Actives) ({criticalAlertsCount})</option>
                       <option value="3d">Derniers 3 jours ({threeDaysAlertsCount})</option>
                       <option value="1w">Dernière semaine ({oneWeekAlertsCount})</option>
-                      <option value="all">Tout l'historique ({alertsForMap.length})</option>
+                      <option value="all">Tout l'historique ({totalCriticalAlertsCount})</option>
                     </select>
                   </div>
 
@@ -1571,7 +1637,7 @@ const MapPage: React.FC = () => {
             }}
             title="Afficher/Masquer les infractions par région"
           >
-            <span style={{ position: 'relative', display: 'inline-block', width: 26, height: 26, marginRight: 6 }}>
+            <span style={{ position: 'relative', display: 'inline-block', width: 26, height: 26, marginRight: controlsCollapsed ? 0 : 6 }}>
               <FaExclamationTriangle style={{ fontSize: 20, color: showInfractions ? '#f97316' : '#fdba74' }} />
               {(() => {
                 const total = Object.values(infractionsCountsByRegion).reduce((a, b) => a + (b || 0), 0);
@@ -1622,14 +1688,75 @@ const MapPage: React.FC = () => {
           {/* Puis les autres boutons */}
           {/* Bouton Régions: masqué pour chasseur/guide */}
           {!(user?.role === 'hunter' || user?.role === 'hunting-guide') && (
-            <button
-              className={`map-control-button ${showRegions ? 'active' : ''}`}
-              onClick={() => setShowRegions(!showRegions)}
-              title="Afficher/Masquer les régions"
-            >
-              <FaGlobeEurope />
-              <span>Régions</span>
-            </button>
+            <div style={{ width: '100%', position: 'relative' }}>
+              <button
+                className={`map-control-button ${showRegions ? 'active' : ''}`}
+                onClick={() => setShowRegions(!showRegions)}
+                title="Afficher/Masquer les régions"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: controlsCollapsed ? 'center' : 'space-between', gap: controlsCollapsed ? 0 : '8px' }}
+                aria-expanded={regionsExpanded}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <img src="/icone_Senegal.ico" alt="Sénégal" style={{ width: 26, height: 26, flexShrink: 0, mixBlendMode: 'multiply', margin: '-4px -2px' }} />
+                  <span>Régions</span>
+                </span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  style={{ marginLeft: 'auto', paddingLeft: 8, fontSize: 14, cursor: 'pointer', userSelect: 'none' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRegionsExpanded((prev) => !prev);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setRegionsExpanded((prev) => !prev);
+                    }
+                  }}
+                  aria-label="Afficher les sous-couches"
+                >
+                  {regionsExpanded ? '◀' : '◁'}
+                </span>
+              </button>
+              {regionsExpanded && (
+                <div
+                  style={{
+                    position: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'relative' : 'absolute',
+                    right: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'auto' : '100%',
+                    left: 'auto',
+                    top: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'auto' : 0,
+                    marginRight: (typeof window !== 'undefined' && window.innerWidth < 768) ? 0 : '8px',
+                    marginTop: (typeof window !== 'undefined' && window.innerWidth < 768) ? '4px' : 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    backgroundColor: (typeof window !== 'undefined' && window.innerWidth < 768) ? '#f9fafb' : 'white',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    boxShadow: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'none' : '0 2px 8px rgba(0,0,0,0.15)',
+                    border: (typeof window !== 'undefined' && window.innerWidth < 768) ? '1px solid #e5e7eb' : 'none',
+                    zIndex: 1000,
+                    minWidth: (typeof window !== 'undefined' && window.innerWidth < 768) ? '100%' : '200px'
+                  }}
+                >
+                  <button
+                    className={`map-control-button ${showEcoZones ? 'active' : ''}`}
+                    onClick={() => setShowEcoZones(!showEcoZones)}
+                    style={{ fontSize: '13px', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 'auto', justifyContent: 'space-between' }}
+                    title="Afficher/Masquer les zones écogéographiques"
+                  >
+                    <span>Zones Éco.</span>
+                    {(() => {
+                      const count = Array.isArray(currentEcoZonesGeoJson?.features) ? currentEcoZonesGeoJson!.features.length : 0;
+                      if (!count) return null;
+                      return <span className="protected-badge" style={{ marginLeft: 'auto' }}>{count}</span>;
+                    })()}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <button
             className={`map-control-button ${colorizeRegionsByStatus ? 'active' : ''}`}
@@ -1647,7 +1774,7 @@ const MapPage: React.FC = () => {
                 className={`map-control-button ${showDepartements ? 'active' : ''}`}
                 onClick={() => setShowDepartements(!showDepartements)}
                 title="Afficher/Masquer les départements"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: controlsCollapsed ? 'center' : 'space-between', gap: controlsCollapsed ? 0 : '8px' }}
                 aria-expanded={departementsExpanded}
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -1725,17 +1852,7 @@ const MapPage: React.FC = () => {
               )}
             </div>
           )}
-          {/* Bouton Zones Éco.: masqué pour chasseur/guide */}
-          {!(user?.role === 'hunter' || user?.role === 'hunting-guide') && (
-            <button
-              className={`map-control-button ${showEcoZones ? 'active' : ''}`}
-              onClick={() => setShowEcoZones(!showEcoZones)}
-              title="Afficher/Masquer les zones écogéographiques"
-            >
-              <FaLeaf />
-              <span>Zones Éco.</span>
-            </button>
-          )}
+
           {/* Panneau Zones protégées dépliable HORIZONTALEMENT: masqué pour chasseur/guide */}
           {!(user?.role === 'hunter' || user?.role === 'hunting-guide') && (
             <div style={{ width: '100%', position: 'relative' }}>
@@ -1745,9 +1862,10 @@ const MapPage: React.FC = () => {
                 title="Afficher/Masquer les types de zones protégées"
                 style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
+                  justifyContent: controlsCollapsed ? 'center' : 'space-between',
                   alignItems: 'center',
-                  width: '100%'
+                  width: '100%',
+                  gap: controlsCollapsed ? 0 : '8px'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1758,21 +1876,9 @@ const MapPage: React.FC = () => {
                   const count = Array.isArray(currentProtectedZonesGeoJson?.features) ? currentProtectedZonesGeoJson!.features.length : 0;
                   if (!count || count <= 0) return null;
                   return (
-                    <span
-                      style={{
-                        background: '#065f46',
-                        color: 'white',
-                        borderRadius: '12px',
-                        padding: '0 8px',
-                        fontSize: 12,
-                        lineHeight: '20px',
-                        height: 20,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginRight: 8
-                      }}
-                    >{count}</span>
+                    <span className="protected-badge" style={{ marginRight: 8 }}>
+                      {count}
+                    </span>
                   );
                 })()}
                 <span style={{ fontSize: '16px', marginLeft: 'auto' }}>
@@ -2459,6 +2565,63 @@ const MapPage: React.FC = () => {
           </div>
         )}
       </div>
+      {/* QUICK SMS MODAL */}
+      {quickSmsData && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div style={{ background: 'white', padding: '20px', borderRadius: '12px', width: '90%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', color: '#1e293b' }}>
+              Message interne rapide
+            </h3>
+            <div style={{ marginBottom: '15px', fontSize: '13px', color: '#475569' }}>
+              <strong>Destinataire :</strong> {quickSmsData.name} {quickSmsData.phone ? `(${quickSmsData.phone})` : ''}
+            </div>
+            <textarea
+              autoFocus
+              value={quickSmsText}
+              onChange={(e) => setQuickSmsText(e.target.value)}
+              placeholder="Saisissez votre message..."
+              style={{ width: '100%', height: '100px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', resize: 'none', fontSize: '14px', outline: 'none' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '15px' }}>
+              <button 
+                onClick={() => setQuickSmsData(null)}
+                style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#475569', cursor: 'pointer', fontWeight: 500 }}
+              >
+                Annuler
+              </button>
+              <button 
+                disabled={sendingQuickSms || !quickSmsText.trim()}
+                onClick={async () => {
+                  setSendingQuickSms(true);
+                  try {
+                    const formData = new FormData();
+                    formData.append("recipient", quickSmsData.id);
+                    formData.append("subject", "Message rapide depuis la carte");
+                    formData.append("content", quickSmsText.trim());
+                    const { authenticatedFetch } = await import('@/lib/authenticatedFetch');
+                    const res = await authenticatedFetch('/api/messages/', {
+                      method: 'POST',
+                      body: formData,
+                    });
+                    if (!res.ok) throw new Error("Erreur d'envoi");
+                    const { toast } = await import('@/hooks/use-toast');
+                    toast({ title: "Message envoyé avec succès", description: `À ${quickSmsData.name}` });
+                    setQuickSmsData(null);
+                  } catch (e) {
+                    const { toast } = await import('@/hooks/use-toast');
+                    toast({ title: "Erreur d'envoi", description: "Impossible d'envoyer le message.", variant: "destructive" });
+                  } finally {
+                    setSendingQuickSms(false);
+                  }
+                }}
+                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: '#0284c7', color: 'white', cursor: sendingQuickSms || !quickSmsText.trim() ? 'not-allowed' : 'pointer', fontWeight: 500, opacity: sendingQuickSms || !quickSmsText.trim() ? 0.6 : 1 }}
+              >
+                {sendingQuickSms ? "Envoi..." : "Envoyer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

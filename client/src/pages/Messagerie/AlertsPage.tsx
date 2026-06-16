@@ -20,7 +20,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ArrowLeft, ArrowUpDown, Bell, CheckCheck, ChevronDown, ChevronUp, Clock, Filter, Info, MapPin, MessageSquare, Phone, RefreshCw, Search, Trash2, User, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Bell, Camera, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Filter, Info, MapPin, MessageSquare, Mic, Phone, Plus, RefreshCw, Search, Trash2, User, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation as useWouterLocation } from "wouter";
 
@@ -293,6 +293,33 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   return actualAlertData.message;
                 })()}
               </p>
+              
+              {/* Affichage des médias dans la liste */}
+              {((actualAlertData as any).imagePath || (actualAlertData as any).audioPath) && (
+                <div className="mt-3 space-y-3">
+                  {(actualAlertData as any).imagePath && (
+                    <div className="bg-slate-50 p-2 rounded-xl border border-slate-100 inline-block">
+                      <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><Camera className="h-3 w-3" /> Photo jointe</p>
+                      <img 
+                        src={`/api/alerts/attachment/${(actualAlertData as any).imagePath}?token=${localStorage.getItem('token')}`} 
+                        alt="Alerte média" 
+                        className="max-w-full sm:max-w-xs rounded-lg max-h-48 object-contain" 
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+                  {(actualAlertData as any).audioPath && (
+                    <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                      <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><Mic className="h-3 w-3" /> Audio joint</p>
+                      <audio 
+                        controls 
+                        src={`/api/alerts/attachment/${(actualAlertData as any).audioPath}?token=${localStorage.getItem('token')}`} 
+                        className="w-full h-10 max-w-sm" 
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
               {actualAlertData.location && (
                 <p className="text-xs sm:text-sm text-gray-600 mt-2 font-medium">
                   Position: Lat {actualAlertData.location.latitude.toFixed(4)}, Lon {actualAlertData.location.longitude.toFixed(4)}
@@ -604,11 +631,87 @@ function AlertsPage() {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const isLocatingRef = React.useRef(false);
   const [isSendingAlert, setIsSendingAlert] = useState(false);
-  const [selectedAlertType, setSelectedAlertType] = useState<"braconnage" | "trafic-bois" | "feux_de_brousse" | "autre" | null>(null);
+  const [selectedAlertType, setSelectedAlertType] = useState<"braconnage" | "trafic-bois" | "feux_de_brousse" | "defrichement" | "empietement" | "spotrep" | "autre" | null>(null);
   const [messageText, setMessageText] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"inbox" | "outbox">("inbox");
   const [expandedAlerts, setExpandedAlerts] = useState<(number | string)[]>([]);
-  // Modal pour doublon d'alerte
+
+  // === SPOTREP Modal states ===
+  const [showSpotrepModal, setShowSpotrepModal] = useState(false);
+  const [spotrepPhoto, setSpotrepPhoto] = useState<File | null>(null);
+  const [spotrepPhotoPreview, setSpotrepPhotoPreview] = useState<string | null>(null);
+  const [spotrepAudio, setSpotrepAudio] = useState<File | null>(null);
+  const [spotrepAudioPreview, setSpotrepAudioPreview] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
+  const recordingTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [showMediaMenu, setShowMediaMenu] = useState(false);
+
+  const clearSpotrepPhoto = () => {
+    if (spotrepPhotoPreview) URL.revokeObjectURL(spotrepPhotoPreview);
+    setSpotrepPhoto(null);
+    setSpotrepPhotoPreview(null);
+  };
+  const clearSpotrepAudio = () => {
+    if (spotrepAudioPreview) URL.revokeObjectURL(spotrepAudioPreview);
+    setSpotrepAudio(null);
+    setSpotrepAudioPreview(null);
+  };
+  const formatDuration = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+  const startAudioRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const file = new File([blob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
+        setSpotrepAudio(file);
+        setSpotrepAudioPreview(URL.createObjectURL(blob));
+        setIsRecording(false);
+        setRecordingSeconds(0);
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000);
+    } catch {
+      toast({ variant: 'destructive', title: 'Micro non disponible', description: "Impossible d'accéder au microphone." });
+    }
+  };
+  const stopAudioRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  // === UI Scroll States ===
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const handleScrollTypes = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+    setCanScrollLeft(scrollLeft > 0);
+    setCanScrollRight(Math.ceil(scrollLeft + clientWidth) < scrollWidth);
+  };
+
+  useEffect(() => {
+    handleScrollTypes();
+  }, [location, showSpotrepModal]); // Re-vérifier quand la liste s'affiche
+
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [duplicateModalInfo, setDuplicateModalInfo] = useState<{
     nature?: string | null;
@@ -1398,7 +1501,7 @@ function AlertsPage() {
     }
   };
 
-  const handleGetLocation = async () => {
+  const handleGetLocation = async (forceFresh: boolean = false) => {
     if (!navigator.geolocation) {
       toast({
         variant: "destructive",
@@ -1482,7 +1585,7 @@ function AlertsPage() {
     }
 
     // Vérifier si la géolocalisation est déjà en cours
-    if (isLoadingLocation) {
+    if (isLoadingLocation && !forceFresh) {
       return false;
     }
 
@@ -1539,11 +1642,15 @@ function AlertsPage() {
     };
 
     // Phase 1 : rapide (basse précision, cache récent autorisé, timeout court)
-    let result = await tryGeolocation(false, 10000, 30000);
+    // Si forceFresh, on ignore la phase 1 pour forcer la haute précision sans cache
+    let result = null;
+    if (!forceFresh) {
+      result = await tryGeolocation(false, 10000, 30000);
+    }
 
-    // Phase 2 : si la phase 1 échoue, haute précision avec timeout plus long
+    // Phase 2 : si la phase 1 échoue ou si on veut une position fraîche, haute précision
     if (!result) {
-      result = await tryGeolocation(true, 60000, 10000);
+      result = await tryGeolocation(true, 60000, forceFresh ? 0 : 10000);
     }
 
     // Si les deux phases échouent
@@ -1606,8 +1713,13 @@ function AlertsPage() {
   }, [canSendAlerts, locationPermissionDenied]);
 
   // Gestion de l'envoi d'une alerte
-  const handleSendAlert = async () => {
+  const submitAlert = async (force: boolean = false) => {
     if (!selectedAlertType) return;
+    // Si SPOTREP sélectionné et modal pas encore ouvert, ouvrir le modal
+    if (selectedAlertType === 'spotrep' && !showSpotrepModal) {
+      setShowSpotrepModal(true);
+      return;
+    }
     // Pour chasseurs/guides: exiger une description
     if ((isHunter || isGuide) && (!messageText || !messageText.trim())) {
       toast({
@@ -1622,7 +1734,7 @@ function AlertsPage() {
       setIsSendingAlert(true);
 
       // Récupérer en temps réel la position la plus fraîche possible avant l'envoi
-      const freshLocation = await handleGetLocation();
+      const freshLocation = await handleGetLocation(true);
       const targetLocation = freshLocation || location;
 
       if (!targetLocation) {
@@ -1661,11 +1773,39 @@ function AlertsPage() {
 
       console.log('Envoi de l\'alerte:', alertData);
 
+      // Préparation du payload avec FormData si des médias sont présents
+      let finalData: any = alertData;
+      const attachments: any[] = [];
+      
+      if (spotrepPhoto || spotrepAudio) {
+        const formData = new FormData();
+        Object.entries(alertData).forEach(([key, value]) => {
+          formData.append(key, String(value));
+        });
+        if (spotrepPhoto) {
+          formData.append('image', spotrepPhoto, 'photo.jpg');
+          attachments.push({ fieldName: 'image', file: spotrepPhoto });
+        }
+        if (spotrepAudio) {
+          formData.append('audio', spotrepAudio, 'audio.webm');
+          attachments.push({ fieldName: 'audio', file: spotrepAudio });
+        }
+        finalData = formData;
+      }
+      
+      if (force) {
+        if (finalData instanceof FormData) {
+          finalData.append('force', 'true');
+        } else {
+          finalData.force = true;
+        }
+      }
+
       // Gestion de l'envoi avec support Offline-First complet
       let wasQueuedOffline = false;
       if (!navigator.onLine) {
         // Hors-ligne détecté immédiatement : on met en file d'attente locale
-        try { await createOfflineAlert(alertData, 3, []); } catch (e) { console.warn('[Offline] createOfflineAlert fallback error (non-blocking):', e); }
+        try { await createOfflineAlert(alertData, 3, attachments); } catch (e) { console.warn('[Offline] createOfflineAlert fallback error (non-blocking):', e); }
         wasQueuedOffline = true;
         toast({
           title: "Mode hors-ligne",
@@ -1674,7 +1814,7 @@ function AlertsPage() {
       } else {
         // Tentative en ligne
         try {
-          const responseData: any = await apiRequest({ url: '/api/alerts', method: 'POST', data: alertData });
+          const responseData: any = await apiRequest({ url: '/api/alerts', method: 'POST', data: finalData });
           if ((responseData as any)?.ok === false) {
             console.error('Erreur API:', responseData);
             throw new Error((responseData as any)?.error || (responseData as any)?.message || 'Échec de l\'envoi de l\'alerte');
@@ -1769,6 +1909,17 @@ function AlertsPage() {
     } finally {
       setIsSendingAlert(false);
     }
+  };
+
+  const handleSendAlert = () => submitAlert(false);
+
+  const handleForceSendAlert = (e?: React.MouseEvent) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setDuplicateModalOpen(false);
+    submitAlert(true);
   };
 
   // Gestion de la réinitialisation du formulaire
@@ -1929,7 +2080,7 @@ function AlertsPage() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        onClick={handleGetLocation}
+                        onClick={() => handleGetLocation(true)}
                         disabled={isLoadingLocation}
                         className={`h-8 w-8 rounded-lg bg-emerald-100/80 hover:bg-emerald-200 border border-emerald-300 text-emerald-700 hover:text-emerald-950 transition-colors ${isLoadingLocation ? 'animate-spin' : ''}`}
                         title="Re-capturer ma position"
@@ -1940,131 +2091,140 @@ function AlertsPage() {
                   </div>
                 )}
 
-                {/* Type d'alerte buttons */}
+                {/* Type d'alerte buttons — 3 visibles + scroll horizontal */}
                 {!isHunter && !isGuide && location && (
-                  <div className="grid grid-cols-3 gap-2 mt-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => setSelectedAlertType('braconnage')}
-                      className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all ${selectedAlertType === 'braconnage'
-                        ? 'bg-red-50 border-red-400 text-red-600 ring-2 ring-red-100'
-                        : 'hover:bg-red-50 hover:border-red-300 border-gray-200'
-                        }`}
+                  <div className="relative mt-3">
+                    <div 
+                      ref={scrollContainerRef}
+                      onScroll={handleScrollTypes}
+                      className="flex gap-2 overflow-x-auto pb-1 no-scrollbar scroll-smooth" 
+                      style={{ WebkitOverflowScrolling: 'touch' }}
                     >
-                      <NatureIcon nature="braconnage" size={24} />
-                      <span className="text-[10px] sm:text-xs">Braconnage</span>
-                      {selectedAlertType === 'braconnage' && (
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setSelectedAlertType('trafic-bois')}
-                      className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all ${selectedAlertType === 'trafic-bois'
-                        ? 'bg-amber-50 border-amber-400 text-amber-700 ring-2 ring-amber-100'
-                        : 'hover:bg-amber-50 hover:border-amber-300 border-gray-200'
-                        }`}
-                    >
-                      <NatureIcon nature="trafic-bois" size={24} />
-                      <span className="text-[10px] sm:text-xs">Coupe de bois</span>
-                      {selectedAlertType === 'trafic-bois' && (
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full"></span>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setSelectedAlertType('feux_de_brousse')}
-                      className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all ${selectedAlertType === 'feux_de_brousse'
-                        ? 'bg-orange-50 border-orange-400 text-orange-600 ring-2 ring-orange-100'
-                        : 'hover:bg-orange-50 hover:border-orange-300 border-gray-200'
-                        }`}
-                    >
-                      <NatureIcon nature="feux_de_brousse" size={24} />
-                      <span className="text-[10px] sm:text-xs">Feux de brousse</span>
-                      {selectedAlertType === 'feux_de_brousse' && (
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
-                      )}
-                    </Button>
+                      {([
+                        { id: 'braconnage' as const, label: 'Braconnage', activeBg: 'bg-red-50', activeBorder: 'border-red-400', activeText: 'text-red-600', activeRing: 'ring-red-100', hoverBg: 'hover:bg-red-50', hoverBorder: 'hover:border-red-300', dotColor: 'bg-red-500' },
+                        { id: 'trafic-bois' as const, label: 'Coupe de bois', activeBg: 'bg-amber-50', activeBorder: 'border-amber-400', activeText: 'text-amber-700', activeRing: 'ring-amber-100', hoverBg: 'hover:bg-amber-50', hoverBorder: 'hover:border-amber-300', dotColor: 'bg-amber-500' },
+                        { id: 'feux_de_brousse' as const, label: 'Feux de brousse', activeBg: 'bg-orange-50', activeBorder: 'border-orange-400', activeText: 'text-orange-600', activeRing: 'ring-orange-100', hoverBg: 'hover:bg-orange-50', hoverBorder: 'hover:border-orange-300', dotColor: 'bg-orange-500' },
+                        { id: 'defrichement' as const, label: 'Défrichement', activeBg: 'bg-lime-50', activeBorder: 'border-lime-500', activeText: 'text-lime-700', activeRing: 'ring-lime-100', hoverBg: 'hover:bg-lime-50', hoverBorder: 'hover:border-lime-300', dotColor: 'bg-lime-500' },
+                        { id: 'empietement' as const, label: 'Empiètement', activeBg: 'bg-purple-50', activeBorder: 'border-purple-400', activeText: 'text-purple-600', activeRing: 'ring-purple-100', hoverBg: 'hover:bg-purple-50', hoverBorder: 'hover:border-purple-300', dotColor: 'bg-purple-500' },
+                        { id: 'spotrep' as const, label: 'Spot Rep', activeBg: 'bg-cyan-50', activeBorder: 'border-cyan-400', activeText: 'text-cyan-700', activeRing: 'ring-cyan-100', hoverBg: 'hover:bg-cyan-50', hoverBorder: 'hover:border-cyan-300', dotColor: 'bg-cyan-500' },
+                      ]).map((type) => {
+                        const isActive = selectedAlertType === type.id;
+                        return (
+                          <Button
+                            key={type.id}
+                            variant="outline"
+                            onClick={() => setSelectedAlertType(type.id)}
+                            className={`relative flex flex-col items-center justify-center gap-1 py-3 h-auto border-2 rounded-xl transition-all shrink-0 w-[calc(33.333%-6px)] min-w-[90px] ${
+                              isActive
+                                ? `${type.activeBg} ${type.activeBorder} ${type.activeText} ring-2 ${type.activeRing}`
+                                : `${type.hoverBg} ${type.hoverBorder} border-gray-200`
+                            }`}
+                          >
+                            <NatureIcon nature={type.id} size={24} />
+                            <span className="text-[10px] sm:text-xs font-semibold">{type.label}</span>
+                            {isActive && (
+                              <span className={`absolute top-1 right-1 w-2 h-2 ${type.dotColor} rounded-full`}></span>
+                            )}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    {/* Flèche indicateur de défilement horizontal GAUCHE */}
+                    {canScrollLeft && (
+                      <div className="absolute left-0 top-0 bottom-1 w-8 flex items-center justify-start pl-1 pointer-events-none bg-gradient-to-r from-white via-white/80 to-transparent">
+                        <ChevronLeft className="h-5 w-5 text-gray-400 animate-pulse" />
+                      </div>
+                    )}
+                    {/* Flèche indicateur de défilement horizontal DROITE */}
+                    {canScrollRight && (
+                      <div className="absolute right-0 top-0 bottom-1 w-8 flex items-center justify-end pr-1 pointer-events-none bg-gradient-to-l from-white via-white/80 to-transparent">
+                        <ChevronRight className="h-5 w-5 text-gray-400 animate-pulse" />
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Action Area (Textarea + Send Button) */}
-                {location ? (
-                  (selectedAlertType || isHunter || isGuide) ? (
-                    <div className="mt-4 p-3 bg-white border border-gray-100 rounded-md shadow-sm">
-                      {(isHunter || isGuide) && (
-                        <div className="mb-4">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Décrivez l'information</label>
-                          <Textarea
-                            value={messageText}
-                            onChange={(e) => setMessageText(e.target.value)}
-                            placeholder="Ex: Observation d'activité suspecte, détails utiles, etc."
-                            className="bg-white text-gray-800"
-                            rows={4}
-                          />
-                          <p className="text-[11px] text-gray-500 mt-1">Une description est obligatoire pour envoyer une information.</p>
-                        </div>
-                      )}
-
-                      <div className="pt-2">
-                        <Button
-                          className="w-full bg-green-600 hover:bg-green-700 h-11 text-base font-bold transition-all"
-                          onClick={handleSendAlert}
-                          disabled={isSendingAlert}
-                        >
-                          {isSendingAlert ? (
-                            <>
-                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Envoi en cours...
-                            </>
-                          ) : (
-                            (isHunter || isGuide
-                              ? 'Envoyer une information'
-                              : `Envoyer l'alerte ${selectedAlertType === 'braconnage' ? 'de braconnage' :
-                                selectedAlertType === 'trafic-bois' ? 'de coupe de bois' :
-                                  selectedAlertType === 'feux_de_brousse' ? 'de feux de brousse' : 'd\'informations'}`)
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {!alertTypeHintDismissed && (
-                        <div
-                          className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200/90 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 shadow-sm"
-                          role="status"
-                        >
-                          <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" aria-hidden />
-                          <p className="flex-1 leading-snug">
-                            <span className="font-semibold">Type d&apos;alerte requis.</span>{' '}
-                            Choisissez Braconnage, Trafic ou Feux ci-dessus.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={dismissAlertTypeHint}
-                            className="shrink-0 rounded-md p-0.5 text-amber-700 hover:bg-amber-100/80"
-                            aria-label="Fermer l'info"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
-                      {alertTypeHintDismissed && (
+                {/* Étiquette d'aide — toujours visible juste après les boutons d'alerte */}
+                {location && (
+                  <>
+                    {!alertTypeHintDismissed && (
+                      <div
+                        className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200/90 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 shadow-sm"
+                        role="status"
+                      >
+                        <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" aria-hidden />
+                        <p className="flex-1 leading-snug">
+                          <span className="font-semibold">Type d&apos;alerte requis.</span>{' '}
+                          Choisissez Braconnage, Trafic ou Feux ci-dessus.
+                        </p>
                         <button
                           type="button"
-                          onClick={() => setAlertTypeHintDismissed(false)}
-                          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-800 hover:text-amber-950"
+                          onClick={dismissAlertTypeHint}
+                          className="shrink-0 rounded-md p-0.5 text-amber-700 hover:bg-amber-100/80"
+                          aria-label="Fermer l'info"
                         >
-                          <Info className="h-3.5 w-3.5" />
-                          Aide : choisir un type d&apos;alerte
+                          <X className="h-4 w-4" />
                         </button>
-                      )}
-                    </>
-                  )
-                ) : null}
+                      </div>
+                    )}
+                    {alertTypeHintDismissed && (
+                      <button
+                        type="button"
+                        onClick={() => setAlertTypeHintDismissed(false)}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-800 hover:text-amber-950"
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                        Aide : choisir un type d&apos;alerte
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {/* Action Area (Textarea + Send Button) */}
+                {location && (selectedAlertType || isHunter || isGuide) && (
+                  <div className="mt-1">
+                    {(isHunter || isGuide) && (
+                      <div className="mb-4">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Décrivez l'information</label>
+                        <Textarea
+                          value={messageText}
+                          onChange={(e) => setMessageText(e.target.value)}
+                          placeholder="Ex: Observation d'activité suspecte, détails utiles, etc."
+                          className="bg-white text-gray-800"
+                          rows={4}
+                        />
+                        <p className="text-[11px] text-gray-500 mt-1">Une description est obligatoire pour envoyer une information.</p>
+                      </div>
+                    )}
+
+                    <div className="pt-2">
+                      <Button
+                        className="w-full bg-green-600 hover:bg-green-700 h-11 text-base font-bold transition-all"
+                        onClick={handleSendAlert}
+                        disabled={isSendingAlert}
+                      >
+                        {isSendingAlert ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Envoi en cours...
+                          </>
+                        ) : (
+                          (isHunter || isGuide
+                            ? 'Envoyer une information'
+                            : `Envoyer l'alerte ${selectedAlertType === 'braconnage' ? 'de braconnage' :
+                              selectedAlertType === 'trafic-bois' ? 'de coupe de bois' :
+                                selectedAlertType === 'feux_de_brousse' ? 'de feux de brousse' :
+                                  selectedAlertType === 'defrichement' ? 'de défrichement' :
+                                    selectedAlertType === 'empietement' ? 'd\'empiètement' :
+                                      selectedAlertType === 'spotrep' ? 'SPOTREP' : 'd\'informations'}`)
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2437,6 +2597,32 @@ function AlertsPage() {
                   })()}
                 </p>
 
+                {/* Affichage des médias dans la modale */}
+                {((detailsAlert as any).imagePath || (detailsAlert as any).audioPath) && (
+                  <div className="space-y-3">
+                    {(detailsAlert as any).imagePath && (
+                      <div className="rounded-xl border border-slate-100 bg-white p-3">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Camera className="h-4 w-4 text-blue-500" /> Photo</p>
+                        <img 
+                          src={`/api/alerts/attachment/${(detailsAlert as any).imagePath}?token=${localStorage.getItem('token')}`} 
+                          alt="Alerte média" 
+                          className="w-full rounded-lg max-h-64 object-contain bg-slate-50" 
+                        />
+                      </div>
+                    )}
+                    {(detailsAlert as any).audioPath && (
+                      <div className="rounded-xl border border-slate-100 bg-white p-3">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Mic className="h-4 w-4 text-cyan-500" /> Audio</p>
+                        <audio 
+                          controls 
+                          src={`/api/alerts/attachment/${(detailsAlert as any).audioPath}?token=${localStorage.getItem('token')}`} 
+                          className="w-full h-10" 
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="rounded-xl border border-slate-100 bg-white p-3 space-y-2">
                   <div className="flex items-start gap-2 text-sm text-gray-700">
                     <User className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
@@ -2647,13 +2833,132 @@ function AlertsPage() {
               </div>
             </div>
           </div>
-          <div className="mt-8 flex justify-center w-full">
+          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center w-full">
+            <Button
+              type="button"
+              onClick={handleForceSendAlert}
+              className="w-full sm:w-auto rounded-xl bg-red-600 px-6 py-2.5 text-white font-medium hover:bg-red-700 active:scale-95 transition-all"
+            >
+              Signaler quand même
+            </Button>
             <Button
               type="button"
               onClick={() => setDuplicateModalOpen(false)}
-              className="w-full rounded-xl bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-800 active:scale-95 transition-all"
+              className="w-full sm:w-auto rounded-xl bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-800 active:scale-95 transition-all"
             >
               Compris
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* === Modal SPOTREP === */}
+      <Dialog open={showSpotrepModal} onOpenChange={(open) => { if (!open) setShowSpotrepModal(false); }}>
+        <DialogContent className="max-w-md mx-auto rounded-2xl p-5 gap-0">
+          <DialogHeader className="flex flex-row items-center gap-2 pb-3 border-b border-gray-100">
+            <span className="flex-shrink-0 w-3 h-3 bg-cyan-500 rounded-full animate-pulse"></span>
+            <DialogTitle className="text-lg font-bold text-gray-900">Nouveau Rapport SPOTREP</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto pr-1 py-2 space-y-4 no-scrollbar">
+            {location && (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 text-emerald-600 mt-0.5" />
+                  <div className="flex flex-col">
+                    <span className="text-xs text-emerald-800 font-bold">Position de l&apos;alerte</span>
+                    <span className="text-xs text-emerald-600 font-medium">{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="space-y-3 border-t border-gray-100 pt-3">
+              <label className="block text-xs font-bold text-gray-700">Contenu du Rapport <span className="text-red-500">*</span></label>
+              
+              {/* Previews */}
+              {(spotrepPhotoPreview || isRecording || spotrepAudioPreview) && (
+                <div className="flex flex-wrap gap-2">
+                  {spotrepPhotoPreview && (
+                    <div className="relative inline-block animate-in fade-in zoom-in duration-200">
+                      <img src={spotrepPhotoPreview} alt="Preview" className="w-20 h-20 object-cover rounded-xl border border-gray-200 shadow-sm" />
+                      <button type="button" onClick={clearSpotrepPhoto} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600 active:scale-95 transition-all"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  )}
+                  {isRecording && (
+                    <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-3 py-2 animate-pulse w-full sm:w-auto">
+                      <span className="w-2.5 h-2.5 bg-red-600 rounded-full"></span>
+                      <span className="text-xs font-bold text-red-700 flex-1 whitespace-nowrap">Enregistrement... {formatDuration(recordingSeconds)}</span>
+                      <Button type="button" variant="destructive" size="sm" onClick={stopAudioRecording} className="h-6 px-3 text-xs font-bold rounded-lg ml-2">Arrêter</Button>
+                    </div>
+                  )}
+                  {spotrepAudioPreview && !isRecording && (
+                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2 w-full sm:w-auto animate-in fade-in zoom-in duration-200">
+                      <audio src={spotrepAudioPreview} controls className="h-8 max-w-[200px]" />
+                      <Button type="button" variant="ghost" size="icon" onClick={clearSpotrepAudio} className="h-8 w-8 text-red-500 hover:bg-red-50 rounded-lg shrink-0" title="Supprimer"><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Input Area with Add Button */}
+              <div className="relative border border-gray-300 rounded-xl bg-white shadow-sm focus-within:border-cyan-500 focus-within:ring-1 focus-within:ring-cyan-500 transition-all overflow-visible">
+                <Textarea 
+                  value={messageText} 
+                  onChange={(e) => setMessageText(e.target.value)} 
+                  placeholder="Saisissez votre rapport détaillé..." 
+                  className="border-0 focus-visible:ring-0 resize-none rounded-xl bg-transparent min-h-[120px] pb-12" 
+                  rows={4} 
+                />
+                
+                <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400 font-medium select-none hidden sm:inline mr-1">Ajouter un média</span>
+                  <div className="relative flex items-center gap-2">
+                    <Button 
+                      type="button" 
+                      variant="secondary" 
+                      size="icon" 
+                      onClick={() => setShowMediaMenu(!showMediaMenu)}
+                      className="h-8 w-8 rounded-full bg-cyan-100 text-cyan-700 hover:bg-cyan-200 shadow-sm relative z-10"
+                    >
+                      <Plus className={`h-4 w-4 transition-transform ${showMediaMenu ? 'rotate-45' : ''}`} />
+                    </Button>
+                    
+                    {showMediaMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowMediaMenu(false)} />
+                        <div className="absolute bottom-[calc(100%+8px)] right-0 w-56 bg-white border border-gray-200 rounded-xl shadow-xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 z-50">
+                          <input id="spotrep-photo-file-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setSpotrepPhoto(f); setSpotrepPhotoPreview(URL.createObjectURL(f)); setShowMediaMenu(false); } }} />
+                          <button 
+                            type="button" 
+                            onClick={() => { document.getElementById('spotrep-photo-file-input')?.click(); }} 
+                            disabled={!!spotrepPhotoPreview}
+                            className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-left transition-colors"
+                          >
+                            <Camera className="h-4 w-4 mr-3 text-blue-500" />
+                            <span className="font-medium">Prendre une photo</span>
+                          </button>
+                          <div className="h-px bg-gray-100 w-full" />
+                          <button 
+                            type="button" 
+                            onClick={() => { startAudioRecording(); setShowMediaMenu(false); }} 
+                            disabled={isRecording || !!spotrepAudioPreview}
+                            className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-left transition-colors"
+                          >
+                            <Mic className="h-4 w-4 mr-3 text-cyan-500" />
+                            <span className="font-medium">Enregistrer un audio</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 text-right pr-1">Texte, photo ou audio requis.</p>
+            </div>
+          </div>
+          <div className="mt-5 pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => { setShowSpotrepModal(false); setSelectedAlertType(null); clearSpotrepPhoto(); clearSpotrepAudio(); setMessageText(''); }} className="px-4 py-2 border-gray-200 text-gray-600 hover:bg-slate-50 rounded-xl">Annuler</Button>
+            <Button type="button" onClick={() => { if (!messageText.trim() && !spotrepPhoto && !spotrepAudio) { toast({ variant: 'destructive', title: 'Contenu requis', description: 'Ajoutez au moins un texte, une photo ou un audio.' }); return; } handleSendAlert(); }} disabled={isSendingAlert} className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold flex items-center gap-1.5">
+              {isSendingAlert ? (<><svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Envoi...</>) : 'Envoyer le SPOTREP'}
             </Button>
           </div>
         </DialogContent>
