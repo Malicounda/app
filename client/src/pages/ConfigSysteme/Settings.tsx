@@ -3261,22 +3261,22 @@ export default function Settings() {
                   <Button size="sm" onClick={() => { setNewCategoryPeriod({ categoryKey: '', startDate: huntingSeason.startDate, endDate: huntingSeason.endDate, derogationEnabled: false }); setNewCategoryPeriodOpen(true); }}>Nouvelle période</Button>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-green-100">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
                       <tr>
-                        <th className="p-2 text-left">Catégorie</th>
-                        <th className="p-2 text-left">Ouverture</th>
-                        <th className="p-2 text-left">Fermeture</th>
-                        <th className="p-2 text-left">Dérogation</th>
-                        <th className="p-2 text-left">Actions</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ouverture</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fermeture</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dérogation</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="bg-white divide-y divide-gray-200">
                       {categoryPeriods.length === 0 ? (
-                        <tr><td colSpan={5} className="p-3 text-center text-muted-foreground">Aucune période définie</td></tr>
+                        <tr><td colSpan={5} className="px-4 py-3 text-center text-muted-foreground">Aucune période définie</td></tr>
                       ) : (
                         categoryPeriods.map((row, idx) => (
-                          <tr key={`${row.categoryKey}-${idx}`} className={idx % 2 ? 'bg-white' : 'bg-green-50'}>
+                          <tr key={`${row.categoryKey}-${idx}`} className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                             <td className="p-2">
                               <Select value={row.categoryKey || ''} onValueChange={(v) => setCategoryPeriods(ps => ps.map((p,i) => i===idx ? { ...p, categoryKey: v } : p))}>
                                 <SelectTrigger><SelectValue placeholder="Catégorie" /></SelectTrigger>
@@ -3468,20 +3468,20 @@ export default function Settings() {
               </div>
 
               {/* Tableau des catégories */}
-              <div className="overflow-x-auto border rounded-md">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-green-100">
+              <div className="overflow-x-auto border rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="p-2 text-left">Libellé</th>
-                      <th className="p-2 text-left">Groupe</th>
-                      <th className="p-2 text-left">Catégorie</th>
-                      <th className="p-2 text-left">Sous-cat.</th>
-                      <th className="p-2 text-left">Validité (jours)</th>
-                      <th className="p-2 text-left">Actif</th>
-                      <th className="p-2 text-left">Prix {seasonYear || computeSeason()}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Libellé</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Groupe</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sous-cat.</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Validité (jours)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actif</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix {seasonYear || computeSeason()}</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="bg-white divide-y divide-gray-200">
                     {categories
                       .filter(c => {
                         const q = filterQuery.trim().toLowerCase();
@@ -3492,7 +3492,7 @@ export default function Settings() {
                         return matchQuery && matchGroupe && matchGenre && matchActive;
                       })
                       .map((row, idx) => (
-                      <tr key={row.id} className={idx % 2 ? 'bg-white' : 'bg-green-50'}>
+                      <tr key={row.id} className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                         <td className="p-2">{row.labelFr}</td>
                         <td className="p-2">{row.groupe}</td>
                         <td className="p-2">{row.genre}</td>
@@ -3631,22 +3631,22 @@ export default function Settings() {
                     <p>Chargement des taxes...</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto border rounded-md">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-green-100">
+                  <div className="overflow-x-auto border rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
                         <tr>
-                          <th className="p-2 text-left">Espèce</th>
-                          <th className="p-2 text-left">Prix (XOF)</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Espèce</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix (XOF)</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="bg-white divide-y divide-gray-200">
                         {huntingTaxes.length === 0 ? (
-                          <tr><td colSpan={2} className="p-3 text-center text-muted-foreground">Aucune espèce taxable</td></tr>
+                          <tr><td colSpan={2} className="px-4 py-3 text-center text-muted-foreground">Aucune espèce taxable</td></tr>
                         ) : huntingTaxes.map((tax, idx) => {
                           const key = tax.id ?? tax.espece_id;
                           const editVal = taxEdits[tax.espece_id] ?? '';
                           return (
-                            <tr key={key} className={idx % 2 ? 'bg-white' : 'bg-green-50'}>
+                            <tr key={key} className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                               <td className="p-2 font-medium">{tax.espece_nom}</td>
                               <td className="p-2">
                                 {editTaxesMode ? (
@@ -5375,17 +5375,17 @@ export default function Settings() {
                       {statusEntities.length === 0 ? (
                         <div className="text-muted-foreground">Aucune entité</div>
                       ) : (
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-green-100 sticky top-0">
+                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                          <thead className="bg-gray-50 sticky top-0">
                             <tr>
-                              <th className="p-2 text-left">Nom</th>
-                              <th className="p-2 text-left">Statut</th>
-                              <th className="p-2 text-left">Couleur</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Couleur</th>
                             </tr>
                           </thead>
-                          <tbody>
+                          <tbody className="bg-white divide-y divide-gray-200">
                             {statusEntities.map((e, idx) => (
-                              <tr key={String(e.id)} className={idx % 2 ? 'bg-white' : 'bg-green-50'}>
+                              <tr key={String(e.id)} className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                                 <td className="p-2">{e.name}</td>
                                 <td className="p-2">{e.statut || 'unknown'}</td>
                                 <td className="p-2"><span className="inline-block h-4 w-6 rounded" style={{ backgroundColor: e.color || '#808080' }} /></td>
