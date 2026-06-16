@@ -3261,7 +3261,7 @@ export default function Settings() {
                   <Button size="sm" onClick={() => { setNewCategoryPeriod({ categoryKey: '', startDate: huntingSeason.startDate, endDate: huntingSeason.endDate, derogationEnabled: false }); setNewCategoryPeriodOpen(true); }}>Nouvelle période</Button>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <table className="min-w-full text-sm">
                     <thead className="bg-gray-50 sticky top-0">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
@@ -3271,12 +3271,12 @@ export default function Settings() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white">
                       {categoryPeriods.length === 0 ? (
                         <tr><td colSpan={5} className="px-4 py-3 text-center text-muted-foreground">Aucune période définie</td></tr>
                       ) : (
                         categoryPeriods.map((row, idx) => (
-                          <tr key={`${row.categoryKey}-${idx}`} className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                          <tr key={`${row.categoryKey}-${idx}`} className="bg-white hover:bg-gray-50">
                             <td className="p-2">
                               <Select value={row.categoryKey || ''} onValueChange={(v) => setCategoryPeriods(ps => ps.map((p,i) => i===idx ? { ...p, categoryKey: v } : p))}>
                                 <SelectTrigger><SelectValue placeholder="Catégorie" /></SelectTrigger>
@@ -3469,7 +3469,7 @@ export default function Settings() {
 
               {/* Tableau des catégories */}
               <div className="overflow-x-auto border rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <table className="min-w-full text-sm">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Libellé</th>
@@ -3481,7 +3481,7 @@ export default function Settings() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix {seasonYear || computeSeason()}</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white">
                     {categories
                       .filter(c => {
                         const q = filterQuery.trim().toLowerCase();
@@ -3492,7 +3492,7 @@ export default function Settings() {
                         return matchQuery && matchGroupe && matchGenre && matchActive;
                       })
                       .map((row, idx) => (
-                      <tr key={row.id} className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                      <tr key={row.id} className="bg-white hover:bg-gray-50">
                         <td className="p-2">{row.labelFr}</td>
                         <td className="p-2">{row.groupe}</td>
                         <td className="p-2">{row.genre}</td>
@@ -3632,21 +3632,21 @@ export default function Settings() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto border rounded-lg">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <table className="min-w-full text-sm">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Espèce</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix (XOF)</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white">
                         {huntingTaxes.length === 0 ? (
                           <tr><td colSpan={2} className="px-4 py-3 text-center text-muted-foreground">Aucune espèce taxable</td></tr>
                         ) : huntingTaxes.map((tax, idx) => {
                           const key = tax.id ?? tax.espece_id;
                           const editVal = taxEdits[tax.espece_id] ?? '';
                           return (
-                            <tr key={key} className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                            <tr key={key} className="bg-white hover:bg-gray-50">
                               <td className="p-2 font-medium">{tax.espece_nom}</td>
                               <td className="p-2">
                                 {editTaxesMode ? (
@@ -4616,7 +4616,7 @@ export default function Settings() {
                       )}
                       {/* Liste des types en tableau */}
                       <div className="border rounded-lg overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
+                        <table className="min-w-full">
                           <thead className="bg-gray-50 sticky top-0">
                             <tr>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
@@ -4636,7 +4636,7 @@ export default function Settings() {
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="bg-white">
                             {protectedZoneTypes.length === 0 ? (
                               <tr>
                                 <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
@@ -4648,7 +4648,7 @@ export default function Settings() {
                                 <tr
                                   key={type.key}
                                   className={`hover:bg-gray-50 cursor-pointer ${
-                                    selectedProtectedTypesToDelete.includes(type.key) ? 'bg-red-50' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                    selectedProtectedTypesToDelete.includes(type.key) ? 'bg-red-50' : 'bg-white'
                                   }`}
                                   onClick={() => {
                                     if (selectedProtectedTypesToDelete.includes(type.key)) {
@@ -5375,7 +5375,7 @@ export default function Settings() {
                       {statusEntities.length === 0 ? (
                         <div className="text-muted-foreground">Aucune entité</div>
                       ) : (
-                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                        <table className="min-w-full text-sm">
                           <thead className="bg-gray-50 sticky top-0">
                             <tr>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
@@ -5383,9 +5383,9 @@ export default function Settings() {
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Couleur</th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="bg-white">
                             {statusEntities.map((e, idx) => (
-                              <tr key={String(e.id)} className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                              <tr key={String(e.id)} className="bg-white hover:bg-gray-50">
                                 <td className="p-2">{e.name}</td>
                                 <td className="p-2">{e.statut || 'unknown'}</td>
                                 <td className="p-2"><span className="inline-block h-4 w-6 rounded" style={{ backgroundColor: e.color || '#808080' }} /></td>
@@ -5529,7 +5529,7 @@ export default function Settings() {
                             </div>
                           ) : (
                             <div className="border rounded-lg max-h-96 overflow-auto">
-                              <table className="min-w-full divide-y divide-gray-200">
+                              <table className="min-w-full">
                                 <thead className="bg-gray-50 sticky top-0">
                                   <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
@@ -5564,7 +5564,7 @@ export default function Settings() {
                                     )}
                                   </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white">
                                   {filteredDeleteLayerEntities.map((entity) => (
                                     <tr
                                       key={entity.id}
@@ -6770,7 +6770,7 @@ export default function Settings() {
               {/* Tableau principal des localités */}
               <div className="bg-white rounded-xl border border-green-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full">
                     <thead className="bg-green-600/10">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-green-900 uppercase tracking-wider">Localité</th>
@@ -6782,7 +6782,7 @@ export default function Settings() {
                         <th className="px-4 py-3 text-right text-xs font-semibold text-green-900 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
+                    <tbody className="bg-white">
                       {localitesLoading ? (
                         <tr>
                           <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
@@ -6798,7 +6798,7 @@ export default function Settings() {
                         </tr>
                       ) : (
                         localitesList.map((row) => (
-                          <tr key={row.id} className="hover:bg-green-50/30 transition-colors">
+                          <tr key={row.id} className="bg-white hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-3 font-medium text-gray-900">{row.nom}</td>
                             <td className="px-4 py-3 text-sm text-gray-600">{row.region || <span className="text-gray-400 italic">Non détecté</span>}</td>
                             <td className="px-4 py-3 text-sm text-gray-600">{row.departement || <span className="text-gray-400 italic">Non détecté</span>}</td>
