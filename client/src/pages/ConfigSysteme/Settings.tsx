@@ -279,7 +279,8 @@ export default function Settings() {
   const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
   const [editingUnit, setEditingUnit] = useState<{ key: string; label: string }>({ key: '', label: '' });
   const [codesSubTab, setCodesSubTab] = useState<'items' | 'saisie'>('items');
-  const [deleteZoneSubTab, setDeleteZoneSubTab] = useState<'supprimer-couches' | 'types-zones-protegees'>('supprimer-couches');
+  const [deleteZoneSubTab, setDeleteZoneSubTab] = useState<'supprimer-couches'>('supprimer-couches');
+  const [zonesConfigSubTab, setZonesConfigSubTab] = useState<'types-zones-protegees' | 'zones-chasse'>('types-zones-protegees');
 
   // Configuration des unités par item (dialog)
   const [unitConfigOpen, setUnitConfigOpen] = useState<boolean>(false);
@@ -2374,10 +2375,12 @@ export default function Settings() {
       loadSpecies();
       loadHuntingTaxes();
     }
-    // Charger les paramètres de zones pour l'onglet Paramètres Zones
+    // Charger les paramètres de zones pour l'onglet Types de Zones
     if (activeTab === 'zones-config') {
       console.log('[DEBUG] Loading zone config for zones-config tab');
       loadZoneConfig();
+      loadProtectedZoneTypes();
+      loadRegionalFilterSetting();
     }
     // Charger les types de zones protégées pour l'onglet Régions et Zones
     if (activeTab === 'regions-zones') {
@@ -3949,16 +3952,30 @@ export default function Settings() {
           </Dialog>
         </TabsContent>
 
-        {/* Onglet Paramètres Zones */}
+        {/* Onglet Types de Zones */}
         <TabsContent value="zones-config">
           <Card className="bg-green-50 border-green-200">
             <CardHeader>
-              <CardTitle>Paramètres des Zones de Chasse</CardTitle>
+              <CardTitle>Types de Zones</CardTitle>
               <CardDescription>
-                Gérez les types de zones, statuts et couleurs utilisés dans le système de gestion des zones de chasse.
+                Gérez les types de zones protégées et les paramètres des zones de chasse.
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <Tabs value={zonesConfigSubTab} onValueChange={(v) => setZonesConfigSubTab(v as 'types-zones-protegees' | 'zones-chasse')}>
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="types-zones-protegees" className="flex items-center gap-2">
+                    <FaTree className="h-4 w-4" />
+                    Types de Zones Protégées
+                  </TabsTrigger>
+                  <TabsTrigger value="zones-chasse" className="flex items-center gap-2">
+                    <FaPaw className="h-4 w-4" />
+                    Paramètres des Zones de Chasse
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Sous-onglet: Zones de Chasse */}
+                <TabsContent value="zones-chasse">
               <div className="space-y-8">
 
                 {/* Section Types de Zones */}
@@ -4459,6 +4476,370 @@ export default function Settings() {
                   </Dialog>
                 </div>
               </div>
+                </TabsContent>
+
+                {/* Sous-onglet: Types de Zones Protégées */}
+                <TabsContent value="types-zones-protegees">
+                  {/* Section: Gérer les types de zones protégées */}
+                  <Card className="border-2 border-green-100">
+                    <CardHeader>
+                      <div className="flex flex-col xl:flex-row items-start justify-between gap-4">
+                        <div>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <FaTree className="h-5 w-5 text-green-700" />
+                            Types de Zones Protégées
+                          </CardTitle>
+                          <CardDescription>
+                            Gérer la liste des types disponibles pour les zones protégées
+                          </CardDescription>
+                        </div>
+
+                        {/* Bouton de filtrage régional */}
+                        <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                          <div className="flex flex-col">
+                            <Label htmlFor="regional-filter-toggle" className="text-sm font-semibold text-blue-900 cursor-pointer">
+                              Filtrage régional
+                            </Label>
+                            <span className="text-xs text-blue-700">
+                              {enableRegionalFilterProtectedZones
+                                ? 'Agents voient leur région uniquement'
+                                : 'Tous les agents voient toutes les zones'}
+                            </span>
+                          </div>
+                          <Switch
+                            id="regional-filter-toggle"
+                            checked={enableRegionalFilterProtectedZones}
+                            onCheckedChange={saveRegionalFilterSetting}
+                            disabled={loadingRegionalFilter}
+                            className="data-[state=checked]:bg-blue-600"
+                          />
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Bouton d'ajout */}
+                      <div className="flex justify-end">
+                        <Dialog open={newProtectedTypeOpen} onOpenChange={setNewProtectedTypeOpen}>
+                          <DialogTrigger asChild>
+                            <Button className="flex items-center gap-2">
+                              <Plus className="h-4 w-4" />
+                              Ajouter un Type
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Nouveau Type de Zone Protégée</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Clé (identifiant technique) *</Label>
+                                <Input
+                                  value={newProtectedType.key || ''}
+                                  onChange={(e) => setNewProtectedType(prev => ({ ...prev, key: e.target.value }))}
+                                  placeholder="ex: reserve_naturelle"
+                                />
+                              </div>
+                              <div>
+                                <Label>Libellé (affiché à l'utilisateur) *</Label>
+                                <Input
+                                  value={newProtectedType.label || ''}
+                                  onChange={(e) => setNewProtectedType(prev => ({ ...prev, label: e.target.value }))}
+                                  placeholder="ex: Réserve naturelle"
+                                />
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Switch
+                                  checked={newProtectedType.isActive ?? true}
+                                  onCheckedChange={(v) => setNewProtectedType(prev => ({ ...prev, isActive: v }))}
+                                />
+                                <Label>Actif</Label>
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => {
+                                setNewProtectedTypeOpen(false);
+                                setNewProtectedType({ key: '', label: '', isActive: true });
+                              }}>
+                                Annuler
+                              </Button>
+                              <Button onClick={async () => {
+                                if (!newProtectedType.key || !newProtectedType.label) {
+                                  toast({
+                                    title: 'Champs requis',
+                                    description: 'Veuillez remplir tous les champs obligatoires',
+                                    variant: 'destructive'
+                                  });
+                                  return;
+                                }
+                                const success = await saveProtectedZoneType(newProtectedType, false);
+                                if (success) {
+                                  setNewProtectedTypeOpen(false);
+                                  setNewProtectedType({ key: '', label: '', isActive: true });
+                                }
+                              }}>
+                                Créer
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+
+                      {/* Barre d'actions pour suppression multiple */}
+                      {selectedProtectedTypesToDelete.length > 0 && (
+                        <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="destructive">
+                              {selectedProtectedTypesToDelete.length} sélectionné(s)
+                            </Badge>
+                            <span className="text-sm text-gray-600">
+                              Types sélectionnés pour suppression
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedProtectedTypesToDelete([])}
+                            >
+                              Annuler
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeleteProtectedTypesConfirmOpen(true)}
+                              className="flex items-center gap-2"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Supprimer ({selectedProtectedTypesToDelete.length})
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {/* Liste des types en tableau */}
+                      <div className="border rounded-lg overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                                {/* Colonne pour les cases à cocher */}
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Nom
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Clé
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Statut
+                              </th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {protectedZoneTypes.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                                  Aucun type de zone protégée configuré
+                                </td>
+                              </tr>
+                            ) : (
+                              protectedZoneTypes.map((type, idx) => (
+                                <tr
+                                  key={type.key}
+                                  className={`hover:bg-gray-50 cursor-pointer ${
+                                    selectedProtectedTypesToDelete.includes(type.key) ? 'bg-red-50' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                  }`}
+                                  onClick={() => {
+                                    if (selectedProtectedTypesToDelete.includes(type.key)) {
+                                      setSelectedProtectedTypesToDelete(prev => prev.filter(k => k !== type.key));
+                                    } else {
+                                      setSelectedProtectedTypesToDelete(prev => [...prev, type.key]);
+                                    }
+                                  }}
+                                >
+                                  <td className="px-4 py-3">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4 rounded border-gray-300"
+                                      checked={selectedProtectedTypesToDelete.includes(type.key)}
+                                      onChange={() => {}} // Géré par le onClick du tr
+                                    />
+                                  </td>
+                                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                    {type.label}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600">
+                                    <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                      {type.key}
+                                    </code>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm">
+                                    <Badge variant={type.isActive ? "default" : "secondary"} className="text-xs">
+                                      {type.isActive ? 'Actif' : 'Inactif'}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-right" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedProtectedType(type);
+                                          setEditProtectedTypeOpen(true);
+                                        }}
+                                        className="flex items-center gap-1"
+                                      >
+                                        <Edit className="h-3 w-3" />
+                                        <span className="text-xs">Éditer</span>
+                                      </Button>
+                                      <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => deleteProtectedZoneType(type.id)}
+                                        className="flex items-center gap-1"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                        <span className="text-xs">Suppr.</span>
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Modal de confirmation de suppression multiple */}
+                      <Dialog open={deleteProtectedTypesConfirmOpen} onOpenChange={setDeleteProtectedTypesConfirmOpen}>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-red-600">
+                              <Trash2 className="h-5 w-5" />
+                              Confirmer la suppression
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-3 pt-2">
+                            <p className="text-base text-gray-700">
+                              Êtes-vous sûr de vouloir supprimer <strong>{selectedProtectedTypesToDelete.length}</strong> type(s) de zone protégée ?
+                            </p>
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                              <p className="text-sm text-amber-800 font-semibold flex items-center gap-2">
+                                <Info className="h-4 w-4" />
+                                Attention : Cette action est irréversible
+                              </p>
+                              <p className="text-sm text-amber-700">
+                                Les types supprimés ne seront plus disponibles dans la liste déroulante lors de l'ajout de zones protégées.
+                              </p>
+                            </div>
+                            {selectedProtectedTypesToDelete.length > 0 && (
+                              <div className="mt-2">
+                                <Label className="text-sm font-semibold">Types qui seront supprimés :</Label>
+                                <div className="mt-2 max-h-40 overflow-auto border rounded p-2 bg-gray-50">
+                                  <ul className="text-sm space-y-1">
+                                    {selectedProtectedTypesToDelete.map(key => {
+                                      const type = protectedZoneTypes.find(t => t.key === key);
+                                      return (
+                                        <li key={key} className="flex items-center justify-between py-1">
+                                          <span>{type?.label || key}</span>
+                                          <code className="text-xs bg-gray-200 px-2 py-0.5 rounded">{key}</code>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <DialogFooter className="gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => setDeleteProtectedTypesConfirmOpen(false)}
+                              disabled={deletingProtectedTypes}
+                            >
+                              Annuler
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              onClick={deleteSelectedProtectedTypes}
+                              disabled={deletingProtectedTypes}
+                              className="flex items-center gap-2"
+                            >
+                              {deletingProtectedTypes ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Suppression...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="h-4 w-4" />
+                                  Supprimer définitivement
+                                </>
+                              )}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+
+                      {/* Modal d'édition */}
+                      <Dialog open={editProtectedTypeOpen} onOpenChange={setEditProtectedTypeOpen}>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Modifier le Type de Zone Protégée</DialogTitle>
+                          </DialogHeader>
+                          {selectedProtectedType && (
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Clé (identifiant technique) *</Label>
+                                <Input
+                                  value={selectedProtectedType.key}
+                                  onChange={(e) => setSelectedProtectedType(prev => prev ? ({ ...prev, key: e.target.value }) : null)}
+                                />
+                              </div>
+                              <div>
+                                <Label>Libellé (affiché à l'utilisateur) *</Label>
+                                <Input
+                                  value={selectedProtectedType.label}
+                                  onChange={(e) => setSelectedProtectedType(prev => prev ? ({ ...prev, label: e.target.value }) : null)}
+                                />
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Switch
+                                  checked={selectedProtectedType.isActive}
+                                  onCheckedChange={(v) => setSelectedProtectedType(prev => prev ? ({ ...prev, isActive: v }) : null)}
+                                />
+                                <Label>Actif</Label>
+                              </div>
+                            </div>
+                          )}
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => {
+                              setEditProtectedTypeOpen(false);
+                              setSelectedProtectedType(null);
+                            }}>
+                              Annuler
+                            </Button>
+                            <Button onClick={async () => {
+                              if (selectedProtectedType) {
+                                const success = await saveProtectedZoneType(selectedProtectedType, true);
+                                if (success) {
+                                  setEditProtectedTypeOpen(false);
+                                  setSelectedProtectedType(null);
+                                }
+                              }
+                            }}>
+                              Sauvegarder
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
@@ -5018,20 +5399,6 @@ export default function Settings() {
 
                 {/* Supprimer une zone */}
                 <TabsContent value="delete-zone" className="pt-4 space-y-4">
-                  {/* Sous-onglets pour Paramètres */}
-                  <Tabs value={deleteZoneSubTab} onValueChange={(v) => setDeleteZoneSubTab(v as 'supprimer-couches' | 'types-zones-protegees')}>
-                    <TabsList className="grid w-full grid-cols-2 mb-4">
-                      <TabsTrigger value="supprimer-couches" className="flex items-center gap-2">
-                        <Trash2 className="h-4 w-4" />
-                        Supprimer des Couches
-                      </TabsTrigger>
-                      <TabsTrigger value="types-zones-protegees" className="flex items-center gap-2">
-                        <FaTree className="h-4 w-4" />
-                        Types de Zones Protégées
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="supprimer-couches">
                       <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2 mb-4">
                         <p className="text-red-700 font-semibold flex items-center gap-2">
                           <Trash2 className="h-5 w-5" />
@@ -5337,368 +5704,6 @@ export default function Settings() {
                       )}
                     </CardContent>
                       </Card>
-                    </TabsContent>
-
-                    <TabsContent value="types-zones-protegees">
-                      {/* Section 2: Gérer les types de zones protégées */}
-                      <Card className="border-2 border-green-100">
-                    <CardHeader>
-                      <div className="flex flex-col xl:flex-row items-start justify-between gap-4">
-                        <div>
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            <FaTree className="h-5 w-5 text-green-700" />
-                            Types de Zones Protégées
-                          </CardTitle>
-                          <CardDescription>
-                            Gérer la liste des types disponibles pour les zones protégées
-                          </CardDescription>
-                        </div>
-
-                        {/* Bouton de filtrage régional */}
-                        <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-                          <div className="flex flex-col">
-                            <Label htmlFor="regional-filter-toggle" className="text-sm font-semibold text-blue-900 cursor-pointer">
-                              Filtrage régional
-                            </Label>
-                            <span className="text-xs text-blue-700">
-                              {enableRegionalFilterProtectedZones
-                                ? 'Agents voient leur région uniquement'
-                                : 'Tous les agents voient toutes les zones'}
-                            </span>
-                          </div>
-                          <Switch
-                            id="regional-filter-toggle"
-                            checked={enableRegionalFilterProtectedZones}
-                            onCheckedChange={saveRegionalFilterSetting}
-                            disabled={loadingRegionalFilter}
-                            className="data-[state=checked]:bg-blue-600"
-                          />
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Bouton d'ajout */}
-                      <div className="flex justify-end">
-                        <Dialog open={newProtectedTypeOpen} onOpenChange={setNewProtectedTypeOpen}>
-                          <DialogTrigger asChild>
-                            <Button className="flex items-center gap-2">
-                              <Plus className="h-4 w-4" />
-                              Ajouter un Type
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Nouveau Type de Zone Protégée</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                              <div>
-                                <Label>Clé (identifiant technique) *</Label>
-                                <Input
-                                  value={newProtectedType.key || ''}
-                                  onChange={(e) => setNewProtectedType(prev => ({ ...prev, key: e.target.value }))}
-                                  placeholder="ex: reserve_naturelle"
-                                />
-                              </div>
-                              <div>
-                                <Label>Libellé (affiché à l'utilisateur) *</Label>
-                                <Input
-                                  value={newProtectedType.label || ''}
-                                  onChange={(e) => setNewProtectedType(prev => ({ ...prev, label: e.target.value }))}
-                                  placeholder="ex: Réserve naturelle"
-                                />
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Switch
-                                  checked={newProtectedType.isActive ?? true}
-                                  onCheckedChange={(v) => setNewProtectedType(prev => ({ ...prev, isActive: v }))}
-                                />
-                                <Label>Actif</Label>
-                              </div>
-                            </div>
-                            <DialogFooter>
-                              <Button variant="outline" onClick={() => {
-                                setNewProtectedTypeOpen(false);
-                                setNewProtectedType({ key: '', label: '', isActive: true });
-                              }}>
-                                Annuler
-                              </Button>
-                              <Button onClick={async () => {
-                                if (!newProtectedType.key || !newProtectedType.label) {
-                                  toast({
-                                    title: 'Champs requis',
-                                    description: 'Veuillez remplir tous les champs obligatoires',
-                                    variant: 'destructive'
-                                  });
-                                  return;
-                                }
-                                const success = await saveProtectedZoneType(newProtectedType, false);
-                                if (success) {
-                                  setNewProtectedTypeOpen(false);
-                                  setNewProtectedType({ key: '', label: '', isActive: true });
-                                }
-                              }}>
-                                Créer
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-
-                      {/* Barre d'actions pour suppression multiple */}
-                      {selectedProtectedTypesToDelete.length > 0 && (
-                        <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="destructive">
-                              {selectedProtectedTypesToDelete.length} sélectionné(s)
-                            </Badge>
-                            <span className="text-sm text-gray-600">
-                              Types sélectionnés pour suppression
-                            </span>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedProtectedTypesToDelete([])}
-                            >
-                              Annuler
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => setDeleteProtectedTypesConfirmOpen(true)}
-                              className="flex items-center gap-2"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Supprimer ({selectedProtectedTypesToDelete.length})
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                      {/* Liste des types en tableau */}
-                      <div className="border rounded-lg overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50 sticky top-0">
-                            <tr>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                                {/* Colonne pour les cases à cocher */}
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Nom
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Clé
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Statut
-                              </th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {protectedZoneTypes.length === 0 ? (
-                              <tr>
-                                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
-                                  Aucun type de zone protégée configuré
-                                </td>
-                              </tr>
-                            ) : (
-                              protectedZoneTypes.map((type, idx) => (
-                                <tr
-                                  key={type.key}
-                                  className={`hover:bg-gray-50 cursor-pointer ${
-                                    selectedProtectedTypesToDelete.includes(type.key) ? 'bg-red-50' : idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                  }`}
-                                  onClick={() => {
-                                    if (selectedProtectedTypesToDelete.includes(type.key)) {
-                                      setSelectedProtectedTypesToDelete(prev => prev.filter(k => k !== type.key));
-                                    } else {
-                                      setSelectedProtectedTypesToDelete(prev => [...prev, type.key]);
-                                    }
-                                  }}
-                                >
-                                  <td className="px-4 py-3">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4 rounded border-gray-300"
-                                      checked={selectedProtectedTypesToDelete.includes(type.key)}
-                                      onChange={() => {}} // Géré par le onClick du tr
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                    {type.label}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                      {type.key}
-                                    </code>
-                                  </td>
-                                  <td className="px-4 py-3 text-sm">
-                                    <Badge variant={type.isActive ? "default" : "secondary"} className="text-xs">
-                                      {type.isActive ? 'Actif' : 'Inactif'}
-                                    </Badge>
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-right" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex justify-end gap-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          setSelectedProtectedType(type);
-                                          setEditProtectedTypeOpen(true);
-                                        }}
-                                        className="flex items-center gap-1"
-                                      >
-                                        <Edit className="h-3 w-3" />
-                                        <span className="text-xs">Éditer</span>
-                                      </Button>
-                                      <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={() => deleteProtectedZoneType(type.id)}
-                                        className="flex items-center gap-1"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                        <span className="text-xs">Suppr.</span>
-                                      </Button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Modal de confirmation de suppression multiple */}
-                      <Dialog open={deleteProtectedTypesConfirmOpen} onOpenChange={setDeleteProtectedTypesConfirmOpen}>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2 text-red-600">
-                              <Trash2 className="h-5 w-5" />
-                              Confirmer la suppression
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-3 pt-2">
-                            <p className="text-base text-gray-700">
-                              Êtes-vous sûr de vouloir supprimer <strong>{selectedProtectedTypesToDelete.length}</strong> type(s) de zone protégée ?
-                            </p>
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
-                              <p className="text-sm text-amber-800 font-semibold flex items-center gap-2">
-                                <Info className="h-4 w-4" />
-                                Attention : Cette action est irréversible
-                              </p>
-                              <p className="text-sm text-amber-700">
-                                Les types supprimés ne seront plus disponibles dans la liste déroulante lors de l'ajout de zones protégées.
-                              </p>
-                            </div>
-                            {selectedProtectedTypesToDelete.length > 0 && (
-                              <div className="mt-2">
-                                <Label className="text-sm font-semibold">Types qui seront supprimés :</Label>
-                                <div className="mt-2 max-h-40 overflow-auto border rounded p-2 bg-gray-50">
-                                  <ul className="text-sm space-y-1">
-                                    {selectedProtectedTypesToDelete.map(key => {
-                                      const type = protectedZoneTypes.find(t => t.key === key);
-                                      return (
-                                        <li key={key} className="flex items-center justify-between py-1">
-                                          <span>{type?.label || key}</span>
-                                          <code className="text-xs bg-gray-200 px-2 py-0.5 rounded">{key}</code>
-                                        </li>
-                                      );
-                                    })}
-                                  </ul>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <DialogFooter className="gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => setDeleteProtectedTypesConfirmOpen(false)}
-                              disabled={deletingProtectedTypes}
-                            >
-                              Annuler
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              onClick={deleteSelectedProtectedTypes}
-                              disabled={deletingProtectedTypes}
-                              className="flex items-center gap-2"
-                            >
-                              {deletingProtectedTypes ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Suppression...
-                                </>
-                              ) : (
-                                <>
-                                  <Trash2 className="h-4 w-4" />
-                                  Supprimer définitivement
-                                </>
-                              )}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-
-                      {/* Modal d'édition */}
-                      <Dialog open={editProtectedTypeOpen} onOpenChange={setEditProtectedTypeOpen}>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Modifier le Type de Zone Protégée</DialogTitle>
-                          </DialogHeader>
-                          {selectedProtectedType && (
-                            <div className="space-y-4">
-                              <div>
-                                <Label>Clé (identifiant technique) *</Label>
-                                <Input
-                                  value={selectedProtectedType.key}
-                                  onChange={(e) => setSelectedProtectedType(prev => prev ? ({ ...prev, key: e.target.value }) : null)}
-                                />
-                              </div>
-                              <div>
-                                <Label>Libellé (affiché à l'utilisateur) *</Label>
-                                <Input
-                                  value={selectedProtectedType.label}
-                                  onChange={(e) => setSelectedProtectedType(prev => prev ? ({ ...prev, label: e.target.value }) : null)}
-                                />
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Switch
-                                  checked={selectedProtectedType.isActive}
-                                  onCheckedChange={(v) => setSelectedProtectedType(prev => prev ? ({ ...prev, isActive: v }) : null)}
-                                />
-                                <Label>Actif</Label>
-                              </div>
-                            </div>
-                          )}
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => {
-                              setEditProtectedTypeOpen(false);
-                              setSelectedProtectedType(null);
-                            }}>
-                              Annuler
-                            </Button>
-                            <Button onClick={async () => {
-                              if (selectedProtectedType) {
-                                const success = await saveProtectedZoneType(selectedProtectedType, true);
-                                if (success) {
-                                  setEditProtectedTypeOpen(false);
-                                  setSelectedProtectedType(null);
-                                }
-                              }
-                            }}>
-                              Sauvegarder
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </CardContent>
-                  </Card>
-                    </TabsContent>
-                  </Tabs>
                 </TabsContent>
               </Tabs>
             </CardContent>
