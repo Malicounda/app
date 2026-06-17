@@ -378,7 +378,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         const result = await db
           .select()
           .from(users)
-          .where(eq(users.username, username));
+          .where(sql`lower(${users.username}) = lower(${username})`);
         return result[0];
       } catch (err) {
         console.error('[storage.getUserByUsername] select() failed, falling back to explicit columns', err);
@@ -394,7 +394,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           const result = await db
             .select(cols)
             .from(users)
-            .where(eq(users.username, username));
+            .where(sql`lower(${users.username}) = lower(${username})`);
           return result[0] as unknown as User | undefined;
         } catch (err2) {
           console.error('[storage.getUserByUsername] fallback select(getTableColumns) also failed', err2);
@@ -410,7 +410,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
 
     async getUserByEmail(email: string): Promise<User | undefined> {
       try {
-        const result = await db.select().from(users).where(eq(users.email, email));
+        const result = await db.select().from(users).where(sql`lower(${users.email}) = lower(${email})`);
         return result[0];
       } catch (err) {
         console.error('[storage.getUserByEmail] select() failed, falling back to explicit columns', err);
@@ -419,7 +419,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
           const result = await db
             .select(cols)
             .from(users)
-            .where(eq(users.email, email));
+            .where(sql`lower(${users.email}) = lower(${email})`);
           return result[0] as unknown as User | undefined;
         } catch (err2) {
           console.error('[storage.getUserByEmail] fallback select(getTableColumns) also failed', err2);
@@ -944,7 +944,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
     }
 
     async getHunterByIdNumber(idNumber: string): Promise<Hunter | undefined> {
-      const result = await db.select().from(hunters).where(eq(hunters.idNumber, idNumber));
+      const result = await db.select().from(hunters).where(sql`lower(${hunters.idNumber}) = lower(${idNumber})`);
       return result[0];
     }
 
