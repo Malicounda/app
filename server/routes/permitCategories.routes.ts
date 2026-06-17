@@ -146,7 +146,7 @@ router.put('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-// DELETE /api/permit-categories/:id (soft: is_active = false)
+// DELETE /api/permit-categories/:id (hard delete)
 router.delete('/:id', isAuthenticated, async (req, res) => {
   try {
     const role = (req as any)?.user?.role;
@@ -154,11 +154,11 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ message: 'Paramètre id invalide' });
 
-    await sql`UPDATE permit_categories SET is_active = false, updated_at = ${new Date()} WHERE id = ${id}`;
-    return res.json({ message: 'Catégorie désactivée' });
+    await sql`DELETE FROM permit_categories WHERE id = ${id}`;
+    return res.json({ message: 'Catégorie supprimée avec succès' });
   } catch (err) {
     console.error('[DELETE /api/permit-categories/:id] error:', err);
-    return res.status(500).json({ message: 'Erreur interne du serveur.' });
+    return res.status(500).json({ message: 'Erreur interne du serveur lors de la suppression de la catégorie.' });
   }
 });
 

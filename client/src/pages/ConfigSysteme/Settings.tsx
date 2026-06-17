@@ -3505,6 +3505,7 @@ export default function Settings() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Validité (jours)</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actif</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix {seasonYear || computeSeason()}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white">
@@ -3566,7 +3567,32 @@ export default function Settings() {
                             disabled={!editPrices}
                           />
                         </td>
-
+                        <td className="p-2">
+                          {editPrices && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                              onClick={async () => {
+                                if (confirm(`Êtes-vous sûr de vouloir supprimer définitivement la catégorie "${row.labelFr}" ? Cette action supprimera également tous les tarifs associés.`)) {
+                                  try {
+                                    const resp = await apiRequest('DELETE', `/permit-categories/${row.id}`);
+                                    if (resp.ok) {
+                                      toast({ title: 'Succès', description: 'Catégorie supprimée avec succès.' });
+                                      await loadCategories(false);
+                                    } else {
+                                      throw new Error(resp.error || 'Erreur lors de la suppression.');
+                                    }
+                                  } catch (e: any) {
+                                    toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
+                                  }
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
