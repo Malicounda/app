@@ -529,7 +529,7 @@ export default function HuntingActivities() {
                                     <div className="flex flex-col items-center">
                                       {activity.photoAvailable && activity.reportId ? (
                                         <img
-                                          src={resolveApiUrl(`/api/hunting-activities/${activity.reportId}/photo?source_type=${(activity as any).source_type || ''}${token ? `&token=${token}` : ''}`)}
+                                          src={resolveApiUrl(`/api/hunting-activities/${activity.reportId}/photo?source_type=${(activity as any).source_type || ''}&status=${activity.status || ''}&is_validated=${activity.type === 'validated' ? 'true' : 'false'}${token ? `&token=${token}` : ''}`)}
                                           alt={activity.species[0]?.name && activity.species[0].name !== 'null' ? `Photo: ${activity.species[0].name}` : "Photo de l'espèce déclarée"}
                                           className="w-24 h-24 object-cover rounded-md border-2 border-amber-300 bg-white shadow-sm mb-2"
                                           onError={(e) => {

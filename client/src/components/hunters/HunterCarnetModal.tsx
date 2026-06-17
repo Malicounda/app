@@ -318,10 +318,10 @@ export default function HunterCarnetModal({ hunterId, hunterName, open, onClose 
                           {activity.photo_data && (
                             <div
                               className="relative w-32 rounded border border-green-200 overflow-hidden cursor-pointer hover:border-green-400 transition-colors shadow-sm bg-white"
-                              onClick={() => setSelectedPhoto(`/api/hunting-activities/${activity.id}/photo?source_type=${activity.source_type || ''}`)}
+                              onClick={() => setSelectedPhoto(`/api/hunting-activities/${activity.id}/photo?source_type=${activity.source_type || ''}&status=${activity.status || ''}&is_validated=${activity.is_validated_activity ? 'true' : 'false'}`)}
                             >
                               <img
-                                src={`/api/hunting-activities/${activity.id}/photo?source_type=${activity.source_type || ''}`}
+                                src={`/api/hunting-activities/${activity.id}/photo?source_type=${activity.source_type || ''}&status=${activity.status || ''}&is_validated=${activity.is_validated_activity ? 'true' : 'false'}`}
                                 alt={`Photo de ${activity.species_name}`}
                                 className="w-full h-20 object-cover hover:opacity-90 transition-opacity"
                                 onError={(e) => {

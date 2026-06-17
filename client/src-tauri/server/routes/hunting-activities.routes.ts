@@ -163,43 +163,68 @@ router.get('/hunter/:hunterId', isAuthenticated, async (req, res) => {
 router.get('/:id/photo', isAuthenticated, async (req, res) => {
   try {
     const activityId = Number(req.params.id);
+    const sourceType = req.query.source_type as string;
+    const status = req.query.status as string;
+    const isValidated = req.query.is_validated as string;
     
     if (Number.isNaN(activityId)) {
       return res.status(400).json({ message: 'ID d\'activité invalide' });
     }
 
-    // Chercher d'abord dans hunting_activities
-    const activityResult = await db.execute(sql`
-      SELECT photo_data, photo_mime, photo_name 
-      FROM hunting_activities 
-      WHERE id = ${activityId}
-    `);
-    const activityPhoto = Array.isArray(activityResult) ? activityResult[0] : activityResult;
+    let searchInValidated = false;
+    let searchInPending = false;
 
-    if (activityPhoto?.photo_data) {
-      const mime = String(activityPhoto.photo_mime || 'application/octet-stream');
-      res.setHeader('Content-Type', mime);
-      if (activityPhoto.photo_name) {
-        res.setHeader('Content-Disposition', `inline; filename="${String(activityPhoto.photo_name)}"`);
+    if (isValidated === 'true' || status === 'approved') {
+      searchInValidated = true;
+    } else if (isValidated === 'false' || status === 'pending' || status === 'rejected') {
+      searchInPending = true;
+    } else {
+      // Fallback si pas d'indicateur explicite
+      if (sourceType === 'direct_declaration') {
+        searchInValidated = true;
+      } else if (sourceType === 'guide_declaration') {
+        searchInValidated = true;
+        searchInPending = true;
+      } else {
+        searchInValidated = true;
+        searchInPending = true;
       }
-      return res.end(activityPhoto.photo_data);
     }
 
-    // Sinon chercher dans declaration_especes
-    const declarationResult = await db.execute(sql`
-      SELECT photo_data, photo_mime, photo_name 
-      FROM declaration_especes 
-      WHERE id = ${activityId}
-    `);
-    const declarationPhoto = Array.isArray(declarationResult) ? declarationResult[0] : declarationResult;
+    if (searchInValidated) {
+      const activityResult = await db.execute(sql`
+        SELECT photo_data, photo_mime, photo_name 
+        FROM hunting_activities 
+        WHERE id = ${activityId}
+      `);
+      const activityPhoto = Array.isArray(activityResult) ? activityResult[0] : activityResult;
 
-    if (declarationPhoto?.photo_data) {
-      const mime = String(declarationPhoto.photo_mime || 'application/octet-stream');
-      res.setHeader('Content-Type', mime);
-      if (declarationPhoto.photo_name) {
-        res.setHeader('Content-Disposition', `inline; filename="${String(declarationPhoto.photo_name)}"`);
+      if (activityPhoto?.photo_data) {
+        const mime = String(activityPhoto.photo_mime || 'application/octet-stream');
+        res.setHeader('Content-Type', mime);
+        if (activityPhoto.photo_name) {
+          res.setHeader('Content-Disposition', `inline; filename="${String(activityPhoto.photo_name)}"`);
+        }
+        return res.end(activityPhoto.photo_data);
       }
-      return res.end(declarationPhoto.photo_data);
+    }
+
+    if (searchInPending) {
+      const declarationResult = await db.execute(sql`
+        SELECT photo_data, photo_mime, photo_name 
+        FROM declaration_especes 
+        WHERE id = ${activityId}
+      `);
+      const declarationPhoto = Array.isArray(declarationResult) ? declarationResult[0] : declarationResult;
+
+      if (declarationPhoto?.photo_data) {
+        const mime = String(declarationPhoto.photo_mime || 'application/octet-stream');
+        res.setHeader('Content-Type', mime);
+        if (declarationPhoto.photo_name) {
+          res.setHeader('Content-Disposition', `inline; filename="${String(declarationPhoto.photo_name)}"`);
+        }
+        return res.end(declarationPhoto.photo_data);
+      }
     }
 
     return res.status(404).json({ message: 'Photo non trouvée' });
