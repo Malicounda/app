@@ -715,53 +715,60 @@ export default function HunterDashboard() {
             {/* Action Cards Grid */}
             <div className="relative z-10 mx-auto w-full max-w-md pt-2">
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                {/* Demande de permis */}
-                <motion.button
-                  whileTap={isProfileComplete && documents.length > 0 ? { scale: 0.96 } : {}}
-                  onClick={() => {
-                    if (isProfileComplete && documents.length > 0) setLocation('/permit-request');
-                  }}
-                  className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200 
-                    ${isProfileComplete && documents.length > 0 
-                      ? 'border-emerald-100 bg-gradient-to-br from-emerald-50 to-green-50 hover:shadow-md hover:shadow-emerald-500/10 hover:border-emerald-200 active:bg-emerald-100 cursor-pointer' 
-                      : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
-                >
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
-                    ${isProfileComplete && documents.length > 0
-                      ? 'bg-gradient-to-br from-emerald-400 to-green-600 shadow-emerald-500/25 group-hover:shadow-emerald-500/40'
-                      : 'bg-slate-400 shadow-slate-500/20'}`}
-                  >
-                    <ShieldCheck className="h-6 w-6 text-white" strokeWidth={2} />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 leading-tight">Demande</span>
-                    <span className="block text-[10px] font-medium text-slate-500 mt-0.5">de permis</span>
-                  </div>
-                </motion.button>
+                {(() => {
+                  const hasIdCard = documentsArr.some((d: HunterDocument) => d.documentType === 'idCardDocument');
+                  const canAccessDemande = isProfileComplete && hasIdCard;
+                  const canAccessReports = isProfileComplete && permitsArr.some((p: HunterPermit) => p.status === 'active' || p.status === 'expired');
 
-                {/* Nouveau prélèvement */}
-                <motion.button
-                  whileTap={isProfileComplete ? { scale: 0.96 } : {}}
-                  onClick={() => {
-                    if (isProfileComplete) setLocation('/hunting-reports');
-                  }}
-                  className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200
-                    ${isProfileComplete
-                      ? 'border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50 hover:shadow-md hover:shadow-amber-500/10 hover:border-amber-200 active:bg-amber-100 cursor-pointer'
-                      : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
-                >
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
-                    ${isProfileComplete
-                      ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/25 group-hover:shadow-amber-500/40'
-                      : 'bg-slate-400 shadow-slate-500/20'}`}
-                  >
-                    <Target className="h-6 w-6 text-white" strokeWidth={2} />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 leading-tight">Prélèvement</span>
-                    <span className="block text-[10px] font-medium text-slate-500 mt-0.5">nouveau rapport</span>
-                  </div>
-                </motion.button>
+                  return (
+                    <>
+                      {/* Demande de permis */}
+                      <motion.button
+                        whileTap={canAccessDemande ? { scale: 0.96 } : {}}
+                        onClick={() => {
+                          if (canAccessDemande) setLocation('/permit-request');
+                        }}
+                        className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200 
+                          ${canAccessDemande 
+                            ? 'border-emerald-100 bg-gradient-to-br from-emerald-50 to-green-50 hover:shadow-md hover:shadow-emerald-500/10 hover:border-emerald-200 active:bg-emerald-100 cursor-pointer' 
+                            : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
+                      >
+                        <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
+                          ${canAccessDemande
+                            ? 'bg-gradient-to-br from-emerald-400 to-green-600 shadow-emerald-500/25 group-hover:shadow-emerald-500/40'
+                            : 'bg-slate-400 shadow-slate-500/20'}`}
+                        >
+                          <ShieldCheck className="h-6 w-6 text-white" strokeWidth={2} />
+                        </div>
+                        <div>
+                          <span className="block text-xs font-bold text-slate-800 leading-tight">Demande</span>
+                          <span className="block text-[10px] font-medium text-slate-500 mt-0.5">de permis</span>
+                        </div>
+                      </motion.button>
+
+                      {/* Nouveau prélèvement */}
+                      <motion.button
+                        whileTap={canAccessReports ? { scale: 0.96 } : {}}
+                        onClick={() => {
+                          if (canAccessReports) setLocation('/hunting-reports');
+                        }}
+                        className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200
+                          ${canAccessReports
+                            ? 'border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50 hover:shadow-md hover:shadow-amber-500/10 hover:border-amber-200 active:bg-amber-100 cursor-pointer'
+                            : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
+                      >
+                        <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
+                          ${canAccessReports
+                            ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/25 group-hover:shadow-amber-500/40'
+                            : 'bg-slate-400 shadow-slate-500/20'}`}
+                        >
+                          <Target className="h-6 w-6 text-white" strokeWidth={2} />
+                        </div>
+                        <div>
+                          <span className="block text-xs font-bold text-slate-800 leading-tight">Prélèvement</span>
+                          <span className="block text-[10px] font-medium text-slate-500 mt-0.5">nouveau rapport</span>
+                        </div>
+                      </motion.button>
 
                 {/* Mes permis */}
                 <motion.button
@@ -809,6 +816,10 @@ export default function HunterDashboard() {
                     <span className="block text-[10px] font-medium text-slate-500 mt-0.5">pièces jointes</span>
                   </div>
                 </motion.button>
+
+                    </>
+                  );
+                })()}
 
                 {/* Déclarations du Guide - Visible uniquement si associé à un guide */}
                 {guideStatus?.hasActiveGuide && (
