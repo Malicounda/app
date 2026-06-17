@@ -39,7 +39,7 @@ import { departmentsByRegion } from "@/lib/constants";
 // Types d'aide pour les listes armes
 type WeaponOption = { id: string; code: string; label: string; isActive?: boolean; weaponTypeId?: string };
 
-import { countriesList, getNationality } from "@/lib/countries";
+import { countriesList, getNationality, getDialCode } from "@/lib/countries";
 
 // Fonction de validation des fichiers
 const validateFile = (file: File | string | undefined): boolean => {
@@ -167,8 +167,8 @@ const hunterFormSchema = z.object({
   experience: z.coerce.number().min(0, { message: "L'expérience ne peut pas être négative" }),
   profession: z.string().min(2, { message: "La profession est requise" }),
   category: z.enum(["resident", "coutumier", "touristique"], { message: "Veuillez sélectionner une catégorie valide" }),
-  region: z.string().min(1, { message: "La région est requise" }),
-  departement: z.string().min(1, { message: "Le département est requis" }),
+  region: z.string().optional(),
+  departement: z.string().optional(),
 
   // Informations sur l'arme
   weaponType: z.string().min(1, { message: "Le type d'arme est requis" }),
@@ -239,13 +239,21 @@ const hunterFormSchema = z.object({
       message: "Le document a expiré"
     })
 }).superRefine((vals, ctx) => {
-  // Rendre adresse obligatoire sauf pour la catégorie 'touristique'
+  // Rendre adresse, région et département obligatoires sauf pour la catégorie 'touristique'
   const cat = (vals.category || '').toString().trim().toLowerCase();
   const isTourist = cat === 'touristique' || cat.startsWith('tour');
   if (!isTourist) {
     const address = (vals.address || '').toString().trim();
     if (!address || address.length < 5) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['address'], message: "L'adresse est requise (sauf pour la catégorie 'touristique')" });
+    }
+    const region = (vals.region || '').toString().trim();
+    if (!region) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['region'], message: "La région est requise" });
+    }
+    const departement = (vals.departement || '').toString().trim();
+    if (!departement) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['departement'], message: "Le département est requis" });
     }
   }
 
@@ -822,11 +830,14 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
         'insurance',
         'weaponReceipt',
       ]);
+      let uploadErrors = 0;
       const uploads = documents
         .filter(d => d.file instanceof File)
         .map(async (d) => {
           if (requireExpiry.has(d.name) && (!d.expiryDate || String(d.expiryDate).trim() === '')) {
-            throw new Error("La date d'expiration est obligatoire pour ce document");
+            uploadErrors++;
+            console.error(`La date d'expiration est obligatoire pour ${d.name}`);
+            return;
           }
           const fd = new FormData();
           fd.append('file', d.file as File);
@@ -836,9 +847,10 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
           }
           try {
             await apiRequest<void>({ url: `/api/attachments/${targetHunterId}`, method: 'POST', data: fd });
-          } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
-            const msg = err?.body?.message || err?.message || 'Erreur upload document';
-            throw new Error(msg || `Échec upload ${d.name }`);
+          } catch (err: any) { 
+            if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
+            uploadErrors++;
+            console.error(`Échec upload ${d.name}`);
           }
         });
 
@@ -850,6 +862,9 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
       // Invalider les caches des requêtes
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/hunters"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/hunters/all"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/hunters/region"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/hunters/zone"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/stats"] }),
         // Invalider les clés utilisées par les hooks et composants: ['hunter', id] et ['/api/hunters', id]
         queryClient.invalidateQueries({ queryKey: ["hunter", targetHunterId] }),
@@ -857,12 +872,18 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
         queryClient.invalidateQueries({ queryKey: [`/api/attachments/${targetHunterId}`] }),
       ]);
 
+      let successDesc = uploadErrors > 0
+        ? `Le chasseur a été enregistré, mais ${uploadErrors} document(s) n'ont pas pu être importé(s) (date d'expiration manquante ou erreur réseau).`
+        : `${data.lastName} ${data.firstName} a été ${isEditing ? "mis à jour" : "ajouté"} avec succès.`;
+
+      if (createdOrUpdated?.generatedCredentials) {
+        successDesc += `\n\nIdentifiants de connexion générés pour le compte :\n- Identifiant : ${createdOrUpdated.generatedCredentials.username}\n- Mot de passe : ${createdOrUpdated.generatedCredentials.password}`;
+      }
+
       toast({
         title: isEditing ? "Chasseur mis à jour" : "Chasseur créé",
-        description: uploads.length
-          ? `${data.lastName} ${data.firstName} a été ${isEditing ? "mis à jour" : "ajouté"} et ${uploads.length} document(s) téléversé(s).`
-          : `${data.lastName} ${data.firstName} a été ${isEditing ? "mis à jour" : "ajouté"}. Vous pourrez ajouter des documents plus tard.`,
-        variant: "default",
+        description: successDesc,
+        variant: uploadErrors > 0 ? "destructive" : "default",
       });
 
       onClose();
@@ -878,6 +899,15 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
     }
   }
 
+  const onFormError = (errors: any) => {
+    const errorCount = Object.keys(errors).length;
+    toast({
+      title: "Formulaire incomplet",
+      description: `Veuillez corriger ou remplir les ${errorCount} champ(s) en rouge avant de valider.`,
+      variant: "destructive",
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[90%] md:max-w-[700px] max-h-[90vh] overflow-y-auto">
@@ -891,7 +921,7 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit, onFormError)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -1035,31 +1065,42 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
             <FormField
               control={form.control}
               name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Téléphone {isEditing && <Button type="button" variant="ghost" size="sm" className="ml-1 h-5 w-5 p-0" onClick={() => toggleFieldLock('phone')}><Pencil className={`h-3 w-3 ${unlockedFields.has('phone') ? 'text-green-600' : 'text-gray-400'}`} /></Button>}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="tel"
-                      placeholder="XX XXX XX XX"
-                      {...field}
-                      className="text-center font-bold max-w-[200px] mx-auto"
-                      disabled={isFieldLocked('phone')}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/[^0-9]/g, '');
-                        // Format: XX XXX XX XX (groupes de 2, 3, 2, 2)
-                        let formatted = '';
-                        for (let i = 0; i < raw.length && i < 10; i++) {
-                          if (i === 2 || i === 5 || i === 7) formatted += ' ';
-                          formatted += raw[i];
-                        }
-                        field.onChange(formatted);
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const selectedCountry = form.watch('pays');
+                const dialCode = selectedCountry ? getDialCode(selectedCountry) : '';
+                return (
+                  <FormItem>
+                    <FormLabel>Téléphone {isEditing && <Button type="button" variant="ghost" size="sm" className="ml-1 h-5 w-5 p-0" onClick={() => toggleFieldLock('phone')}><Pencil className={`h-3 w-3 ${unlockedFields.has('phone') ? 'text-green-600' : 'text-gray-400'}`} /></Button>}</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center max-w-[250px] mx-auto">
+                        {dialCode && (
+                          <div className="flex items-center justify-center bg-gray-200 h-10 px-3 border border-input rounded-l-md text-sm whitespace-nowrap">
+                            <span>{dialCode}</span>
+                          </div>
+                        )}
+                        <Input
+                          type="tel"
+                          placeholder={dialCode ? "XX XXX XX XX" : "Téléphone"}
+                          {...field}
+                          className={`text-center font-bold ${dialCode ? "rounded-l-none" : ""}`}
+                          disabled={isFieldLocked('phone')}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            // Format: XX XXX XX XX (groupes de 2, 3, 2, 2)
+                            let formatted = '';
+                            for (let i = 0; i < raw.length && i < 15; i++) {
+                              if (i === 2 || i === 5 || i === 7) formatted += ' ';
+                              formatted += raw[i];
+                            }
+                            field.onChange(formatted);
+                          }}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField
@@ -1187,71 +1228,73 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="region"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Région de résidence * {isEditing && <Button type="button" variant="ghost" size="sm" className="ml-1 h-5 w-5 p-0" onClick={() => toggleFieldLock('region')}><Pencil className={`h-3 w-3 ${unlockedFields.has('region') ? 'text-green-600' : 'text-gray-400'}`} /></Button>}</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={isFieldLocked('region')}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner une région" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="dakar">DAKAR</SelectItem>
-                        <SelectItem value="thies">THIÈS</SelectItem>
-                        <SelectItem value="saint-louis">SAINT-LOUIS</SelectItem>
-                        <SelectItem value="louga">LOUGA</SelectItem>
-                        <SelectItem value="fatick">FATICK</SelectItem>
-                        <SelectItem value="kaolack">KAOLACK</SelectItem>
-                        <SelectItem value="kaffrine">KAFFRINE</SelectItem>
-                        <SelectItem value="matam">MATAM</SelectItem>
-                        <SelectItem value="tambacounda">TAMBACOUNDA</SelectItem>
-                        <SelectItem value="kedougou">KÉDOUGOU</SelectItem>
-                        <SelectItem value="kolda">KOLDA</SelectItem>
-                        <SelectItem value="sedhiou">SÉDHIOU</SelectItem>
-                        <SelectItem value="ziguinchor">ZIGUINCHOR</SelectItem>
-                        <SelectItem value="diourbel">DIOURBEL</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="departement"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Département * {isEditing && <Button type="button" variant="ghost" size="sm" className="ml-1 h-5 w-5 p-0" onClick={() => toggleFieldLock('departement')}><Pencil className={`h-3 w-3 ${unlockedFields.has('departement') ? 'text-green-600' : 'text-gray-400'}`} /></Button>}</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={isFieldLocked('departement') || !watchedRegion}
-                    >
-                      <FormControl>
-                        <SelectTrigger disabled={isFieldLocked('departement') || !watchedRegion}>
-                          <SelectValue placeholder={departements.length ? "Sélectionner un département" : (watchedRegion ? "Aucun département disponible" : "Sélectionner une région d'abord")} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {departements.map((dep) => (
-                          <SelectItem key={dep} value={dep}>{dep.toUpperCase()}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            {form.watch('category') !== 'touristique' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="region"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Région de résidence * {isEditing && <Button type="button" variant="ghost" size="sm" className="ml-1 h-5 w-5 p-0" onClick={() => toggleFieldLock('region')}><Pencil className={`h-3 w-3 ${unlockedFields.has('region') ? 'text-green-600' : 'text-gray-400'}`} /></Button>}</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={isFieldLocked('region')}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner une région" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="dakar">DAKAR</SelectItem>
+                          <SelectItem value="thies">THIÈS</SelectItem>
+                          <SelectItem value="saint-louis">SAINT-LOUIS</SelectItem>
+                          <SelectItem value="louga">LOUGA</SelectItem>
+                          <SelectItem value="fatick">FATICK</SelectItem>
+                          <SelectItem value="kaolack">KAOLACK</SelectItem>
+                          <SelectItem value="kaffrine">KAFFRINE</SelectItem>
+                          <SelectItem value="matam">MATAM</SelectItem>
+                          <SelectItem value="tambacounda">TAMBACOUNDA</SelectItem>
+                          <SelectItem value="kedougou">KÉDOUGOU</SelectItem>
+                          <SelectItem value="kolda">KOLDA</SelectItem>
+                          <SelectItem value="sedhiou">SÉDHIOU</SelectItem>
+                          <SelectItem value="ziguinchor">ZIGUINCHOR</SelectItem>
+                          <SelectItem value="diourbel">DIOURBEL</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="departement"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Département * {isEditing && <Button type="button" variant="ghost" size="sm" className="ml-1 h-5 w-5 p-0" onClick={() => toggleFieldLock('departement')}><Pencil className={`h-3 w-3 ${unlockedFields.has('departement') ? 'text-green-600' : 'text-gray-400'}`} /></Button>}</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={isFieldLocked('departement') || !watchedRegion}
+                      >
+                        <FormControl>
+                          <SelectTrigger disabled={isFieldLocked('departement') || !watchedRegion}>
+                            <SelectValue placeholder={departements.length ? "Sélectionner un département" : (watchedRegion ? "Aucun département disponible" : "Sélectionner une région d'abord")} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {departements.map((dep) => (
+                            <SelectItem key={dep} value={dep}>{dep.toUpperCase()}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
             {/* Section Informations sur l'Arme */}
             <div className="border-t pt-4 mt-6">

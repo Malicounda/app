@@ -391,6 +391,12 @@ router.post('/request', isAuthenticated, async (req, res) => {
       const hunterRecords = await db.select().from(hunters).where(eq(hunters.id, hunterId)).limit(1);
       const hunter = hunterRecords[0];
 
+      const year = new Date().getFullYear();
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let randomStr = '';
+      for (let i = 0; i < 7; i++) randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+      const refNumber = `REF${year}-${randomStr}`;
+
       const requestData: any = {
         userId: currentUserId,
         hunterId: hunterId,
@@ -399,6 +405,7 @@ router.post('/request', isAuthenticated, async (req, res) => {
         region: hunter?.region || null,
         domaineId: domaineId,
         status: status || 'pending',
+        referenceNumber: refNumber,
       };
 
       const inserted = await db.insert(permitRequests).values(requestData).returning();

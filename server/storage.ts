@@ -1172,11 +1172,15 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
 
         // 3. Supprimer définitivement les utilisateurs associés à ce chasseur pour éviter les comptes fantômes
         console.log(`👥 Suppression des utilisateurs liés au chasseur ${id}`);
-        const userDeleteResult = await db.delete(users)
-          .where(eq(users.hunterId, id))
-          .returning();
-
-        console.log(`👤 ${userDeleteResult.length} utilisateurs supprimés pour le chasseur ${id}`);
+        try {
+          const linkedUsers = await db.select().from(users).where(eq(users.hunterId, id));
+          for (const u of linkedUsers) {
+            await this.deleteUser(u.id);
+          }
+          console.log(`👤 ${linkedUsers.length} utilisateurs supprimés pour le chasseur ${id}`);
+        } catch (err) {
+          console.log(`⚠️ Erreur lors de la suppression des utilisateurs liés:`, err);
+        }
 
         // 4. Vérifier si le chasseur existe avant de le supprimer
         const hunterExists = await this.getHunter(id);

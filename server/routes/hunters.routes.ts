@@ -677,11 +677,51 @@ router.post('/', isAuthenticated, async (req: Request, res: Response) => {
     // Create hunter via Drizzle storage
     const created = await storage.createHunter(storageData as any);
 
-    if (effectiveUserId) {
+    let generatedCredentials = null;
+
+    if (effectiveUserId && effectiveUserId !== req.user?.id) {
       try {
         await storage.assignHunterToUser(effectiveUserId, created.id);
       } catch (e) {
         console.warn(`Association utilisateur ${effectiveUserId} -> chasseur ${created.id} a échoué:`, e);
+      }
+    } else {
+      // Auto-generate user account for the hunter
+      try {
+        const idNumberStr = String((scopedHunterData as any).idNumber).trim();
+        const generatedUsername = idNumberStr.toLowerCase().replace(/\s/g, '');
+        const generatedPassword = idNumberStr; // Password matches ID number
+        
+        // Generate a random email or clean it up
+        const generatedEmail = `${generatedUsername}@scodi.sn`;
+
+        // Check if username already exists just to be safe
+        const existingUser = await storage.getUserByUsername(generatedUsername);
+        if (!existingUser) {
+           const newUser = await storage.createUser({
+            publicId: crypto.randomUUID(),
+            username: generatedUsername,
+            password: generatedPassword,
+            email: generatedEmail,
+            firstName: String((scopedHunterData as any).firstName || ''),
+            lastName: String((scopedHunterData as any).lastName || ''),
+            phone: String((scopedHunterData as any).phone || ''),
+            role: 'hunter',
+            hunterId: created.id,
+          });
+
+          // This assigns hunterId AND adds them to the CHASSE domain
+          await storage.assignHunterToUser(newUser.id, created.id);
+
+          generatedCredentials = {
+            username: generatedUsername,
+            password: generatedPassword
+          };
+        } else {
+          console.warn(`[Auto-create User] Username ${generatedUsername} already exists. Skipping auto-creation.`);
+        }
+      } catch (err) {
+        console.error("Erreur lors de l'auto-génération du compte utilisateur pour le chasseur:", err);
       }
     }
 
@@ -696,7 +736,10 @@ router.post('/', isAuthenticated, async (req: Request, res: Response) => {
       details: `Nouveau chasseur créé (ID ${created.id})${userId ? ` et associé à l'utilisateur ID ${userId}` : ''}`,
     } as any);
 
-    res.status(201).json(mapHunterToApi(created));
+    res.status(201).json({
+      ...mapHunterToApi(created),
+      generatedCredentials
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error("Erreur de validation Zod lors de la création du chasseur:", error.errors);

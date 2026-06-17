@@ -522,6 +522,7 @@ export default function PermitRequestReception() {
   // Fonction pour ouvrir les détails d'une demande
   const viewRequestDetails = (request: PermitRequest) => {
     setCurrentRequest(request);
+    setLoadingAttachments(true);
     setDetailsOpen(true);
   };
 
@@ -751,7 +752,14 @@ export default function PermitRequestReception() {
                         <span className="text-slate-400 italic text-xs">Non défini</span>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">{request.hunterName}</TableCell>
+                    <TableCell>
+                      <div className="font-medium text-slate-800">{request.hunterName}</div>
+                      {request.idNumber && (
+                        <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                          N° Pièce: {request.idNumber}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>{request.permitType}</TableCell>
                     <TableCell>
                       {format(new Date(request.requestDate), "dd MMM yyyy", { locale: fr })}
