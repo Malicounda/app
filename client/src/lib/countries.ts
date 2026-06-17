@@ -121,8 +121,73 @@ export const nationalityByCountry: Record<string, string> = {
     "États-Unis": "américaine",
 };
 
+export const dialCodeByCountry: Record<string, string> = {
+    "Sénégal": "+221",
+    "Afrique du Sud": "+27",
+    "Algérie": "+213",
+    "Angola": "+244",
+    "Bénin": "+229",
+    "Botswana": "+267",
+    "Burkina Faso": "+226",
+    "Burundi": "+257",
+    "Cameroun": "+237",
+    "Cap-Vert": "+238",
+    "République centrafricaine": "+236",
+    "Comores": "+269",
+    "Congo": "+242",
+    "Côte d'Ivoire": "+225",
+    "Djibouti": "+253",
+    "Égypte": "+20",
+    "Érythrée": "+291",
+    "Eswatini": "+268",
+    "Éthiopie": "+251",
+    "Gabon": "+241",
+    "Gambie": "+220",
+    "Ghana": "+233",
+    "Guinée": "+224",
+    "Guinée-Bissau": "+245",
+    "Guinée équatoriale": "+240",
+    "Kenya": "+254",
+    "Lesotho": "+266",
+    "Liberia": "+231",
+    "Libye": "+218",
+    "Madagascar": "+261",
+    "Malawi": "+265",
+    "Mali": "+223",
+    "Maroc": "+212",
+    "Maurice": "+230",
+    "Mauritanie": "+222",
+    "Mozambique": "+258",
+    "Namibie": "+264",
+    "Niger": "+227",
+    "Nigeria": "+234",
+    "Ouganda": "+256",
+    "Rwanda": "+250",
+    "São Tomé-et-Principe": "+239",
+    "Seychelles": "+248",
+    "Sierra Leone": "+232",
+    "Somalie": "+252",
+    "Soudan": "+249",
+    "Soudan du Sud": "+211",
+    "Tanzanie": "+255",
+    "Tchad": "+235",
+    "Togo": "+228",
+    "Tunisie": "+216",
+    "Zambie": "+260",
+    "Zimbabwe": "+263",
+    "France": "+33",
+    "Espagne": "+34",
+    "Italie": "+39",
+    "Allemagne": "+49",
+    "États-Unis": "+1",
+};
+
 export function getNationality(country?: string | null): string {
     if (!country) return '';
-    // Return mapped nationality when available, otherwise return the country name
     return nationalityByCountry[country] || country;
+}
+
+export function getDialCode(country?: string | null): string {
+    if (!country) return '';
+    return dialCodeByCountry[country] || '';
 }

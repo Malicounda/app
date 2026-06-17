@@ -930,48 +930,9 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
 
     // Hunter operations
     async getHunter(id: number): Promise<Hunter | undefined> {
-      // Aligner avec la logique de getAllHunters(): gérer dynamiquement departement vs zone
       try {
-        const existsDepartement = await db.execute(sqlRaw`
-          SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = 'hunters' AND column_name = 'departement'
-          ) AS exists;
-        `);
-        const hasDepartement = Array.isArray(existsDepartement) && (existsDepartement as any)[0]?.exists === true;
-        const zoneColumn = hasDepartement ? 'departement' : 'zone';
-
-        const rows = await db.execute(sqlRaw`
-          SELECT
-            id,
-            first_name AS "firstName",
-            last_name AS "lastName",
-            date_of_birth AS "dateOfBirth",
-            id_number AS "idNumber",
-            phone,
-            address,
-            experience,
-            profession,
-            category,
-            pays,
-            nationality,
-            region,
-            ${sqlRaw.raw(zoneColumn)} AS "departement",
-            weapon_type AS "weaponType",
-            weapon_brand AS "weaponBrand",
-            weapon_reference AS "weaponReference",
-            weapon_caliber AS "weaponCaliber",
-            weapon_other_details AS "weaponOtherDetails",
-            is_active AS "isActive",
-            is_minor AS "isMinor",
-            created_at AS "createdAt"
-          FROM hunters
-          WHERE id = ${id}
-          LIMIT 1
-        `);
-
-        const row = Array.isArray(rows) ? (rows as any[])[0] : undefined;
-        return row as unknown as Hunter | undefined;
+        const result = await db.select().from(hunters).where(eq(hunters.id, id)).limit(1);
+        return result[0];
       } catch (err) {
         console.error('[storage.getHunter] erreur lors de la sélection du chasseur:', err);
         return undefined;

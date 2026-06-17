@@ -54,13 +54,10 @@ import RegionalSMSPage from "@/pages/Messagerie/RegionalSMSPage";
 import SectorSMSPage from "@/pages/Messagerie/SectorSMSPage";
 import SMSPage from "@/pages/Messagerie/SMSPage";
 import NationalStatistics from "@/pages/National/NationalStatistics";
-import DemandePermisSpecial from "@/pages/Permis/DemandePermisSpecial";
+import DemandePermisChasse from "@/pages/Permis/DemandePermisChasse";
 import DetailDemandePermis from "@/pages/Permis/DetailDemandePermis";
 import GestionPermisPage from "@/pages/Permis/GestionPermisPage";
 import HunterPermits from "@/pages/Permis/HunterPermits";
-import HuntingPermitRequest from "@/pages/Permis/HuntingPermitRequest";
-import PermitRequestManagementSimple from "@/pages/Permis/PermitRequestManagementSimple";
-import PermitRequestPage from "@/pages/Permis/PermitRequestPage";
 import PermitRequestReception from "@/pages/Permis/PermitRequestReception";
 import Permits from "@/pages/Permis/Permits";
 import ProduitsForestiers from "@/pages/ProduitsForestiers";
@@ -117,6 +114,22 @@ function ProfileRouteGuard() {
 
   if ((user as any)?.isSuperAdmin) return null;
   return <Profile />;
+}
+
+function MyPermitsRedirect() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation("/permit-request?tab=create");
+  }, [setLocation]);
+  return null;
+}
+
+function MyRequestsRedirect() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation("/permit-request?tab=list");
+  }, [setLocation]);
+  return null;
 }
 
 function Router() {
@@ -261,7 +274,7 @@ function Router() {
           path="/permit-simple"
           component={() => (
             <div className="min-h-screen bg-white">
-              <HuntingPermitRequest />
+              <DemandePermisChasse />
             </div>
           )}
         />
@@ -601,10 +614,10 @@ function Router() {
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
-        <Route path="/demande-permis-special">
+        <Route path="/permit-request">
           <ChasseRoute>
             <ProtectedRoute allowedRoles={["hunter"]}>
-              <DemandePermisSpecial />
+              <DemandePermisChasse />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
@@ -615,7 +628,7 @@ function Router() {
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
-        <Route path="/demande-permis-special/:id">
+        <Route path="/permit-request/:id">
           <ChasseRoute>
             <ProtectedRoute allowedRoles={["hunter"]}>
               <DetailDemandePermis />
@@ -803,7 +816,7 @@ function Router() {
         <Route path="/permit-requests">
           <ChasseRoute>
             <ProtectedRoute adminOrAgentOnly>
-              <PermitRequestManagementSimple />
+              <PermitRequestReception />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
@@ -971,27 +984,11 @@ function Router() {
           </ChasseRoute>
         </Route>
         <Route path="/mypermits">
-          {() => {
-            const [, setLocation] = useLocation();
-            useEffect(() => { setLocation("/permit-request?tab=create"); }, [setLocation]);
-            return null;
-          }}
+          <MyPermitsRedirect />
         </Route>
         <Route path="/hunter-permits">
           <ProtectedRoute hunterOnly>
             <HunterPermits />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/myrequests">
-          {() => {
-            const [, setLocation] = useLocation();
-            useEffect(() => { setLocation("/permit-request?tab=list"); }, [setLocation]);
-            return null;
-          }}
-        </Route>
-        <Route path="/permit-request">
-          <ProtectedRoute hunterOnly>
-            <PermitRequestPage />
           </ProtectedRoute>
         </Route>
         <Route path="/hunting-reports">

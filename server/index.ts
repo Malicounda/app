@@ -21,7 +21,6 @@ import alertsRoutes from './routes/alerts.routes.js';
 import ecoZonesRoutes from './routes/ecoZones.routes.js'; // Ajout des routes pour les zones écogéographiques
 import registerRoutes from './routes/index.js'; // Assuming 'routes' is a directory with an index file
 import infractionsRoutes from './routes/infractions.routes.js'; // Routes pour les infractions
-import permitRequestsRoutes from './routes/permit-requests-simple.routes.js'; // Routes pour les demandes de permis
 import permitValidationRoutes from './routes/permit-validation.routes.js'; // Routes pour la validation de permis
 import protectedZonesRoutes from './routes/protectedZones.routes.js';
 import settingsRoutes from './routes/settings.routes.js'; // Ajout de l'import
@@ -330,10 +329,6 @@ console.log('✅ Route shapefile enregistrée : POST /api/shapefile/upload');
 // Enregistrer les routes pour les localités de référence (administration)
 app.use('/api/admin/localites', localitesRoutes);
 console.log('✅ Route localites enregistrée : /api/admin/localites');
-
-// Enregistrer les routes pour les demandes de permis
-app.use('/api/permit-requests', permitRequestsRoutes);
-
 
 // Enregistrer les routes pour la validation de permis
 app.use('/api/permit-validation', permitValidationRoutes);

@@ -23,7 +23,7 @@ import { getHomePage } from "@/utils/navigation";
 import "../styles/login.css";
 
 const loginSchema = z.object({
-  identifier: z.string().min(1, "Le nom d'utilisateur, l'e-mail ou le matricule est requis"),
+  identifier: z.string().min(1, "Le nom d'utilisateur ou matricule est requis"),
   password: z.string().optional(),
 });
 
@@ -77,6 +77,24 @@ export default function Login() {
       password: "",
     },
   });
+
+  // Pré-remplir automatiquement le formulaire avec les identifiants tout juste créés
+  useEffect(() => {
+    try {
+      const tempCredsStr = sessionStorage.getItem('scodi_temp_creds');
+      if (tempCredsStr) {
+        const tempCreds = JSON.parse(tempCredsStr);
+        if (tempCreds.identifier) {
+          form.setValue('identifier', tempCreds.identifier);
+        }
+        if (tempCreds.password) {
+          form.setValue('password', tempCreds.password);
+        }
+        // Nettoyer pour des raisons de sécurité
+        sessionStorage.removeItem('scodi_temp_creds');
+      }
+    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+  }, [form]);
 
   const isChasseApk = typeof navigator !== 'undefined' && navigator.userAgent.includes('ChasseAPK');
 
@@ -145,7 +163,7 @@ export default function Login() {
                           <User className="h-5 w-5 text-green-600" />
                         </div>
                         <Input
-                          placeholder="username"
+                          placeholder="Nom d'utilisateur"
                           {...field}
                           disabled={isLoading}
                           className="h-12 pl-10 bg-white/95 border-2 border-green-600/30 focus:border-green-600 focus:ring-4 focus:ring-green-600/20 rounded-xl shadow-sm transition-all"

@@ -3,7 +3,8 @@ import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { useToast } from '../../hooks/use-toast';
 import { Alert, AlertDescription } from '../ui/alert';
-import { AlertCircle, FileText, Upload as UploadIcon, X } from 'lucide-react';
+import { AlertCircle, FileText, Upload as UploadIcon, X, Camera } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface FileUploadDialogProps {
   open: boolean;
@@ -13,10 +14,11 @@ interface FileUploadDialogProps {
     title: string;
     description?: string;
   } | null;
-  onUpload: (file: File, meta?: { expiryDate?: string; issueDate?: string }) => Promise<void>;
+  onUpload: (file: File, meta?: { expiryDate?: string; issueDate?: string; type?: string }) => Promise<void>;
+  providedDocumentTypes?: string[];
 }
 
-export function FileUploadDialog({ open, onOpenChange, document, onUpload }: FileUploadDialogProps) {
+export function FileUploadDialog({ open, onOpenChange, document, onUpload, providedDocumentTypes = [] }: FileUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,16 +57,25 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload }: Fil
     }
   };
 
+  const [selectedType, setSelectedType] = useState<string>("");
+
   const handleUpload = async () => {
     if (!file) {
       setError('Veuillez sélectionner un fichier à téléverser.');
       return;
     }
     
+    if (!document && !selectedType) {
+      setError('Veuillez sélectionner le type de document.');
+      return;
+    }
+    
     try {
       setIsUploading(true);
-      const meta: { expiryDate?: string } = {};
+      const meta: { expiryDate?: string; type?: string } = {};
       if (expiryDate) meta.expiryDate = expiryDate; // format attendu: YYYY-MM-DD
+      if (!document) meta.type = selectedType; // If no document, pass the selected type
+      
       await onUpload(file, meta);
       
       // Reset form
@@ -73,6 +84,7 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload }: Fil
         fileInputRef.current.value = '';
       }
       setExpiryDate("");
+      setSelectedType("");
       
       onOpenChange(false);
     } catch (err) {
@@ -105,12 +117,32 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload }: Fil
                 )}
               </>
             ) : (
-              'Sélectionnez un fichier à téléverser'
+              'Sélectionnez le type de document et le fichier à téléverser'
             )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+          {!document && (
+            <div className="grid gap-2">
+              <label className="text-sm font-medium" htmlFor="document-type">Type de document</label>
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="w-full bg-white">
+                  <SelectValue placeholder="Sélectionnez un type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="idCardDocument" disabled={providedDocumentTypes.includes('idCardDocument')}>Pièce d'identité</SelectItem>
+                  <SelectItem value="weaponPermit" disabled={providedDocumentTypes.includes('weaponPermit')}>Permis de Port d'Arme</SelectItem>
+                  <SelectItem value="hunterPhoto" disabled={providedDocumentTypes.includes('hunterPhoto')}>Photo du Chasseur</SelectItem>
+                  <SelectItem value="treasuryStamp" disabled={providedDocumentTypes.includes('treasuryStamp')}>Timbre Impôt</SelectItem>
+                  <SelectItem value="weaponReceipt" disabled={providedDocumentTypes.includes('weaponReceipt')}>Quittance de l'Arme par le Trésor</SelectItem>
+                  <SelectItem value="insurance" disabled={providedDocumentTypes.includes('insurance')}>Assurance</SelectItem>
+                  <SelectItem value="moralCertificate" disabled={providedDocumentTypes.includes('moralCertificate')}>Certificat de Bonne Vie et Mœurs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
@@ -119,7 +151,22 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload }: Fil
           )}
 
           {!file ? (
-            <div className="flex items-center justify-center w-full">
+            <div className="relative flex items-center justify-center w-full">
+              <label 
+                htmlFor="camera-upload" 
+                className="absolute top-3 right-3 p-2.5 bg-white rounded-full shadow-md text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 z-10 cursor-pointer transition-all hover:scale-105"
+                title="Prendre une photo"
+              >
+                <Camera className="w-5 h-5" />
+              </label>
+              <input
+                id="camera-upload"
+                type="file"
+                className="hidden"
+                onChange={handleFileChange}
+                accept="image/*"
+                capture="environment"
+              />
               <label
                 htmlFor="file-upload"
                 className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors"

@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { countriesList, getNationality } from "@/lib/countries";
+import { countriesList, getDialCode, getNationality } from "@/lib/countries";
 import { afterLoginRefreshAll, apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { getHomePage } from "@/utils/navigation";
@@ -37,7 +38,7 @@ interface RegisterFormProps {
 // Créer le schéma Zod pour le formulaire
 const registerSchema = z.object({
   username: z.string().min(3, "Le nom d'utilisateur doit contenir au moins 3 caractères"),
-  email: z.string().email("Adresse email invalide"),
+  email: z.string().email("Adresse email invalide").optional().or(z.literal("")),
   password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
   confirmPassword: z.string(),
   firstName: z.string().min(2, "Le prénom doit contenir au moins 2 caractères").regex(/^[A-Za-zÀ-ſ\s\-]+$/, { message: "Le prénom ne doit contenir que des lettres" }).transform(val => val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()),
@@ -115,6 +116,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
   // step: 1 = hunter form (now), 2 = account creation
   const [step, setStep] = useState(initialStep ?? 1);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmittingBasicInfo, setIsSubmittingBasicInfo] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
@@ -156,7 +158,6 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
 
   // États d'affichage de disponibilité (public uniquement)
   const [usernameAvailability, setUsernameAvailability] = useState<null | boolean>(null);
-  const [emailAvailability, setEmailAvailability] = useState<null | boolean>(null);
 
   // En mode public, forcer un formulaire vierge à l'ouverture (éviter tout préremplissage)
   useEffect(() => {
@@ -171,7 +172,6 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
       role: userType || "hunter",
     });
     setUsernameAvailability(null);
-    setEmailAvailability(null);
   }, [embedded, form, userType]);
 
   // Vérifications asynchrones de disponibilité (username/email) avec debounce – seulement en mode public
@@ -193,26 +193,6 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
     }, 500)
   );
 
-  const emailCheckRef = useRef(
-    debounce(async (value: string) => {
-      try {
-        if (!value) return;
-        // Vérifier rapidement le format
-        const ok = z.string().email().safeParse(value).success;
-        if (!ok) return;
-        const res = await apiRequest<{ available: boolean }>({ url: `/api/auth/check-email?e=${encodeURIComponent(value)}`, method: 'GET' });
-        setEmailAvailability(res.available);
-        if (!res.available) {
-          form.setError('email' as any, { type: 'server', message: `Cette adresse email est déjà rattachée à un compte.` });
-        } else {
-          if (form.getFieldState('email').error?.type === 'server') form.clearErrors('email');
-        }
-      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-        // silencieux
-       }
-    }, 500)
-  );
-
   useEffect(() => {
     if (embedded) return; // uniquement pour la page publique
     const sub = form.watch((values, info) => {
@@ -220,16 +200,11 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
         const v = values.username || '';
         if (!v) setUsernameAvailability(null);
         usernameCheckRef.current(v);
-      } else if (info.name === 'email') {
-        const v = values.email || '';
-        if (!v) setEmailAvailability(null);
-        emailCheckRef.current(v);
       }
     });
     return () => {
       sub.unsubscribe();
       try { usernameCheckRef.current.cancel(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
-      try { emailCheckRef.current.cancel(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
     };
   }, [form, embedded]);
 
@@ -360,8 +335,13 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
   // Gérer la soumission du formulaire d'inscription de base (étape 1)
   const onSubmitBasicInfo = async (data: z.infer<typeof registerSchema>) => {
     try {
+      setIsSubmittingBasicInfo(true);
       console.log(' DEBUG: Début de la création du compte utilisateur');
-      console.log(' DEBUG: Données du formulaire de base:', data);
+      
+      // Générer un email fictif basé sur le nom d'utilisateur
+      const fakeEmail = `${data.username.toLowerCase().replace(/[^a-z0-9]/g, '')}@scodi.sn`;
+      
+      console.log(' DEBUG: Données du formulaire de base:', { ...data, email: fakeEmail });
 
       // Créer l'utilisateur
       const response = await apiRequest({
@@ -369,7 +349,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
         method: "POST",
         data: {
           username: data.username,
-          email: data.email,
+          email: fakeEmail,
           password: data.password,
           firstName: data.firstName,
           lastName: data.lastName,
@@ -379,28 +359,11 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
 
       console.log(' DEBUG: Utilisateur créé avec succès:', response);
 
-      // Connexion automatique après inscription
-      console.log(' DEBUG: Tentative de connexion automatique');
-      const loginResponse = await apiRequest({
-        url: "/api/auth/login",
-        method: "POST",
-        data: {
-          identifier: data.email, // Utiliser l'email comme identifiant
-          password: data.password
-        }
-      });
-
-      console.log(' DEBUG: Connexion réussie:', loginResponse);
-
-      // Stocker le token JWT pour authentifier les étapes suivantes sans rediriger
+      // Stocker temporairement les identifiants pour pré-remplir la page de connexion
+      // On stocke le username comme identifiant car c'est ce que l'utilisateur va utiliser
       try {
-        const token = (loginResponse as any)?.token;
-        if (token) localStorage.setItem("token", token);
+        sessionStorage.setItem('scodi_temp_creds', JSON.stringify({ identifier: data.username, password: data.password }));
       } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
-
-      // Rafraîchir le client de requête pour mettre à jour les informations d'authentification
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      try { await afterLoginRefreshAll(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
       // Afficher l'écran de succès
       setIsSuccess(true);
@@ -428,40 +391,35 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
         });
       }
 
-      // Détection spécifique doublons (username/email)
+      // Détection spécifique doublons (username)
       const lowerMsg = String(message || '').toLowerCase();
       const dupKeywords = ['existe', 'already', 'duplicate', 'pris', 'taken', 'utilisé', 'used'];
       const hasDupKeyword = dupKeywords.some(k => lowerMsg.includes(k));
       const mentionsUsername = lowerMsg.includes('username') || lowerMsg.includes("nom d'utilisateur");
-      const mentionsEmail = lowerMsg.includes('email');
 
       // Priorité: utiliser la réponse normalisée du backend si disponible
       const fieldFromBackend = body?.field as string | undefined;
       const codeFromBackend = body?.code as string | undefined;
       if (status === 409 && (fieldFromBackend === 'username' || codeFromBackend === 'USERNAME_DUPLICATE')) {
         form.setError('username' as any, { type: 'server', message: `Ce nom d'utilisateur est déjà utilisé. Veuillez en choisir un autre.` });
-      } else if (status === 409 && (fieldFromBackend === 'email' || codeFromBackend === 'EMAIL_DUPLICATE')) {
-        form.setError('email' as any, { type: 'server', message: `Cette adresse email est déjà utilisée. Veuillez en utiliser une autre.` });
       } else if (status === 409 || hasDupKeyword) {
         // Fallback sur mots-clés si pas de field/code
         if (mentionsUsername) {
           form.setError('username' as any, { type: 'server', message: `Ce nom d'utilisateur est déjà utilisé. Veuillez en choisir un autre.` });
-        }
-        if (mentionsEmail) {
-          form.setError('email' as any, { type: 'server', message: `Cette adresse email est déjà utilisée. Veuillez en utiliser une autre.` });
         }
       }
 
       // Gestion des messages global
       const friendly =
         (status === 409 && (fieldFromBackend === 'username' || codeFromBackend === 'USERNAME_DUPLICATE' || mentionsUsername || hasDupKeyword)) ? `Ce nom d'utilisateur est déjà utilisé. Veuillez en choisir un autre.` :
-        (status === 409 && (fieldFromBackend === 'email' || codeFromBackend === 'EMAIL_DUPLICATE' || mentionsEmail || hasDupKeyword)) ? `Cette adresse email est déjà utilisée. Veuillez en utiliser une autre.` :
         message || "Une erreur est survenue lors de l'inscription";
       toast({
         variant: "destructive",
         title: "Erreur d'inscription",
         description: friendly,
       });
+    } finally {
+      setIsSubmittingBasicInfo(false);
     }
   };
 
@@ -503,7 +461,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
         firstName: user?.firstName || 'Prénom',
         lastName: user?.lastName || 'Nom',
         idNumber: data.idNumber,
-        phone: data.category === "resident" ? (data.phone ? String(data.phone).replace(/\s/g, '') : '') : null,
+        phone: data.phone ? String(data.phone).replace(/\s/g, '') : null,
         category: data.category, // Vérifier cette valeur dans la console
         pays: data.pays,
         nationality: nationality, // Utiliser le pays d'émission comme nationalité
@@ -681,7 +639,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
       firstName: form.getValues().firstName,
       lastName: form.getValues().lastName,
       idNumber: data.idNumber,
-      phone: data.category === "resident" ? data.phone?.replace(/\s/g, '') : null,
+      phone: data.phone ? data.phone.replace(/\s/g, '') : null,
       category: data.category,
       pays: data.pays,
       nationality,
@@ -789,8 +747,8 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
   }, [hunterForm]);
 
   return (
-    <div className={cn("flex flex-col items-center justify-center p-4 bg-white overflow-hidden", embedded ? "h-auto" : "h-screen")}>
-      <div className={cn("w-full bg-white rounded-xl overflow-hidden shadow-xl flex flex-col", embedded ? "max-w-3xl" : "max-w-5xl h-[90vh]")}>
+    <div className={cn(embedded ? "w-full" : "flex flex-col items-center justify-center p-4 bg-white overflow-hidden h-screen")}>
+      <div className={cn("w-full flex flex-col", embedded ? "" : "bg-white rounded-xl overflow-hidden shadow-xl max-w-5xl h-[90vh]")}>
         <div className={cn("md:flex", embedded ? "" : "h-full")}>
           {/* Panneau d'information sur la gauche (caché en mode embarqué) */}
           <div className={cn("relative md:w-7/12 bg-green-700 text-white hidden md:block overflow-hidden", embedded ? "hidden" : "hidden md:block")}>
@@ -841,10 +799,10 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
           </div>
 
           {/* Formulaire d'inscription sur la droite */}
-          <div className={cn("p-8 overflow-y-auto", embedded ? "w-full" : "md:w-1/2 h-full")}>
+          <div className={cn(isSuccess ? "overflow-hidden" : "overflow-y-auto", embedded ? "w-full p-1" : "p-8 md:w-1/2 h-full")}>
             <div className="relative mb-6">
-              {/* Bouton de retour vers login (masqué en mode embarqué) */}
-              {!embedded && step === 1 && (
+              {/* Bouton de retour vers login (masqué en mode embarqué et en cas de succès) */}
+              {!embedded && step === 1 && !isSuccess && (
                 <button
                   type="button"
                   onClick={() => navigate("/login")}
@@ -883,7 +841,12 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
                   <FormField control={hunterForm.control} name="pays" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pays d'émission de la pièce d'identité</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={(val) => {
+                        field.onChange(val);
+                        if (val === 'Sénégal') {
+                          hunterForm.setValue('category', 'resident');
+                        }
+                      }} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger className="border-black"><SelectValue placeholder="Sélectionner un pays" /></SelectTrigger>
                         </FormControl>
@@ -905,7 +868,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
                   <FormField control={hunterForm.control} name="category" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Catégorie de chasseur</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={hunterForm.getValues('pays') === 'Sénégal'}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={hunterForm.watch('pays') === 'Sénégal'}>
                         <FormControl>
                           <SelectTrigger className="border-black"><SelectValue placeholder="Sélectionner une catégorie" /></SelectTrigger>
                         </FormControl>
@@ -918,20 +881,45 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
                     </FormItem>
                   )} />
 
-                  {hunterForm.watch('category') === 'resident' && (
-                    <FormField control={hunterForm.control} name="phone" render={({ field }) => (
+                  <FormField control={hunterForm.control} name="phone" render={({ field }) => {
+                    const isResident = hunterForm.watch('category') === 'resident';
+                    const selectedCountry = hunterForm.watch('pays');
+                    const dialCode = selectedCountry ? getDialCode(selectedCountry) : '';
+                    
+                    return (
                       <FormItem>
-                        <FormLabel>Numéro de téléphone</FormLabel>
+                        <FormLabel>
+                          Numéro de téléphone
+                          {!isResident && <span className="text-gray-500 font-normal ml-2">(Optionnel)</span>}
+                        </FormLabel>
                         <FormControl>
-                          <div className="flex items-center">
-                            <div className="flex items-center justify-center bg-gray-200 h-10 px-3 border border-input rounded-l-md"><span>+221</span></div>
-                            <Input placeholder="XX XXX XX XX" {...field} className="border-black rounded-l-none" onChange={(e) => { const n = e.target.value.replace(/[^0-9]/g, ''); const l = n.substring(0, 9); let f = ''; if (l.length > 0) f += l.substring(0, Math.min(2, l.length)); if (l.length > 2) f += ' ' + l.substring(2, Math.min(5, l.length)); if (l.length > 5) f += ' ' + l.substring(5, Math.min(7, l.length)); if (l.length > 7) f += ' ' + l.substring(7, 9); field.onChange(f); }} />
-                          </div>
+                          {isResident ? (
+                            <div className="flex items-center">
+                              <div className="flex items-center justify-center bg-gray-200 h-10 px-3 border border-input rounded-l-md"><span>+221</span></div>
+                              <Input placeholder="XX XXX XX XX" {...field} className="border-black rounded-l-none" onChange={(e) => { const n = e.target.value.replace(/[^0-9]/g, ''); const l = n.substring(0, 9); let f = ''; if (l.length > 0) f += l.substring(0, Math.min(2, l.length)); if (l.length > 2) f += ' ' + l.substring(2, Math.min(5, l.length)); if (l.length > 5) f += ' ' + l.substring(5, Math.min(7, l.length)); if (l.length > 7) f += ' ' + l.substring(7, 9); field.onChange(f); }} />
+                            </div>
+                          ) : (
+                            <div className="flex items-center">
+                              {dialCode && (
+                                <div className="flex items-center justify-center bg-gray-200 h-10 px-3 border border-input rounded-l-md text-sm whitespace-nowrap">
+                                  <span>{dialCode}</span>
+                                </div>
+                              )}
+                              <Input 
+                                placeholder={dialCode ? "Numéro de téléphone" : "Ex: +33 6 XX XX XX XX (indicatif du pays inclus)"} 
+                                {...field} 
+                                className={cn("border-black", dialCode ? "rounded-l-none" : "")} 
+                              />
+                            </div>
+                          )}
                         </FormControl>
+                        {!isResident && (
+                          <FormDescription>Recommandé pour récupérer votre compte en cas d'oubli de mot de passe.</FormDescription>
+                        )}
                         <FormMessage />
                       </FormItem>
-                    )} />
-                  )}
+                    );
+                  }} />
 
                   <FormField control={hunterForm.control} name="dateOfBirth" render={({ field }) => (
                     <FormItem>
@@ -964,7 +952,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
                             // Calcul d'âge existant
                             checkAge(v);
                           }}
-                          className="border-black"
+                          className="border-black text-center [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-datetime-edit]:flex [&::-webkit-datetime-edit]:justify-center"
                         />
                       </FormControl>
                       <FormDescription>
@@ -1077,26 +1065,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <div className="flex items-center gap-2">
-                            <Input type="email" placeholder="votre@email.com" {...field} autoComplete="email" className="border-black" />
-                            {!embedded && emailAvailability === false && (
-                              <span className="px-2 py-1 rounded text-xs font-medium border bg-red-100 text-red-700 border-red-300">
-                                Déjà rattaché à un compte
-                              </span>
-                            )}
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+
                   <FormField control={form.control} name="password" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Mot de passe</FormLabel>
@@ -1126,7 +1095,9 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <Button type="submit" className="w-full bg-green-700 hover:bg-green-800 mt-4">S'inscrire</Button>
+                  <Button type="submit" disabled={isSubmittingBasicInfo} className="w-full bg-green-700 hover:bg-green-800 mt-4">
+                    {isSubmittingBasicInfo ? <><Spinner className="mr-2 h-4 w-4 text-white" /> Création en cours...</> : "S'inscrire"}
+                  </Button>
                 </form>
               </Form>
             )}

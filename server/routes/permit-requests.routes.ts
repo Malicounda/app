@@ -93,7 +93,7 @@ router.post('/:requestId/process', isAuthenticated, async (req, res) => {
       .set({ status: action === 'approve' ? 'approved' : 'rejected', updatedAt: new Date() } as any)
       .where(eq(permitRequests.id, parseInt(requestId)));
 
-    res.json({ 
+    res.json({
       message: action === 'approve' ? 'Demande approuvée avec succès' : 'Demande rejetée',
       action,
       processedAt: new Date()
@@ -135,116 +135,257 @@ router.get('/documents/:hunterId/:documentType', isAuthenticated, async (req, re
 
 // Créer une nouvelle demande de permis
 router.post<RequestParams, any, any, any>(
-  '/:hunterId/create-request', 
-  isAuthenticated, 
+  '/:hunterId/create-request',
+  isAuthenticated,
   async (req, res) => {
     if (!req.session?.user) {
       return res.status(401).json({ success: false, message: 'Non authentifié' });
     }
-  try {
-    const hunterIdParam = req.params.hunterId;
-    if (!hunterIdParam || !/^\d+$/.test(hunterIdParam)) {
-      return res.status(400).json({ success: false, message: 'ID de chasseur invalide' });
-    }
-    const hunterIdNum = parseInt(hunterIdParam, 10);
-    const userId = Number((req.user as any)?.id); // ID de l'utilisateur connecté
-
-    // Vérifier si le chasseur existe
-    const hunter = await db.select().from(hunters).where(eq(hunters.id, hunterIdNum)).limit(1);
-
-    if (hunter.length === 0) {
-      return res.status(404).json({ success: false, message: 'Chasseur non trouvé' });
-    }
-
-    // Vérifier que l'utilisateur est autorisé à créer une demande pour ce chasseur
-    // Dans le schéma actuel, pas de champ userId sur hunter. On autorise admin/agent/sub-agent.
-    const currentUser = (req as any).user as any;
-    const role = currentUser?.role as string;
-    if (!['admin', 'agent', 'sub-agent'].includes(role)) {
-      return res.status(403).json({ success: false, message: 'Non autorisé' });
-    }
-
-    // Vérifier si le dossier est complet
-    const validation = await validateHunterForPermitRequest(hunterIdNum);
-    if (!validation.canCreatePermit) {
-      return res.status(400).json({
-        success: false,
-        message: 'Le dossier du chasseur est incomplet',
-        data: {
-          missingItems: validation.missingItems,
-          completionPercentage: validation.completionPercentage
-        }
-      });
-    }
-
-    // Vérifier s'il existe déjà une demande en attente pour ce chasseur
-    const existingRequest = await db
-      .select({ id: permitRequests.id })
-      .from(permitRequests)
-      .where(and(eq(permitRequests.hunterId, hunterIdNum), eq(permitRequests.status, 'pending')))
-      .limit(1);
-
-    if (existingRequest.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Une demande est déjà en attente pour ce chasseur',
-        data: { requestId: existingRequest[0].id }
-      });
-    }
-
-    // Vérifier si le chasseur a déjà un permis actif
-    const activePermit = await db
-      .select({ id: permits.id })
-      .from(permits)
-      .where(and(eq(permits.hunterId, hunterIdNum), eq(permits.status, 'active')))
-      .limit(1);
-
-    if (activePermit.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Ce chasseur a déjà un permis actif',
-        data: { permitId: activePermit[0].id }
-      });
-    }
-
-    // Préparer les données de la demande de permis
-    const h = hunter[0];
-    const requestData: Omit<InsertPermitRequest, 'status' | 'notes'> & { status?: 'pending' } = {
-      userId,
-      hunterId: hunterIdNum,
-      requestedType: 'chasse',
-      requestedCategory: h.category || 'resident',
-      region: h.region || null as any,
-      // status géré par défaut en DB ('pending')
-    };
-
     try {
-      const inserted = await db.insert(permitRequests)
-        .values(requestData as any)
-        .returning();
+      const hunterIdParam = req.params.hunterId;
+      if (!hunterIdParam || !/^\d+$/.test(hunterIdParam)) {
+        return res.status(400).json({ success: false, message: 'ID de chasseur invalide' });
+      }
+      const hunterIdNum = parseInt(hunterIdParam, 10);
+      const userId = Number((req.user as any)?.id); // ID de l'utilisateur connecté
 
-      res.status(201).json({
-        success: true,
-        message: 'Demande de permis créée avec succès',
-        data: { request: inserted[0] }
-      });
+      // Vérifier si le chasseur existe
+      const hunter = await db.select().from(hunters).where(eq(hunters.id, hunterIdNum)).limit(1);
+
+      if (hunter.length === 0) {
+        return res.status(404).json({ success: false, message: 'Chasseur non trouvé' });
+      }
+
+      // Vérifier que l'utilisateur est autorisé à créer une demande pour ce chasseur
+      // Dans le schéma actuel, pas de champ userId sur hunter. On autorise admin/agent/sub-agent.
+      const currentUser = (req as any).user as any;
+      const role = currentUser?.role as string;
+      if (!['admin', 'agent', 'sub-agent'].includes(role)) {
+        return res.status(403).json({ success: false, message: 'Non autorisé' });
+      }
+
+      // Vérifier si le dossier est complet
+      const validation = await validateHunterForPermitRequest(hunterIdNum);
+      if (!validation.canCreatePermit) {
+        return res.status(400).json({
+          success: false,
+          message: 'Le dossier du chasseur est incomplet',
+          data: {
+            missingItems: validation.missingItems,
+            completionPercentage: validation.completionPercentage
+          }
+        });
+      }
+
+      // Vérifier s'il existe déjà une demande en attente pour ce chasseur
+      const existingRequest = await db
+        .select({ id: permitRequests.id })
+        .from(permitRequests)
+        .where(and(eq(permitRequests.hunterId, hunterIdNum), eq(permitRequests.status, 'pending')))
+        .limit(1);
+
+      if (existingRequest.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Une demande est déjà en attente pour ce chasseur',
+          data: { requestId: existingRequest[0].id }
+        });
+      }
+
+      // Vérifier si le chasseur a déjà un permis actif
+      const activePermit = await db
+        .select({ id: permits.id })
+        .from(permits)
+        .where(and(eq(permits.hunterId, hunterIdNum), eq(permits.status, 'active')))
+        .limit(1);
+
+      if (activePermit.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ce chasseur a déjà un permis actif',
+          data: { permitId: activePermit[0].id }
+        });
+      }
+
+      // Préparer les données de la demande de permis
+      const h = hunter[0];
+
+      // Récupérer le domaine de chasse pour l'associer à la demande
+      const domaineRes = await db.execute(sql`SELECT id FROM domaines WHERE nom_domaine = 'CHASSE' LIMIT 1`);
+      const domaineRows = Array.isArray(domaineRes) ? domaineRes : (domaineRes as any)?.rows ?? [];
+      const domaineId = domaineRows.length > 0 ? (domaineRows[0] as any).id : null;
+
+      const requestData: any = {
+        userId,
+        hunterId: hunterIdNum,
+        requestedType: 'chasse',
+        requestedCategory: h.category || 'resident',
+        region: h.region || null,
+        domaineId: domaineId,
+        status: 'pending',
+      };
+
+      try {
+        const inserted = await db.insert(permitRequests)
+          .values(requestData as any)
+          .returning();
+
+        res.status(201).json({
+          success: true,
+          message: 'Demande de permis créée avec succès',
+          data: { request: inserted[0] }
+        });
+      } catch (error) {
+        console.error('Erreur lors de la création de la demande:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Erreur lors de la création de la demande',
+          error: error instanceof Error ? error.message : 'Erreur inconnue'
+        });
+      }
+
     } catch (error) {
-      console.error('Erreur lors de la création de la demande:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      console.error('Erreur lors de la création de la demande de permis:', error);
       res.status(500).json({
         success: false,
-        message: 'Erreur lors de la création de la demande',
-        error: error instanceof Error ? error.message : 'Erreur inconnue'
+        message: 'Erreur lors de la création de la demande de permis',
+        error: errorMessage
       });
     }
+  });
 
+// Approuver une demande
+router.post('/:requestId/approve', isAuthenticated, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    await db.update(permitRequests).set({ status: 'approved', updatedAt: new Date() } as any).where(eq(permitRequests.id, parseInt(requestId)));
+    res.json({ success: true, message: 'Demande approuvée' });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-    console.error('Erreur lors de la création de la demande de permis:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Erreur lors de la création de la demande de permis',
-      error: errorMessage
-    });
+    console.error(error);
+    res.status(500).json({ message: 'Erreur' });
+  }
+});
+
+// Rejeter une demande
+router.post('/:requestId/reject', isAuthenticated, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    await db.update(permitRequests).set({ status: 'rejected', updatedAt: new Date() } as any).where(eq(permitRequests.id, parseInt(requestId)));
+    res.json({ success: true, message: 'Demande rejetée' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur' });
+  }
+});
+
+// Délivrer le permis
+router.post('/:requestId/deliver', isAuthenticated, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    await db.update(permitRequests).set({ status: 'delivered', updatedAt: new Date() } as any).where(eq(permitRequests.id, parseInt(requestId)));
+    res.json({ success: true, message: 'Permis délivré' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur' });
+  }
+});
+
+// Supprimer une demande
+router.delete('/:requestId', isAuthenticated, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    await db.delete(permitRequests).where(eq(permitRequests.id, parseInt(requestId)));
+    res.json({ success: true, message: 'Demande supprimée' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur' });
+  }
+});
+
+// Approbation en masse
+router.post('/bulk-approve', isAuthenticated, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (Array.isArray(ids) && ids.length > 0) {
+      await db.update(permitRequests).set({ status: 'approved', updatedAt: new Date() } as any).where(inArray(permitRequests.id, ids));
+    }
+    res.json({ success: true, message: 'Demandes approuvées' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur' });
+  }
+});
+
+// Rejet en masse
+router.post('/bulk-reject', isAuthenticated, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (Array.isArray(ids) && ids.length > 0) {
+      await db.update(permitRequests).set({ status: 'rejected', updatedAt: new Date() } as any).where(inArray(permitRequests.id, ids));
+    }
+    res.json({ success: true, message: 'Demandes rejetées' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur' });
+  }
+});
+
+// Route appelée par le chasseur pour soumettre ou mettre à jour une demande (Brouillon/En attente)
+router.post('/request', isAuthenticated, async (req, res) => {
+  try {
+    const currentUserId = Number((req.user as any)?.id);
+    if (!currentUserId) return res.status(401).json({ message: 'Non authentifié' });
+
+    // Trouver le hunterId de l'utilisateur
+    const userRecords = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);
+    const user = userRecords[0] as any;
+    const hunterId = user?.hunterId || user?.hunter_id;
+
+    if (!hunterId) {
+      return res.status(400).json({ success: false, message: "Profil chasseur introuvable pour cet utilisateur." });
+    }
+
+    const { id, status, permitType, requestedType, requestedCategory } = req.body;
+
+    // Récupérer le domaine 'chasse'
+    const domaineRes = await db.execute(sql`SELECT id FROM domaines WHERE nom_domaine = 'CHASSE' LIMIT 1`);
+    const domaineRows = Array.isArray(domaineRes) ? domaineRes : (domaineRes as any)?.rows ?? [];
+    const domaineId = domaineRows.length > 0 ? (domaineRows[0] as any).id : null;
+
+    if (id) {
+      // Mise à jour
+      await db.update(permitRequests)
+        .set({
+          status: status,
+          requestedType: requestedType || permitType,
+          requestedCategory: requestedCategory,
+          updatedAt: new Date()
+        } as any)
+        .where(eq(permitRequests.id, parseInt(id)));
+
+      return res.json({ success: true, message: 'Demande mise à jour' });
+    } else {
+      // Insertion
+      const hunterRecords = await db.select().from(hunters).where(eq(hunters.id, hunterId)).limit(1);
+      const hunter = hunterRecords[0];
+
+      const requestData: any = {
+        userId: currentUserId,
+        hunterId: hunterId,
+        requestedType: requestedType || permitType || 'chasse',
+        requestedCategory: requestedCategory || hunter?.category || 'resident',
+        region: hunter?.region || null,
+        domaineId: domaineId,
+        status: status || 'pending',
+      };
+
+      const inserted = await db.insert(permitRequests).values(requestData).returning();
+      return res.status(201).json({ success: true, message: 'Demande créée', data: { request: inserted[0] } });
+    }
+  } catch (error) {
+    console.error('Erreur /request:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });
 

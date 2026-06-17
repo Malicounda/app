@@ -429,43 +429,47 @@ export default function HuntingActivities() {
 
                     <TabsContent value="list" className="data-[state=active]:flex flex-col flex-1 min-h-0 m-0">
                       <div className="flex flex-col flex-1 min-h-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2 shrink-0">
-                          <h2 className="text-2xl font-bold text-amber-800 font-serif mb-2 sm:mb-0">
-                            {user?.role === 'hunting-guide' ? 'Les Prélèvements' : 'Mes Prélèvements'}
-                          </h2>
-                          {totalItems > pageSize && (
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
-                              >
-                                Précédent
-                              </Button>
-                              <span className="px-2 text-sm text-amber-800">
-                                Page {currentPage} / {totalPages}
-                              </span>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                disabled={currentPage >= totalPages}
-                                className="bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
-                              >
-                                Suivant
-                              </Button>
-                            </div>
-                          )}
-                        </div>
+                        {!(user?.role === 'hunter' && !hasActivePermits && filteredActivities.length === 0) && (
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2 shrink-0">
+                            <h2 className="text-2xl font-bold text-amber-800 font-serif mb-2 sm:mb-0">
+                              {user?.role === 'hunting-guide' ? 'Les Prélèvements' : 'Mes Prélèvements'}
+                            </h2>
+                            {totalItems > pageSize && (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                  disabled={currentPage === 1}
+                                  className="bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
+                                >
+                                  Précédent
+                                </Button>
+                                <span className="px-2 text-sm text-amber-800">
+                                  Page {currentPage} / {totalPages}
+                                </span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                  disabled={currentPage >= totalPages}
+                                  className="bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
+                                >
+                                  Suivant
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {filteredActivities.length === 0 ? (
-                          <div className="text-center py-12 flex-1">
-                            <div className="text-6xl mb-4">📖</div>
-                            <p className="text-amber-700 font-serif text-lg">Votre carnet est vide</p>
-                            <p className="text-amber-600 font-serif">Commencez par déclarer votre premier prélèvement</p>
-                          </div>
+                          (hasActivePermits || user?.role !== 'hunter') && (
+                            <div className="text-center py-12 flex-1">
+                              <div className="text-6xl mb-4">📖</div>
+                              <p className="text-amber-700 font-serif text-lg">Votre carnet est vide</p>
+                              <p className="text-amber-600 font-serif">Commencez par déclarer votre premier prélèvement</p>
+                            </div>
+                          )
                         ) : (
                           <div className="space-y-4 flex-1 overflow-y-auto pr-2 pb-2 -mr-2 no-scrollbar">
                             {paginatedActivities.map((activity, index) => (
@@ -618,27 +622,27 @@ export default function HuntingActivities() {
                                   Pour accéder pleinement aux fonctionnalités de chasse, vous devez obtenir un permis de chasse valide.
                                 </p>
 
-                                <div className="bg-emerald-50 rounded-lg p-4 border-l-4 border-emerald-400">
-                                  <p className="text-emerald-800 font-semibold mb-2 flex items-center">
-                                    <span className="mr-2">🏛️</span>
-                                    Veuillez vous rapprocher du Service des Eaux et Forêts :
+                                <div className="bg-emerald-50 rounded-lg p-3 sm:p-4 border-l-4 border-emerald-400">
+                                  <p className="text-emerald-800 font-semibold mb-3 flex items-start">
+                                    <span className="mr-2 mt-0.5 shrink-0">🏛️</span>
+                                    <span>Veuillez vous rapprocher du Service des Eaux et Forêts :</span>
                                   </p>
-                                  <ul className="text-emerald-700 space-y-2 ml-6">
-                                    <li className="flex items-center">
-                                      <span className="w-2 h-2 bg-emerald-400 rounded-full mr-3"></span>
-                                      <strong>Inspection Régionale</strong> de votre région
+                                  <ul className="text-emerald-700 space-y-3 ml-2 sm:ml-6">
+                                    <li className="flex items-start">
+                                      <span className="w-2 h-2 bg-emerald-400 rounded-full mr-3 mt-2 shrink-0"></span>
+                                      <span className="leading-snug"><strong>Inspection Régionale</strong> de votre région</span>
                                     </li>
-                                    <li className="flex items-center">
-                                      <span className="w-2 h-2 bg-emerald-400 rounded-full mr-3"></span>
-                                      <strong>Secteur Départemental</strong> de votre département
+                                    <li className="flex items-start">
+                                      <span className="w-2 h-2 bg-emerald-400 rounded-full mr-3 mt-2 shrink-0"></span>
+                                      <span className="leading-snug"><strong>Secteur Départemental</strong> de votre département</span>
                                     </li>
                                   </ul>
                                 </div>
 
-                                <div className="mt-4 text-center">
-                                  <div className="inline-flex items-center px-4 py-2 bg-emerald-100 rounded-full">
-                                    <Feather className="h-4 w-4 text-emerald-600 mr-2" />
-                                    <span className="text-emerald-700 font-medium text-sm">
+                                <div className="mt-5 text-center">
+                                  <div className="inline-flex items-center justify-center px-4 py-2 bg-emerald-100 rounded-full max-w-full">
+                                    <Feather className="h-4 w-4 text-emerald-600 mr-2 shrink-0" />
+                                    <span className="text-emerald-700 font-medium text-sm leading-tight">
                                       Ensemble une gestion durable
                                     </span>
                                   </div>

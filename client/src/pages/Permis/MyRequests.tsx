@@ -3,14 +3,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { AlertCircle, Calendar, CheckCircle, Clock, Eye, FileBadge, Loader2, Search, XCircle } from 'lucide-react';
+import { AlertCircle, Calendar, CheckCircle, Clock, Eye, FileBadge, Loader2, Search, XCircle, Trash2, Edit3, Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
+import { useToast } from '@/hooks/use-toast';
 
 // Interface pour les demandes de permis
 interface PermitRequest {
@@ -20,15 +22,17 @@ interface PermitRequest {
   requestedType: string;
   requestedCategory: string;
   region: string;
-  status: 'pending' | 'approved' | 'rejected' | 'delivered';
+  status: 'draft' | 'pending' | 'approved' | 'rejected' | 'delivered';
   reason?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export default function MyRequests() {
+export default function MyRequests({ onEditRequest }: { onEditRequest?: (req: PermitRequest) => void }) {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [selectedRequest, setSelectedRequest] = useState<PermitRequest | null>(null);
@@ -130,6 +134,7 @@ export default function MyRequests() {
   // Obtenir la couleur du badge selon le statut
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
+      case 'draft': return 'bg-slate-100 text-slate-800 border-slate-300';
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'approved': return 'bg-green-100 text-green-800 border-green-300';
       case 'rejected': return 'bg-red-100 text-red-800 border-red-300';
@@ -141,6 +146,7 @@ export default function MyRequests() {
   // Obtenir l'icône selon le statut
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'draft': return <Save className="h-4 w-4 text-slate-600" />;
       case 'pending': return <Clock className="h-4 w-4 text-yellow-600" />;
       case 'approved': return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'rejected': return <XCircle className="h-4 w-4 text-red-600" />;
@@ -152,6 +158,7 @@ export default function MyRequests() {
   // Formater le statut pour l'affichage
   const formatStatus = (status: string) => {
     switch (status) {
+      case 'draft': return 'Brouillon';
       case 'pending': return 'En attente';
       case 'approved': return 'Approuvé';
       case 'rejected': return 'Rejeté';
@@ -165,19 +172,41 @@ export default function MyRequests() {
     setSelectedRequest(request);
   };
 
-  return (
-    <div className="container py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Mes Demandes de Permis</h1>
-        {/* Conditionner l'affichage du bouton Nouvelle Demande */}
-        <Button asChild className="bg-blue-600 hover:bg-blue-700">
-          <Link href="/mypermits">
-            Nouvelle demande
-          </Link>
-        </Button>
-      </div>
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/permit-requests/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Erreur lors de la suppression de la demande');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Succès",
+        description: "Demande supprimée avec succès.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/hunters/me/permit-requests'] });
+      refetch();
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer cette demande.",
+        variant: "destructive"
+      });
+    }
+  });
 
-      {isLoadingHunter ? (
+  const handleDelete = (id: number) => {
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette demande ?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  return (
+    <div className="space-y-4 pt-2">      {isLoadingHunter ? (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
         </div>
@@ -196,19 +225,7 @@ export default function MyRequests() {
       ) : (
         // Le profil existe et est actif, afficher le contenu principal
         <>
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-              <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="all">Toutes</TabsTrigger>
-                  <TabsTrigger value="pending">En attente</TabsTrigger>
-                  <TabsTrigger value="approved">Approuvées</TabsTrigger>
-                  <TabsTrigger value="rejected">Rejetées</TabsTrigger>
-                  <TabsTrigger value="delivered">Délivrées</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </nav>
-          </div>
+
 
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
@@ -237,27 +254,29 @@ export default function MyRequests() {
             <>
               <Card>
                 <CardHeader className="pb-3">
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Mes demandes de permis</CardTitle>
-                    <div className="relative w-64">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Rechercher..."
-                        className="pl-8"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
+                  <div className="flex justify-between items-center bg-gray-50/50 p-2 rounded-lg border border-gray-100">
+                    <div className="flex items-center">
+                      <Badge variant="outline" className="text-sm font-medium text-blue-700 bg-blue-50/50 border-blue-200 px-3 py-1 shadow-sm">
+                        {filteredRequests.length} demande{filteredRequests.length !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Select value={activeTab} onValueChange={setActiveTab}>
+                        <SelectTrigger className="bg-white shadow-sm font-medium text-slate-700 w-[160px] h-9">
+                          <SelectValue placeholder="Filtrer par statut" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Toutes</SelectItem>
+                          <SelectItem value="draft">Brouillons</SelectItem>
+                          <SelectItem value="pending">En attente</SelectItem>
+                          <SelectItem value="approved">Approuvées</SelectItem>
+                          <SelectItem value="rejected">Rejetées</SelectItem>
+                          <SelectItem value="delivered">Délivrées</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                  <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="grid w-full grid-cols-5">
-                      <TabsTrigger value="all">Toutes</TabsTrigger>
-                      <TabsTrigger value="pending">En attente</TabsTrigger>
-                      <TabsTrigger value="approved">Approuvées</TabsTrigger>
-                      <TabsTrigger value="rejected">Rejetées</TabsTrigger>
-                      <TabsTrigger value="delivered">Délivrées</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -267,36 +286,45 @@ export default function MyRequests() {
                       </div>
                     ) : (
                       filteredRequests.map((request) => (
-                        <Card key={request.id} className="mb-4 overflow-hidden border-l-4 border-l-blue-500">
+                        <Card key={request.id} className="mb-3 overflow-hidden border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
                           <div className="flex flex-col md:flex-row">
-                            <div className="p-4 flex-grow">
+                            <div className="px-4 py-3 flex-grow">
                               <div className="flex justify-between items-start">
-                                <div className="flex flex-col gap-1">
-                                  <h3 className="font-medium">{formatPermitType(request.requestedType)}</h3>
-                                  <p className="text-sm text-muted-foreground">
+                                <div className="flex flex-col gap-0.5">
+                                  <h3 className="font-semibold text-slate-800 text-base">{formatPermitType(request.requestedType)}</h3>
+                                  <p className="text-sm text-slate-500">
                                     {formatHunterCategory(request.requestedCategory)}
                                   </p>
                                 </div>
-                                <Badge className={`${getStatusBadgeColor(request.status)} flex items-center gap-1`}>
+                                <Badge className={`${getStatusBadgeColor(request.status)} flex items-center gap-1 text-xs px-2 py-0.5`}>
                                   {getStatusIcon(request.status)}
                                   {formatStatus(request.status)}
                                 </Badge>
                               </div>
-                              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                              <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm">
                                 <div>
-                                  <span className="text-muted-foreground">Région:</span> {request.region}
+                                  <span className="text-slate-500">Région:</span> <span className="font-medium text-slate-700">{request.region}</span>
                                 </div>
-                                <p className="text-sm text-gray-500 mt-2">
-                                  <Calendar className="inline-block h-3.5 w-3.5 mr-1" />
-                                  Demandé le {format(new Date(request.createdAt), 'dd/MM/yyyy', { locale: fr })}
-                                </p>
+                                <div className="flex items-center text-slate-500">
+                                  <Calendar className="h-3.5 w-3.5 mr-1.5 opacity-70" />
+                                  Demandé le {format(new Date(request.createdAt), 'dd/MM/yyyy')}
+                                </div>
                               </div>
                             </div>
-                            <div className="bg-gray-50 p-4 flex flex-row md:flex-col justify-end items-center gap-2 border-t md:border-t-0 md:border-l">
-                              <Button variant="outline" size="sm" onClick={() => viewRequestDetails(request)}>
-                                <Eye className="h-4 w-4 mr-1" />
-                                Détails
+                            <div className="bg-slate-50/50 px-4 py-3 flex flex-row md:flex-col justify-end items-center gap-2 border-t md:border-t-0 md:border-l border-slate-100 min-w-[120px]">
+                              {(request.status === 'draft' || request.status === 'rejected') && onEditRequest && (
+                                <Button variant="outline" size="sm" onClick={() => onEditRequest(request)} className="w-full bg-white shadow-sm hover:bg-slate-50 text-blue-600 border-blue-200 hover:text-blue-700">
+                                  <Edit3 className="h-4 w-4 mr-2" /> Modifier
+                                </Button>
+                              )}
+                              <Button variant="outline" size="sm" onClick={() => viewRequestDetails(request)} className="w-full bg-white shadow-sm hover:bg-slate-50">
+                                <Eye className="h-4 w-4 mr-2 text-slate-500" /> Détails
                               </Button>
+                              {request.status === 'draft' && (
+                                <Button variant="ghost" size="sm" onClick={() => handleDelete(request.id)} className="w-full text-red-500 hover:text-red-700 hover:bg-red-50" disabled={deleteMutation.isPending}>
+                                  <Trash2 className="h-4 w-4 mr-2" /> Supprimer
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </Card>

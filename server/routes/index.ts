@@ -134,6 +134,11 @@ export default function registerRoutes(app: Express): void {
 
   // Routes pour les demandes de permis
   app.use('/api/permit-requests', permitRequestsRoutes);
+  app.use('/api/hunting-permits', permitRequestsRoutes);
+  if (process.env.NODE_ENV === 'development') {
+    app.use('/permit-requests', permitRequestsRoutes);
+    app.use('/hunting-permits', permitRequestsRoutes);
+  }
 
   // Routes pour les pièces jointes par chasseur (1 ligne par chasseur)
   app.use('/api', hunterAttachmentsRoutes);

@@ -1014,8 +1014,12 @@ export default function HuntingReports() {
                 <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mx-auto mb-3 sm:mb-6 bg-emerald-100 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
                   <img src="/images/logo_carnet.jpg" alt="Logo carnet" className="max-w-full h-auto object-contain" />
                 </div>
-                <div className="text-emerald-200 text-sm sm:text-base md:text-lg font-serif mb-3 sm:mb-6"><p>{isGuide ? 'Guide de Chasse' : 'Chasseur'}: <span className="font-bold text-emerald-100">{user ? `${user.firstName} ${user.lastName}` : 'Non identifié'}</span></p></div>
-                <Button onClick={() => setShowForm(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 sm:py-3 sm:px-8 md:py-4 md:px-10 text-sm sm:text-base md:text-lg rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105">📝 Nouveau prélèvement</Button>
+                <div className="text-emerald-200 text-sm sm:text-base md:text-lg font-serif mb-3 sm:mb-6">
+                  <p>{isGuide ? 'Guide de Chasse' : 'Chasseur'}: <span className="font-bold text-emerald-100">{user ? `${user.firstName} ${user.lastName}` : 'Non identifié'}</span></p>
+                </div>
+                {(hasActivePermits || user?.role === 'hunting-guide') && (
+                  <Button onClick={() => setShowForm(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 sm:py-3 sm:px-8 md:py-4 md:px-10 text-sm sm:text-base md:text-lg rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105">📝 Nouveau prélèvement</Button>
+                )}
               </div>
             </div>
             <div className="bg-emerald-50/70 rounded-lg shadow-xl p-2 sm:p-4 md:p-6 relative overflow-hidden mt-2">

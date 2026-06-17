@@ -185,6 +185,19 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
   const unreadMsg = unreadMsgCount?.total ?? 0;
   const unreadMsgDisplay = unreadMsg > 99 ? '99+' : unreadMsg;
 
+  // Count pending permit requests for admin/agents
+  const { data: pendingRequestsCount = 0 } = useQuery({
+    queryKey: ['pending-permit-requests-count'],
+    queryFn: async () => {
+      if (user?.role !== 'admin' && user?.role !== 'agent' && user?.role !== 'sub-agent') return 0;
+      const response = await apiRequest('GET', '/api/permit-requests');
+      const data = Array.isArray(response) ? response : (response as any)?.data || [];
+      return data.filter((r: any) => r.status === 'pending').length;
+    },
+    enabled: !!user && (user.role === 'admin' || user.role === 'agent' || user.role === 'sub-agent') && isOnline,
+    refetchInterval: 30_000,
+  });
+
   // Vérifier si le chasseur a des permis actifs
   const { data: hunterPermits = [] } = useQuery({
     queryKey: ['hunter-permits'],
@@ -313,10 +326,22 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               onClick={handleLinkClick}
               className={location === '/permit-requests-reception' ? activeLinkStyle : linkStyle}
             >
-              <span className={iconWrapCls}>
+              <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <PermitRequestsIcon className={cn('text-amber-500', iconSize)} />
+                {collapsed && pendingRequestsCount > 0 && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-amber-100/80 text-amber-700 border border-amber-200/50 text-[10px] font-bold">
+                    {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
+                  </span>
+                )}
               </span>
-              <span className={labelCls}>Demandes de Permis</span>
+              <span className={cn(labelCls, 'flex flex-1 items-center justify-between pr-2')}>
+                <span>Demandes de Permis</span>
+                {!collapsed && pendingRequestsCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-amber-100/80 text-amber-700 border border-amber-200/50 text-xs font-bold">
+                    {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
+                  </span>
+                )}
+              </span>
             </Link>
 
             <Link
@@ -626,10 +651,22 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               onClick={handleLinkClick}
               className={location === '/permit-requests-reception' ? activeLinkStyle : linkStyle}
             >
-              <span className={iconWrapCls}>
+              <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <PermitRequestsIcon className={cn('text-amber-500', iconSize)} />
+                {collapsed && pendingRequestsCount > 0 && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-amber-100/80 text-amber-700 border border-amber-200/50 text-[10px] font-bold">
+                    {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
+                  </span>
+                )}
               </span>
-              <span className={labelCls}>Demandes de Permis</span>
+              <span className={cn(labelCls, 'flex flex-1 items-center justify-between pr-2')}>
+                <span>Demandes de Permis</span>
+                {!collapsed && pendingRequestsCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-amber-100/80 text-amber-700 border border-amber-200/50 text-xs font-bold">
+                    {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
+                  </span>
+                )}
+              </span>
             </Link>
 
             <Link
@@ -793,10 +830,22 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               onClick={handleLinkClick}
               className={location === '/sector-requests' ? activeLinkStyle : linkStyle}
             >
-              <span className={iconWrapCls}>
+              <span className={cn(iconWrapCls, collapsed && 'relative')}>
                 <PermitRequestsIcon className={cn('text-amber-500', iconSize)} />
+                {collapsed && pendingRequestsCount > 0 && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-amber-100/80 text-amber-700 border border-amber-200/50 text-[10px] font-bold">
+                    {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
+                  </span>
+                )}
               </span>
-              <span className={labelCls}>Demandes</span>
+              <span className={cn(labelCls, 'flex flex-1 items-center justify-between pr-2')}>
+                <span>Demandes</span>
+                {!collapsed && pendingRequestsCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-amber-100/80 text-amber-700 border border-amber-200/50 text-xs font-bold">
+                    {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
+                  </span>
+                )}
+              </span>
             </Link>
 
             <Link

@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Calendar, Check, FileText, Filter, MoreHorizontal, RefreshCw, Search, X } from "lucide-react";
+import { Calendar, Check, FileText, Filter, MoreHorizontal, RefreshCw, Search, X, Loader2, AlertCircle, Hourglass } from "lucide-react";
 
 // Type pour les demandes de permis
 interface PermitRequest {
@@ -43,6 +43,10 @@ interface PermitRequest {
   requestDate: string;
   status: "pending" | "approved" | "rejected" | "delivered";
   permitType: string;
+  hunterId?: number;
+  notes?: string;
+  reason?: string;
+  createdAt?: string;
   region: string;
   phone: string;
   email: string;
@@ -50,6 +54,30 @@ interface PermitRequest {
   deliveredBy?: number;
   deliveredAt?: string;
 }
+
+const getPermitTypeLabel = (typeId: string) => {
+  if (!typeId) return "Non spécifié";
+  const map: Record<string, string> = {
+    'resident-petite': 'Petite Chasse - Résident',
+    'resident-grande': 'Grande Chasse - Résident',
+    'resident-gibier': 'Gibier d\'eau - Résident',
+    'coutumier-petite': 'Petite Chasse - Coutumier',
+    'coutumier-grande': 'Grande Chasse - Coutumier',
+    'touriste-petite': 'Petite Chasse - Touriste',
+    'touriste-grande': 'Grande Chasse - Touriste',
+    'touriste-gibier': 'Gibier d\'eau - Touriste',
+    'capture-commerciale': 'Capture Commerciale',
+    'oisellier': 'Oisellier',
+    'scientifique': 'Scientifique',
+    'exportation': 'Exportation',
+    'detention': 'Détention',
+    'chasse': 'Permis de Chasse',
+    'petite-chasse': 'Petite Chasse',
+    'grande-chasse': 'Grande Chasse',
+    'gibier-eau': 'Gibier d\'eau'
+  };
+  return map[typeId] || typeId;
+};
 
 export default function PermitRequestReception() {
   const { user } = useAuth();
@@ -60,6 +88,110 @@ export default function PermitRequestReception() {
   const [selectedRequests, setSelectedRequests] = useState<number[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [currentRequest, setCurrentRequest] = useState<PermitRequest | null>(null);
+  const [hunterAttachments, setHunterAttachments] = useState<any[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+
+  const DOC_TYPES = [
+    { code: 'idCardDocument', label: "Pièce d'identité" },
+    { code: 'weaponPermit', label: "Permis de Port d'Arme" },
+    { code: 'hunterPhoto', label: "Photo du Chasseur" },
+    { code: 'treasuryStamp', label: "Timbre Impôt" },
+    { code: 'weaponReceipt', label: "Quittance de l'Arme par le Trésor" },
+    { code: 'insurance', label: "Assurance" },
+    { code: 'moralCertificate', label: "Certificat de Bonne Vie et Mœurs" },
+  ];
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return (
+          <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 font-semibold rounded-full px-2.5 py-0.5 border flex items-center gap-1.5 w-fit">
+            <Hourglass className="h-3 w-3 text-yellow-500 animate-pulse" />
+            En attente
+          </Badge>
+        );
+      case "approved":
+        return (
+          <Badge className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 font-semibold rounded-full px-2.5 py-0.5 border flex items-center gap-1.5 w-fit">
+            <Check className="h-3 w-3 text-green-600" />
+            Validé
+          </Badge>
+        );
+      case "rejected":
+        return (
+          <Badge className="bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 font-semibold rounded-full px-2.5 py-0.5 border flex items-center gap-1.5 w-fit">
+            <X className="h-3 w-3 text-rose-600" />
+            Rejeté
+          </Badge>
+        );
+      case "delivered":
+        return (
+          <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200 font-semibold rounded-full px-2.5 py-0.5 border flex items-center gap-1.5 w-fit">
+            <Check className="h-3 w-3 text-green-700" />
+            Délivré
+          </Badge>
+        );
+      default:
+        return (
+          <Badge className="bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 font-semibold rounded-full px-2.5 py-0.5 border w-fit">
+            {status}
+          </Badge>
+        );
+    }
+  };
+
+  const viewDocument = async (docCode: string) => {
+    if (!currentRequest?.hunterId) return;
+    try {
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = {
+        'Accept': 'application/octet-stream'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`/api/attachments/${currentRequest.hunterId}/${docCode}?inline=1`, {
+        headers
+      });
+      if (!response.ok) throw new Error("Impossible de charger le document");
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de visualiser le document',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (detailsOpen && currentRequest?.hunterId) {
+      const fetchHunterAttachments = async () => {
+        setLoadingAttachments(true);
+        try {
+          const res = await fetch(`/api/attachments/${currentRequest.hunterId}`);
+          if (res.ok) {
+            const data = await res.json();
+            setHunterAttachments(data.items || []);
+          }
+        } catch (err) {
+          console.error("Error loading hunter attachments:", err);
+        } finally {
+          setLoadingAttachments(false);
+        }
+      };
+      fetchHunterAttachments();
+    } else {
+      setHunterAttachments([]);
+    }
+  }, [detailsOpen, currentRequest]);
+
   const [bulkActionOpen, setBulkActionOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<"approve" | "reject" | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,8 +216,10 @@ export default function PermitRequestReception() {
 
   // Définir automatiquement le filtre de région en fonction du profil de l'agent
   useEffect(() => {
-    if (agentProfile?.region) {
+    if (agentProfile?.region && agentProfile.region.toUpperCase() !== "NATIONAL") {
       setFilterRegion(agentProfile.region);
+    } else {
+      setFilterRegion(null);
     }
   }, [agentProfile]);
 
@@ -101,6 +235,9 @@ export default function PermitRequestReception() {
         if (filterRegion) {
           params.append("region", filterRegion);
         }
+        
+        // Anti-cache: force le navigateur et le Service Worker à faire une vraie requête
+        params.append("_t", Date.now().toString());
 
         if (params.toString()) {
           url += `?${params.toString()}`;
@@ -108,7 +245,18 @@ export default function PermitRequestReception() {
 
         const response = await fetch(url);
         if (!response.ok) throw new Error("Erreur lors de la récupération des demandes");
-        return response.json();
+        const raw = await response.json();
+        return raw
+          .filter((r: any) => r.status !== 'draft')
+          .map((r: any) => ({
+            ...r,
+            status: r.status || r.requestStatus || "pending",
+            permitType: getPermitTypeLabel(r.requestedType || r.permitType || "Non spécifié"),
+            hunterCategory: r.requestedCategory || r.hunterCategory || "resident",
+            requestDate: r.createdAt || r.requestDate || new Date().toISOString(),
+            comments: r.reason || r.comments || null,
+            hunterName: r.hunterFirstName ? `${r.hunterFirstName} ${r.hunterLastName}` : r.hunterName || "Inconnu"
+          }));
       } catch (error) {
         console.error("Error fetching permit requests:", error);
         return [];
@@ -202,6 +350,32 @@ export default function PermitRequestReception() {
     },
   });
 
+  // Mutation pour supprimer une demande rejetée
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/permit-requests/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Échec de la suppression");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/permit-requests"] });
+      setDetailsOpen(false);
+      toast({
+        title: "Succès",
+        description: "La demande a été supprimée avec succès.",
+      });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de supprimer la demande. Veuillez réessayer.",
+      });
+    },
+  });
+
   // Mutation pour les actions en masse
   const bulkActionMutation = useMutation({
     mutationFn: async ({ action, ids }: { action: "approve" | "reject"; ids: number[] }) => {
@@ -238,18 +412,25 @@ export default function PermitRequestReception() {
   const filteredRequests = permitRequests
     ? permitRequests.filter((request) => {
       const matchesSearch =
-        request.hunterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.phone.includes(searchTerm) ||
-        request.email.toLowerCase().includes(searchTerm.toLowerCase());
+        (request.hunterName || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
+        (request.phone || "").includes(searchTerm || "") ||
+        (request.email || "").toLowerCase().includes((searchTerm || "").toLowerCase());
 
       const matchesStatus = !filterStatus || request.status === filterStatus;
-      const matchesRegion = !filterRegion || request.region === filterRegion;
+      const matchesRegion =
+        !filterRegion ||
+        (request.region || "").trim().toLowerCase() === (filterRegion || "").trim().toLowerCase();
 
       return matchesSearch && matchesStatus && matchesRegion;
     })
     : [];
 
   // Pagination
+  const countPending = permitRequests ? permitRequests.filter(r => r.status === 'pending').length : 0;
+  const countApproved = permitRequests ? permitRequests.filter(r => r.status === 'approved').length : 0;
+  const countRejected = permitRequests ? permitRequests.filter(r => r.status === 'rejected').length : 0;
+  const countTotal = permitRequests ? permitRequests.length : 0;
+
   const getPaginatedData = () => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -307,9 +488,10 @@ export default function PermitRequestReception() {
       </div>
 
       {/* Filtres et recherche */}
-      <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg shadow-sm">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+      <div className="flex flex-wrap justify-between items-center bg-gray-50 p-3 rounded-lg shadow-sm gap-4">
+        <div className="flex items-center gap-4 w-full md:w-auto flex-1">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             type="text"
             placeholder="Rechercher (N° permis, N° quittance, N° pièce, nom, téléphone)"
@@ -317,6 +499,13 @@ export default function PermitRequestReception() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+        </div>
+        <div className="hidden xl:flex items-center gap-2 text-xs">
+          <Badge variant="outline" className="bg-white">Total: {countTotal}</Badge>
+          <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">En attente: {countPending}</Badge>
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200">Approuvés: {countApproved}</Badge>
+          <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-200">Rejetés: {countRejected}</Badge>
+        </div>
         </div>
         <div className="flex items-center space-x-2">
           <DropdownMenu>
@@ -326,38 +515,70 @@ export default function PermitRequestReception() {
                 Filtres
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem
                 onClick={() => {
-                  setFilterRegion(null);
+                  setFilterStatus(null);
+                  if (agentProfile?.region && agentProfile.region.toUpperCase() !== "NATIONAL") {
+                    setFilterRegion(agentProfile.region);
+                  } else {
+                    setFilterRegion(null);
+                  }
+                  setSearchTerm("");
                 }}
+                className="font-bold text-rose-600 focus:text-rose-700"
               >
-                Tous
+                Réinitialiser les filtres
+              </DropdownMenuItem>
+              <div className="h-px bg-slate-100 my-1" />
+              <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Statut</div>
+              <DropdownMenuItem
+                onClick={() => setFilterStatus(null)}
+                className={filterStatus === null ? "bg-accent font-medium" : ""}
+              >
+                Tous les statuts
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setFilterStatus("pending")}
-                className={filterStatus === "pending" ? "bg-accent" : ""}
+                className={filterStatus === "pending" ? "bg-accent font-medium" : ""}
               >
                 En attente
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setFilterStatus("approved")}
-                className={filterStatus === "approved" ? "bg-accent" : ""}
+                className={filterStatus === "approved" ? "bg-accent font-medium" : ""}
               >
                 Approuvés
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setFilterStatus("rejected")}
-                className={filterStatus === "rejected" ? "bg-accent" : ""}
+                className={filterStatus === "rejected" ? "bg-accent font-medium" : ""}
               >
                 Rejetés
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setFilterStatus("delivered")}
-                className={filterStatus === "delivered" ? "bg-accent" : ""}
+                className={filterStatus === "delivered" ? "bg-accent font-medium" : ""}
               >
                 Délivrés
               </DropdownMenuItem>
+              
+              <div className="h-px bg-slate-100 my-1" />
+              <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Région</div>
+              <DropdownMenuItem
+                onClick={() => setFilterRegion(null)}
+                className={filterRegion === null ? "bg-accent font-medium" : ""}
+              >
+                Toutes les régions
+              </DropdownMenuItem>
+              {agentProfile?.region && agentProfile.region.toUpperCase() !== "NATIONAL" && (
+                <DropdownMenuItem
+                  onClick={() => setFilterRegion(agentProfile.region)}
+                  className={filterRegion === agentProfile.region ? "bg-accent font-medium" : ""}
+                >
+                  Ma région ({agentProfile.region})
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -377,6 +598,47 @@ export default function PermitRequestReception() {
           )}
         </div>
       </div>
+
+      {/* Badges de filtres actifs */}
+      {(filterStatus || filterRegion || searchTerm) && (
+        <div className="flex flex-wrap gap-2 items-center px-1">
+          <span className="text-xs font-semibold text-slate-400">Filtres actifs :</span>
+          {searchTerm && (
+            <Badge variant="secondary" className="gap-1 text-xs px-2 py-0.5 rounded-full">
+              Recherche: "{searchTerm}"
+              <X className="h-3 w-3 cursor-pointer text-slate-400 hover:text-slate-600" onClick={() => setSearchTerm("")} />
+            </Badge>
+          )}
+          {filterStatus && (
+            <Badge variant="secondary" className="gap-1 text-xs px-2 py-0.5 rounded-full capitalize">
+              Statut: {filterStatus === "pending" ? "En attente" : filterStatus === "approved" ? "Approuvé" : filterStatus === "rejected" ? "Rejeté" : "Délivré"}
+              <X className="h-3 w-3 cursor-pointer text-slate-400 hover:text-slate-600" onClick={() => setFilterStatus(null)} />
+            </Badge>
+          )}
+          {filterRegion && (
+            <Badge variant="secondary" className="gap-1 text-xs px-2 py-0.5 rounded-full">
+              Région: {filterRegion}
+              <X className="h-3 w-3 cursor-pointer text-slate-400 hover:text-slate-600" onClick={() => setFilterRegion(null)} />
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setFilterStatus(null);
+              if (agentProfile?.region && agentProfile.region.toUpperCase() !== "NATIONAL") {
+                setFilterRegion(agentProfile.region);
+              } else {
+                setFilterRegion(null);
+              }
+              setSearchTerm("");
+            }}
+            className="text-xs h-7 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold"
+          >
+            Effacer tout
+          </Button>
+        </div>
+      )}
 
       {/* Tableau des demandes */}
       <div className="bg-white rounded-md shadow-sm">
@@ -400,7 +662,7 @@ export default function PermitRequestReception() {
                   <TableHead>Chasseur</TableHead>
                   <TableHead>Type de Permis</TableHead>
                   <TableHead>Date de Demande</TableHead>
-                  <TableHead>Région</TableHead>
+                  <TableHead>Catégorie</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -421,16 +683,9 @@ export default function PermitRequestReception() {
                     <TableCell>
                       {format(new Date(request.requestDate), "dd MMM yyyy", { locale: fr })}
                     </TableCell>
-                    <TableCell>{request.region}</TableCell>
+                    <TableCell className="capitalize">{request.hunterCategory}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={request.status === "pending" ? "outline" : request.status === "approved" ? "default" : "destructive"}
-                      >
-                        {request.status === "pending" && "En attente"}
-                        {request.status === "approved" && "Approuvé"}
-                        {request.status === "rejected" && "Rejeté"}
-                        {request.status === "delivered" && "Délivré"}
-                      </Badge>
+                      {getStatusBadge(request.status)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -527,16 +782,69 @@ export default function PermitRequestReception() {
                 </div>
               )}
 
+              {currentRequest.notes && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-500">Détails de l'arme</h4>
+                  <p className="text-sm p-2 bg-slate-50 border border-slate-100 rounded-md font-medium text-slate-800">{currentRequest.notes}</p>
+                </div>
+              )}
+
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Justificatifs du Chasseur</h4>
+                {loadingAttachments ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                    <span className="text-sm text-gray-500">Chargement des justificatifs...</span>
+                  </div>
+                ) : hunterAttachments.length === 0 ? (
+                  <p className="text-sm text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-100 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-2" /> Aucun justificatif téléversé pour le moment.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {DOC_TYPES.map((doc) => {
+                      const fileInfo = hunterAttachments.find((a: any) => a.type === doc.code);
+                      const isPresent = fileInfo?.present;
+                      return (
+                        <div key={doc.code} className="flex items-center justify-between p-2.5 rounded-lg border text-sm bg-white hover:bg-slate-50 transition">
+                          <div className="flex items-center space-x-2">
+                            <div className={isPresent ? 'text-green-600' : 'text-gray-400'}>
+                              {isPresent ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-800 text-xs">{doc.label}</p>
+                              {isPresent && fileInfo.expiryDate && (
+                                <p className="text-[10px] text-gray-500">
+                                  Expire le : {new Date(fileInfo.expiryDate).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            {isPresent ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => viewDocument(doc.code)}
+                                className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                              >
+                                <FileText className="h-3 w-3 mr-1" /> Visualiser
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] text-gray-400 font-medium italic">Non fourni</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               <div>
-                <h4 className="text-sm font-semibold text-gray-500">Statut</h4>
-                <Badge
-                  className="mt-1 text-sm"
-                  variant={currentRequest.status === "pending" ? "outline" : currentRequest.status === "approved" ? "default" : "destructive"}
-                >
-                  {currentRequest.status === "pending" && "En attente"}
-                  {currentRequest.status === "approved" && "Approuvé"}
-                  {currentRequest.status === "rejected" && "Rejeté"}
-                </Badge>
+                <h4 className="text-sm font-semibold text-gray-500 mb-1">Statut</h4>
+                {getStatusBadge(currentRequest.status)}
               </div>
             </div>
 
@@ -568,6 +876,22 @@ export default function PermitRequestReception() {
                     className="flex-1"
                   >
                     {deliverMutation.isPending ? "Traitement..." : "Marquer comme délivré"}
+                  </Button>
+                </div>
+              )}
+              {currentRequest.status === "rejected" && (
+                <div className="flex space-x-2 w-full">
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      if (window.confirm("Êtes-vous sûr de vouloir supprimer cette demande rejetée ?")) {
+                        deleteMutation.mutate(currentRequest.id);
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm transition-colors duration-200"
+                  >
+                    {deleteMutation.isPending ? "Suppression..." : "Supprimer la demande"}
                   </Button>
                 </div>
               )}

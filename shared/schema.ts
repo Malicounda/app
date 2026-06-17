@@ -409,7 +409,7 @@ export const insertTaxSchema = createInsertSchema(taxes).omit({
 });
 
 // Enum pour les statuts de demande de permis
-export const permitRequestStatusEnum = pgEnum('permit_request_status', ['pending', 'approved', 'rejected']);
+export const permitRequestStatusEnum = pgEnum('permit_request_status', ['draft', 'pending', 'approved', 'rejected', 'delivered']);
 
 // Table pour les demandes de permis
 export const permitRequests = pgTable("permit_requests", {
@@ -422,6 +422,7 @@ export const permitRequests = pgTable("permit_requests", {
   status: permitRequestStatusEnum("status").notNull().default('pending'),
   reason: text("reason"), // Raison de la demande
   notes: text("notes"), // Notes administratives (visible uniquement par les admins)
+  domaineId: integer("domain_id").references(() => domaines.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

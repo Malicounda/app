@@ -48,12 +48,27 @@ export default function AgentTopHeader() {
   const isSupervisorRole = !!(user as any)?.isSupervisorRole;
 
   const isChromelessHome =
-    location === "/supervisor" || location === "/default-home" || location === "/profile" || location.startsWith("/hunter") || location.startsWith("/guide") || location.includes("/hunting-declarations") || location.includes("/demande-permis-special") || location.includes("/alerts") || location.includes("/sms");
+    location === "/supervisor" || location === "/default-home" || location === "/profile" || location.startsWith("/hunter") || location.startsWith("/guide") || location.includes("/hunting-declarations") || location.includes("/permit-request") || location.includes("/alerts") || location.includes("/sms");
 
   /** Accueil plein écran (fixed) : décalage sous barre République. Profil : le parent MainLayout compense déjà — pas de double marge. */
   const headerPaddingTop = isChromelessHome
     ? "calc(4rem + env(safe-area-inset-top, 24px))"
     : "1.25rem";
+
+  const { data: profileCompletion } = useQuery({
+    queryKey: ['/api/hunters/me/completion-status'],
+    queryFn: async () => {
+      try {
+        const res = await authenticatedFetch('/api/hunters/me/completion-status');
+        if (!res.ok) return { isComplete: false };
+        return await res.json();
+      } catch (e) {
+        return { isComplete: false };
+      }
+    },
+    enabled: user?.role === 'hunter',
+  });
+  const isProfileComplete = profileCompletion?.isComplete ?? true;
 
   return (
     <div className="shrink-0 flex flex-col">
@@ -73,14 +88,16 @@ export default function AgentTopHeader() {
               <h1 className="text-lg font-bold truncate">
                 {user?.firstName || ""} {user?.lastName || ""}
               </h1>
-              <p className="text-xs text-emerald-200 break-words mt-1 font-semibold">
-                {user?.role === 'hunter' 
-                  ? 'CHASSEUR' 
-                  : user?.role === 'hunting-guide' 
-                    ? 'GUIDE DE CHASSE' 
-                    : (roleUpper((user as any)?.roleMetierLabel) || "AGENT")
-                }
-              </p>
+              {!(user?.role === 'hunter' && !isProfileComplete) && (
+                <p className="text-xs text-emerald-200 break-words mt-1 font-semibold">
+                  {user?.role === 'hunter' 
+                    ? 'CHASSEUR' 
+                    : user?.role === 'hunting-guide' 
+                      ? 'GUIDE DE CHASSE' 
+                      : (roleUpper((user as any)?.roleMetierLabel) || "AGENT")
+                  }
+                </p>
+              )}
               {localisation && (
                 <p className="text-[10px] text-emerald-300 mt-1">{localisation}</p>
               )}

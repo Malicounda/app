@@ -42,6 +42,22 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   });
   const unreadMsg = unreadMsgCount?.total ?? 0;
 
+  const { data: profileCompletion } = useQuery({
+    queryKey: ['/api/hunters/me/completion-status'],
+    queryFn: async () => {
+      try {
+        const res = await authenticatedFetch('/api/hunters/me/completion-status');
+        if (!res.ok) return { isComplete: false };
+        return await res.json();
+      } catch (e) {
+        return { isComplete: false };
+      }
+    },
+    enabled: user?.role === 'hunter',
+  });
+
+  const isProfileComplete = profileCompletion?.isComplete ?? true;
+
   const isSuperAdmin = (user as any)?.isSuperAdmin === true;
   const isHunterOrGuide = user?.role === 'hunter' || user?.role === 'hunting-guide';
   const isAlerteAgent = (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE') ||
@@ -508,8 +524,10 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
                 <span className="text-[10px] font-bold">Messagerie</span>
               </button>
               <button 
-                onClick={() => setLocation('/profile')} 
-                className={`flex flex-col items-center justify-center w-full h-full ${location === '/profile' ? 'text-green-600' : 'text-slate-400'}`}
+                onClick={() => {
+                  if (isProfileComplete) setLocation('/profile');
+                }} 
+                className={`flex flex-col items-center justify-center w-full h-full ${!isProfileComplete ? 'opacity-50 cursor-not-allowed text-slate-400' : location === '/profile' ? 'text-green-600' : 'text-slate-400'}`}
               >
                 <User className="w-5 h-5 mb-1" />
                 <span className="text-[10px] font-bold">Profil</span>

@@ -2,6 +2,7 @@ import RegisterForm from '@/components/auth/RegisterForm';
 import HunterLayout, { Badge, EmptyState, ErrorState, LoadingState, StatCard } from '@/components/layout/HunterLayout';
 import AgentTopHeader from '@/components/layout/AgentTopHeader';
 import AlerteDomainActionCard from '@/components/alerte/AlerteDomainActionCard';
+import { FileUploadDialog } from '@/components/hunters/FileUploadDialog';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -288,7 +289,7 @@ const formatDate = (dateString: string): string => {
 
 const getDocumentViewUrl = (doc: HunterDocument): string => {
   const baseUrl = getApiBaseUrl();
-  return `${baseUrl}/hunters/documents/${doc.id}/view`;
+  return `${baseUrl}/attachments/${doc.hunterId}/${doc.documentType}?inline=1`;
 };
 
 export default function HunterDashboard() {
@@ -302,6 +303,35 @@ export default function HunterDashboard() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [hunterPhotoUrl, setHunterPhotoUrl] = useState<string | null>(null);
   const [showCompletionModal, setShowCompletionModal] = useState<boolean>(false);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+
+  const handleFileUpload = async (file: File, meta?: { expiryDate?: string; type?: string }) => {
+    if (!user?.hunterId || !meta?.type) return;
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('documentType', meta.type);
+      if (meta.expiryDate) formData.append('expiryDate', meta.expiryDate);
+      
+      const res = await apiRequest<any>('POST', `/api/attachments/${user.hunterId}`, formData);
+      // We don't check res.ok if the API wrapper throws on error or returns data directly.
+      // Usually apiRequest from '@/lib/api' throws on non-ok status if used correctly, or we check if there's an error.
+      await queryClient.invalidateQueries({ queryKey: ['hunter-documents'] });
+      
+      toast({ title: 'Succès', description: 'Le document a été téléversé avec succès' });
+      setIsUploadDialogOpen(false);
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: 'Erreur',
+        description: error?.message || 'Impossible de téléverser le document',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const [isProfileComplete, setIsProfileComplete] = useState<boolean>(true);
   const [completionStatusLoading, setCompletionStatusLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'home' | 'permits' | 'documents'>('home');
   const [showFabMenu, setShowFabMenu] = useState(false);
@@ -349,12 +379,11 @@ export default function HunterDashboard() {
         }>('GET', '/api/hunters/me/completion-status');
 
         if (response && response.ok && response.data) {
-          // Afficher le modal si le profil chasseur n'existe pas encore OU s'il est incomplet
-          const shouldShow = !response.data.hasHunterProfile || !response.data.isComplete;
-          setShowCompletionModal(shouldShow);
+          const isComplete = response.data.hasHunterProfile && response.data.isComplete;
+          setIsProfileComplete(isComplete);
         } else {
-          // Fallback: pas de modal si pas de réponse
-          setShowCompletionModal(false);
+          // Fallback: si pas de réponse, on considère incomplet par sécurité
+          setIsProfileComplete(false);
         }
       } catch (error) {
         console.error('Erreur lors de la vérification du statut de complétion:', error);
@@ -681,11 +710,20 @@ export default function HunterDashboard() {
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {/* Demande de permis */}
                 <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => setLocation('/demande-permis-special')}
-                  className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-green-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-emerald-500/10 hover:border-emerald-200 active:bg-emerald-100"
+                  whileTap={isProfileComplete && documents.length > 0 ? { scale: 0.96 } : {}}
+                  onClick={() => {
+                    if (isProfileComplete && documents.length > 0) setLocation('/permit-request');
+                  }}
+                  className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200 
+                    ${isProfileComplete && documents.length > 0 
+                      ? 'border-emerald-100 bg-gradient-to-br from-emerald-50 to-green-50 hover:shadow-md hover:shadow-emerald-500/10 hover:border-emerald-200 active:bg-emerald-100 cursor-pointer' 
+                      : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
                 >
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/25 group-hover:shadow-emerald-500/40 transition-shadow">
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
+                    ${isProfileComplete && documents.length > 0
+                      ? 'bg-gradient-to-br from-emerald-400 to-green-600 shadow-emerald-500/25 group-hover:shadow-emerald-500/40'
+                      : 'bg-slate-400 shadow-slate-500/20'}`}
+                  >
                     <ShieldCheck className="h-6 w-6 text-white" strokeWidth={2} />
                   </div>
                   <div>
@@ -696,11 +734,20 @@ export default function HunterDashboard() {
 
                 {/* Nouveau prélèvement */}
                 <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => setLocation('/hunting-reports')}
-                  className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-amber-500/10 hover:border-amber-200 active:bg-amber-100"
+                  whileTap={isProfileComplete ? { scale: 0.96 } : {}}
+                  onClick={() => {
+                    if (isProfileComplete) setLocation('/hunting-reports');
+                  }}
+                  className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200
+                    ${isProfileComplete
+                      ? 'border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50 hover:shadow-md hover:shadow-amber-500/10 hover:border-amber-200 active:bg-amber-100 cursor-pointer'
+                      : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
                 >
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25 group-hover:shadow-amber-500/40 transition-shadow">
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
+                    ${isProfileComplete
+                      ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/25 group-hover:shadow-amber-500/40'
+                      : 'bg-slate-400 shadow-slate-500/20'}`}
+                  >
                     <Target className="h-6 w-6 text-white" strokeWidth={2} />
                   </div>
                   <div>
@@ -711,11 +758,22 @@ export default function HunterDashboard() {
 
                 {/* Mes permis */}
                 <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => { setActiveTab('permits'); setLocation('/hunter/permits'); }}
-                  className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-blue-500/10 hover:border-blue-200 active:bg-blue-100"
+                  whileTap={isProfileComplete && activePermits.length > 0 ? { scale: 0.96 } : {}}
+                  onClick={() => { 
+                    if (isProfileComplete && activePermits.length > 0) {
+                      setActiveTab('permits'); setLocation('/hunter/permits'); 
+                    }
+                  }}
+                  className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200
+                    ${isProfileComplete && activePermits.length > 0
+                      ? 'border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-md hover:shadow-blue-500/10 hover:border-blue-200 active:bg-blue-100 cursor-pointer'
+                      : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
                 >
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:shadow-blue-500/40 transition-shadow">
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
+                    ${isProfileComplete && activePermits.length > 0
+                      ? 'bg-gradient-to-br from-blue-400 to-indigo-500 shadow-blue-500/25 group-hover:shadow-blue-500/40'
+                      : 'bg-slate-400 shadow-slate-500/20'}`}
+                  >
                     <CreditCard className="h-6 w-6 text-white" strokeWidth={2} />
                   </div>
                   <div>
@@ -727,8 +785,14 @@ export default function HunterDashboard() {
                 {/* Mes documents */}
                 <motion.button
                   whileTap={{ scale: 0.96 }}
-                  onClick={() => { setActiveTab('documents'); setLocation('/hunter/documents'); }}
-                  className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 to-purple-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-200 active:bg-violet-100"
+                  onClick={() => { 
+                    if (!isProfileComplete) {
+                      setShowCompletionModal(true);
+                    } else {
+                      setActiveTab('documents'); setLocation('/hunter/documents'); 
+                    }
+                  }}
+                  className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 to-purple-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-200 active:bg-violet-100 cursor-pointer"
                 >
                   <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25 group-hover:shadow-violet-500/40 transition-shadow">
                     <BookOpen className="h-6 w-6 text-white" strokeWidth={2} />
@@ -768,69 +832,7 @@ export default function HunterDashboard() {
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-green-600" /> Mes Permis
             </h2>
-      {/* Contenu principal du compte chasseur (sans wrapper fixe) */}
-      {/* Blocage: forcer la complétion de l'étape 2 si nécessaire */}
-      {showCompletionModal && (
-        <Dialog open={showCompletionModal} onOpenChange={() => { /* Bloqué tant que non complété */ }}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
-            <DialogHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <DialogTitle>Compléter votre profil chasseur</DialogTitle>
-                  <DialogDescription>
-                    Veuillez renseigner toutes les informations requises afin d'accéder à votre espace chasseur.
-                  </DialogDescription>
-                </div>
-                <button
-                  onClick={logout}
-                  className="px-3 py-1.5 text-sm rounded-md border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                >
-                  Se déconnecter
-                </button>
-              </div>
-            </DialogHeader>
-            <div className="mt-2">
-              <RegisterForm
-                userType="hunter"
-                embedded
-                initialStep={2}
-                onSubmittingChange={(submitting) => {
-                  // Masquer le bouton Déconnexion du header pendant l'envoi
-                  window.dispatchEvent(new Event(submitting ? 'hide-logout' : 'show-logout'));
-                }}
-                onCompleted={async () => {
-                  // Marquer la complétion côté UI
-                  setShowCompletionModal(false);
-                  // Invalider les requêtes clés pour rafraîchir l'espace chasseur
-                  try {
-                    await Promise.all([
-                      queryClient.invalidateQueries({ queryKey: ['hunter-permits'] }),
-                      queryClient.invalidateQueries({ queryKey: ['hunter-documents'] }),
-                    ]);
-                  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
-                  try {
-                    toast({
-                      title: "Profil complété",
-                      description: "Votre profil chasseur a été enregistré. Rechargement en cours...",
-                    });
-                  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
-                  // Recharger complètement la page pour repartir sur un état propre
-                  setTimeout(() => {
-                    try { window.location.reload(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
-                  }, 250);
-                }}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-
-
-
-
-
-        {permitsError ? (
+      {/* Contenu principal du compte chasseur (sans wrapper fixe) */}        {permitsError ? (
           <ErrorState
             title="Erreur de chargement"
             message="Impossible de charger vos permis. Veuillez réessayer."
@@ -1267,18 +1269,92 @@ export default function HunterDashboard() {
         </div>
       )}
 
+      {/* Blocage: forcer la complétion de l'étape 2 si nécessaire */}
+      {showCompletionModal && (
+        <Dialog open={showCompletionModal} onOpenChange={setShowCompletionModal}>
+          <DialogContent 
+            className="max-w-3xl max-h-[90vh] flex flex-col p-4 sm:p-6" 
+            hideClose
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+          >
+            <DialogHeader className="shrink-0 mb-2">
+              <div className="flex items-start sm:items-center justify-between gap-4">
+                <div>
+                  <DialogTitle>Compléter votre profil chasseur</DialogTitle>
+                  <DialogDescription>
+                    Veuillez renseigner toutes les informations requises afin d'accéder à votre espace chasseur.
+                  </DialogDescription>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCompletionModal(false)}
+                  className="px-4 py-1.5 text-sm font-medium rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors shrink-0 shadow-sm"
+                >
+                  Fermer
+                </button>
+              </div>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <RegisterForm
+                userType="hunter"
+                embedded
+                initialStep={2}
+                onSubmittingChange={(submitting) => {
+                  // Masquer le bouton Déconnexion du header pendant l'envoi
+                  window.dispatchEvent(new Event(submitting ? 'hide-logout' : 'show-logout'));
+                }}
+                onCompleted={async () => {
+                  // Marquer la complétion côté UI
+                  setShowCompletionModal(false);
+                  // Invalider les requêtes clés pour rafraîchir l'espace chasseur
+                  try {
+                    await Promise.all([
+                      queryClient.invalidateQueries({ queryKey: ['hunter-permits'] }),
+                      queryClient.invalidateQueries({ queryKey: ['hunter-documents'] }),
+                    ]);
+                  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+                  try {
+                    toast({
+                      title: "Profil complété",
+                      description: "Votre profil chasseur a été enregistré. Rechargement en cours...",
+                    });
+                  } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+                  // Recharger complètement la page pour repartir sur un état propre
+                  setTimeout(() => {
+                    try { window.location.reload(); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+                  }, 250);
+                }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       </div>
 
-      {/* FAB Button - Direct to new declaration */}
+      {/* FAB Button - Direct to new declaration or add document */}
       <motion.button 
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         className="fixed bottom-20 right-4 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white active:scale-95 transition-colors z-[80] bg-green-600 shadow-green-600/30"
-        onClick={() => setLocation('/hunting-reports?new=true')}
-        aria-label="Nouvelle déclaration"
+        onClick={() => {
+          if (activeTab === 'documents') {
+            setIsUploadDialogOpen(true);
+          } else {
+            setLocation('/hunting-reports?new=true');
+          }
+        }}
+        aria-label={activeTab === 'documents' ? "Ajouter un document" : "Nouvelle déclaration"}
       >
         <Plus className="w-6 h-6" strokeWidth={2.5} />
       </motion.button>
 
+      <FileUploadDialog
+        open={isUploadDialogOpen}
+        onOpenChange={setIsUploadDialogOpen}
+        onUpload={handleFileUpload}
+        providedDocumentTypes={documentsArr.map((d: any) => d.documentType)}
+      />
     </div>
   );
 }

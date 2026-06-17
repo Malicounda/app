@@ -39,14 +39,35 @@ const statutIcones = {
   REJETEE: <X className="h-4 w-4" />,
 };
 
-const typePermisLabels = {
+const typePermisLabels: Record<string, string> = {
   [TypePermisSpecial.PETITE_CHASSE_RESIDENT]: 'Petite Chasse (Résident)',
+  [TypePermisSpecial.GRANDE_CHASSE_RESIDENT]: 'Grande Chasse (Résident)',
+  [TypePermisSpecial.GIBIER_EAU_RESIDENT]: 'Gibier d\'Eau (Résident)',
   [TypePermisSpecial.PETITE_CHASSE_COUTUMIER]: 'Petite Chasse (Coutumier)',
   [TypePermisSpecial.GRANDE_CHASSE]: 'Grande Chasse',
   [TypePermisSpecial.GIBIER_EAU]: 'Gibier d\'Eau',
+  // Touriste - 1 semaine
+  [TypePermisSpecial.TOURISTE_1SEM_PETITE]: 'Touriste (1 sem.) – Petite Chasse',
+  [TypePermisSpecial.TOURISTE_1SEM_GRANDE]: 'Touriste (1 sem.) – Grande Chasse',
+  [TypePermisSpecial.TOURISTE_1SEM_GIBIER_EAU]: 'Touriste (1 sem.) – Gibier d\'Eau',
+  // Touriste - 2 semaines
+  [TypePermisSpecial.TOURISTE_2SEM_PETITE]: 'Touriste (2 sem.) – Petite Chasse',
+  [TypePermisSpecial.TOURISTE_2SEM_GRANDE]: 'Touriste (2 sem.) – Grande Chasse',
+  [TypePermisSpecial.TOURISTE_2SEM_GIBIER_EAU]: 'Touriste (2 sem.) – Gibier d\'Eau',
+  // Touriste - 1 mois
+  [TypePermisSpecial.TOURISTE_1MOIS_PETITE]: 'Touriste (1 mois) – Petite Chasse',
+  [TypePermisSpecial.TOURISTE_1MOIS_GRANDE]: 'Touriste (1 mois) – Grande Chasse',
+  [TypePermisSpecial.TOURISTE_1MOIS_GIBIER_EAU]: 'Touriste (1 mois) – Gibier d\'Eau',
+  // Autres
   [TypePermisSpecial.SCIENTIFIQUE]: 'Scientifique',
   [TypePermisSpecial.CAPTURE_COMMERCIALE]: 'Capture Commerciale',
   [TypePermisSpecial.OISELLERIE]: 'Oisellerie',
+  'scientifique': 'Scientifique',
+  'commerciale-capture': 'Capture Commerciale',
+  'oisellerie': 'Oisellerie',
+  [TypePermisSpecial.CERTIFICAT_EXPORT]: 'Certificat d\'Origine / Exportation',
+  [TypePermisSpecial.CERTIFICAT_DETENTION]: 'Certificat de Détention',
+  [TypePermisSpecial.AUTRE_DOCUMENT]: 'Autre document sauvage / de transport',
 };
 
 type DocumentType = 'cni' | 'photo' | 'certificat' | 'autre';

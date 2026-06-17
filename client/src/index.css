@@ -559,3 +559,14 @@ body {
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Masquer l'icône du calendrier natif pour TOUS les champs de date du système */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}
+input[type="date"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-clear-button {
+  display: none;
+  -webkit-appearance: none;
+}

@@ -7,6 +7,8 @@ import { Request, Response, Router } from 'express';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 // import { isAdmin } from '../src/middleware/roles.js';
 import { sql } from 'drizzle-orm/sql';
+import { eq, desc } from 'drizzle-orm';
+import { permitRequests } from '../../shared/schema.js';
 import { z } from 'zod';
 import { db } from '../db.js';
 import { storage } from '../storage.js';
@@ -179,8 +181,13 @@ router.get('/me/active-guide', isAuthenticated, async (req: Request, res: Respon
 // Endpoint pour récupérer tous les documents téléversés d'un chasseur depuis hunter_attachments
 router.get('/my-documents', isAuthenticated, async (req: Request, res: Response) => {
   try {
-    const currentUser = req.user as any;
-    const hunterId = currentUser?.hunterId;
+    const currentUserId = (req.user as any)?.id as number | undefined;
+    if (!currentUserId) {
+      return res.status(401).json({ error: 'Non authentifié' });
+    }
+
+    const user = await storage.getUser(currentUserId);
+    const hunterId = (user as any)?.hunterId || (user as any)?.hunter_id;
 
     if (!hunterId) {
       return res.status(400).json({ error: 'Hunter ID not found' });
@@ -1113,6 +1120,34 @@ router.get('/me', isAuthenticated, async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Erreur lors de la récupération du profil chasseur (me):", error);
     return res.status(500).json({ message: "Erreur lors de la récupération du profil chasseur" });
+  }
+});
+
+// Récupérer les demandes de permis du chasseur connecté
+router.get('/me/permit-requests', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const currentUserId = req.user?.id as number | undefined;
+    if (!currentUserId) {
+      return res.status(401).json({ message: "Non authentifié" });
+    }
+
+    const user = await storage.getUser(currentUserId);
+    const hunterId = (user as any)?.hunterId || (user as any)?.hunter_id as number | undefined;
+
+    if (!hunterId) {
+      return res.json([]);
+    }
+
+    const requests = await db
+      .select()
+      .from(permitRequests)
+      .where(eq(permitRequests.hunterId, hunterId))
+      .orderBy(desc(permitRequests.createdAt));
+
+    return res.json(requests);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des demandes de permis (me):", error);
+    return res.status(500).json({ message: "Erreur lors de la récupération de vos demandes de permis" });
   }
 });
 
