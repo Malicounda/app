@@ -288,6 +288,18 @@ router.post('/:requestId/reject', isAuthenticated, async (req, res) => {
   }
 });
 
+// Réexaminer une demande
+router.post('/:requestId/reexamine', isAuthenticated, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    await db.update(permitRequests).set({ status: 'pending', updatedAt: new Date() } as any).where(eq(permitRequests.id, parseInt(requestId)));
+    res.json({ success: true, message: 'Demande réexaminée' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur' });
+  }
+});
+
 // Délivrer le permis
 router.post('/:requestId/deliver', isAuthenticated, async (req, res) => {
   try {

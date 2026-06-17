@@ -1,15 +1,15 @@
 // Service Worker pour la PWA de Gestion des Permis de Chasse
-const CACHE_NAME = 'permis-chasse-cache-v5';
+const CACHE_NAME = 'permis-chasse-cache-v6';
 const OFFLINE_URL = '/offline.html';
 
-// Liste des ressources à mettre en cache immédiatement
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/offline.html',
   '/manifest.json',
   '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/icons/icon-512x512.png',
+  '/icon-blason.svg'
 ];
 
 // Installation du service worker

@@ -25,6 +25,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -90,6 +100,7 @@ export default function PermitRequestReception() {
   const [filterRegion, setFilterRegion] = useState<string | null>(null);
   const [selectedRequests, setSelectedRequests] = useState<number[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [currentRequest, setCurrentRequest] = useState<PermitRequest | null>(null);
   const [hunterAttachments, setHunterAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
@@ -313,7 +324,7 @@ export default function PermitRequestReception() {
     mutationFn: async (id: number) => {
       // Simuler un appel API pour rejeter la demande
       return fetch(resolveApiUrl(`/api/permit-requests/${id}/reject`), {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentId: user?.id }),
       });
@@ -340,7 +351,7 @@ export default function PermitRequestReception() {
     mutationFn: async (id: number) => {
       // Appel API pour marquer le permis comme délivré
       return fetch(resolveApiUrl(`/api/permit-requests/${id}/deliver`), {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agentId: user?.id,
@@ -387,6 +398,32 @@ export default function PermitRequestReception() {
         variant: "destructive",
         title: "Erreur",
         description: "Impossible de supprimer la demande. Veuillez réessayer.",
+      });
+    },
+  });
+
+  // Mutation pour réexaminer une demande
+  const reexamineMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return fetch(resolveApiUrl(`/api/permit-requests/${id}/reexamine`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId: user?.id }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/permit-requests"] });
+      setDetailsOpen(false);
+      toast({
+        title: "Demande réexaminée",
+        description: "La demande a été replacée en attente.",
+      });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de réexaminer la demande.",
       });
     },
   });
@@ -925,51 +962,79 @@ export default function PermitRequestReception() {
             </div>
 
             <DialogFooter>
-              {currentRequest.status === "pending" && (
-                <div className="flex space-x-2 w-full">
-                  <Button
-                    variant="outline"
-                    onClick={() => rejectMutation.mutate(currentRequest.id)}
-                    disabled={rejectMutation.isPending}
-                    className="flex-1"
-                  >
-                    {rejectMutation.isPending ? "Traitement..." : "Rejeter"}
-                  </Button>
-                  <Button
-                    onClick={() => approveMutation.mutate(currentRequest.id)}
-                    disabled={approveMutation.isPending}
-                    className="flex-1"
-                  >
-                    {approveMutation.isPending ? "Traitement..." : "Approuver"}
-                  </Button>
-                </div>
-              )}
-              {currentRequest.status === "approved" && (
-                <div className="flex space-x-2 w-full">
-                  <Button
-                    onClick={() => deliverMutation.mutate(currentRequest.id)}
-                    disabled={deliverMutation.isPending}
-                    className="flex-1"
-                  >
-                    {deliverMutation.isPending ? "Traitement..." : "Marquer comme délivré"}
-                  </Button>
-                </div>
-              )}
-              {currentRequest.status === "rejected" && (
-                <div className="flex space-x-2 w-full">
+              {!loadingAttachments && hunterAttachments.length === 0 && currentRequest.status !== "rejected" ? (
+                <div className="flex flex-col w-full gap-3">
+                  <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-2.5 rounded-md flex items-center justify-center font-medium">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    Dossier irrecevable : Aucun justificatif fourni.
+                  </div>
                   <Button
                     variant="destructive"
-                    onClick={() => {
-                      if (window.confirm("Êtes-vous sûr de vouloir supprimer cette demande rejetée ?")) {
-                        deleteMutation.mutate(currentRequest.id);
-                      }
-                    }}
-                    disabled={deleteMutation.isPending}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm transition-colors duration-200"
+                    onClick={() => rejectMutation.mutate(currentRequest.id)}
+                    disabled={rejectMutation.isPending}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm transition-colors duration-200"
                   >
-                    {deleteMutation.isPending ? "Suppression..." : "Supprimer la demande"}
+                    {rejectMutation.isPending ? "Traitement..." : "Rejeter la demande"}
                   </Button>
                 </div>
+              ) : (
+                <>
+                  {currentRequest.status === "pending" && (
+                    <div className="flex space-x-2 w-full">
+                      <Button
+                        variant="outline"
+                        onClick={() => rejectMutation.mutate(currentRequest.id)}
+                        disabled={rejectMutation.isPending}
+                        className="flex-1"
+                      >
+                        {rejectMutation.isPending ? "Traitement..." : "Rejeter"}
+                      </Button>
+                      <Button
+                        onClick={() => approveMutation.mutate(currentRequest.id)}
+                        disabled={approveMutation.isPending}
+                        className="flex-1"
+                      >
+                        {approveMutation.isPending ? "Traitement..." : "Approuver"}
+                      </Button>
+                    </div>
+                  )}
+                  {currentRequest.status === "approved" && (
+                    <div className="flex space-x-2 w-full flex-col sm:flex-row gap-2 sm:gap-0">
+                      <Button
+                        variant="outline"
+                        onClick={() => reexamineMutation.mutate(currentRequest.id)}
+                        disabled={reexamineMutation.isPending}
+                        className="flex-1"
+                      >
+                        {reexamineMutation.isPending ? "Traitement..." : (
+                          <>
+                            <Hourglass className="h-4 w-4 mr-2" />
+                            Réexaminer
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => deliverMutation.mutate(currentRequest.id)}
+                        disabled={deliverMutation.isPending}
+                        className="flex-1"
+                      >
+                        {deliverMutation.isPending ? "Traitement..." : "Marquer comme délivré"}
+                      </Button>
+                    </div>
+                  )}
+                  {currentRequest.status === "rejected" && (
+                    <div className="flex space-x-2 w-full">
+                      <Button
+                        variant="destructive"
+                        onClick={() => setDeleteConfirmOpen(true)}
+                        disabled={deleteMutation.isPending}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm transition-colors duration-200"
+                      >
+                        {deleteMutation.isPending ? "Suppression..." : "Supprimer la demande"}
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </DialogFooter>
           </DialogContent>
@@ -1004,6 +1069,32 @@ export default function PermitRequestReception() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de suppression */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer cette demande rejetée ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                if (currentRequest) {
+                  deleteMutation.mutate(currentRequest.id);
+                  setDeleteConfirmOpen(false);
+                }
+              }}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
