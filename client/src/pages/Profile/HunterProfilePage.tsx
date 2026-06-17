@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Save, Edit, Check, X, Briefcase, Target, LogOut,
-  UserRound, Calendar, BadgeCheck, Mail, Phone, MapPin, Clock
+  UserRound, Calendar, BadgeCheck, Mail, Phone, MapPin, Clock, Eye, EyeOff, Pencil
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -159,6 +159,48 @@ export default function HunterProfilePage() {
       });
     }
   }, [user, hunterData]);
+
+  const [credentialsForm, setCredentialsForm] = useState({
+    username: "",
+    password: "",
+    confirmPassword: ""
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [unlockUsername, setUnlockUsername] = useState(false);
+  const [unlockPassword, setUnlockPassword] = useState(false);
+
+  useEffect(() => {
+    if (user?.username) {
+      setCredentialsForm(prev => ({ ...prev, username: user.username }));
+    }
+  }, [user?.username]);
+
+  const updateCredentialsMutation = useMutation({
+    mutationFn: (userData: any) =>
+      apiRequest({
+        url: `/api/users/${user?.id}`,
+        method: 'PUT',
+        data: userData
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Identifiants mis à jour",
+        description: "Données mises à jour avec succès.",
+        variant: "default",
+      });
+      setCredentialsForm(prev => ({ ...prev, password: "", confirmPassword: "" }));
+      setUnlockUsername(false);
+      setUnlockPassword(false);
+    },
+    onError: (error: any) => {
+      console.error('Erreur lors de la mise à jour des identifiants:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Une erreur est survenue lors de la mise à jour de vos identifiants.",
+        variant: "destructive",
+      });
+    }
+  });
 
   const updateHunterMutation = useMutation({
     mutationFn: (hunterData: any) =>
@@ -586,6 +628,134 @@ export default function HunterProfilePage() {
                     </div>
                   )}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Paramètres de connexion</CardTitle>
+              <CardDescription>
+                Modifiez votre nom d'utilisateur (Identifiant) et votre mot de passe.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+                <div className="space-y-2">
+                  <Label className="flex items-center">
+                    Nom d'utilisateur (Identifiant)
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="ml-2 h-6 w-6 p-0" 
+                      onClick={() => setUnlockUsername(!unlockUsername)}
+                    >
+                      <Pencil className={`h-3 w-3 ${unlockUsername ? 'text-green-600' : 'text-gray-400'}`} />
+                    </Button>
+                  </Label>
+                  <Input
+                    value={credentialsForm.username}
+                    onChange={e => setCredentialsForm(prev => ({ ...prev, username: e.target.value }))}
+                    disabled={!unlockUsername}
+                    className={unlockUsername ? 'border-green-400' : ''}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center">
+                    Nouveau mot de passe
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="ml-2 h-6 w-6 p-0" 
+                      onClick={() => {
+                        setUnlockPassword(!unlockPassword);
+                        if (unlockPassword) {
+                          setCredentialsForm(prev => ({ ...prev, password: "", confirmPassword: "" }));
+                        }
+                      }}
+                    >
+                      <Pencil className={`h-3 w-3 ${unlockPassword ? 'text-green-600' : 'text-gray-400'}`} />
+                    </Button>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Laissez vide pour ne pas modifier"
+                      value={credentialsForm.password}
+                      onChange={e => setCredentialsForm(prev => ({ ...prev, password: e.target.value }))}
+                      disabled={!unlockPassword}
+                      className={`pr-10 ${unlockPassword ? 'border-green-400' : ''}`}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                {credentialsForm.password.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Confirmer le mot de passe</Label>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Répétez le nouveau mot de passe"
+                        value={credentialsForm.confirmPassword}
+                        onChange={e => setCredentialsForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        className={`pr-10 ${credentialsForm.confirmPassword && credentialsForm.password !== credentialsForm.confirmPassword ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                      />
+                    </div>
+                    {credentialsForm.confirmPassword && credentialsForm.password !== credentialsForm.confirmPassword && (
+                      <p className="text-xs text-red-500">Les mots de passe ne correspondent pas.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 flex justify-end max-w-2xl">
+                <Button
+                  onClick={() => {
+                    if (credentialsForm.username.trim() === "") {
+                      toast({
+                        title: "Erreur",
+                        description: "Le nom d'utilisateur ne peut pas être vide.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    if (unlockPassword && credentialsForm.password.trim() === "") {
+                      toast({
+                        title: "Erreur",
+                        description: "Le mot de passe ne peut pas être vide si vous souhaitez le modifier.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    if (credentialsForm.password && credentialsForm.password !== credentialsForm.confirmPassword) {
+                      toast({
+                        title: "Erreur",
+                        description: "Les mots de passe ne correspondent pas.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    const payload: any = { username: credentialsForm.username };
+                    if (unlockPassword && credentialsForm.password) payload.password = credentialsForm.password;
+                    updateCredentialsMutation.mutate(payload);
+                  }}
+                  disabled={
+                    updateCredentialsMutation.isPending || 
+                    (!unlockUsername && !unlockPassword) || 
+                    credentialsForm.username.trim() === "" ||
+                    (unlockPassword && credentialsForm.password.trim() === "") ||
+                    (unlockPassword && credentialsForm.password !== credentialsForm.confirmPassword)
+                  }
+                >
+                  {updateCredentialsMutation.isPending ? "Enregistrement..." : "Mettre à jour les identifiants"}
+                </Button>
               </div>
             </CardContent>
           </Card>

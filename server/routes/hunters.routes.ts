@@ -689,11 +689,11 @@ router.post('/', isAuthenticated, async (req: Request, res: Response) => {
       // Auto-generate user account for the hunter
       try {
         const idNumberStr = String((scopedHunterData as any).idNumber).trim();
-        const generatedUsername = idNumberStr.toLowerCase().replace(/\s/g, '');
-        const generatedPassword = idNumberStr; // Password matches ID number
+        const generatedUsername = idNumberStr.replace(/\s/g, ''); // Preserve exact case for login
+        const generatedPassword = "chasse000"; // Default password requested
         
         // Generate a random email or clean it up
-        const generatedEmail = `${generatedUsername}@scodi.sn`;
+        const generatedEmail = `${generatedUsername.toLowerCase()}@scodi.sn`;
 
         // Check if username already exists just to be safe
         const existingUser = await storage.getUserByUsername(generatedUsername);

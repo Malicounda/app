@@ -285,6 +285,7 @@ interface HunterFormProps {
 export default function HunterForm({ hunterId, open, onClose }: HunterFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successCredentials, setSuccessCredentials] = useState<{username: string, password: string} | null>(null);
   const isEditing = !!hunterId;
   const initialWeaponTypeRef = useRef<string>("");
   const initialWeaponBrandRef = useRef<string>("");
@@ -876,17 +877,17 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
         ? `Le chasseur a été enregistré, mais ${uploadErrors} document(s) n'ont pas pu être importé(s) (date d'expiration manquante ou erreur réseau).`
         : `${data.lastName} ${data.firstName} a été ${isEditing ? "mis à jour" : "ajouté"} avec succès.`;
 
-      if (createdOrUpdated?.generatedCredentials) {
-        successDesc += `\n\nIdentifiants de connexion générés pour le compte :\n- Identifiant : ${createdOrUpdated.generatedCredentials.username}\n- Mot de passe : ${createdOrUpdated.generatedCredentials.password}`;
-      }
-
       toast({
         title: isEditing ? "Chasseur mis à jour" : "Chasseur créé",
         description: successDesc,
         variant: uploadErrors > 0 ? "destructive" : "default",
       });
 
-      onClose();
+      if (createdOrUpdated?.generatedCredentials) {
+        setSuccessCredentials(createdOrUpdated.generatedCredentials);
+      } else {
+        onClose();
+      }
     } catch (error) {
       console.error("Erreur lors de l'enregistrement du chasseur:", error);
       toast({
@@ -913,13 +914,38 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
       <DialogContent className="sm:max-w-[90%] md:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center">
-            {isEditing ? "Modifier un Chasseur" : "Ajouter un Chasseur"}
+            {successCredentials ? "Compte créé avec succès" : (isEditing ? "Modifier un Chasseur" : "Ajouter un Chasseur")}
           </DialogTitle>
           <DialogDescription>
-            {isEditing ? "Modifiez les informations du chasseur ci-dessous." : "Remplissez les informations ci-dessous pour ajouter un nouveau chasseur."}
+            {successCredentials ? "Les identifiants de connexion ont été générés." : (isEditing ? "Modifiez les informations du chasseur ci-dessous." : "Remplissez les informations ci-dessous pour ajouter un nouveau chasseur.")}
           </DialogDescription>
         </DialogHeader>
 
+        {successCredentials ? (
+          <div className="space-y-6 py-6">
+            <div className="bg-green-50 text-green-800 p-6 rounded-lg border border-green-200">
+              <h3 className="font-bold text-lg mb-4">Identifiants du chasseur</h3>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-green-700 mb-1">Nom d'utilisateur (Identifiant) :</p>
+                  <p className="font-mono bg-white px-3 py-2 rounded text-lg font-bold border">{successCredentials.username}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-green-700 mb-1">Mot de passe :</p>
+                  <p className="font-mono bg-white px-3 py-2 rounded text-lg font-bold border">{successCredentials.password}</p>
+                </div>
+              </div>
+              <p className="text-sm mt-4 text-green-700 bg-white/50 p-2 rounded">
+                ⚠️ Veuillez prendre une capture d'écran ou communiquer ces identifiants au chasseur immédiatement.
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={onClose} size="lg" className="w-full sm:w-auto">
+                Fermer
+              </Button>
+            </div>
+          </div>
+        ) : (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit, onFormError)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1732,6 +1758,7 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
             </DialogFooter>
           </form>
         </Form>
+        )}
       </DialogContent>
     </Dialog>
   );
