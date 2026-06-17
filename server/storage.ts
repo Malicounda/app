@@ -141,6 +141,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
     updateHunter(id: number, hunter: Partial<InsertHunter>): Promise<Hunter | undefined>;
     activateHunterProfile(id: number): Promise<Hunter | undefined>;
     deleteHunter(id: number, force?: boolean): Promise<boolean>;
+    isHunterDocumentLocked(hunterId: number, documentType: string): Promise<{ locked: boolean, reason?: string }>;
 
     // Hunting Guide operations
     getHuntingGuide(id: number): Promise<HuntingGuide | undefined>;
@@ -1484,6 +1485,67 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
     }
 
     // Permit request operations
+    async isHunterDocumentLocked(hunterId: number, documentType: string): Promise<{ locked: boolean, reason?: string }> {
+      // 1. Check if the hunter has any pending/approved permit requests
+      const requests = await db.select().from(permitRequests)
+        .where(and(
+           eq(permitRequests.hunterId, hunterId),
+           or(eq(permitRequests.status, 'pending'), eq(permitRequests.status, 'approved'))
+        )).limit(1);
+      
+      if (requests.length > 0) {
+        return { locked: true, reason: 'Vous avez une demande de permis en cours.' };
+      }
+
+      // 2. Check if the hunter has any valid permits
+      const validPermits = await db.select().from(permits)
+        .where(and(
+          eq(permits.hunterId, hunterId),
+          eq(permits.status, 'active')
+        )).limit(1);
+      
+      if (validPermits.length > 0) {
+        let isExpired = false;
+        
+        // Let's check expiry date in hunter_attachments if it's a known attachment type
+        const toBaseNameLocal = (type: string) => {
+          if (!type) return null;
+          const map: Record<string, string> = {
+            idcarddocument: 'id_card',
+            weaponpermit: 'weapon_permit',
+            hunterphoto: 'hunter_photo',
+            treasurystamp: 'treasury_stamp',
+            weaponreceipt: 'weapon_receipt',
+            insurance: 'insurance',
+            moralcertificate: 'moral_certificate'
+          };
+          return map[type.toLowerCase()] || null;
+        };
+
+        const base = toBaseNameLocal(documentType);
+        if (base) {
+           const attList = await db.execute(sqlRaw`SELECT * FROM hunter_attachments WHERE hunter_id = ${hunterId} LIMIT 1`);
+           const att: any = Array.isArray(attList) ? attList[0] : (attList as any)[0];
+           if (att) {
+             const expiryCol = `${base}_expiry_date`;
+             const expiry = att[expiryCol];
+             if (expiry) {
+               const expDate = new Date(expiry);
+               if (!isNaN(expDate.getTime()) && expDate.getTime() < Date.now()) {
+                 isExpired = true;
+               }
+             }
+           }
+        }
+        
+        if (!isExpired) {
+          return { locked: true, reason: 'Ce document est lié à un permis actif et n\'est pas expiré.' };
+        }
+      }
+
+      return { locked: false };
+    }
+
     async getPermitRequest(id: number): Promise<PermitRequest | undefined> {
       const result = await db.select().from(permitRequests).where(eq(permitRequests.id, id));
       return result[0];

@@ -124,24 +124,28 @@ export function DocumentCard({
                 <Eye className="h-4 w-4 mr-1" />
                 Aperçu
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onUpload}
-                className="h-8 px-2"
-              >
-                <Upload className="h-4 w-4 mr-1" />
-                Changer
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onDelete}
-                className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Supprimer
-              </Button>
+              {status !== 'approved' && status !== 'pending' && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onUpload}
+                    className="h-8 px-2"
+                  >
+                    <Upload className="h-4 w-4 mr-1" />
+                    Changer
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onDelete}
+                    className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Supprimer
+                  </Button>
+                </>
+              )}
             </>
           ) : (
             <Button

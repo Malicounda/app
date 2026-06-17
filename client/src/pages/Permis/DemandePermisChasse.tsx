@@ -560,15 +560,17 @@ export default function DemandePermisChasse() {
                                             (Exp: {new Date(att.expiryDate).toLocaleDateString('fr-FR')})
                                           </span>
                                         )}
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleDeleteDoc(att.type)}
-                                          className="h-5 px-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded"
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
+                                        {!att.locked && (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleDeleteDoc(att.type)}
+                                            className="h-5 px-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        )}
                                       </div>
                                     ))}
                                   </div>

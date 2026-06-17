@@ -57,8 +57,15 @@ export const uploadAttachment = async (req: Request, res: Response) => {
       expiryDateRaw,
       file: file ? { size: file.size, mimetype: file.mimetype, originalname: file.originalname } : null,
     });
+
+    // VÉRIFICATION DU GARDE-FOU
+    const lockCheck = await import('../storage.js').then(m => m.storage.isHunterDocumentLocked(hunterIdNum, documentType || ''));
+    if (lockCheck.locked) {
+      return res.status(403).json({ message: lockCheck.reason || 'Modification impossible : Vos documents sont liés à une demande en cours ou à un permis valide.' });
+    }
+
     
-    const originalName = file.originalname ? Buffer.from(file.originalname, 'latin1').toString('utf8') : '';
+    const originalName = file.originalname || '';
 
     const data: any = {
       [`${base}_data`]: file.buffer ?? undefined,
@@ -187,6 +194,13 @@ export const deleteAttachment = async (req: Request, res: Response) => {
     if (!Number.isInteger(hunterIdNum) || hunterIdNum <= 0) {
       return res.status(400).json({ message: 'ID du chasseur invalide' });
     }
+
+    // VÉRIFICATION DU GARDE-FOU
+    const lockCheck = await import('../storage.js').then(m => m.storage.isHunterDocumentLocked(hunterIdNum, documentType));
+    if (lockCheck.locked) {
+      return res.status(403).json({ message: lockCheck.reason || 'Suppression impossible : Vos documents sont liés à une demande en cours ou à un permis valide.' });
+    }
+
     console.debug('[attachments] deleteAttachment params', { hunterIdNum, base });
     const data: any = {
       [`${base}_data`]: null,
@@ -310,6 +324,14 @@ export const getAttachmentsStatus = async (req: Request, res: Response) => {
       })(),
       moralCertificate: present('moral_certificate_data') ? { type: 'moralCertificate', present: true, mime: row?.moral_certificate_mime, name: row?.moral_certificate_name } : null,
     };
+
+    const storage = await import('../storage.js').then(m => m.storage);
+    for (const key of Object.keys(map)) {
+      if (map[key] && map[key].present) {
+        const lock = await storage.isHunterDocumentLocked(hunterIdNum, map[key].type);
+        map[key].locked = lock.locked;
+      }
+    }
 
     const result = types.map(t => map[t.code] ?? { type: t.code, present: false });
     console.debug('[attachments] getAttachmentsStatus result summary', {

@@ -21,6 +21,12 @@ export const uploadHunterDocument = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'ID du chasseur invalide' });
     }
 
+    // VÉRIFICATION DU GARDE-FOU
+    const lockCheck = await import('../storage.js').then(m => m.storage.isHunterDocumentLocked(hunterIdNum, documentType));
+    if (lockCheck.locked) {
+      return res.status(403).json({ message: lockCheck.reason || 'Modification impossible : Vos documents sont liés à une demande en cours ou à un permis valide.' });
+    }
+
     // Upsert logic: Si un document existe déjà pour ce hunterId et ce documentType, on le met à jour
     const existingResult = await db.execute(sql`
       SELECT id FROM hunter_documents 
@@ -30,7 +36,7 @@ export const uploadHunterDocument = async (req: Request, res: Response) => {
     const existing = Array.isArray(existingResult) ? existingResult[0] : (existingResult as any)?.rows?.[0];
 
     let result;
-    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    const originalName = file.originalname || '';
 
     if (existing && existing.id) {
       // Update
@@ -119,6 +125,12 @@ export const deleteHunterDocument = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'ID du chasseur invalide' });
     }
 
+    // VÉRIFICATION DU GARDE-FOU
+    const lockCheck = await import('../storage.js').then(m => m.storage.isHunterDocumentLocked(hunterIdNum, documentType));
+    if (lockCheck.locked) {
+      return res.status(403).json({ message: lockCheck.reason || 'Suppression impossible : Vos documents sont liés à une demande en cours ou à un permis valide.' });
+    }
+
     const query = sql`
       DELETE FROM hunter_documents
       WHERE hunter_id = ${hunterIdNum} AND document_type = ${documentType}
@@ -150,12 +162,18 @@ export const getHunterDocumentsStatus = async (req: Request, res: Response) => {
     const rows = await db.execute(query as any);
     const docs = Array.isArray(rows) ? rows : (rows as any)?.rows || [];
 
-    const items = docs.map((doc: any) => ({
-      type: doc.document_type,
-      present: true,
-      mime: doc.file_mime,
-      name: doc.file_name,
-      status: 'valid' // Generic for now, as hunter_documents doesn't have expiry dates yet
+    const items = await Promise.all(docs.map(async (doc: any) => {
+      const storage = await import('../storage.js').then(m => m.storage);
+      const lock = await storage.isHunterDocumentLocked(hunterIdNum, doc.document_type);
+      
+      return {
+        type: doc.document_type,
+        present: true,
+        mime: doc.file_mime,
+        name: doc.file_name,
+        status: 'valid', // Generic for now, as hunter_documents doesn't have expiry dates yet
+        locked: lock.locked
+      };
     }));
 
     return res.json({ items });
