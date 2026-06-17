@@ -259,6 +259,9 @@ const DocumentCard = ({ doc, onView }: { doc: HunterDocument, onView: (doc: Hunt
 
 // Fonctions utilitaires
 const getDocumentLabel = (documentType: string): string => {
+  if (documentType.startsWith('moralCertificate_') || documentType.startsWith('otherDocument_')) {
+    return 'Autre document justificatif';
+  }
   const labels: { [key: string]: string } = {
     'idCardDocument': 'Pièce d\'identité',
     'weaponPermit': 'Permis d\'arme',
@@ -266,7 +269,8 @@ const getDocumentLabel = (documentType: string): string => {
     'treasuryStamp': 'Timbre du trésor',
     'weaponReceipt': 'Reçu d\'arme',
     'insurance': 'Assurance',
-    'moralCertificate': 'Certificat de moralité'
+    'moralCertificate': 'Certificat de moralité',
+    'other': 'Autre document justificatif'
   };
   return labels[documentType] || documentType;
 };
@@ -289,6 +293,9 @@ const formatDate = (dateString: string): string => {
 
 const getDocumentViewUrl = (doc: HunterDocument): string => {
   const baseUrl = getApiBaseUrl();
+  if (doc.id.startsWith('other_')) {
+    return `${baseUrl}/hunter-documents/${doc.hunterId}/${doc.documentType}?inline=1`;
+  }
   return `${baseUrl}/attachments/${doc.hunterId}/${doc.documentType}?inline=1`;
 };
 

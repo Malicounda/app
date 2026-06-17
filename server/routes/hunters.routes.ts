@@ -256,6 +256,28 @@ router.get('/my-documents', isAuthenticated, async (req: Request, res: Response)
       }
     });
 
+    // Récupérer les documents "AUTRE" depuis hunter_documents
+    const otherDocsResult = await db.execute(sql`
+      SELECT id, document_type, file_mime, file_name, file_data, updated_at
+      FROM hunter_documents
+      WHERE hunter_id = ${hunterId}
+    `);
+    const otherDocs = Array.isArray(otherDocsResult) ? otherDocsResult : (otherDocsResult as any)?.rows || [];
+
+    otherDocs.forEach((doc: any) => {
+      if (doc.file_data) {
+        documents.push({
+          id: `other_${doc.id}`,
+          hunterId: hunterId,
+          documentType: doc.document_type || 'other',
+          fileName: doc.file_name || `document_${doc.id}.pdf`,
+          fileSize: (doc.file_data as Buffer).length,
+          mimeType: doc.file_mime || 'application/octet-stream',
+          uploadedAt: doc.updated_at || new Date().toISOString()
+        });
+      }
+    });
+
     res.json(documents);
   } catch (error) {
     console.error('Error fetching hunter documents:', error);
