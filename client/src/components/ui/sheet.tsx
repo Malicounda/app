@@ -70,6 +70,10 @@ const SheetContent = React.forwardRef<
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
+      onInteractOutside={(e) => {
+        e.preventDefault();
+        ;(props as any).onInteractOutside?.(e);
+      }}
       className={cn(sheetVariants({ side }), className)}
       {...props}
     >

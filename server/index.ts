@@ -59,9 +59,14 @@ if (usedEnvPath) {
   log('Aucun fichier .env trouvé, variables d\'environnement système utilisées', 'config');
 }
 
+import { globalEncodingFixer } from './routes/middlewares/global-encoding.middleware.js';
+
 // Initialiser l'application Express
 const app: Express = express();
 app.set('trust proxy', 1);
+
+// Appliquer le correctif global d'encodage (fichiers Multer et headers de téléchargement)
+app.use(globalEncodingFixer);
 
 
 // Configuration CORS

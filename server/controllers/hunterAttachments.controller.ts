@@ -57,10 +57,13 @@ export const uploadAttachment = async (req: Request, res: Response) => {
       expiryDateRaw,
       file: file ? { size: file.size, mimetype: file.mimetype, originalname: file.originalname } : null,
     });
+    
+    const originalName = file.originalname ? Buffer.from(file.originalname, 'latin1').toString('utf8') : '';
+
     const data: any = {
       [`${base}_data`]: file.buffer ?? undefined,
       [`${base}_mime`]: file.mimetype,
-      [`${base}_name`]: file.originalname,
+      [`${base}_name`]: originalName,
     };
 
     // (Optionnel) checksum désactivé pour éviter des colonnes manquantes

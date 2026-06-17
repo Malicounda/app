@@ -30,13 +30,15 @@ export const uploadHunterDocument = async (req: Request, res: Response) => {
     const existing = Array.isArray(existingResult) ? existingResult[0] : (existingResult as any)?.rows?.[0];
 
     let result;
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+
     if (existing && existing.id) {
       // Update
       const query = sql`
         UPDATE hunter_documents
         SET file_data = ${file.buffer},
             file_mime = ${file.mimetype},
-            file_name = ${file.originalname},
+            file_name = ${originalName},
             updated_at = NOW()
         WHERE id = ${existing.id}
         RETURNING *
@@ -47,7 +49,7 @@ export const uploadHunterDocument = async (req: Request, res: Response) => {
       // Insert
       const query = sql`
         INSERT INTO hunter_documents (hunter_id, document_type, file_data, file_mime, file_name, created_at, updated_at)
-        VALUES (${hunterIdNum}, ${documentType}, ${file.buffer}, ${file.mimetype}, ${file.originalname}, NOW(), NOW())
+        VALUES (${hunterIdNum}, ${documentType}, ${file.buffer}, ${file.mimetype}, ${originalName}, NOW(), NOW())
         RETURNING *
       `;
       const insertResult = await db.execute(query as any);
