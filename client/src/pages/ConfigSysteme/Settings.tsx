@@ -294,6 +294,11 @@ export default function Settings() {
   const [confirmTitle, setConfirmTitle] = useState<string>('');
   const [confirmMessage, setConfirmMessage] = useState<string>('');
 
+  // État pour suppression de catégories
+  const [deleteCatConfirmOpen, setDeleteCatConfirmOpen] = useState<boolean>(false);
+  const [catToDelete, setCatToDelete] = useState<any>(null);
+  const [deletingCat, setDeletingCat] = useState<boolean>(false);
+
   // API Units
   const loadUnits = useCallback(async () => {
     setLoadingUnits(true);
@@ -1848,6 +1853,8 @@ export default function Settings() {
   const [categoryPeriods, setCategoryPeriods] = useState<CategoryPeriodRow[]>([]);
   const [newCategoryPeriodOpen, setNewCategoryPeriodOpen] = useState(false);
   const [newCategoryPeriod, setNewCategoryPeriod] = useState<CategoryPeriodRow>({ categoryKey: '', startDate: new Date(), endDate: new Date(), derogationEnabled: false });
+  const [newCategoryPeriodType, setNewCategoryPeriodType] = useState<'cynegetique' | 'autre'>('cynegetique');
+  const [newCategoryPeriodDuration, setNewCategoryPeriodDuration] = useState<number>(30); // par défaut 30 jours (1 mois)
 
   // Helpers saison
   const computeSeason = (start?: Date, end?: Date) => {
@@ -2112,6 +2119,7 @@ export default function Settings() {
   const [filterGenre, setFilterGenre] = useState<string>("all");
   const [filterActive, setFilterActive] = useState<string>("all");
   const [activeSubTab, setActiveSubTab] = useState<'cynegetique' | 'autre'>('cynegetique');
+  const [activePeriodsSubTab, setActivePeriodsSubTab] = useState<'cynegetique' | 'autre'>('cynegetique');
 
   // Types et états pour catégories de permis (onglet Tarifs des Permis)
   type PermitCategoryRow = {
@@ -2202,19 +2210,34 @@ export default function Settings() {
 
   const distinctGroupes = useMemo<string[]>(() => {
     const set = new Set<string>();
-    categories.forEach(c => c.groupe && set.add(c.groupe));
+    categories.forEach(c => {
+      const isCynegetique = ['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((c.groupe || '').toLowerCase().trim());
+      if (activeSubTab === 'cynegetique' && !isCynegetique) return;
+      if (activeSubTab === 'autre' && isCynegetique) return;
+      if (c.groupe) set.add(c.groupe);
+    });
     return Array.from(set).sort();
-  }, [categories]);
+  }, [categories, activeSubTab]);
+
   const distinctGenres = useMemo<string[]>(() => {
     const set = new Set<string>();
-    categories.forEach(c => c.genre && set.add(c.genre));
+    categories.forEach(c => {
+      const isCynegetique = ['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((c.groupe || '').toLowerCase().trim());
+      if (activeSubTab === 'cynegetique' && !isCynegetique) return;
+      if (activeSubTab === 'autre' && isCynegetique) return;
+      if (c.genre) set.add(c.genre);
+    });
     return Array.from(set).sort();
-  }, [categories]);
+  }, [categories, activeSubTab]);
 
   // Genres par groupe (pour filtrer le Select genre quand un groupe est choisi)
   const genresByGroup = useMemo<Record<string, string[]>>(() => {
     const map: Record<string, Set<string>> = {} as any;
     categories.forEach(c => {
+      const isCynegetique = ['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((c.groupe || '').toLowerCase().trim());
+      if (activeSubTab === 'cynegetique' && !isCynegetique) return;
+      if (activeSubTab === 'autre' && isCynegetique) return;
+
       const g = c.groupe || '';
       const genre = c.genre || '';
       if (!g || !genre) return;
@@ -2224,7 +2247,7 @@ export default function Settings() {
     const out: Record<string, string[]> = {};
     Object.keys(map).forEach(g => { out[g] = Array.from(map[g]).sort(); });
     return out;
-  }, [categories]);
+  }, [categories, activeSubTab]);
 
   // Charge les catégories avec prix pour la saison courante
   const loadCategories = useCallback(async (activeOnly = false) => {
@@ -3254,67 +3277,148 @@ export default function Settings() {
               <CardDescription>Définir, ajouter ou supprimer des périodes spécifiques. Utilisez "dérogation" pour autoriser une période hors campagne.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="p-3 border rounded-md bg-white">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="font-semibold">Liste des périodes</div>
-                  <Button size="sm" onClick={() => { setNewCategoryPeriod({ categoryKey: '', startDate: huntingSeason.startDate, endDate: huntingSeason.endDate, derogationEnabled: false }); setNewCategoryPeriodOpen(true); }}>Nouvelle période</Button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ouverture</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fermeture</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dérogation</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white">
-                      {categoryPeriods.length === 0 ? (
-                        <tr><td colSpan={5} className="px-4 py-3 text-center text-muted-foreground">Aucune période définie</td></tr>
-                      ) : (
-                        categoryPeriods.map((row, idx) => (
-                          <tr key={`${row.categoryKey}-${idx}`} className="bg-white hover:bg-gray-50">
-                            <td className="p-2">
-                              <Select value={row.categoryKey || ''} onValueChange={(v) => setCategoryPeriods(ps => ps.map((p,i) => i===idx ? { ...p, categoryKey: v } : p))}>
-                                <SelectTrigger><SelectValue placeholder="Catégorie" /></SelectTrigger>
-                                <SelectContent>
-                                  {categories.map(c => (
-                                    <SelectItem key={c.key} value={c.key}>{c.labelFr} ({c.key})</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="p-2">
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>{format(row.startDate, "dd/MM/yyyy")}</Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0 z-[10020]"><Calendar mode="single" selected={row.startDate} onSelect={(d) => d && setCategoryPeriods(ps => ps.map((p,i) => i===idx ? { ...p, startDate: d } : p))} initialFocus /></PopoverContent>
-                              </Popover>
-                            </td>
-                            <td className="p-2">
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>{format(row.endDate, "dd/MM/yyyy")}</Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0 z-[10020]"><Calendar mode="single" selected={row.endDate} onSelect={(d) => d && setCategoryPeriods(ps => ps.map((p,i) => i===idx ? { ...p, endDate: d } : p))} initialFocus /></PopoverContent>
-                              </Popover>
-                            </td>
-                            <td className="p-2">
-                              <Switch checked={row.derogationEnabled} onCheckedChange={(v) => setCategoryPeriods(ps => ps.map((p,i) => i===idx ? { ...p, derogationEnabled: v } : p))} />
-                            </td>
-                            <td className="p-2">
-                              <Button size="sm" variant="destructive" onClick={() => setCategoryPeriods(ps => ps.filter((_,i) => i!==idx))}>Supprimer</Button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+              <div className="flex border-b border-green-200/60 pb-1">
+                <button
+                  type="button"
+                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activePeriodsSubTab !== 'cynegetique' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-800 bg-white/60 shadow-sm rounded-t-md'}`}
+                  onClick={() => setActivePeriodsSubTab('cynegetique')}
+                >
+                  Permis Cynégétiques
+                </button>
+                <button
+                  type="button"
+                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activePeriodsSubTab !== 'autre' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-800 bg-white/60 shadow-sm rounded-t-md'}`}
+                  onClick={() => setActivePeriodsSubTab('autre')}
+                >
+                  Autres Permis & Certificats
+                </button>
               </div>
+
+              {activePeriodsSubTab === 'cynegetique' ? (
+                <div className="p-3 border rounded-md bg-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="font-semibold">Périodes Spécifiques de Campagne</div>
+                    <Button size="sm" onClick={() => { 
+                      setNewCategoryPeriodType('cynegetique');
+                      setNewCategoryPeriod({ categoryKey: '', startDate: huntingSeason.startDate, endDate: huntingSeason.endDate, derogationEnabled: false }); 
+                      setNewCategoryPeriodOpen(true); 
+                    }}>Nouvelle période</Button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ouverture</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fermeture</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dérogation</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {categoryPeriods.filter(row => {
+                          const cat = categories.find(c => c.key === row.categoryKey);
+                          return cat && ['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((cat.groupe || '').toLowerCase().trim());
+                        }).length === 0 ? (
+                          <tr><td colSpan={5} className="px-4 py-3 text-center text-muted-foreground">Aucune période définie</td></tr>
+                        ) : (
+                          categoryPeriods.map((row, originalIdx) => {
+                            const cat = categories.find(c => c.key === row.categoryKey);
+                            const isCynegetique = cat && ['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((cat.groupe || '').toLowerCase().trim());
+                            if (!isCynegetique) return null;
+                            
+                            return (
+                              <tr key={`${row.categoryKey}-${originalIdx}`} className="bg-white hover:bg-gray-50">
+                                <td className="p-2">
+                                  <div className="font-medium text-sm">
+                                    {cat?.labelFr || row.categoryKey}
+                                    <span className="text-gray-400 text-xs ml-1 block md:inline">({row.categoryKey})</span>
+                                  </div>
+                                </td>
+                                <td className="p-2">
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>{format(row.startDate, "dd/MM/yyyy")}</Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0 z-[10020]"><Calendar mode="single" selected={row.startDate} onSelect={(d) => d && setCategoryPeriods(ps => ps.map((p,i) => i===originalIdx ? { ...p, startDate: d } : p))} initialFocus /></PopoverContent>
+                                  </Popover>
+                                </td>
+                                <td className="p-2">
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>{format(row.endDate, "dd/MM/yyyy")}</Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0 z-[10020]"><Calendar mode="single" selected={row.endDate} onSelect={(d) => d && setCategoryPeriods(ps => ps.map((p,i) => i===originalIdx ? { ...p, endDate: d } : p))} initialFocus /></PopoverContent>
+                                  </Popover>
+                                </td>
+                                <td className="p-2">
+                                  <Switch checked={row.derogationEnabled} onCheckedChange={(v) => setCategoryPeriods(ps => ps.map((p,i) => i===originalIdx ? { ...p, derogationEnabled: v } : p))} />
+                                </td>
+                                <td className="p-2">
+                                  <Button size="sm" variant="destructive" onClick={() => setCategoryPeriods(ps => ps.filter((_,i) => i!==originalIdx))}>Supprimer</Button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 border rounded-md bg-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="font-semibold">Durées de validité (Autres Permis)</div>
+                    <Button size="sm" onClick={() => { 
+                      setNewCategoryPeriodType('autre'); 
+                      setNewCategoryPeriodDuration(30);
+                      setNewCategoryPeriod({ categoryKey: '', startDate: new Date(), endDate: new Date(), derogationEnabled: false });
+                      setNewCategoryPeriodOpen(true); 
+                    }}>Définir une durée</Button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durée de validité</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {categories.filter(c => !['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((c.groupe || '').toLowerCase().trim())).length === 0 ? (
+                          <tr><td colSpan={3} className="px-4 py-3 text-center text-muted-foreground">Aucun autre permis défini</td></tr>
+                        ) : (
+                          categories
+                            .filter(c => !['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((c.groupe || '').toLowerCase().trim()))
+                            .map(c => (
+                              <tr key={c.key} className="bg-white hover:bg-gray-50 border-b border-gray-100 last:border-0">
+                                <td className="p-3 font-medium">{c.labelFr} <span className="text-gray-400 text-xs ml-1">({c.key})</span></td>
+                                <td className="p-3">
+                                  {c.defaultValidityDays ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      {c.defaultValidityDays} jours
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400 italic text-xs">Non définie</span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-right">
+                                  <Button size="sm" variant="outline" onClick={() => {
+                                    setNewCategoryPeriodType('autre');
+                                    setNewCategoryPeriod({ categoryKey: c.key, startDate: new Date(), endDate: new Date(), derogationEnabled: false });
+                                    setNewCategoryPeriodDuration(c.defaultValidityDays || 30);
+                                    setNewCategoryPeriodOpen(true);
+                                  }}>Modifier</Button>
+                                </td>
+                              </tr>
+                            ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               <Dialog open={newCategoryPeriodOpen} onOpenChange={setNewCategoryPeriodOpen}>
                 <DialogContent className="max-w-[720px]">
@@ -3324,82 +3428,194 @@ export default function Settings() {
                   </DialogHeader>
                   <Card className="border-0 shadow-none">
 
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-1 gap-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <CardContent className="space-y-4">
+                      <div className="flex flex-col gap-4">
+                        <div className="flex gap-4 items-center bg-gray-50 p-2 rounded-md border">
+                          <Label className="font-semibold text-gray-700">Type de permis :</Label>
+                          <div className="flex gap-6">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input 
+                                type="radio" 
+                                name="newCatPeriodType"
+                                checked={newCategoryPeriodType === 'cynegetique'}
+                                onChange={() => setNewCategoryPeriodType('cynegetique')}
+                                className="accent-green-600 w-4 h-4"
+                              />
+                              <span className="text-sm font-medium">Cynégétique</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input 
+                                type="radio" 
+                                name="newCatPeriodType"
+                                checked={newCategoryPeriodType === 'autre'}
+                                onChange={() => setNewCategoryPeriodType('autre')}
+                                className="accent-green-600 w-4 h-4"
+                              />
+                              <span className="text-sm font-medium">Autre Permis</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div>
                           <Select value={newCategoryPeriod.categoryKey || undefined} onValueChange={(v) => setNewCategoryPeriod(prev => ({ ...prev, categoryKey: v }))}>
                             <SelectTrigger>
                               <SelectValue placeholder="Catégorie (depuis Tarifs)" />
                             </SelectTrigger>
                             <SelectContent>
-                              {categories.map(c => (
+                              {categories
+                                .filter(c => {
+                                  const isCynegetique = ['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((c.groupe || '').toLowerCase().trim());
+                                  if (newCategoryPeriodType === 'cynegetique' && !isCynegetique) return false;
+                                  if (newCategoryPeriodType === 'autre' && isCynegetique) return false;
+                                  return true;
+                                })
+                                .map(c => (
                                 <SelectItem key={c.key} value={c.key}>{c.labelFr} ({c.key})</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                          <Input placeholder="Clé catégorie" value={newCategoryPeriod.categoryKey} onChange={(e) => setNewCategoryPeriod({ ...newCategoryPeriod, categoryKey: e.target.value })} />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>Ouverture: {format(newCategoryPeriod.startDate, "dd/MM/yyyy")}</Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 z-[10020]">
-                              <Calendar
-                                mode="single"
-                                selected={newCategoryPeriod.startDate}
-                                onSelect={(d) => d && setNewCategoryPeriod({ ...newCategoryPeriod, startDate: d })}
-                                initialFocus
-                                disabled={newCategoryPeriod.derogationEnabled ? (() => false) : (date => date < huntingSeason.startDate || date > huntingSeason.endDate)}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>Fermeture: {format(newCategoryPeriod.endDate, "dd/MM/yyyy")}</Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 z-[10020]">
-                              <Calendar
-                                mode="single"
-                                selected={newCategoryPeriod.endDate}
-                                onSelect={(d) => d && setNewCategoryPeriod({ ...newCategoryPeriod, endDate: d })}
-                                initialFocus
-                                disabled={newCategoryPeriod.derogationEnabled ? (() => false) : (date => date < huntingSeason.startDate || date > huntingSeason.endDate)}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Switch checked={newCategoryPeriod.derogationEnabled} onCheckedChange={(v) => setNewCategoryPeriod({ ...newCategoryPeriod, derogationEnabled: v })} />
-                          <Label>Dérogation</Label>
-                          <span className="text-xs text-muted-foreground">Permet de choisir des dates en dehors de la campagne</span>
-                        </div>
+                        {newCategoryPeriodType === 'cynegetique' ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>Ouverture: {format(newCategoryPeriod.startDate, "dd/MM/yyyy")}</Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 z-[10020]">
+                                  <Calendar
+                                    mode="single"
+                                    selected={newCategoryPeriod.startDate}
+                                    onSelect={(d) => d && setNewCategoryPeriod({ ...newCategoryPeriod, startDate: d })}
+                                    initialFocus
+                                    disabled={newCategoryPeriod.derogationEnabled ? (() => false) : (date => date < huntingSeason.startDate || date > huntingSeason.endDate)}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>Fermeture: {format(newCategoryPeriod.endDate, "dd/MM/yyyy")}</Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 z-[10020]">
+                                  <Calendar
+                                    mode="single"
+                                    selected={newCategoryPeriod.endDate}
+                                    onSelect={(d) => d && setNewCategoryPeriod({ ...newCategoryPeriod, endDate: d })}
+                                    initialFocus
+                                    disabled={newCategoryPeriod.derogationEnabled ? (() => false) : (date => date < huntingSeason.startDate || date > huntingSeason.endDate)}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch checked={newCategoryPeriod.derogationEnabled} onCheckedChange={(v) => setNewCategoryPeriod({ ...newCategoryPeriod, derogationEnabled: v })} />
+                              <Label>Dérogation</Label>
+                              <span className="text-xs text-muted-foreground">Permet de choisir des dates en dehors de la campagne</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-blue-50/50 rounded-md border border-blue-100">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-gray-500">Durée prédéfinie</Label>
+                              <Select 
+                                value={newCategoryPeriodDuration?.toString()} 
+                                onValueChange={(v) => setNewCategoryPeriodDuration(Number(v))}
+                              >
+                                <SelectTrigger className="bg-white">
+                                  <SelectValue placeholder="Choisir une durée" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="15">15 jours</SelectItem>
+                                  <SelectItem value="30">1 mois</SelectItem>
+                                  <SelectItem value="90">3 mois</SelectItem>
+                                  <SelectItem value="180">6 mois</SelectItem>
+                                  <SelectItem value="365">1 an</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-gray-500">Date de fin correspondante</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal bg-white")}>
+                                    {format(new Date(new Date().setHours(0,0,0,0) + (newCategoryPeriodDuration || 0) * 86400000), "dd/MM/yyyy")}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 z-[10020]">
+                                  <Calendar
+                                    mode="single"
+                                    selected={new Date(new Date().setHours(0,0,0,0) + (newCategoryPeriodDuration || 0) * 86400000)}
+                                    onSelect={(d) => {
+                                      if (d) {
+                                        const today = new Date();
+                                        today.setHours(0,0,0,0);
+                                        const diffTime = d.getTime() - today.getTime();
+                                        const diffDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+                                        setNewCategoryPeriodDuration(diffDays);
+                                      }
+                                    }}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                     <div className="flex justify-end gap-2 px-6 pb-4">
                       <Button variant="outline" onClick={() => setNewCategoryPeriodOpen(false)}>Annuler</Button>
-                      <Button onClick={() => {
+                      <Button onClick={async () => {
                         const key = (newCategoryPeriod.categoryKey || '').trim();
                         if (!key) {
-                          toast({ title: 'Catégorie requise', description: 'Veuillez choisir une catégorie (clé) pour la période.', variant: 'destructive' });
+                          toast({ title: 'Catégorie requise', description: 'Veuillez choisir une catégorie (clé).', variant: 'destructive' });
                           return;
                         }
-                        // Dates valides: start <= end
-                        if (newCategoryPeriod.startDate > newCategoryPeriod.endDate) {
-                          toast({ title: 'Dates invalides', description: "La date d'ouverture doit être antérieure ou égale à la date de fermeture.", variant: 'destructive' });
-                          return;
+                        
+                        if (newCategoryPeriodType === 'cynegetique') {
+                          // Logique pour la période spécifique cynégétique (inchangée)
+                          if (newCategoryPeriod.startDate > newCategoryPeriod.endDate) {
+                            toast({ title: 'Dates invalides', description: "La date d'ouverture doit être antérieure ou égale à la date de fermeture.", variant: 'destructive' });
+                            return;
+                          }
+                          const withinCampaign = (d: Date) => d >= huntingSeason.startDate && d <= huntingSeason.endDate;
+                          if (!newCategoryPeriod.derogationEnabled && (!withinCampaign(newCategoryPeriod.startDate) || !withinCampaign(newCategoryPeriod.endDate))) {
+                            toast({ title: 'Hors campagne', description: "Les dates doivent être dans l'intervalle de la campagne, sauf dérogation.", variant: 'destructive' });
+                            return;
+                          }
+                          const toAdd = { ...newCategoryPeriod, categoryKey: key };
+                          setCategoryPeriods(ps => [...ps, toAdd]);
+                          setNewCategoryPeriodOpen(false);
+                        } else {
+                          // Logique pour Autres Permis (Mise à jour globale de la durée de validité)
+                          if (!newCategoryPeriodDuration || newCategoryPeriodDuration <= 0) {
+                            toast({ title: 'Durée invalide', description: 'Veuillez définir une durée en jours supérieure à 0.', variant: 'destructive' });
+                            return;
+                          }
+                          
+                          const targetCategory = categories.find(c => c.key === key);
+                          if (!targetCategory || !targetCategory.id) {
+                            toast({ title: 'Erreur', description: 'Catégorie introuvable en base.', variant: 'destructive' });
+                            return;
+                          }
+
+                          try {
+                            const payload = { defaultValidityDays: newCategoryPeriodDuration };
+                            // apiRequest takes (method, endpoint, body)
+                            const resp = await apiRequest('PUT', `/permit-categories/${targetCategory.id}`, payload);
+                            if (resp.ok) {
+                              toast({ title: 'Succès', description: 'Durée de validité mise à jour globalement pour cette catégorie.' });
+                              await loadCategories(false); // Rafraîchir les catégories
+                              setNewCategoryPeriodOpen(false);
+                            } else {
+                              throw new Error(resp.error || 'Erreur lors de la mise à jour.');
+                            }
+                          } catch (e: any) {
+                            toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
+                          }
                         }
-                        // Si pas de dérogation: contrainte dans l'intervalle de campagne
-                        const withinCampaign = (d: Date) => d >= huntingSeason.startDate && d <= huntingSeason.endDate;
-                        if (!newCategoryPeriod.derogationEnabled && (!withinCampaign(newCategoryPeriod.startDate) || !withinCampaign(newCategoryPeriod.endDate))) {
-                          toast({ title: 'Hors campagne', description: "Les dates doivent être dans l'intervalle de la campagne, sauf dérogation.", variant: 'destructive' });
-                          return;
-                        }
-                        const toAdd = { ...newCategoryPeriod, categoryKey: key };
-                        setCategoryPeriods(ps => [...ps, toAdd]);
-                        setNewCategoryPeriodOpen(false);
-                      }}>Ajouter</Button>
+                      }}>Enregistrer</Button>
                     </div>
                   </Card>
                 </DialogContent>
@@ -3421,14 +3637,14 @@ export default function Settings() {
               <div className="flex border-b border-green-200/60 pb-1">
                 <button
                   type="button"
-                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab === 'cynegetique' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/30 rounded-t-md'}`}
+                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab !== 'cynegetique' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-800 bg-white/60 shadow-sm rounded-t-md'}`}
                   onClick={() => setActiveSubTab('cynegetique')}
                 >
                   Permis Cynégétiques
                 </button>
                 <button
                   type="button"
-                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab === 'autre' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/30 rounded-t-md'}`}
+                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab !== 'autre' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-800 bg-white/60 shadow-sm rounded-t-md'}`}
                   onClick={() => setActiveSubTab('autre')}
                 >
                   Autres Permis & Certificats
@@ -3573,20 +3789,9 @@ export default function Settings() {
                               variant="ghost"
                               size="sm"
                               className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-                              onClick={async () => {
-                                if (confirm(`Êtes-vous sûr de vouloir supprimer définitivement la catégorie "${row.labelFr}" ? Cette action supprimera également tous les tarifs associés.`)) {
-                                  try {
-                                    const resp = await apiRequest('DELETE', `/permit-categories/${row.id}`);
-                                    if (resp.ok) {
-                                      toast({ title: 'Succès', description: 'Catégorie supprimée avec succès.' });
-                                      await loadCategories(false);
-                                    } else {
-                                      throw new Error(resp.error || 'Erreur lors de la suppression.');
-                                    }
-                                  } catch (e: any) {
-                                    toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
-                                  }
-                                }
+                              onClick={() => {
+                                setCatToDelete(row);
+                                setDeleteCatConfirmOpen(true);
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -3611,8 +3816,21 @@ export default function Settings() {
                   <Card className="border-0 shadow-none">
                     <CardContent className="space-y-3">
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                        <Input placeholder="Clé (ex: resident-gibier-eau)" value={newCat.key || ''} onChange={(e) => setNewCat({ ...newCat, key: e.target.value })} />
-                        <Input placeholder="Libellé (fr)" value={newCat.labelFr || ''} onChange={(e) => setNewCat({ ...newCat, labelFr: e.target.value })} />
+                        <Input 
+                          placeholder="Clé (ex: Resident)" 
+                          value={newCat.key || ''} 
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const capitalized = val.charAt(0).toUpperCase() + val.slice(1);
+                            setNewCat({ ...newCat, key: capitalized, labelFr: capitalized });
+                          }} 
+                        />
+                        <Input 
+                          placeholder="Libellé (fr)" 
+                          value={newCat.labelFr || ''} 
+                          disabled 
+                          className="bg-gray-100 cursor-not-allowed"
+                        />
                         
                         {/* Select pour Groupe */}
                         <Select value={newCat.groupe || ''} onValueChange={(val) => setNewCat({ ...newCat, groupe: val })}>
@@ -7274,6 +7492,55 @@ export default function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal personnalisé pour la suppression de catégorie */}
+      <AlertDialog open={deleteCatConfirmOpen} onOpenChange={setDeleteCatConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Confirmation de suppression
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer la catégorie <strong>"{catToDelete?.labelFr}"</strong> ?
+              <br /><br />
+              Si cette catégorie est déjà utilisée dans des demandes ou des permis délivrés, elle ne sera pas supprimée physiquement mais désactivée pour préserver l'historique.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingCat}>Annuler</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={deletingCat}
+              onClick={async () => {
+                if (!catToDelete) return;
+                setDeletingCat(true);
+                try {
+                  const resp = await apiRequest<any>('DELETE', `/permit-categories/${catToDelete.id}`);
+                  if (resp.ok) {
+                    toast({
+                      title: resp.data?.deleted === false ? 'Catégorie désactivée' : 'Suppression réussie',
+                      description: resp.data?.message || 'Opération effectuée avec succès.',
+                    });
+                    await loadCategories(false);
+                  } else {
+                    throw new Error(resp.error || 'Erreur lors de la suppression.');
+                  }
+                } catch (e: any) {
+                  toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
+                } finally {
+                  setDeletingCat(false);
+                  setDeleteCatConfirmOpen(false);
+                  setCatToDelete(null);
+                }
+              }}
+            >
+              {deletingCat ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {deletingCat ? "Suppression..." : "Supprimer"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
         </Tabs>
     </div>

@@ -145,7 +145,7 @@ router.put('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-// DELETE /api/permit-categories/:id (hard delete)
+// DELETE /api/permit-categories/:id (smart delete: soft if references exist, hard otherwise)
 router.delete('/:id', isAuthenticated, async (req, res) => {
   try {
     const role = (req as any)?.user?.role;
@@ -153,8 +153,36 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ message: 'Paramètre id invalide' });
 
-    await sql`DELETE FROM permit_categories WHERE id = ${id}`;
-    return res.json({ message: 'Catégorie supprimée avec succès' });
+    // 1. Récupérer la clé de la catégorie
+    const catRows = await sql<{ key: string }[]>`SELECT key FROM permit_categories WHERE id = ${id} LIMIT 1`;
+    if (catRows.length === 0) {
+      return res.status(404).json({ message: 'Catégorie non trouvée.' });
+    }
+    const categoryKey = catRows[0].key;
+
+    // 2. Vérifier s'il y a des permis délivrés
+    const permitsCheck = await sql`SELECT 1 FROM permits WHERE category_id = ${categoryKey} LIMIT 1`;
+
+    // 3. Vérifier s'il y a des demandes de permis
+    const requestsCheck = await sql`SELECT 1 FROM permit_requests WHERE requested_category = ${categoryKey} LIMIT 1`;
+
+    const hasLinkedData = permitsCheck.length > 0 || requestsCheck.length > 0;
+
+    if (hasLinkedData) {
+      // Désactivation logique (Soft Delete)
+      await sql`UPDATE permit_categories SET is_active = false, updated_at = ${new Date()} WHERE id = ${id}`;
+      return res.json({
+        deleted: false,
+        message: 'La catégorie a été désactivée car des demandes ou permis y sont liés.'
+      });
+    } else {
+      // Suppression physique (Hard Delete - cascade sur les tarifs)
+      await sql`DELETE FROM permit_categories WHERE id = ${id}`;
+      return res.json({
+        deleted: true,
+        message: 'La catégorie a été supprimée définitivement avec succès.'
+      });
+    }
   } catch (err) {
     console.error('[DELETE /api/permit-categories/:id] error:', err);
     return res.status(500).json({ message: 'Erreur interne du serveur lors de la suppression de la catégorie.' });
