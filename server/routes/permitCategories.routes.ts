@@ -82,17 +82,20 @@ router.post('/', isAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'Champs requis: key, labelFr, groupe, genre' });
     }
 
-    await sql`
+    const result = await sql`
       INSERT INTO permit_categories (
         key, label_fr, groupe, genre, sous_categorie, default_validity_days, max_renewals, is_active, display_order
       ) VALUES (
         ${String(key)}, ${String(labelFr)}, ${String(groupe)}, ${String(genre)}, ${sousCategorie ?? null},
         ${defaultValidityDays ?? null}, ${Number(maxRenewals ?? 0)}, ${Boolean(isActive ?? true)}, ${displayOrder ?? null}
       )
-      ON CONFLICT (key) DO NOTHING
+      ON CONFLICT (key) DO UPDATE SET key = EXCLUDED.key
+      RETURNING id
     `;
 
-    return res.status(201).json({ message: 'Catégorie créée' });
+    const createdId = result[0]?.id;
+
+    return res.status(201).json({ message: 'Catégorie créée', id: createdId });
   } catch (err) {
     console.error('[POST /api/permit-categories] error:', err);
     return res.status(500).json({ message: 'Erreur interne du serveur.' });

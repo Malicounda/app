@@ -136,6 +136,21 @@ function handleMessageRecord(db, attachmentsStore, msgRecord, resolve) {
 
 // Stratégie de cache pour les requêtes API
 self.addEventListener('fetch', (event) => {
+  // Ne pas intercepter les requêtes de développement (Vite dev server)
+  const isDev = event.request.url.includes('/@vite/') || 
+                event.request.url.includes('/@fs/') || 
+                event.request.url.includes('/node_modules/') || 
+                event.request.url.includes('?v=') || 
+                event.request.url.includes('?t=') || 
+                event.request.url.endsWith('.tsx') || 
+                event.request.url.endsWith('.ts') || 
+                event.request.url.endsWith('.jsx') || 
+                (event.request.url.includes('/src/') && (event.request.url.endsWith('.js') || event.request.url.endsWith('.ts') || event.request.url.endsWith('.tsx')));
+  
+  if (isDev) {
+    return; // Laisse le navigateur gérer directement sans interception du SW
+  }
+
   // Ne jamais intercepter les requêtes si on est dans l'APK Android (Capacitor)
   // Cela permet à l'APK de gérer ses requêtes nativement sans conflits CORS du SW.
   const isCapacitor = self.navigator && self.navigator.userAgent && 

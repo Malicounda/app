@@ -2254,14 +2254,8 @@ export default function Settings() {
           null
         ),
       }));
-      // Préserver les prix saisis localement si présents pour éviter qu'ils ne disparaissent sur un reload
-      setCategories(prev => rows.map(r => {
-        const prevCat = prev.find(p => p.id === r.id);
-        if (prevCat && (prevCat.priceXof ?? null) !== null) {
-          return { ...r, priceXof: prevCat.priceXof };
-        }
-        return r;
-      }));
+      // On ne préserve plus l'état précédent pour éviter que les prix obsolètes ne fuitent d'une saison à l'autre
+      setCategories(rows);
       // Initialiser/rafraîchir les valeurs affichées formatées
       setPriceEdits(prev => {
         const next: Record<number, string> = { ...prev };
@@ -2449,30 +2443,34 @@ export default function Settings() {
   }, [categories, specificPeriods]);
 
   // Sauvegarde d'une catégorie (incluant le prix) sans reload
-  const saveCategoryRow = async (rowId: number) => {
+  const saveCategoryRow = async (rowId: number, updatedFields?: Partial<PermitCategoryRow>) => {
     const row = categories.find(c => c.id === rowId);
     if (!row) return;
     setSavingRowId(rowId);
     try {
+      const active = updatedFields?.isActive !== undefined ? updatedFields.isActive : row.isActive;
+      const price = updatedFields?.priceXof !== undefined ? updatedFields.priceXof : (row.priceXof ?? null);
+
       const upResp = await apiRequest<any>('PUT', `/permit-categories/${row.id}`, {
         labelFr: row.labelFr,
         groupe: row.groupe,
         genre: row.genre,
         sousCategorie: row.sousCategorie ?? null,
         defaultValidityDays: row.defaultValidityDays ?? null,
-        isActive: row.isActive,
+        isActive: active,
       });
       if (!upResp.ok) throw new Error(upResp.error || 'Erreur mise à jour');
       const s = seasonYear || computeSeason();
-      if ((row.priceXof ?? null) !== null) {
-        await apiRequest<any>('POST', '/permit-categories/prices', {
-          categoryId: row.id,
-          seasonYear: s,
-          tarifXof: row.priceXof || 0,
-          priceXof: row.priceXof || 0,
-          isActive: true,
-        });
-      }
+
+      // Toujours enregistrer le prix (0 si null/vide) pour permettre l'effacement ou le reset
+      await apiRequest<any>('POST', '/permit-categories/prices', {
+        categoryId: row.id,
+        seasonYear: s,
+        tarifXof: price ?? 0,
+        priceXof: price ?? 0,
+        isActive: true,
+      });
+
       toast({ title: 'Enregistré', description: 'Catégorie mise à jour' });
     } catch (e: any) {
       console.error('[SETTINGS] auto-save price error:', e);
@@ -3500,7 +3498,17 @@ export default function Settings() {
                         <td className="p-2">{row.defaultValidityDays ?? ''}</td>
                         <td className="p-2">
                           <div className="flex items-center gap-2">
-                            <Switch id={`cat-active-${row.id}`} checked={row.isActive} onCheckedChange={(v) => setCategories(cs => cs.map(c => c.id === row.id ? { ...c, isActive: v } : c))} disabled={!editPrices} />
+                            <Switch 
+                              id={`cat-active-${row.id}`} 
+                              checked={row.isActive} 
+                              onCheckedChange={(v) => {
+                                setCategories(cs => cs.map(c => c.id === row.id ? { ...c, isActive: v } : c));
+                                if (editPrices) {
+                                  void saveCategoryRow(row.id, { isActive: v });
+                                }
+                              }} 
+                              disabled={!editPrices} 
+                            />
                             <Label htmlFor={`cat-active-${row.id}`}>{row.isActive ? 'Actif' : 'Inactif'}</Label>
                           </div>
                         </td>

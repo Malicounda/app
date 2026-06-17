@@ -59,7 +59,14 @@ export function registerServiceWorker() {
     const isProd = ((import.meta as any).env?.PROD) === true;
     const isSecureContext = location.protocol === 'https:' || location.hostname === 'localhost';
     if (!isProd) {
-      console.log('PWA: Service Worker désactivé en mode développement');
+      console.log('PWA: Service Worker désactivé en mode développement. Nettoyage des SW actifs...');
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (const registration of registrations) {
+          registration.unregister().then(success => {
+            if (success) console.log('PWA: Service Worker résiduel supprimé avec succès');
+          });
+        }
+      });
       return;
     }
     if (!isSecureContext) {
