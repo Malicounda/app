@@ -2111,6 +2111,7 @@ export default function Settings() {
   const [filterGroupe, setFilterGroupe] = useState<string>("all");
   const [filterGenre, setFilterGenre] = useState<string>("all");
   const [filterActive, setFilterActive] = useState<string>("all");
+  const [activeSubTab, setActiveSubTab] = useState<'cynegetique' | 'autre'>('cynegetique');
 
   // Types et états pour catégories de permis (onglet Tarifs des Permis)
   type PermitCategoryRow = {
@@ -3416,16 +3417,43 @@ export default function Settings() {
               <CardDescription>Gérer dynamiquement les catégories et leurs prix par saison. Les modifications s'appliquent à la saison en cours.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Sous-onglets de navigation premium */}
+              <div className="flex border-b border-green-200/60 pb-1">
+                <button
+                  type="button"
+                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab === 'cynegetique' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/30 rounded-t-md'}`}
+                  onClick={() => setActiveSubTab('cynegetique')}
+                >
+                  Permis Cynégétiques
+                </button>
+                <button
+                  type="button"
+                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab === 'autre' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/30 rounded-t-md'}`}
+                  onClick={() => setActiveSubTab('autre')}
+                >
+                  Autres Permis & Certificats
+                </button>
+              </div>
+
               {/* Barre d'actions et filtres */}
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <div className="font-semibold text-base">Catégories de permis — Saison {seasonYear || computeSeason()}</div>
+                  <div className="font-semibold text-base">
+                    {activeSubTab === 'cynegetique' ? 'Permis Cynégétiques' : 'Autres Permis & Certificats'} — Saison {seasonYear || computeSeason()}
+                  </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Switch id="edit-prices" checked={editPrices} onCheckedChange={setEditPrices} />
                       <Label htmlFor="edit-prices">Mode édition (auto-enregistrement)</Label>
                     </div>
-                    <Button onClick={() => setNewCatOpen(true)}>Nouvelle catégorie</Button>
+                    <Button onClick={() => {
+                      if (activeSubTab === 'cynegetique') {
+                        setNewCat({ genre: "resident", groupe: "petite-chasse", isActive: true, priceXof: undefined });
+                      } else {
+                        setNewCat({ genre: "autre", groupe: "autre", isActive: true, priceXof: undefined });
+                      }
+                      setNewCatOpen(true);
+                    }}>Nouvelle catégorie</Button>
                   </div>
                 </div>
                 <div className="p-3 border rounded-md bg-white/60">
@@ -3482,6 +3510,10 @@ export default function Settings() {
                   <tbody className="bg-white">
                     {categories
                       .filter(c => {
+                        const isCynegetique = ['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((c.groupe || '').toLowerCase().trim());
+                        if (activeSubTab === 'cynegetique' && !isCynegetique) return false;
+                        if (activeSubTab === 'autre' && isCynegetique) return false;
+
                         const q = filterQuery.trim().toLowerCase();
                         const matchQuery = q === '' || c.key.toLowerCase().includes(q) || c.labelFr.toLowerCase().includes(q);
                         const matchGroupe = filterGroupe === 'all' || c.groupe.toLowerCase() === filterGroupe.toLowerCase();
@@ -3555,8 +3587,54 @@ export default function Settings() {
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
                         <Input placeholder="Clé (ex: resident-gibier-eau)" value={newCat.key || ''} onChange={(e) => setNewCat({ ...newCat, key: e.target.value })} />
                         <Input placeholder="Libellé (fr)" value={newCat.labelFr || ''} onChange={(e) => setNewCat({ ...newCat, labelFr: e.target.value })} />
-                        <Input placeholder="Groupe (petite-chasse/grande-chasse/gibier-eau/autre)" value={newCat.groupe || ''} onChange={(e) => setNewCat({ ...newCat, groupe: e.target.value })} />
-                        <Input placeholder="Genre (resident/touriste/coutumier/scientifique/commercial/oisellerie)" value={newCat.genre || ''} onChange={(e) => setNewCat({ ...newCat, genre: e.target.value })} />
+                        
+                        {/* Select pour Groupe */}
+                        <Select value={newCat.groupe || ''} onValueChange={(val) => setNewCat({ ...newCat, groupe: val })}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Groupe" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {activeSubTab === 'cynegetique' ? (
+                              <>
+                                <SelectItem value="petite-chasse">Petite chasse</SelectItem>
+                                <SelectItem value="grande-chasse">Grande chasse</SelectItem>
+                                <SelectItem value="gibier-eau">Gibier d'eau</SelectItem>
+                                <SelectItem value="coutumier">Coutumier</SelectItem>
+                              </>
+                            ) : (
+                              <>
+                                <SelectItem value="capture commerciale">Capture commerciale</SelectItem>
+                                <SelectItem value="oisellerie">Oisellerie</SelectItem>
+                                <SelectItem value="scientifique">Scientifique</SelectItem>
+                                <SelectItem value="autre">Autre</SelectItem>
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+
+                        {/* Select pour Genre */}
+                        <Select value={newCat.genre || ''} onValueChange={(val) => setNewCat({ ...newCat, genre: val })}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Genre" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {activeSubTab === 'cynegetique' ? (
+                              <>
+                                <SelectItem value="resident">Résident</SelectItem>
+                                <SelectItem value="touriste">Touriste</SelectItem>
+                                <SelectItem value="coutumier">Coutumier</SelectItem>
+                              </>
+                            ) : (
+                              <>
+                                <SelectItem value="commercial">Commercial</SelectItem>
+                                <SelectItem value="oisellerie">Oisellerie</SelectItem>
+                                <SelectItem value="scientifique">Scientifique</SelectItem>
+                                <SelectItem value="autre">Autre</SelectItem>
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+
                         <Input placeholder="Sous-catégorie (ex: 2-semaines)" value={newCat.sousCategorie || ''} onChange={(e) => setNewCat({ ...newCat, sousCategorie: e.target.value })} />
                         <Input placeholder="Validité (jours)" type="number" value={newCat.defaultValidityDays ?? ''} onChange={(e) => setNewCat({ ...newCat, defaultValidityDays: e.target.value ? parseInt(e.target.value, 10) : undefined })} />
                       </div>
@@ -3592,7 +3670,10 @@ export default function Settings() {
                               });
                             }
                             toast({ title: 'Succès', description: 'Catégorie créée' });
-                            setNewCat({ genre: 'resident', groupe: 'petite-chasse', isActive: true, priceXof: undefined });
+                            setNewCat(activeSubTab === 'cynegetique'
+                              ? { genre: "resident", groupe: "petite-chasse", isActive: true, priceXof: undefined }
+                              : { genre: "autre", groupe: "autre", isActive: true, priceXof: undefined }
+                            );
                             setNewCatOpen(false);
                             await loadCategories(false);
                           } catch (e: any) {

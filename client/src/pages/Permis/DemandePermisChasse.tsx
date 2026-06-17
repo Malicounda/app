@@ -59,6 +59,7 @@ export default function DemandePermisChasse() {
   }
   const [permitCategories, setPermitCategories] = useState<PermitCategoryOption[]>([]);
   const [filteredCynegetiques, setFilteredCynegetiques] = useState<PermitCategoryOption[]>([]);
+  const [filteredAutres, setFilteredAutres] = useState<PermitCategoryOption[]>([]);
 
   const DOC_METADATA: Record<string, { label: string; requiresExpiry: boolean }> = {
     idCardDocument: { label: "Pièce d'identité (CNI ou Passeport)", requiresExpiry: true },
@@ -148,9 +149,23 @@ export default function DemandePermisChasse() {
     fetchPermitCategories();
   }, []);
 
-  // ── Filtrer les catégories cynégétiques selon la catégorie du chasseur ──
+  // ── Filtrer les catégories cynégétiques selon la catégorie du chasseur et autres permis ──
   useEffect(() => {
-    if (!hunterProfile?.category || permitCategories.length === 0) {
+    if (permitCategories.length === 0) {
+      setFilteredCynegetiques([]);
+      setFilteredAutres([]);
+      return;
+    }
+
+    const isCynegetiqueGroup = (g: string) =>
+      ['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes(g.toLowerCase().trim());
+
+    // 1. Filtrer pour les autres permis (hors groupes cynégétiques)
+    const autresFiltered = permitCategories.filter(c => !isCynegetiqueGroup(c.groupe));
+    setFilteredAutres(autresFiltered);
+
+    // 2. Filtrer pour cynégétique
+    if (!hunterProfile?.category) {
       setFilteredCynegetiques([]);
       return;
     }
@@ -172,18 +187,8 @@ export default function DemandePermisChasse() {
       default:
         filtered = [...permitCategories];
     }
-    setFilteredCynegetiques(filtered);
+    setFilteredCynegetiques(filtered.filter(c => isCynegetiqueGroup(c.groupe)));
   }, [hunterProfile, permitCategories]);
-
-  // Catégories « Autres permis » (statiques, mais alignées sur les clés BDD existantes)
-  const autresPermisOptions = [
-    { id: 'commerciale-capture', name: 'Permis de Capture Commerciale' },
-    { id: 'oisellerie', name: "Permis d'Oisellerie (Oisellier)" },
-    { id: 'scientifique', name: 'Permis Scientifique de Chasse' },
-    { id: TypePermisSpecial.CERTIFICAT_EXPORT, name: "Certificat d'Origine / d'Exportation" },
-    { id: TypePermisSpecial.CERTIFICAT_DETENTION, name: "Certificat de Détention d'espèces sauvages" },
-    { id: TypePermisSpecial.AUTRE_DOCUMENT, name: "Autre document de transport / d'exploitation" },
-  ];
 
   const handleUpload = async (docCode: string, file: File) => {
     if (!hunterProfile?.id) return;
@@ -474,11 +479,17 @@ export default function DemandePermisChasse() {
                                 </div>
                               )
                             ) : (
-                              autresPermisOptions.map((opt) => (
-                                <SelectItem key={opt.id} value={opt.id}>
-                                  {opt.name}
-                                </SelectItem>
-                              ))
+                              filteredAutres.length > 0 ? (
+                                filteredAutres.map((opt) => (
+                                  <SelectItem key={opt.id} value={opt.id}>
+                                    {opt.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-3 py-2 text-sm text-muted-foreground">
+                                  Aucune option de permis spécial disponible.
+                                </div>
+                              )
                             )}
                           </SelectContent>
                         </Select>
