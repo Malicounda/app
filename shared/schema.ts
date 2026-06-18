@@ -790,6 +790,7 @@ export const huntingCampaigns = pgTable("hunting_campaigns", {
   year: text("year").notNull(),             // Année de la campagne (ex: "2025-2026")
   isActive: boolean("is_active").notNull().default(true),
   notes: text("notes"),                     // Notes éventuelles sur la campagne
+  inactiveNotes: text("inactive_notes"),    // Notes affichées lorsque la campagne est inactive
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

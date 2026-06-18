@@ -1843,6 +1843,7 @@ export default function Settings() {
     waterGameDerogation: false,
     isActive: true,
     notes: '',
+    inactiveNotes: '',
   });
 
   // Périodes spécifiques dynamiques (CRUD)
@@ -1850,6 +1851,7 @@ export default function Settings() {
   const [specificPeriods, setSpecificPeriods] = useState<PeriodRow[]>([]);
   const [newPeriodOpen, setNewPeriodOpen] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
+  const [isEditingInactiveNote, setIsEditingInactiveNote] = useState(false);
   const [newPeriod, setNewPeriod] = useState<PeriodRow>({ code: "", name: "", startDate: new Date(), endDate: new Date(), derogationEnabled: false, groupe: "", genre: "" });
 
   type CategoryPeriodRow = { categoryKey: string; startDate: Date; endDate: Date; derogationEnabled: boolean };
@@ -2338,6 +2340,7 @@ export default function Settings() {
             waterGameDerogation: typeof data.waterGameDerogation === 'boolean' ? data.waterGameDerogation : false,
             isActive: typeof data.isActive === 'boolean' ? data.isActive : prevState.isActive,
             notes: data.notes || '',
+            inactiveNotes: data.inactiveNotes || '',
           }));
 
           // If API already returns dynamic periods, map them to state
@@ -3161,7 +3164,11 @@ export default function Settings() {
                             // Set default message when activating if empty
                             notes: v && !prev.notes 
                               ? "Campagne cynégétique de [ANNEE] ouverte. Il reste [COMPTEUR] jours avant la fermeture de la campagne." 
-                              : prev.notes
+                              : prev.notes,
+                            // Set default inactive message when deactivating if empty
+                            inactiveNotes: !v && !prev.inactiveNotes
+                              ? "Arrêt des activités de la campagne cynégétique pour [ANNEE]."
+                              : prev.inactiveNotes
                           }));
                         }} 
                       />
@@ -3169,10 +3176,10 @@ export default function Settings() {
                     </div>
                   </div>
                   
-                  {huntingSeason.isActive && (
+                  {huntingSeason.isActive ? (
                     <div className="flex flex-col space-y-1.5 mt-2 bg-slate-50 p-4 rounded-md border">
                       <div className="flex items-center justify-between mb-1">
-                        <Label htmlFor="campaign-notes">Note affichée aux agents (Tableau de bord)</Label>
+                        <Label htmlFor="campaign-notes">Note affichée aux agents (Campagne Active)</Label>
                         <Button
                           type="button"
                           variant="ghost"
@@ -3203,6 +3210,43 @@ export default function Settings() {
                       ) : (
                         <div className="text-sm font-medium text-gray-800 bg-white p-3 border rounded-md min-h-[4rem] whitespace-pre-wrap">
                           {huntingSeason.notes || <span className="text-muted-foreground italic">Aucune note définie</span>}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col space-y-1.5 mt-2 bg-red-50 p-4 rounded-md border border-red-100">
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor="campaign-inactive-notes" className="text-red-800">Note affichée aux agents (Campagne Terminée)</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-red-600 hover:bg-red-100 hover:text-red-900"
+                          onClick={() => setIsEditingInactiveNote(!isEditingInactiveNote)}
+                          title="Modifier le message"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      {isEditingInactiveNote ? (
+                        <>
+                          <Textarea 
+                            id="campaign-inactive-notes" 
+                            value={huntingSeason.inactiveNotes} 
+                            onChange={(e) => setHuntingSeason(prev => ({ ...prev, inactiveNotes: e.target.value }))}
+                            placeholder="Message diffusé aux agents quand la campagne est fermée... Utilisez [ANNEE] comme variable."
+                            className="resize-none font-medium border-red-200 focus-visible:ring-red-500"
+                            rows={3}
+                            autoFocus
+                          />
+                          <p className="text-xs text-red-600/80 mt-1">
+                            La variable <strong>[ANNEE]</strong> sera remplacée dynamiquement par l'année de la campagne.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="text-sm font-medium text-red-800 bg-white p-3 border border-red-100 rounded-md min-h-[4rem] whitespace-pre-wrap">
+                          {huntingSeason.inactiveNotes || <span className="text-red-800/50 italic">Aucune note définie</span>}
                         </div>
                       )}
                     </div>

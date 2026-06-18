@@ -332,7 +332,7 @@ router.get('/campaign', isAuthenticated, async (req, res) => {
     let campaignRow: any | null = null;
     try {
       const rows: any[] = await db.execute(sql`
-        SELECT id, start_date, end_date, year, is_active, notes
+        SELECT id, start_date, end_date, year, is_active, notes, inactive_notes
         FROM hunting_campaigns
         ORDER BY (CASE WHEN is_active THEN 0 ELSE 1 END), updated_at DESC NULLS LAST, id DESC
         LIMIT 1
@@ -414,6 +414,7 @@ router.get('/campaign', isAuthenticated, async (req, res) => {
       year: String(campaignRow.year),
       isActive: !!campaignRow.is_active,
       notes: campaignRow.notes ? String(campaignRow.notes) : '',
+      inactiveNotes: campaignRow.inactive_notes ? String(campaignRow.inactive_notes) : '',
       periods,
       categoryPeriods,
     });
@@ -489,8 +490,8 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
       return res.status(403).json({ message: "Accès refusé: réservé aux administrateurs" });
     }
 
-    const { startDate, endDate, year, isActive, notes, periods, categoryPeriods } = req.body || {} as {
-      startDate?: string; endDate?: string; year?: string; isActive?: boolean; notes?: string;
+    const { startDate, endDate, year, isActive, notes, inactiveNotes, periods, categoryPeriods } = req.body || {} as {
+      startDate?: string; endDate?: string; year?: string; isActive?: boolean; notes?: string; inactiveNotes?: string;
       periods?: Array<{ code: string; name?: string; groupe?: string; genre?: string; startDate: string; endDate: string; enabled?: boolean; derogationEnabled?: boolean }>
       categoryPeriods?: Array<{ categoryKey: string; startDate: string; endDate: string; enabled?: boolean; derogationEnabled?: boolean }>
     };
@@ -511,15 +512,16 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
 
     // Upsert campagne dans hunting_campaigns (conflit sur year)
     const upsertCampaignRows: any[] = await db.execute(sql`
-      INSERT INTO hunting_campaigns (start_date, end_date, year, is_active, notes)
-      VALUES (${startDate}, ${endDate}, ${year}, ${!!isActive}, ${notes || null})
+      INSERT INTO hunting_campaigns (start_date, end_date, year, is_active, notes, inactive_notes)
+      VALUES (${startDate}, ${endDate}, ${year}, ${!!isActive}, ${notes || null}, ${inactiveNotes || null})
       ON CONFLICT (year) DO UPDATE
         SET start_date = EXCLUDED.start_date,
             end_date = EXCLUDED.end_date,
             is_active = EXCLUDED.is_active,
             notes = EXCLUDED.notes,
+            inactive_notes = EXCLUDED.inactive_notes,
             updated_at = CURRENT_TIMESTAMP
-      RETURNING id, start_date, end_date, year, is_active, notes
+      RETURNING id, start_date, end_date, year, is_active, notes, inactive_notes
     `);
     const campaign = upsertCampaignRows?.[0];
 
@@ -641,6 +643,7 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
       year: String(campaign.year),
       isActive: !!campaign.is_active,
       notes: campaign.notes ? String(campaign.notes) : '',
+      inactiveNotes: campaign.inactive_notes ? String(campaign.inactive_notes) : '',
       periods: (periodsRows || []).map((p: any) => ({
         code: String(p.code),
         name: String(p.name),
