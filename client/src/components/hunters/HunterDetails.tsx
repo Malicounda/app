@@ -995,16 +995,8 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                           <span className={`px-2 py-1 text-xs rounded-full ${status.color}`}>
                                             {status.text}
                                           </span>
-                                          {(status as any).isExpired && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                                              ⚠️ Expiré
-                                            </span>
-                                          )}
-                                          {(status as any).isDueSoon && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
-                                              ⚠️ À mettre à jour
-                                            </span>
-                                          )}
+                                          
+                                          
                                         </div>
                                         {status.expiryDate && (
                                           <span className="text-xs text-gray-500">
@@ -1076,16 +1068,8 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                           <span className={`px-2 py-1 text-xs rounded-full ${status.color}`}>
                                             {status.text}
                                           </span>
-                                          {status.status === 'expired' && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                                              ⚠️ Expiré
-                                            </span>
-                                          )}
-                                          {status.status === 'dueSoon' && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
-                                              ⚠️ À mettre à jour
-                                            </span>
-                                          )}
+                                          
+                                          
                                         </div>
                                         {status.expiryDate && (
                                           <span className="text-xs text-gray-500">
@@ -1214,16 +1198,8 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                           <span className={`px-2 py-1 text-xs rounded-full ${status.color}`}>
                                             {status.text}
                                           </span>
-                                          {status.status === 'expired' && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                                              ⚠️ Expiré
-                                            </span>
-                                          )}
-                                          {status.status === 'dueSoon' && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
-                                              ⚠️ À mettre à jour
-                                            </span>
-                                          )}
+                                          
+                                          
                                         </div>
                                         {status.expiryDate && (
                                           <span className="text-xs text-gray-500">
@@ -1295,16 +1271,8 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                           <span className={`px-2 py-1 text-xs rounded-full ${status.color}`}>
                                             {status.text}
                                           </span>
-                                          {status.status === 'expired' && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                                              ⚠️ Expiré
-                                            </span>
-                                          )}
-                                          {status.status === 'dueSoon' && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
-                                              ⚠️ À mettre à jour
-                                            </span>
-                                          )}
+                                          
+                                          
                                         </div>
                                         {status.expiryDate && (
                                           <span className="text-xs text-gray-500">
@@ -1376,16 +1344,8 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                           <span className={`px-2 py-1 text-xs rounded-full ${status.color}`}>
                                             {status.text}
                                           </span>
-                                          {status.status === 'expired' && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                                              ⚠️ Expiré
-                                            </span>
-                                          )}
-                                          {status.status === 'dueSoon' && (
-                                            <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
-                                              ⚠️ À mettre à jour
-                                            </span>
-                                          )}
+                                          
+                                          
                                         </div>
                                         {status.expiryDate && (
                                           <span className="text-xs text-gray-500">
@@ -1858,6 +1818,5 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     </>
   );
 }
-
 
 
