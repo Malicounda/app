@@ -152,7 +152,12 @@ export default function PermitRequestReception() {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      const response = await fetch(resolveApiUrl(`/api/attachments/${currentRequest.hunterId}/${docCode}?inline=1`), {
+      const isAutre = currentRequest.hunterCategory?.toLowerCase() === 'autre';
+      const endpoint = isAutre 
+        ? `/api/hunter-documents/${currentRequest.hunterId}/${docCode}`
+        : `/api/attachments/${currentRequest.hunterId}/${docCode}?inline=1`;
+
+      const response = await fetch(resolveApiUrl(endpoint), {
         headers
       });
       if (!response.ok) throw new Error("Impossible de charger le document");
@@ -176,7 +181,12 @@ export default function PermitRequestReception() {
       const fetchHunterAttachments = async () => {
         setLoadingAttachments(true);
         try {
-          const res = await fetch(resolveApiUrl(`/api/attachments/${currentRequest.hunterId}`));
+          const isAutre = currentRequest.hunterCategory?.toLowerCase() === 'autre';
+          const endpoint = isAutre 
+            ? `/api/hunter-documents/${currentRequest.hunterId}`
+            : `/api/attachments/${currentRequest.hunterId}`;
+
+          const res = await fetch(resolveApiUrl(endpoint));
           if (res.ok) {
             const data = await res.json();
             setHunterAttachments(data.items || []);
@@ -797,48 +807,78 @@ export default function PermitRequestReception() {
                     <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
                     <span className="text-sm text-gray-500">Chargement des justificatifs...</span>
                   </div>
-                ) : hunterAttachments.length === 0 ? (
-                  <p className="text-sm text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-100 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-2" /> Aucun justificatif téléversé pour le moment.
-                  </p>
                 ) : (
                   <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                    {DOC_TYPES.map((doc) => {
-                      const fileInfo = hunterAttachments.find((a: any) => a.type === doc.code);
-                      const isPresent = fileInfo?.present;
-                      return (
-                        <div key={doc.code} className="flex items-center justify-between p-2.5 rounded-lg border text-sm bg-white hover:bg-slate-50 transition">
-                          <div className="flex items-center space-x-2">
-                            <div className={isPresent ? 'text-green-600' : 'text-gray-400'}>
-                              {isPresent ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                    {currentRequest.hunterCategory?.toLowerCase() === 'autre' ? (
+                      hunterAttachments.length === 0 ? (
+                        <p className="text-sm text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-100 flex items-center">
+                          <AlertCircle className="h-4 w-4 mr-2" /> Aucun justificatif téléversé pour le moment.
+                        </p>
+                      ) : (
+                        hunterAttachments.map((fileInfo: any) => (
+                          <div key={fileInfo.type} className="flex items-center justify-between p-2.5 rounded-lg border text-sm bg-white hover:bg-slate-50 transition">
+                            <div className="flex items-center space-x-2">
+                              <div className="text-green-600">
+                                <Check className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-800 text-xs">
+                                  {fileInfo.name || "Document Justificatif"}
+                                </p>
+                              </div>
                             </div>
                             <div>
-                              <p className="font-semibold text-gray-800 text-xs">{doc.label}</p>
-                              {isPresent && fileInfo.expiryDate && (
-                                <p className="text-[10px] text-gray-500">
-                                  Expire le : {new Date(fileInfo.expiryDate).toLocaleDateString()}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            {isPresent ? (
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                onClick={() => viewDocument(doc.code)}
+                                onClick={() => viewDocument(fileInfo.type)}
                                 className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
                               >
                                 <FileText className="h-3 w-3 mr-1" /> Visualiser
                               </Button>
-                            ) : (
-                              <span className="text-[11px] text-gray-400 font-medium italic">Non fourni</span>
-                            )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        ))
+                      )
+                    ) : (
+                      DOC_TYPES.map((doc) => {
+                        const fileInfo = hunterAttachments.find((a: any) => a.type === doc.code);
+                        const isPresent = fileInfo?.present;
+                        return (
+                          <div key={doc.code} className="flex items-center justify-between p-2.5 rounded-lg border text-sm bg-white hover:bg-slate-50 transition">
+                            <div className="flex items-center space-x-2">
+                              <div className={isPresent ? 'text-green-600' : 'text-gray-400'}>
+                                {isPresent ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-800 text-xs">{doc.label}</p>
+                                {isPresent && fileInfo.expiryDate && (
+                                  <p className="text-[10px] text-gray-500">
+                                    Expire le : {new Date(fileInfo.expiryDate).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              {isPresent ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => viewDocument(doc.code)}
+                                  className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                                >
+                                  <FileText className="h-3 w-3 mr-1" /> Visualiser
+                                </Button>
+                              ) : (
+                                <span className="text-[11px] text-gray-400 font-medium italic">Non fourni</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 )}
               </div>

@@ -24,6 +24,7 @@ import guideHunterAssociationsRoutes from './guide-hunter-associations.routes.js
 import guideRoutes from './guides.routes.js';
 import historyRoutes from './history.routes.js';
 import hunterAttachmentsRoutes from './hunterAttachments.routes.js';
+import hunterDocumentsRoutes from './hunterDocuments.routes.js';
 import hunterRoutes from './hunters.routes.js';
 import huntingActivitiesRoutes from './hunting-activities.routes.js';
 import huntingReportsRoutes from './huntingReports.routes.js';
@@ -142,6 +143,9 @@ export default function registerRoutes(app: Express): void {
 
   // Routes pour les pièces jointes par chasseur (1 ligne par chasseur)
   app.use('/api', hunterAttachmentsRoutes);
+
+  // Routes pour les documents génériques (Autres permis)
+  app.use('/api', hunterDocumentsRoutes);
 
   // Routes pour les régions et départements (maintenues sous /api)
   app.use('/api', regionsRoutes);

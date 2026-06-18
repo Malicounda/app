@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/utils/environment";
 import DocumentUpload from '@/components/documents/DocumentUpload';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

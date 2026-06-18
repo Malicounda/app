@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/utils/environment";
 import { useParams, useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
 import { TypePermisSpecial, StatutDemande, DocumentJoint } from '@/types/permis';

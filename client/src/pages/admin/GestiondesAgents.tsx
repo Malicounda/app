@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/utils/environment";
 import ResponsivePage from "@/components/layout/ResponsivePage";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";

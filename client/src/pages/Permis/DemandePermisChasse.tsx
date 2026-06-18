@@ -76,7 +76,7 @@ export default function DemandePermisChasse() {
       return ['idCardDocument', 'weaponPermit', 'insurance', 'hunterPhoto', 'treasuryStamp', 'weaponReceipt'];
     }
     if (category === 'AUTRE') {
-      return ['idCardDocument', 'hunterPhoto', 'moralCertificate'];
+      return ['moralCertificate'];
     }
     return [];
   };
@@ -84,8 +84,21 @@ export default function DemandePermisChasse() {
   const fetchAttachments = async (hunterId: number) => {
     setLoadingAttachments(true);
     try {
-      const data = await apiRequest<any>({ url: `/api/attachments/${hunterId}`, method: 'GET' });
-      setAttachments(data.items || []);
+      const [cynegetiqueData, autresData] = await Promise.all([
+        apiRequest<any>({ url: `/api/attachments/${hunterId}`, method: 'GET' }).catch(() => ({ items: [] })),
+        apiRequest<any>({ url: `/api/hunter-documents/${hunterId}`, method: 'GET' }).catch(() => ({ items: [] }))
+      ]);
+      
+      // On ne garde que les documents RÉELLEMENT présents
+      const cynegetiqueItems = (cynegetiqueData.items || [])
+        .filter((i: any) => i.present)
+        .map((i: any) => ({ ...i, source: 'CYNEGETIQUE' }));
+        
+      const autresItems = (autresData.items || [])
+        .filter((i: any) => i.present)
+        .map((i: any) => ({ ...i, source: 'AUTRE' }));
+        
+      setAttachments([...cynegetiqueItems, ...autresItems]);
     } catch (err) {
       console.error("Error loading attachments", err);
     } finally {
@@ -187,17 +200,23 @@ export default function DemandePermisChasse() {
       return;
     }
 
+    const finalDocCode = category === 'AUTRE' ? `${docCode}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}` : docCode;
+
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('documentType', docCode);
+    formData.append('documentType', finalDocCode);
     if (expiryDate) {
       formData.append('expiryDate', expiryDate);
     }
 
     try {
       setLoadingAttachments(true);
+      const endpoint = category === 'AUTRE' 
+        ? `/api/hunter-documents/${hunterProfile.id}` 
+        : `/api/attachments/${hunterProfile.id}`;
+        
       await apiRequest<any>({
-        url: `/api/attachments/${hunterProfile.id}`,
+        url: endpoint,
         method: 'POST',
         data: formData
       });
@@ -215,8 +234,16 @@ export default function DemandePermisChasse() {
     if (!hunterProfile?.id) return;
     try {
       setLoadingAttachments(true);
+      
+      // On détermine la source depuis l'état actuel ou la catégorie
+      const doc = attachments.find(a => a.type === docCode);
+      const isAutre = doc?.source === 'AUTRE' || category === 'AUTRE';
+      const endpoint = isAutre 
+        ? `/api/hunter-documents/${hunterProfile.id}/${docCode}` 
+        : `/api/attachments/${hunterProfile.id}/${docCode}`;
+
       await apiRequest<any>({
-        url: `/api/attachments/${hunterProfile.id}/${docCode}`,
+        url: endpoint,
         method: 'DELETE'
       });
       toast({ title: "Succès", description: "Document supprimé avec succès." });
@@ -237,7 +264,7 @@ export default function DemandePermisChasse() {
 
     // Vérifier si toutes les pièces jointes de la catégorie sont présentes, seulement pour la soumission finale
     const requiredDocs = getRequiredDocsForCategory();
-    const missingDocs = requiredDocs.filter(docCode => !attachments.some(a => a.type === docCode));
+    const missingDocs = requiredDocs.filter(docCode => !attachments.some(a => a.type.startsWith(docCode) && a.source === category));
 
     if (status === 'pending' && missingDocs.length > 0) {
       setError(`Veuillez téléverser tous les documents obligatoires avant de soumettre.`);
@@ -491,8 +518,8 @@ export default function DemandePermisChasse() {
                           {requiredDocs.map((docCode) => {
                             const meta = DOC_METADATA[docCode];
                             if (!meta) return null;
-                            const isPresent = attachments.some(a => a.type === docCode);
-                            const attachment = attachments.find(a => a.type === docCode);
+                            const uploadedDocs = attachments.filter(a => a.type.startsWith(docCode) && a.source === category);
+                            const isPresent = uploadedDocs.length > 0;
 
                             return (
                               <div
@@ -503,30 +530,44 @@ export default function DemandePermisChasse() {
                                     : 'bg-white border-slate-100 shadow-sm'
                                 }`}
                               >
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                  <div className="space-y-1">
+                                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                                  <div className="space-y-2">
                                     <div className="flex items-center gap-2">
                                       <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
                                       <span className="text-sm font-bold text-slate-700">{meta.label}</span>
-                                      {isPresent && (
+                                    </div>
+                                    
+                                    {/* Affichage des documents uploadés (supporte plusieurs pour AUTRE) */}
+                                    {uploadedDocs.map((att: any) => (
+                                      <div key={att.type} className="flex items-center gap-2 pl-6">
                                         <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none rounded-full px-2 py-0.5 text-[9px] font-bold">
                                           Chargé
                                         </Badge>
-                                      )}
-                                    </div>
-                                    {isPresent && attachment?.expiryDate && (
-                                      <span className="block text-[10px] font-medium text-slate-400">
-                                        Expire le : {new Date(attachment.expiryDate).toLocaleDateString('fr-FR')}
-                                      </span>
-                                    )}
+                                        <span className="text-[10px] text-slate-500 truncate max-w-[150px]">{att.name}</span>
+                                        {att.expiryDate && (
+                                          <span className="text-[10px] font-medium text-slate-400">
+                                            (Exp: {new Date(att.expiryDate).toLocaleDateString('fr-FR')})
+                                          </span>
+                                        )}
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleDeleteDoc(att.type)}
+                                          className="h-5 px-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ))}
                                   </div>
 
-                                  <div className="flex items-center gap-3">
-                                    {/* Saisie de la date d'expiration si requise et non présent */}
-                                    {meta.requiresExpiry && !isPresent && (
-                                      <div className="flex flex-col gap-1">
+                                  <div className="flex flex-col items-end gap-3 mt-2 md:mt-0">
+                                    {/* Saisie de la date d'expiration si requise */}
+                                    {meta.requiresExpiry && (!isPresent || category === 'AUTRE') && (
+                                      <div className="flex flex-col gap-1 items-end">
                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                                          <CalendarDays className="h-3 w-3" /> Expire le
+                                          <CalendarDays className="h-3 w-3" /> Expire le (si applicable)
                                         </span>
                                         <Input
                                           type="date"
@@ -537,26 +578,21 @@ export default function DemandePermisChasse() {
                                       </div>
                                     )}
 
-                                    {isPresent ? (
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleDeleteDoc(docCode)}
-                                        className="h-8 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-100 hover:border-rose-200 text-xs font-bold gap-1.5"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" /> Supprimer
-                                      </Button>
-                                    ) : (
+                                    {/* Bouton de téléchargement, toujours visible si c'est AUTRE, ou caché si c'est CYNEGETIQUE et déjà uploadé */}
+                                    {(!isPresent || category === 'AUTRE') && (
                                       <div className="relative">
                                         <input
                                           type="file"
+                                          multiple={category === 'AUTRE'}
                                           accept=".pdf,.jpg,.jpeg,.png"
                                           className="hidden"
                                           id={`upload-${docCode}`}
-                                          onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) handleUpload(docCode, file);
+                                          onChange={async (e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            // Upload sequentially to avoid race conditions and toast spam
+                                            for (const file of files) {
+                                              await handleUpload(docCode, file);
+                                            }
                                           }}
                                         />
                                         <Button
@@ -567,7 +603,7 @@ export default function DemandePermisChasse() {
                                           className="h-8 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50/50 border-emerald-100 hover:border-emerald-200 text-xs font-bold gap-1.5"
                                         >
                                           <label htmlFor={`upload-${docCode}`} className="cursor-pointer">
-                                            <Upload className="h-3.5 w-3.5" /> Téléverser
+                                            <Upload className="h-3.5 w-3.5" /> {category === 'AUTRE' && isPresent ? 'Ajouter un document' : 'Téléverser'}
                                           </label>
                                         </Button>
                                       </div>
@@ -614,7 +650,7 @@ export default function DemandePermisChasse() {
               <Button
                 type="button"
                 onClick={() => submitWithStatus('pending')}
-                disabled={isSubmitting || !typePermis || requiredDocs.filter(d => !attachments.some(a => a.type === d)).length > 0}
+                disabled={isSubmitting || !typePermis || requiredDocs.filter(d => !attachments.some(a => a.type.startsWith(d) && a.source === category)).length > 0}
                 className="rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold h-11 px-8 shadow-lg shadow-emerald-500/25 disabled:opacity-50"
               >
                 {isSubmitting ? (

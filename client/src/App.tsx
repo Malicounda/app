@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/utils/environment";
 import AlerteApkNotifications from "@/components/AlerteApkNotifications";
 import { AuthWrapper } from "@/components/auth/AuthWrapper";
 import ChasseRoute from "@/components/auth/ChasseRoute";

@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/utils/environment";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { departmentsByRegion } from "@/lib/constants";

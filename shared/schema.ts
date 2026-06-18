@@ -1781,6 +1781,8 @@ export const hunterDocuments = pgTable("hunter_documents", {
 	documentType: varchar("document_type", { length: 100 }),
 	filePath: text("file_path"),
 	fileName: varchar("file_name", { length: 255 }),
+	fileData: unknown("file_data"),
+	fileMime: varchar("file_mime", { length: 100 }),
 	uploadedAt: timestamp("uploaded_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 	createdAt: timestamp("created_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
