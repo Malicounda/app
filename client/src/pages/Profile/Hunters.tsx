@@ -34,7 +34,8 @@ import {
   Search,
   Trash2,
   User,
-  UserPlus
+  UserPlus,
+  X
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -442,12 +443,20 @@ export default function Hunters() {
             <Input
               type="text"
               placeholder="Rechercher (N° pièce, nom, téléphone, N° permis)"
-              className="pl-10 bg-white h-9 text-sm border-gray-300"
+              className="pl-10 pr-10 bg-white h-9 text-sm border-gray-300"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
             {serverSearching && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">Recherche...</span>
+              <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-gray-500">Recherche...</span>
             )}
           </div>
           <div className="flex flex-wrap gap-2 justify-end">

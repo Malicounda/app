@@ -423,6 +423,7 @@ export const permitRequests = pgTable("permit_requests", {
   reason: text("reason"), // Raison de la demande
   notes: text("notes"), // Notes administratives (visible uniquement par les admins)
   domaineId: integer("domain_id").references(() => domaines.id),
+  referenceNumber: varchar("reference_number", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -433,6 +434,7 @@ export const insertPermitRequestSchema = createInsertSchema(permitRequests).omit
   updatedAt: true,
   status: true,
   notes: true,
+  referenceNumber: true,
 });
 
 // Table pour les déclarations d'animaux abattus

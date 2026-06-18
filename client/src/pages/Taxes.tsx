@@ -11,7 +11,7 @@ import { exportToCsv } from "@/utils/export";
 import { isSectorSubRole } from "@/utils/navigation";
 import { PdfLibraryLoader, generatePdf } from "@/utils/pdfGenerator";
 import { format } from "date-fns";
-import { Coins, FileDown, FileText, Pencil, Printer, Search, Trash } from "lucide-react";
+import { Coins, FileDown, FileText, Pencil, Printer, Search, Trash, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function Taxes() {
@@ -248,10 +248,18 @@ export default function Taxes() {
                   <Input
                     type="text"
                     placeholder="Rechercher (N° taxe, N° quittance, N° pièce, chasseur, permis)"
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="w-full sm:w-auto px-2 flex flex-wrap items-center gap-2 justify-end print:hidden">

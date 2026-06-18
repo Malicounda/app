@@ -43,6 +43,7 @@ interface PermitRequest {
   hunterCategory: string;
   requestDate: string;
   status: "pending" | "approved" | "rejected" | "delivered";
+  referenceNumber?: string;
   permitType: string;
   hunterId?: number;
   notes?: string;
@@ -50,6 +51,7 @@ interface PermitRequest {
   createdAt?: string;
   region: string;
   phone: string;
+  idNumber: string;
   email: string;
   comments?: string;
   deliveredBy?: number;
@@ -266,7 +268,9 @@ export default function PermitRequestReception() {
             hunterCategory: r.requestedCategory || r.hunterCategory || "resident",
             requestDate: r.createdAt || r.requestDate || new Date().toISOString(),
             comments: r.reason || r.comments || null,
-            hunterName: r.hunterFirstName ? `${r.hunterFirstName} ${r.hunterLastName}` : r.hunterName || "Inconnu"
+            hunterName: r.hunterFirstName ? `${r.hunterFirstName} ${r.hunterLastName}` : r.hunterName || "Inconnu",
+            phone: r.hunterPhone || r.phone || "",
+            idNumber: r.hunterIdNumber || r.idNumber || ""
           }));
       } catch (error) {
         console.error("Error fetching permit requests:", error);
@@ -425,6 +429,8 @@ export default function PermitRequestReception() {
       const matchesSearch =
         (request.hunterName || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
         (request.phone || "").includes(searchTerm || "") ||
+        (request.referenceNumber || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
+        (request.idNumber || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
         (request.email || "").toLowerCase().includes((searchTerm || "").toLowerCase());
 
       const matchesStatus = !filterStatus || request.status === filterStatus;
@@ -503,14 +509,22 @@ export default function PermitRequestReception() {
         <div className="flex items-center gap-4 w-full md:w-auto flex-1">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            type="text"
-            placeholder="Rechercher (N° permis, N° quittance, N° pièce, nom, téléphone)"
-            className="pl-10 bg-white h-9 text-sm border-gray-300"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+            <Input
+              type="text"
+              placeholder="Rechercher (N° demande, N° pièce, nom, téléphone)"
+              className="pl-10 pr-10 bg-white h-9 text-sm border-gray-300"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         <div className="hidden xl:flex items-center gap-2 text-xs">
           <Badge variant="outline" className="bg-white">Total: {countTotal}</Badge>
           <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">En attente: {countPending}</Badge>
@@ -670,10 +684,12 @@ export default function PermitRequestReception() {
                       />
                     </div>
                   </TableHead>
+                  <TableHead>N° Demande</TableHead>
                   <TableHead>Chasseur</TableHead>
                   <TableHead>Type de Permis</TableHead>
                   <TableHead>Date de Demande</TableHead>
                   <TableHead>Catégorie</TableHead>
+                  <TableHead>Téléphone</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -689,12 +705,24 @@ export default function PermitRequestReception() {
                         />
                       </div>
                     </TableCell>
+                    <TableCell>
+                      {request.referenceNumber ? (
+                        <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase whitespace-nowrap">
+                          {request.referenceNumber}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic text-xs">Non défini</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">{request.hunterName}</TableCell>
                     <TableCell>{request.permitType}</TableCell>
                     <TableCell>
                       {format(new Date(request.requestDate), "dd MMM yyyy", { locale: fr })}
                     </TableCell>
                     <TableCell className="capitalize">{request.hunterCategory}</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">
+                      {request.phone || <span className="text-slate-400 italic">Non fourni</span>}
+                    </TableCell>
                     <TableCell>
                       {getStatusBadge(request.status)}
                     </TableCell>
@@ -748,7 +776,14 @@ export default function PermitRequestReception() {
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
-              <DialogTitle>Détails de la Demande de Permis</DialogTitle>
+              <DialogTitle className="flex flex-col gap-1">
+                <span>Détails de la Demande de Permis</span>
+                {currentRequest.referenceNumber && (
+                  <span className="text-sm font-mono font-medium text-slate-500">
+                    N° {currentRequest.referenceNumber}
+                  </span>
+                )}
+              </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 my-4">

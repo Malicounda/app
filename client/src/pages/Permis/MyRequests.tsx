@@ -24,6 +24,7 @@ interface PermitRequest {
   requestedCategory: string;
   region: string;
   status: 'draft' | 'pending' | 'approved' | 'rejected' | 'delivered';
+  referenceNumber?: string;
   reason?: string;
   notes?: string;
   createdAt: string;
@@ -292,7 +293,14 @@ export default function MyRequests({ onEditRequest }: { onEditRequest?: (req: Pe
                             <div className="px-4 py-3 flex-grow">
                               <div className="flex justify-between items-start">
                                 <div className="flex flex-col gap-0.5">
-                                  <h3 className="font-semibold text-slate-800 text-base">{formatPermitType(request.requestedType)}</h3>
+                                  <h3 className="font-semibold text-slate-800 text-base flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                                    {formatPermitType(request.requestedType)}
+                                    {request.referenceNumber && (
+                                      <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mt-1 sm:mt-0 w-fit uppercase">
+                                        {request.referenceNumber}
+                                      </span>
+                                    )}
+                                  </h3>
                                   <p className="text-sm text-slate-500">
                                     {formatHunterCategory(request.requestedCategory)}
                                   </p>
@@ -347,7 +355,14 @@ export default function MyRequests({ onEditRequest }: { onEditRequest?: (req: Pe
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <h3 className="font-medium">{formatPermitType(selectedRequest.requestedType)}</h3>
+                        <div className="flex flex-col gap-1">
+                          <h3 className="font-medium">{formatPermitType(selectedRequest.requestedType)}</h3>
+                          {selectedRequest.referenceNumber && (
+                            <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 w-fit">
+                              N° {selectedRequest.referenceNumber}
+                            </span>
+                          )}
+                        </div>
                         <Badge className={`${getStatusBadgeColor(selectedRequest.status)} flex items-center gap-1`}>
                           {getStatusIcon(selectedRequest.status)}
                           {formatStatus(selectedRequest.status)}

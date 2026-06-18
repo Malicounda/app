@@ -50,12 +50,14 @@ router.get('/', isAuthenticated, async (req, res) => {
         requestedCategory: permitRequests.requestedCategory,
         region: permitRequests.region,
         status: permitRequests.status,
+        referenceNumber: permitRequests.referenceNumber,
         createdAt: permitRequests.createdAt,
         updatedAt: permitRequests.updatedAt,
         // Hunter info
         hunterFirstName: hunters.firstName,
         hunterLastName: hunters.lastName,
         hunterPhone: hunters.phone,
+        hunterIdNumber: hunters.idNumber,
         hunterCategory: hunters.category,
         // Requester info
         requesterFirstName: users.firstName,
@@ -215,6 +217,12 @@ router.post<RequestParams, any, any, any>(
       const domaineRows = Array.isArray(domaineRes) ? domaineRes : (domaineRes as any)?.rows ?? [];
       const domaineId = domaineRows.length > 0 ? (domaineRows[0] as any).id : null;
 
+      const year = new Date().getFullYear();
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let randomStr = '';
+      for (let i = 0; i < 7; i++) randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+      const refNumber = `REF${year}-${randomStr}`;
+
       const requestData: any = {
         userId,
         hunterId: hunterIdNum,
@@ -223,6 +231,7 @@ router.post<RequestParams, any, any, any>(
         region: h.region || null,
         domaineId: domaineId,
         status: 'pending',
+        referenceNumber: refNumber,
       };
 
       try {

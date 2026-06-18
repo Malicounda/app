@@ -68,7 +68,7 @@ router.get('/', isAuthenticated, async (req, res) => {
 
     // Récupérer les demandes existantes
     const existingRequestsResult = await db.execute(sql`
-      SELECT hunter_id, status, created_at, updated_at
+      SELECT hunter_id, status, created_at, updated_at, reference_number
       FROM permit_requests
     `);
     const existingRequests = Array.isArray(existingRequestsResult)
@@ -85,6 +85,7 @@ router.get('/', isAuthenticated, async (req, res) => {
         hunterName: hunter.hunter_name,
         hunterCategory: hunter.hunter_category || 'resident',
         requestDate: hunter.request_date,
+        referenceNumber: existingRequest?.reference_number || '',
         requestStatus: existingRequest?.status || 'pending',
         permitType: 'chasse',
         region: hunter.region || 'Non spécifiée',
@@ -141,9 +142,15 @@ router.post('/:requestId/process', isAuthenticated, async (req, res) => {
       `);
     } else {
       // Créer une nouvelle demande
+      const year = new Date().getFullYear();
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let randomStr = '';
+      for (let i = 0; i < 7; i++) randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+      const refNumber = `REF${year}-${randomStr}`;
+
       await db.execute(sql`
-        INSERT INTO permit_requests (user_id, hunter_id, requested_type, status, created_at)
-        VALUES (${(req.user as any)?.id}, ${requestId}, 'chasse', ${status}, NOW())
+        INSERT INTO permit_requests (user_id, hunter_id, requested_type, status, created_at, reference_number)
+        VALUES (${(req.user as any)?.id}, ${requestId}, 'chasse', ${status}, NOW(), ${refNumber})
       `);
     }
 

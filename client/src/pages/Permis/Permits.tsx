@@ -12,7 +12,7 @@ import { isPermitExpired, isPermitSuspended } from "@/lib/utils/permits";
 import { exportToCsv } from "@/utils/export";
 import { PdfLibraryLoader, generatePdf } from "@/utils/pdfGenerator";
 import { format } from "date-fns";
-import { BookPlus, Eye, FileDown, Printer, Search } from "lucide-react";
+import { BookPlus, Eye, FileDown, Printer, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function Permits() {
@@ -73,7 +73,8 @@ export default function Permits() {
       return {
         firstName: p.hunterFirstName || '',
         lastName: p.hunterLastName || '',
-        idNumber: p.hunterIdNumber || ''
+        idNumber: p.hunterIdNumber || '',
+        phone: p.hunterPhone || ''
       };
     }
     const h = allHunters?.find((hh: any) => hh.id === hunterId);
@@ -83,10 +84,10 @@ export default function Permits() {
         lastName: h.lastName,
         idNumber: h.idNumber
       });
-      return h ? { firstName: h.firstName, lastName: h.lastName, idNumber: (h as any)?.idNumber || '' } : { firstName: '', lastName: '', idNumber: '' };
+      return h ? { firstName: h.firstName, lastName: h.lastName, idNumber: (h as any)?.idNumber || '', phone: (h as any)?.phone || '' } : { firstName: '', lastName: '', idNumber: '', phone: '' };
     }
     console.log(`[DEBUG] Aucune donnée trouvée pour hunterId ${hunterId}`);
-    return { firstName: '', lastName: '', idNumber: '' };
+    return { firstName: '', lastName: '', idNumber: '', phone: '' };
   };
   const computeIssuerServiceLocation = (permit: any) => {
     const role = (permit.issuerRole || user?.type || (user?.role === 'agent' ? 'regional' : (user?.role === 'sub-agent' ? 'secteur' : user?.role)) || '').toLowerCase();
@@ -123,6 +124,7 @@ export default function Permits() {
       hunter.firstName?.toString().toLowerCase() || '',
       hunter.lastName?.toString().toLowerCase() || '',
       hunter.idNumber?.toString().toLowerCase() || '',
+      hunter.phone?.toString().toLowerCase() || '',
       (permit.receiptNumber || '').toString().toLowerCase()
     ];
     const matchesSearch = !searchLower || haystacks.some(h => h.includes(searchLower));
@@ -374,10 +376,18 @@ export default function Permits() {
                   <Input
                     type="text"
                     placeholder="Rechercher (N° permis, N° quittance, N° pièce, nom, téléphone)"
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="w-full sm:w-auto px-2 flex flex-wrap items-center gap-2 justify-end">
