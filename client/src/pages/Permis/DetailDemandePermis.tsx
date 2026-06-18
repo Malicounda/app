@@ -118,7 +118,7 @@ export default function DetailDemandePermis() {
       
       try {
         // TODO: Remplacer par l'URL de l'API réelle
-        const response = await fetch(`/api/permis-speciaux/demandes/${id}`, {
+        const response = await fetch(resolveApiUrl(`/api/permis-speciaux/demandes/${id}`), {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }

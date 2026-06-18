@@ -56,7 +56,7 @@ const GestionPermisPage = () => {
       if (!user) return;
       setIsLoading(true);
       try {
-        const response = await fetch('/api/permits', {
+        const response = await fetch(resolveApiUrl('/api/permits'), {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }

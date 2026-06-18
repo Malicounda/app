@@ -46,7 +46,7 @@ export default function MyRequests({ onEditRequest }: { onEditRequest?: (req: Pe
     queryKey: ['/api/hunters/me'],
     queryFn: async () => {
       try {
-        const response = await fetch('/api/hunters/me');
+        const response = await fetch(resolveApiUrl('/api/hunters/me'));
         if (!response.ok) {
           if (response.status === 404) {
             // L'utilisateur n'a pas de profil chasseur
@@ -71,7 +71,7 @@ export default function MyRequests({ onEditRequest }: { onEditRequest?: (req: Pe
         // Si l'utilisateur n'a pas de profil chasseur, ne pas faire la requête
         if (!hunterProfile) return [];
 
-        const response = await fetch('/api/hunters/me/permit-requests');
+        const response = await fetch(resolveApiUrl('/api/hunters/me/permit-requests'));
         if (!response.ok) throw new Error('Erreur lors de la récupération des demandes');
         return await response.json();
       } catch (error) {
@@ -174,7 +174,7 @@ export default function MyRequests({ onEditRequest }: { onEditRequest?: (req: Pe
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/permit-requests/${id}`, {
+      const response = await fetch(resolveApiUrl(`/api/permit-requests/${id}`), {
         method: 'DELETE',
       });
       if (!response.ok) {

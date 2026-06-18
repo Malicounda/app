@@ -85,7 +85,7 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
   // Fonction pour charger les détails du chasseur
   const fetchHunterDetails = async () => {
     try {
-      const hRes = await fetch(`/api/hunters/${hunterId}`, {
+      const hRes = await fetch(resolveApiUrl(`/api/hunters/${hunterId}`), {
         credentials: 'include',
       });
       if (!hRes.ok) throw new Error('Erreur chargement chasseur');
@@ -107,7 +107,7 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
       setHunter(prev => prev ? { ...prev, isActive: newStatus } : null);
 
       // Appel API pour mettre à jour le statut
-      const response = await fetch(`/api/hunters/${hunter.id}/status`, {
+      const response = await fetch(resolveApiUrl(`/api/hunters/${hunter.id}/status`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +156,7 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
         if (!open || !hunterId) return;
         setLoading(true);
         // 1) Profil chasseur
-        const hRes = await fetch(`/api/hunters/${hunterId}`, {
+        const hRes = await fetch(resolveApiUrl(`/api/hunters/${hunterId}`), {
           credentials: 'include',
         });
         if (!hRes.ok) throw new Error('Erreur chargement chasseur');
@@ -180,7 +180,7 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
         };
 
         // 2) Statut des pièces jointes (nouvelle API attachments)
-        const dRes = await fetch(`/api/attachments/${hunterId}`, {
+        const dRes = await fetch(resolveApiUrl(`/api/attachments/${hunterId}`), {
           credentials: 'include',
         });
         if (!dRes.ok) throw new Error('Erreur chargement pièces jointes');
@@ -244,7 +244,7 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
         setPreviewOpen(true);
         return;
       }
-      const res = await fetch(`/api/attachments/${hunterId}/${docKey}?inline=1`, {
+      const res = await fetch(resolveApiUrl(`/api/attachments/${hunterId}/${docKey}?inline=1`), {
         credentials: 'include',
       });
       if (!res.ok) {
@@ -329,8 +329,8 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
     toast.success('Document uploadé avec succès');
     try {
       const [hRes, dRes] = await Promise.all([
-        fetch(`/api/hunters/${hunterId}`, { credentials: 'include' }),
-        fetch(`/api/attachments/${hunterId}`, { credentials: 'include' }),
+        fetch(resolveApiUrl(`/api/hunters/${hunterId}`), { credentials: 'include' }),
+        fetch(resolveApiUrl(`/api/attachments/${hunterId}`), { credentials: 'include' }),
       ]);
       if (hRes.ok) {
         const hData = await hRes.json();

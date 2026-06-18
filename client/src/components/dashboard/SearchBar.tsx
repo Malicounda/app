@@ -33,24 +33,24 @@ export default function SearchBar({ onResults }: SearchBarProps) {
       
       // Search hunter by the selected type
       if (searchType === "idNumber") {
-        hunterResponse = await fetch(`/api/hunters/search/idNumber/${searchValue}`);
+        hunterResponse = await fetch(resolveApiUrl(`/api/hunters/search/idNumber/${searchValue}`));
       } else if (searchType === "phone") {
-        hunterResponse = await fetch(`/api/hunters/search/phone/${searchValue}`);
+        hunterResponse = await fetch(resolveApiUrl(`/api/hunters/search/phone/${searchValue}`));
       } else if (searchType === "permitNumber") {
         // First search for permit
-        const permitResponse = await fetch(`/api/permits/number/${searchValue}`);
+        const permitResponse = await fetch(resolveApiUrl(`/api/permits/number/${searchValue}`));
         
         if (permitResponse.ok) {
           const permit = await permitResponse.json();
           // Then get hunter by ID
-          hunterResponse = await fetch(`/api/hunters/${permit.hunterId}`);
+          hunterResponse = await fetch(resolveApiUrl(`/api/hunters/${permit.hunterId}`));
           
           // If hunter found, pass both hunter and permit
           if (hunterResponse.ok) {
             const hunter = await hunterResponse.json();
             
             // Get all permits for this hunter
-            const permitsResponse = await fetch(`/api/permits/hunter/${hunter.id}`);
+            const permitsResponse = await fetch(resolveApiUrl(`/api/permits/hunter/${hunter.id}`));
             const permits = permitsResponse.ok ? await permitsResponse.json() : [];
             
             onResults({
@@ -76,7 +76,7 @@ export default function SearchBar({ onResults }: SearchBarProps) {
       // If hunter found, get their permits
       if (hunterResponse && hunterResponse.ok) {
         const hunter = await hunterResponse.json();
-        const permitsResponse = await fetch(`/api/permits/hunter/${hunter.id}`);
+        const permitsResponse = await fetch(resolveApiUrl(`/api/permits/hunter/${hunter.id}`));
         const permits = permitsResponse.ok ? await permitsResponse.json() : [];
         
         onResults({

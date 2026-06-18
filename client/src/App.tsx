@@ -1172,7 +1172,7 @@ function GlobalThemeLoader() {
     if (!navigator.onLine) return;
     (async () => {
       try {
-        const res = await fetch('/api/themes/active', {
+        const res = await fetch(resolveApiUrl('/api/themes/active'), {
           cache: 'no-store',
           credentials: 'include',
         });

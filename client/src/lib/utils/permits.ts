@@ -29,7 +29,7 @@ export function getPermitStatus(permit: any) {
 
 async function getNextPermitSequence() {
   try {
-    const response = await fetch('/api/permits');
+    const response = await fetch(resolveApiUrl('/api/permits'));
     const permits = await response.json();
     const maxId = permits.length > 0 
       ? Math.max(...permits.map((p: any) => {

@@ -884,7 +884,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
       let targetExpiry = addYears(new Date(permit.expiryDate), 1);
       // Récupérer la fin de campagne et borner la date d'expiration
       try {
-        const resp = await fetch('/api/settings/campaign');
+        const resp = await fetch(resolveApiUrl('/api/settings/campaign'));
         if (resp.ok) {
           const campaign = await resp.json();
           const end = campaign?.endDate ? new Date(campaign.endDate) : null;

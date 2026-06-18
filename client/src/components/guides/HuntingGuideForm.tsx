@@ -170,7 +170,7 @@ export function HuntingGuideForm({ mode = "create", initialValues, onSuccess, on
     }
     const fetchZones = async () => {
       try {
-        const res = await fetch(`/api/zones?lite=1&region=${encodeURIComponent(watchRegion)}&departement=${encodeURIComponent(watchZone)}`);
+        const res = await fetch(resolveApiUrl(`/api/zones?lite=1&region=${encodeURIComponent(watchRegion)}&departement=${encodeURIComponent(watchZone)}`));
         const data = await res.json();
         if (data.features && Array.isArray(data.features)) {
           setHuntingZones(data.features.map((f: any) => ({

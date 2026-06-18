@@ -81,7 +81,7 @@ export default function GestiondesAgents() {
   } = useQuery<AgentRegional[]>({
     queryKey: ['agents_regionaux'],
     queryFn: async () => {
-      const response = await fetch('/api/users/agents', {
+      const response = await fetch(resolveApiUrl('/api/users/agents'), {
         credentials: 'include', // Inclure les cookies d'authentification
         headers: {
           'Content-Type': 'application/json',
@@ -117,7 +117,7 @@ export default function GestiondesAgents() {
   } = useQuery<AgentSecteur[]>({
     queryKey: ['agents_secteurs'],
     queryFn: async () => {
-      const response = await fetch('/api/users/agents', {
+      const response = await fetch(resolveApiUrl('/api/users/agents'), {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',

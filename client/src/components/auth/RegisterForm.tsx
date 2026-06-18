@@ -490,7 +490,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
 
       // Vérification du numéro d'identification - Modifié pour contourner l'erreur JSON
       try {
-        const response = await fetch(`/api/hunters/check-id/${data.idNumber}`, {
+        const response = await fetch(resolveApiUrl(`/api/hunters/check-id/${data.idNumber}`), {
           method: "GET",
           headers: {
             'Accept': 'application/json'
@@ -657,7 +657,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
       userId
     };
 
-    const res = await fetch('/api/hunters', {
+    const res = await fetch(resolveApiUrl('/api/hunters'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -677,7 +677,7 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
   const checkIdDebounced = debounce(async (idNumber: string) => {
     try {
       // Utiliser fetch directement plutôt que apiRequest pour éviter les erreurs JSON
-      const response = await fetch(`/api/hunters/check-id/${idNumber}`, {
+      const response = await fetch(resolveApiUrl(`/api/hunters/check-id/${idNumber}`), {
         method: "GET",
         headers: {
           'Accept': 'application/json'

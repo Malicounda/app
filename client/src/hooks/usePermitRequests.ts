@@ -34,7 +34,7 @@ export const usePermitRequests = () => {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/permit-requests', {
+      const response = await fetch(resolveApiUrl('/api/permit-requests'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
@@ -57,7 +57,7 @@ export const usePermitRequests = () => {
 
   const processRequest = async (requestId: number, action: 'approve' | 'reject', processedBy: number) => {
     try {
-      const response = await fetch(`/api/permit-requests/${requestId}/process`, {
+      const response = await fetch(resolveApiUrl(`/api/permit-requests/${requestId}/process`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ export const usePermitRequests = () => {
 
   const downloadDocument = async (hunterId: number, documentType: string) => {
     try {
-      const response = await fetch(`/api/permit-requests/documents/${hunterId}/${documentType}`, {
+      const response = await fetch(resolveApiUrl(`/api/permit-requests/documents/${hunterId}/${documentType}`), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
@@ -131,7 +131,7 @@ export const useDocumentUpload = () => {
       formData.append('file', file);
       formData.append('documentType', documentType);
 
-      const response = await fetch(`/api/attachments/${hunterId}`, {
+      const response = await fetch(resolveApiUrl(`/api/attachments/${hunterId}`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -158,7 +158,7 @@ export const useDocumentUpload = () => {
 
   const deleteDocument = async (hunterId: number, documentType: string) => {
     try {
-      const response = await fetch(`/api/attachments/${hunterId}/${documentType}`, {
+      const response = await fetch(resolveApiUrl(`/api/attachments/${hunterId}/${documentType}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,

@@ -35,7 +35,7 @@ export function useGuardians() {
   // Mutation pour créer un tuteur
   const createGuardian = useMutation({
     mutationFn: async (guardian: Omit<Guardian, "id" | "createdAt">) => {
-      const response = await fetch("/api/guardians", {
+      const response = await fetch(resolveApiUrl("/api/guardians"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -69,7 +69,7 @@ export function useGuardians() {
   // Mutation pour mettre à jour un tuteur
   const updateGuardian = useMutation({
     mutationFn: async ({ id, ...guardian }: Guardian) => {
-      const response = await fetch(`/api/guardians/${id}`, {
+      const response = await fetch(resolveApiUrl(`/api/guardians/${id}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -104,7 +104,7 @@ export function useGuardians() {
   // Mutation pour supprimer un tuteur
   const deleteGuardian = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/guardians/${id}`, {
+      const response = await fetch(resolveApiUrl(`/api/guardians/${id}`), {
         method: "DELETE",
       });
       
@@ -134,7 +134,7 @@ export function useGuardians() {
   // Mutation pour associer un tuteur à un chasseur mineur
   const associateGuardianToHunter = useMutation({
     mutationFn: async ({ hunterId, guardianId }: { hunterId: number; guardianId: number }) => {
-      const response = await fetch(`/api/hunters/${hunterId}/guardians/${guardianId}`, {
+      const response = await fetch(resolveApiUrl(`/api/hunters/${hunterId}/guardians/${guardianId}`), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

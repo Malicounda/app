@@ -123,7 +123,7 @@ export default function AgentsSecteur() {
         console.log('Envoi des données agent:', agentData);
 
         // Utiliser fetch directement pour avoir plus de contrôle sur la réponse
-        const response = await fetch('/api/users/create-agent', {
+        const response = await fetch(resolveApiUrl('/api/users/create-agent'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -181,7 +181,7 @@ export default function AgentsSecteur() {
   const updateAgentMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: Partial<SectorAgent> }) => {
       try {
-        const response = await fetch(`/api/users/${id}`, {
+        const response = await fetch(resolveApiUrl(`/api/users/${id}`), {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -224,7 +224,7 @@ export default function AgentsSecteur() {
   const deleteAgentMutation = useMutation({
     mutationFn: async (id: number) => {
       try {
-        const response = await fetch(`/api/users/${id}`, {
+        const response = await fetch(resolveApiUrl(`/api/users/${id}`), {
           method: 'DELETE',
           credentials: 'include',
         });
@@ -263,7 +263,7 @@ export default function AgentsSecteur() {
   const toggleAgentStatusMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: number, isActive: boolean }) => {
       try {
-        const response = await fetch(`/api/users/${id}`, {
+        const response = await fetch(resolveApiUrl(`/api/users/${id}`), {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -305,7 +305,7 @@ export default function AgentsSecteur() {
   const resetPasswordMutation = useMutation({
     mutationFn: async ({ id, newPassword }: { id: number, newPassword: string }) => {
       try {
-        const response = await fetch(`/api/users/${id}`, {
+        const response = await fetch(resolveApiUrl(`/api/users/${id}`), {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { resolveApiUrl } from "@/utils/environment";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -151,7 +152,7 @@ export default function PermitRequestReception() {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      const response = await fetch(`/api/attachments/${currentRequest.hunterId}/${docCode}?inline=1`, {
+      const response = await fetch(resolveApiUrl(`/api/attachments/${currentRequest.hunterId}/${docCode}?inline=1`), {
         headers
       });
       if (!response.ok) throw new Error("Impossible de charger le document");
@@ -175,7 +176,7 @@ export default function PermitRequestReception() {
       const fetchHunterAttachments = async () => {
         setLoadingAttachments(true);
         try {
-          const res = await fetch(`/api/attachments/${currentRequest.hunterId}`);
+          const res = await fetch(resolveApiUrl(`/api/attachments/${currentRequest.hunterId}`));
           if (res.ok) {
             const data = await res.json();
             setHunterAttachments(data.items || []);
@@ -203,7 +204,7 @@ export default function PermitRequestReception() {
     queryFn: async () => {
       if (!user) return null;
       try {
-        const response = await fetch(`/api/users/${user.id}`);
+        const response = await fetch(resolveApiUrl(`/api/users/${user.id}`));
         if (!response.ok) return null;
         return response.json();
       } catch (error) {
@@ -243,7 +244,7 @@ export default function PermitRequestReception() {
           url += `?${params.toString()}`;
         }
 
-        const response = await fetch(url);
+        const response = await fetch(resolveApiUrl(url));
         if (!response.ok) throw new Error("Erreur lors de la récupération des demandes");
         const raw = await response.json();
         return raw
@@ -270,7 +271,7 @@ export default function PermitRequestReception() {
   const approveMutation = useMutation({
     mutationFn: async (id: number) => {
       // Simuler un appel API pour approuver la demande
-      const response = await fetch(`/api/permit-requests/${id}/approve`, {
+      const response = await fetch(resolveApiUrl(`/api/permit-requests/${id}/approve`), {
         method: "POST",
       });
       if (!response.ok) throw new Error("Échec de l'approbation");
@@ -297,7 +298,7 @@ export default function PermitRequestReception() {
   const rejectMutation = useMutation({
     mutationFn: async (id: number) => {
       // Simuler un appel API pour rejeter la demande
-      return fetch(`/api/permit-requests/${id}/reject`, {
+      return fetch(resolveApiUrl(`/api/permit-requests/${id}/reject`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentId: user?.id }),
@@ -324,7 +325,7 @@ export default function PermitRequestReception() {
   const deliverMutation = useMutation({
     mutationFn: async (id: number) => {
       // Appel API pour marquer le permis comme délivré
-      return fetch(`/api/permit-requests/${id}/deliver`, {
+      return fetch(resolveApiUrl(`/api/permit-requests/${id}/deliver`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -353,7 +354,7 @@ export default function PermitRequestReception() {
   // Mutation pour supprimer une demande rejetée
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/permit-requests/${id}`, {
+      const response = await fetch(resolveApiUrl(`/api/permit-requests/${id}`), {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Échec de la suppression");
@@ -380,7 +381,7 @@ export default function PermitRequestReception() {
   const bulkActionMutation = useMutation({
     mutationFn: async ({ action, ids }: { action: "approve" | "reject"; ids: number[] }) => {
       // Simuler un appel API pour actions en masse
-      const response = await fetch(`/api/permit-requests/bulk-${action}`, {
+      const response = await fetch(resolveApiUrl(`/api/permit-requests/bulk-${action}`), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
