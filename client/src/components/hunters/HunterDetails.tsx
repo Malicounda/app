@@ -450,7 +450,24 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
   if (!open) return null;
 
   // Fonction pour gérer la soumission du formulaire de document
-  const handleDocumentSubmit = () => {
+  
+  const openUpdateDialog = (docType: string) => {
+    setUpdatingDoc(docType);
+    const existing = getDocumentExpiryInfo(docType);
+    if (existing && existing.expiryDate) {
+      // Use standard format for <input type="date">
+      const d = new Date(existing.expiryDate);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      setExpiryDate(`${yyyy}-${mm}-${dd}`);
+    } else {
+      setExpiryDate('');
+    }
+    setFileToUpload(null);
+  };
+
+const handleDocumentSubmit = () => {
     if (!updatingDoc || !fileToUpload) {
       toast({
         title: "Erreur",
@@ -1013,10 +1030,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                     size="sm"
                                     variant="outline"
                                     className="h-6 px-2 text-xs"
-                                    onClick={() => {
-                                      setUpdatingDoc('idCardDocument');
-                                      fileInputRefs.current['idCardDocument']?.click();
-                                    }}
+                                    onClick={() => openUpdateDialog('idCardDocument')}
                                   >
                                     {(hunter as any)?.idCardDocument ? 'Changer' : 'Ajouter'}
                                   </Button>
@@ -1030,18 +1044,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                       Aperçu
                                     </Button>
                                   )}
-                                  <input
-                                    type="file"
-                                    ref={el => fileInputRefs.current['idCardDocument'] = el}
-                                    className="hidden"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => {
-                                      if (e.target.files && e.target.files[0]) {
-                                        setFileToUpload(e.target.files[0]);
-                                        setUpdatingDoc('idCardDocument');
-                                      }
-                                    }}
-                                  />
+                                  
                                 </div>
                               </div>
 
@@ -1086,10 +1089,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                     size="sm"
                                     variant="outline"
                                     className="h-6 px-2 text-xs"
-                                    onClick={() => {
-                                      setUpdatingDoc('weaponPermit');
-                                      fileInputRefs.current['weaponPermit']?.click();
-                                    }}
+                                    onClick={() => openUpdateDialog('weaponPermit')}
                                   >
                                     {(hunter as any)?.weaponPermit ? 'Changer' : 'Ajouter'}
                                   </Button>
@@ -1103,18 +1103,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                       Aperçu
                                     </Button>
                                   )}
-                                  <input
-                                    type="file"
-                                    ref={el => fileInputRefs.current['weaponPermit'] = el}
-                                    className="hidden"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => {
-                                      if (e.target.files && e.target.files[0]) {
-                                        setFileToUpload(e.target.files[0]);
-                                        setUpdatingDoc('weaponPermit');
-                                      }
-                                    }}
-                                  />
+                                  
                                 </div>
                               </div>
 
@@ -1143,10 +1132,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                     size="sm"
                                     variant="outline"
                                     className="h-6 px-2 text-xs"
-                                    onClick={() => {
-                                      setUpdatingDoc('hunterPhoto');
-                                      fileInputRefs.current['hunterPhoto']?.click();
-                                    }}
+                                    onClick={() => openUpdateDialog('hunterPhoto')}
                                   >
                                     {(hunter as any)?.hunterPhoto ? 'Changer' : 'Ajouter'}
                                   </Button>
@@ -1160,18 +1146,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                       Aperçu
                                     </Button>
                                   )}
-                                  <input
-                                    type="file"
-                                    ref={el => fileInputRefs.current['hunterPhoto'] = el}
-                                    className="hidden"
-                                    accept=".jpg,.jpeg,.png"
-                                    onChange={(e) => {
-                                      if (e.target.files && e.target.files[0]) {
-                                        setFileToUpload(e.target.files[0]);
-                                        setUpdatingDoc('hunterPhoto');
-                                      }
-                                    }}
-                                  />
+                                  
                                 </div>
                               </div>
 
@@ -1216,10 +1191,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                     size="sm"
                                     variant="outline"
                                     className="h-6 px-2 text-xs"
-                                    onClick={() => {
-                                      setUpdatingDoc('treasuryStamp');
-                                      fileInputRefs.current['treasuryStamp']?.click();
-                                    }}
+                                    onClick={() => openUpdateDialog('treasuryStamp')}
                                   >
                                     {(hunter as any)?.treasuryStamp ? 'Changer' : 'Ajouter'}
                                   </Button>
@@ -1233,18 +1205,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                       Aperçu
                                     </Button>
                                   )}
-                                  <input
-                                    type="file"
-                                    ref={el => fileInputRefs.current['treasuryStamp'] = el}
-                                    className="hidden"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => {
-                                      if (e.target.files && e.target.files[0]) {
-                                        setFileToUpload(e.target.files[0]);
-                                        setUpdatingDoc('treasuryStamp');
-                                      }
-                                    }}
-                                  />
+                                  
                                 </div>
                               </div>
 
@@ -1289,10 +1250,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                     size="sm"
                                     variant="outline"
                                     className="h-6 px-2 text-xs"
-                                    onClick={() => {
-                                      setUpdatingDoc('weaponReceipt');
-                                      fileInputRefs.current['weaponReceipt']?.click();
-                                    }}
+                                    onClick={() => openUpdateDialog('weaponReceipt')}
                                   >
                                     {(hunter as any)?.weaponReceipt ? 'Changer' : 'Ajouter'}
                                   </Button>
@@ -1306,18 +1264,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                       Aperçu
                                     </Button>
                                   )}
-                                  <input
-                                    type="file"
-                                    ref={el => fileInputRefs.current['weaponReceipt'] = el}
-                                    className="hidden"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => {
-                                      if (e.target.files && e.target.files[0]) {
-                                        setFileToUpload(e.target.files[0]);
-                                        setUpdatingDoc('weaponReceipt');
-                                      }
-                                    }}
-                                  />
+                                  
                                 </div>
                               </div>
 
@@ -1362,10 +1309,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                     size="sm"
                                     variant="outline"
                                     className="h-6 px-2 text-xs"
-                                    onClick={() => {
-                                      setUpdatingDoc('insurance');
-                                      fileInputRefs.current['insurance']?.click();
-                                    }}
+                                    onClick={() => openUpdateDialog('insurance')}
                                   >
                                     {(hunter as any)?.insurance ? 'Changer' : 'Ajouter'}
                                   </Button>
@@ -1379,18 +1323,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                       Aperçu
                                     </Button>
                                   )}
-                                  <input
-                                    type="file"
-                                    ref={el => fileInputRefs.current['insurance'] = el}
-                                    className="hidden"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => {
-                                      if (e.target.files && e.target.files[0]) {
-                                        setFileToUpload(e.target.files[0]);
-                                        setUpdatingDoc('insurance');
-                                      }
-                                    }}
-                                  />
+                                  
                                 </div>
                               </div>
                             </div>
@@ -1422,10 +1355,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                     size="sm"
                                     variant="outline"
                                     className="h-6 px-2 text-xs"
-                                    onClick={() => {
-                                      setUpdatingDoc('moralCertificate');
-                                      fileInputRefs.current['moralCertificate']?.click();
-                                    }}
+                                    onClick={() => openUpdateDialog('moralCertificate')}
                                   >
                                     {(hunter as any)?.moralCertificate ? 'Changer' : 'Ajouter'}
                                   </Button>
@@ -1439,18 +1369,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
                                       Aperçu
                                     </Button>
                                   )}
-                                  <input
-                                    type="file"
-                                    ref={el => fileInputRefs.current['moralCertificate'] = el}
-                                    className="hidden"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => {
-                                      if (e.target.files && e.target.files[0]) {
-                                        setFileToUpload(e.target.files[0]);
-                                        setUpdatingDoc('moralCertificate');
-                                      }
-                                    }}
-                                  />
+                                  
                                 </div>
                               </div>
                             </div>
