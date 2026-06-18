@@ -485,24 +485,21 @@ const AdminDashboard = () => {
           <p className="text-gray-600">
             Bienvenue, {user?.firstName} {user?.lastName}
           </p>
-        </div>
-        
         {/* Note de la campagne cynégétique */}
-        {activeCampaign && (
-          <div className={`border px-4 py-2 rounded-md shadow-sm max-w-lg text-sm font-medium text-right ${activeCampaign.isActive ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-            {(() => {
-              const diffDays = Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString();
-              const year = activeCampaign.year || '';
-              
-              const text = activeCampaign.isActive 
-                ? (activeCampaign.notes || '') 
-                : (activeCampaign.inactiveNotes || '');
-              
-              if (!text) return null;
+        {activeCampaign && (() => {
+          const text = activeCampaign.isActive 
+            ? (activeCampaign.notes || '') 
+            : (activeCampaign.inactiveNotes || '');
+            
+          if (!text) return null;
 
-              const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
-              
-              return parts.map((part: string, index: number) => {
+          const diffDays = Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString();
+          const year = activeCampaign.year || '';
+          const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
+
+          return (
+            <div className={`border px-4 py-2 rounded-md shadow-sm max-w-lg text-sm font-medium text-right ${activeCampaign.isActive ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+              {parts.map((part: string, index: number) => {
                 if (part === '[ANNEE]') {
                   return <span key={index} className="text-red-600 font-bold">{year}</span>;
                 }
@@ -510,10 +507,10 @@ const AdminDashboard = () => {
                   return <span key={index} className="text-red-600 font-bold">{diffDays}</span>;
                 }
                 return <span key={index}>{part}</span>;
-              });
-            })()}
-          </div>
-        )}
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Affichage d'erreur si l'API stats échoue */}
