@@ -615,20 +615,11 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       if (diffDays < 0) {
         return {
           status: 'expired',
-          text: '✅ Fourni',
-          color: 'bg-green-100 text-green-800',
+          text: '⚠️ Expiré',
+          color: 'bg-red-100 text-red-800',
           expiryDate: expiry,
           daysLeft: diffDays,
           isExpired: true
-        };
-      } else if (diffDays <= 30) {
-        return {
-          status: 'dueSoon',
-          text: '✅ Fourni',
-          color: 'bg-green-100 text-green-800',
-          expiryDate: expiry,
-          daysLeft: diffDays,
-          isDueSoon: true
         };
       }
     }
@@ -1868,5 +1859,6 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     </>
   );
 }
+
 
 
