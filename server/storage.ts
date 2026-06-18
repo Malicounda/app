@@ -13,6 +13,7 @@ import {
     history,
     huntedSpecies,
     hunters,
+    hunterAttachments,
     huntingCampaigns,
     huntingGuides,
     huntingReports,
