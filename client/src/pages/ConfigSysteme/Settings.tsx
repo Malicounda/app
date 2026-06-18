@@ -1841,6 +1841,7 @@ export default function Settings() {
     waterGameEnabled: true,
     waterGameDerogation: false,
     isActive: true,
+    notes: '',
   });
 
   // Périodes spécifiques dynamiques (CRUD)
@@ -2334,6 +2335,7 @@ export default function Settings() {
             waterGameEnabled: typeof data.waterGameEnabled === 'boolean' ? data.waterGameEnabled : true,
             waterGameDerogation: typeof data.waterGameDerogation === 'boolean' ? data.waterGameDerogation : false,
             isActive: typeof data.isActive === 'boolean' ? data.isActive : prevState.isActive,
+            notes: data.notes || '',
           }));
 
           // If API already returns dynamic periods, map them to state
@@ -3143,12 +3145,44 @@ export default function Settings() {
               </div>
 
               <div className="pt-4">
-                <div className="flex flex-col space-y-1.5 max-w-xs">
-                  <Label>Statut de la campagne</Label>
-                  <div className="flex items-center gap-2">
-                    <Switch id="campaign-active" checked={huntingSeason.isActive} onCheckedChange={(v) => setHuntingSeason({ ...huntingSeason, isActive: v })} />
-                    <Label htmlFor="campaign-active">Active</Label>
+                <div className="flex flex-col space-y-4">
+                  <div>
+                    <Label>Statut de la campagne</Label>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Switch 
+                        id="campaign-active" 
+                        checked={huntingSeason.isActive} 
+                        onCheckedChange={(v) => {
+                          setHuntingSeason(prev => ({ 
+                            ...prev, 
+                            isActive: v,
+                            // Set default message when activating if empty
+                            notes: v && !prev.notes 
+                              ? "Campagne cynégétique de [ANNEE] ouverte. Il reste [COMPTEUR] jours avant la fermeture de la campagne." 
+                              : prev.notes
+                          }));
+                        }} 
+                      />
+                      <Label htmlFor="campaign-active">{huntingSeason.isActive ? "Active" : "Inactive"}</Label>
+                    </div>
                   </div>
+                  
+                  {huntingSeason.isActive && (
+                    <div className="flex flex-col space-y-1.5">
+                      <Label htmlFor="campaign-notes">Note affichée aux agents (Tableau de bord)</Label>
+                      <Textarea 
+                        id="campaign-notes" 
+                        value={huntingSeason.notes} 
+                        onChange={(e) => setHuntingSeason(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Message diffusé aux agents... Utilisez [ANNEE] et [COMPTEUR] comme variables."
+                        className="resize-none"
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Les variables <strong>[ANNEE]</strong> et <strong>[COMPTEUR]</strong> seront remplacées dynamiquement par l'année de la campagne et le nombre de jours restants.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

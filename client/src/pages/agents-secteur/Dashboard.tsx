@@ -8,6 +8,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { format, differenceInDays } from "date-fns";
+import { fr } from "date-fns/locale";
 
 interface SectorRevenueMonthlyRow {
   monthKey: string;
@@ -42,6 +44,16 @@ const SectorAgentDashboard = () => {
     placeholderData: keepPreviousData,
     refetchIntervalInBackground: false,
     staleTime: 5_000,
+  });
+
+  // Charger la campagne active pour afficher la note personnalisée
+  const { data: activeCampaign } = useQuery<any>({
+    queryKey: ["/api/settings/campaign"],
+    queryFn: () => apiRequest({ url: "/api/settings/campaign", method: "GET" }),
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    staleTime: 30_000,
   });
 
   // Statistiques de recettes par département (agrégat national filtré sur le département de l'agent)
@@ -244,6 +256,22 @@ const SectorAgentDashboard = () => {
         </div>
         {/* Search and refresh removed for sector agent */}
       </div>
+
+      {/* Note de la campagne cynégétique */}
+      {activeCampaign?.isActive && activeCampaign?.notes && (
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="pt-6">
+            <p className="text-green-800 font-medium">
+              {activeCampaign.notes
+                .replace(/\[ANNEE\]/g, activeCampaign.year || '')
+                .replace(
+                  /\[COMPTEUR\]/g, 
+                  Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString()
+                )}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cartes de statistiques (données réelles) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
