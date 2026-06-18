@@ -1849,6 +1849,7 @@ export default function Settings() {
   type PeriodRow = { code: string; name: string; startDate: Date; endDate: Date; derogationEnabled: boolean; groupe?: string; genre?: string };
   const [specificPeriods, setSpecificPeriods] = useState<PeriodRow[]>([]);
   const [newPeriodOpen, setNewPeriodOpen] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
   const [newPeriod, setNewPeriod] = useState<PeriodRow>({ code: "", name: "", startDate: new Date(), endDate: new Date(), derogationEnabled: false, groupe: "", genre: "" });
 
   type CategoryPeriodRow = { categoryKey: string; startDate: Date; endDate: Date; derogationEnabled: boolean };
@@ -3169,19 +3170,41 @@ export default function Settings() {
                   </div>
                   
                   {huntingSeason.isActive && (
-                    <div className="flex flex-col space-y-1.5">
-                      <Label htmlFor="campaign-notes">Note affichée aux agents (Tableau de bord)</Label>
-                      <Textarea 
-                        id="campaign-notes" 
-                        value={huntingSeason.notes} 
-                        onChange={(e) => setHuntingSeason(prev => ({ ...prev, notes: e.target.value }))}
-                        placeholder="Message diffusé aux agents... Utilisez [ANNEE] et [COMPTEUR] comme variables."
-                        className="resize-none"
-                        rows={3}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Les variables <strong>[ANNEE]</strong> et <strong>[COMPTEUR]</strong> seront remplacées dynamiquement par l'année de la campagne et le nombre de jours restants.
-                      </p>
+                    <div className="flex flex-col space-y-1.5 mt-2 bg-slate-50 p-4 rounded-md border">
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor="campaign-notes">Note affichée aux agents (Tableau de bord)</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setIsEditingNote(!isEditingNote)}
+                          title="Modifier le message"
+                        >
+                          <Edit className="h-4 w-4 text-slate-500 hover:text-slate-900" />
+                        </Button>
+                      </div>
+                      
+                      {isEditingNote ? (
+                        <>
+                          <Textarea 
+                            id="campaign-notes" 
+                            value={huntingSeason.notes} 
+                            onChange={(e) => setHuntingSeason(prev => ({ ...prev, notes: e.target.value }))}
+                            placeholder="Message diffusé aux agents... Utilisez [ANNEE] et [COMPTEUR] comme variables."
+                            className="resize-none font-medium"
+                            rows={3}
+                            autoFocus
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Les variables <strong>[ANNEE]</strong> et <strong>[COMPTEUR]</strong> seront remplacées dynamiquement par l'année de la campagne et le nombre de jours restants.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="text-sm font-medium text-gray-800 bg-white p-3 border rounded-md min-h-[4rem] whitespace-pre-wrap">
+                          {huntingSeason.notes || <span className="text-muted-foreground italic">Aucune note définie</span>}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

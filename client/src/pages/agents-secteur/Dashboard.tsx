@@ -262,12 +262,24 @@ const SectorAgentDashboard = () => {
         <Card className="bg-green-50 border-green-200">
           <CardContent className="pt-6">
             <p className="text-green-800 font-medium">
-              {activeCampaign.notes
-                .replace(/\[ANNEE\]/g, activeCampaign.year || '')
-                .replace(
-                  /\[COMPTEUR\]/g, 
-                  Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString()
-                )}
+              {(() => {
+                const diffDays = Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString();
+                const year = activeCampaign.year || '';
+                
+                // Split the text to highlight variables in red
+                const text = activeCampaign.notes;
+                const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
+                
+                return parts.map((part: string, index: number) => {
+                  if (part === '[ANNEE]') {
+                    return <span key={index} className="text-red-600 font-bold">{year}</span>;
+                  }
+                  if (part === '[COMPTEUR]') {
+                    return <span key={index} className="text-red-600 font-bold">{diffDays}</span>;
+                  }
+                  return <span key={index}>{part}</span>;
+                });
+              })()}
             </p>
           </CardContent>
         </Card>

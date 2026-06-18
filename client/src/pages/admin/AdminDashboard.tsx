@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, ChevronRight, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { format, differenceInDays } from "date-fns";
 
 // Types pour les données du tableau de bord
 type DashboardStats = {
@@ -140,6 +141,17 @@ const AdminDashboard = () => {
     placeholderData: keepPreviousData,
     refetchIntervalInBackground: false,
     staleTime: 5_000,
+  });
+
+  // Charger la campagne active pour afficher la note personnalisée
+  const { data: activeCampaign } = useQuery<any>({
+    queryKey: ["/api/settings/campaign"],
+    queryFn: () => apiRequest({ url: "/api/settings/campaign", method: "GET" }),
+    enabled: isAuthenticated && !authLoading,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    staleTime: 30_000,
   });
 
   // Admin overview (agents, guides, hunters, alerts, categories, recent activities)
@@ -483,6 +495,33 @@ const AdminDashboard = () => {
           <strong className="font-bold">Erreur API: </strong>
           <span className="block sm:inline">{error.message}</span>
         </div>
+      )}
+
+      {/* Note de la campagne cynégétique */}
+      {activeCampaign?.isActive && activeCampaign?.notes && (
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="pt-6">
+            <p className="text-green-800 font-medium">
+              {(() => {
+                const diffDays = Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString();
+                const year = activeCampaign.year || '';
+                
+                const text = activeCampaign.notes;
+                const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
+                
+                return parts.map((part: string, index: number) => {
+                  if (part === '[ANNEE]') {
+                    return <span key={index} className="text-red-600 font-bold">{year}</span>;
+                  }
+                  if (part === '[COMPTEUR]') {
+                    return <span key={index} className="text-red-600 font-bold">{diffDays}</span>;
+                  }
+                  return <span key={index}>{part}</span>;
+                });
+              })()}
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Cartes principales */}
