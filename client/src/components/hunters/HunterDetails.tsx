@@ -96,6 +96,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
   // State pour les attachments avec dates d'expiration
   const [attachmentItems, setAttachmentItems] = useState<any[]>([]);
   const [confirmDateChange, setConfirmDateChange] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Récupérer les attachments avec dates d'expiration
   const { data: attachmentData, isLoading: loadingAttachments, error: attachmentError } = useQuery({
@@ -177,6 +178,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       setExpiryDate('');
     },
     onError: (error: Error) => {
+      setSubmitError(error.message);
       toast({
         title: "Erreur",
         description: error.message,
@@ -469,9 +471,11 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     }
     setFileToUpload(null);
     setConfirmDateChange(false);
+    setSubmitError(null);
   };
 
 const handleDocumentSubmit = () => {
+    setSubmitError(null);
     if (!updatingDoc) return;
 
     const hasExistingFile = documentsByType[updatingDoc];
@@ -712,6 +716,14 @@ const handleDocumentSubmit = () => {
               <p className="text-sm text-gray-500 mt-2">
                 Note : La photo d'identité n'a pas de date d'expiration.
               </p>
+            )}
+            {submitError && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 mt-4 rounded shadow-sm">
+                <p className="text-sm font-bold text-red-800 flex items-center gap-2">
+                  <Ban className="h-4 w-4" /> Modification refusée
+                </p>
+                <p className="text-sm text-red-700 mt-1">{submitError}</p>
+              </div>
             )}
             {!fileToUpload && documentsByType[updatingDoc || ''] && updatingDoc !== 'hunterPhoto' && (
               <div className="flex items-center space-x-2 mt-4 bg-yellow-50 p-3 rounded border border-yellow-200">
