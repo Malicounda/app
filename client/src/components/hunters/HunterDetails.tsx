@@ -516,7 +516,7 @@ const handleDocumentSubmit = () => {
       'weaponPermit': "Permis de Port d'Arme",
       'hunterPhoto': "Photo du Chasseur",
       'treasuryStamp': "Timbre Impôt",
-      'weaponReceipt': "Quittance de l'Arme par le Trésor",
+      'weaponReceipt': "Quittance Arme /Trésor",
       'insurance': "Assurance",
       'moralCertificate': "Certificat de Bonne Vie et Mœurs"
     };
@@ -684,7 +684,7 @@ const handleDocumentSubmit = () => {
               {!fileToUpload && documentsByType[updatingDoc || ''] && (
                 <div className="bg-blue-50 border border-blue-200 p-2 mt-2 rounded">
                   <p className="text-xs text-blue-700">
-                    ℹ️ Fichier déjà existant sur le serveur. Vous pouvez ignorer ce champ si vous modifiez uniquement la date.
+                    ℹ️ Fichier déjà existant. Vous pouvez ignorer ce champ si vous modifiez uniquement la date.
                   </p>
                 </div>
               )}
