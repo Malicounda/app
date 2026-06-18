@@ -2140,6 +2140,8 @@ export default function Settings() {
   const [newCat, setNewCat] = useState<Partial<PermitCategoryRow>>({ genre: "resident", groupe: "petite-chasse", isActive: true });
   // État local pour l'affichage des prix formatés par ligne
   const [priceEdits, setPriceEdits] = useState<Record<number, string>>({});
+  // État local pour l'édition de la durée de validité
+  const [validityEdits, setValidityEdits] = useState<Record<number, string>>({});
   // Mode édition pour l'onglet Tarifs
   const [editPrices, setEditPrices] = useState<boolean>(false);
 
@@ -2286,6 +2288,17 @@ export default function Settings() {
         rows.forEach(r => {
           const formatted = (r.priceXof ?? null) !== null ? formatXof(Number(r.priceXof)) : '';
           if (formatted !== '') next[r.id] = formatted; else delete next[r.id];
+        });
+        return next;
+      });
+      setValidityEdits(prev => {
+        const next: Record<number, string> = { ...prev };
+        rows.forEach(r => {
+          if (r.defaultValidityDays != null) {
+            next[r.id] = String(r.defaultValidityDays);
+          } else {
+            delete next[r.id];
+          }
         });
         return next;
       });
@@ -2480,7 +2493,7 @@ export default function Settings() {
         groupe: row.groupe,
         genre: row.genre,
         sousCategorie: row.sousCategorie ?? null,
-        defaultValidityDays: row.defaultValidityDays ?? null,
+        defaultValidityDays: updatedFields && 'defaultValidityDays' in updatedFields ? updatedFields.defaultValidityDays : (row.defaultValidityDays ?? null),
         isActive: active,
       });
       if (!upResp.ok) throw new Error(upResp.error || 'Erreur mise à jour');
@@ -3058,8 +3071,10 @@ export default function Settings() {
                         variant={"outline"}
                         className={cn(
                           "w-full justify-start text-left font-normal",
-                          !huntingSeason.startDate && "text-muted-foreground"
+                          !huntingSeason.startDate && "text-muted-foreground",
+                          huntingSeason.isActive && "opacity-50 cursor-not-allowed"
                         )}
+                        disabled={huntingSeason.isActive}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {huntingSeason.startDate ? (
@@ -3069,16 +3084,18 @@ export default function Settings() {
                         )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[10020]">
-                      <Calendar
-                        mode="single"
-                        selected={huntingSeason.startDate}
-                        onSelect={(day) =>
-                          setHuntingSeason((prev) => ({ ...prev, startDate: day || new Date() }))
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
+                    {!huntingSeason.isActive && (
+                      <PopoverContent className="w-auto p-0 z-[10020]">
+                        <Calendar
+                          mode="single"
+                          selected={huntingSeason.startDate}
+                          onSelect={(day) =>
+                            setHuntingSeason((prev) => ({ ...prev, startDate: day || new Date() }))
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    )}
                   </Popover>
                   <p className="text-sm text-muted-foreground">Date officielle d'ouverture de la campagne</p>
                 </div>
@@ -3092,8 +3109,10 @@ export default function Settings() {
                         variant={"outline"}
                         className={cn(
                           "w-full justify-start text-left font-normal",
-                          !huntingSeason.endDate && "text-muted-foreground"
+                          !huntingSeason.endDate && "text-muted-foreground",
+                          huntingSeason.isActive && "opacity-50 cursor-not-allowed"
                         )}
+                        disabled={huntingSeason.isActive}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {huntingSeason.endDate ? (
@@ -3103,19 +3122,21 @@ export default function Settings() {
                         )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[10020]">
-                      <Calendar
-                        mode="single"
-                        selected={huntingSeason.endDate}
-                        onSelect={(day) =>
-                          setHuntingSeason((prev) => ({
-                            ...prev,
-                            endDate: day || prev.endDate,
-                          }))
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
+                    {!huntingSeason.isActive && (
+                      <PopoverContent className="w-auto p-0 z-[10020]">
+                        <Calendar
+                          mode="single"
+                          selected={huntingSeason.endDate}
+                          onSelect={(day) =>
+                            setHuntingSeason((prev) => ({
+                              ...prev,
+                              endDate: day || prev.endDate,
+                            }))
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    )}
                   </Popover>
                   <p className="text-sm text-muted-foreground">Date officielle de fermeture de la campagne</p>
                 </div>
@@ -3744,7 +3765,31 @@ export default function Settings() {
                         <td className="p-2">{row.groupe}</td>
                         <td className="p-2">{row.genre}</td>
                         <td className="p-2">{row.sousCategorie || ''}</td>
-                        <td className="p-2">{row.defaultValidityDays ?? ''}</td>
+                        <td className="p-2">
+                          {editPrices ? (
+                            <Input
+                              type="number"
+                              value={validityEdits[row.id] ?? (row.defaultValidityDays ?? '')}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                setValidityEdits(prev => ({ ...prev, [row.id]: raw }));
+                                const n = raw ? parseInt(raw, 10) : null;
+                                setCategories(cs => cs.map(c => c.id === row.id ? { ...c, defaultValidityDays: n } : c));
+                              }}
+                              onBlur={(e) => {
+                                const n = e.target.value ? parseInt(e.target.value, 10) : null;
+                                setCategories(cs => cs.map(c => c.id === row.id ? { ...c, defaultValidityDays: n } : c));
+                                // auto-save
+                                if (editPrices) { void saveCategoryRow(row.id, { defaultValidityDays: n }); }
+                              }}
+                              placeholder="Validité"
+                              className="max-w-[100px]"
+                              disabled={!editPrices}
+                            />
+                          ) : (
+                            row.defaultValidityDays ?? ''
+                          )}
+                        </td>
                         <td className="p-2">
                           <div className="flex items-center gap-2">
                             <Switch 

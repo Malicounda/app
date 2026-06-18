@@ -25,7 +25,7 @@ const daysBetween = (start: Date, end: Date) => {
 
 async function getActiveCampaign(): Promise<Campaign | null> {
   try {
-    const rows = await db.select().from(huntingCampaigns as any).where(eq(huntingCampaigns.isActive as any, true)).limit(1);
+    const rows = await db.select().from(huntingCampaigns as any).where(eq(huntingCampaigns.isActive as any, true)).orderBy(sql`id DESC`).limit(1);
     if (rows && rows.length > 0) {
       const c = rows[0] as any;
       return {
@@ -470,6 +470,32 @@ router.post('/', isAuthenticated, async (req, res) => {
     // Interdiction: chasseur suspendu/désactivé ne peut pas recevoir de permis
     if (!hunterIsActive) {
       return res.status(409).json({ message: "Ce chasseur est suspendu/désactivé. Réactivation requise avant la délivrance d'un permis." });
+    }
+
+    // Validation: Campagne Cynégétique active et non dépassée
+    if (validatedData.categoryId) {
+      try {
+        const isCynegetique = await db.select({ groupe: sql`groupe` }).from(sql`permit_categories`).where(eq(sql`key`, validatedData.categoryId)).limit(1);
+        if (isCynegetique && isCynegetique.length > 0) {
+          const groupe = (isCynegetique[0] as any).groupe?.toLowerCase() || '';
+          if (['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes(groupe)) {
+            const campaign = await getActiveCampaign();
+            if (!campaign) {
+              return res.status(400).json({ message: "Impossible de délivrer ce permis : aucune campagne de chasse n'est active." });
+            }
+            const end = new Date(campaign.endDate);
+            const now = new Date();
+            now.setHours(0,0,0,0);
+            const endDate = new Date(end);
+            endDate.setHours(23,59,59,999);
+            if (now > endDate) {
+              return res.status(400).json({ message: "Impossible de délivrer ce permis : la campagne de chasse est terminée (date de fin dépassée)." });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Erreur validation campagne lors de la création du permis:", e);
+      }
     }
 
     let insertData: Omit<typeof permits.$inferInsert, 'expiryDate'> & { expiryDate?: string } = {
