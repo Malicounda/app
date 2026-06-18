@@ -253,6 +253,8 @@ const SectorAgentDashboard = () => {
               );
             })()}
           </p>
+        </div>
+        
         {/* Note de la campagne cynégétique */}
         {activeCampaign && (() => {
           const text = activeCampaign.isActive 

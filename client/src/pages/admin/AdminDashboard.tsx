@@ -485,6 +485,8 @@ const AdminDashboard = () => {
           <p className="text-gray-600">
             Bienvenue, {user?.firstName} {user?.lastName}
           </p>
+        </div>
+        
         {/* Note de la campagne cynégétique */}
         {activeCampaign && (() => {
           const text = activeCampaign.isActive 
