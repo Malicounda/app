@@ -276,7 +276,6 @@ export const getAttachmentsStatus = async (req: Request, res: Response) => {
       const diffMs = expTime - today.getTime();
       const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
       if (diffDays < 0) return { status: 'expired' as const };
-      if (diffDays <= 30) return { status: 'dueSoon' as const, daysLeft: diffDays };
       return { status: 'valid' as const };
     };
 

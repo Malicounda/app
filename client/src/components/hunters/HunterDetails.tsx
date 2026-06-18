@@ -1868,3 +1868,5 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     </>
   );
 }
+
+

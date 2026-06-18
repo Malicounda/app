@@ -886,3 +886,4 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
     </>
   );
 }
+

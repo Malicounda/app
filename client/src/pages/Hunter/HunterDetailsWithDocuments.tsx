@@ -673,7 +673,7 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
                     const validity = getDocValidity(doc.key);
                     const isValid = validity === 'valid';
                     const isExpired = validity === 'expired';
-                    const isDueSoon = validity === 'dueSoon';
+                    
                     const isPresent = validity !== 'missing';
 
                     return (
@@ -872,3 +872,4 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
 };
 
 export default HunterDetailsWithDocuments;
+
