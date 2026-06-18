@@ -126,6 +126,9 @@ export const uploadAttachment = async (req: Request, res: Response) => {
 
     // Upsert via SQL (ON CONFLICT sur hunter_id)
     const keys = Object.keys(data);
+    if (keys.length === 0) {
+      return res.status(200).json({ message: "Aucune modification à apporter" });
+    }
     const colList = sql.raw(['"hunter_id"', ...keys.map(k => '"' + k + '"')].join(', '));
     const valList = sql.join(keys.map(k => sql`${data[k]}`), sql`, `);
     const assignList = sql.raw(keys.map(k => `"${k}" = EXCLUDED."${k}"`).join(', '));

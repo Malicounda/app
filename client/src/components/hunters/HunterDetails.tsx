@@ -141,11 +141,13 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
   const updateDocument = useMutation({
     mutationFn: async ({ docType, file, expiryDate }: {
       docType: string,
-      file: File,
+      file: File | null,
       expiryDate?: string
     }) => {
       const formData = new FormData();
-      formData.append('file', file);
+      if (file) {
+        formData.append('file', file);
+      }
 
       // Ajouter la date d'expiration uniquement si elle est fournie et pour les documents qui en ont besoin
       if (expiryDate && docType !== 'hunterPhoto') {
