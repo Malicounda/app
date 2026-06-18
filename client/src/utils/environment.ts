@@ -96,49 +96,35 @@ export const getEnvironment = async (): Promise<'android' | 'desktop' | 'web'> =
 
 // Centralized robust dynamic API Base URL resolver
 export const getApiBaseUrl = (): string => {
-  // APK Capacitor : toujours l'API production (hostname localhost sinon → /api invalide)
-  if (isCapacitorNative()) {
-    return 'https://malicounda-api.onrender.com/api';
-  }
-
-  // 1. Check current browser location FIRST to override bundled .env issues
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-  const isProdHost = hostname === 'eforets.pages.dev' || hostname.endsWith('.pages.dev');
-  const isDevHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.');
-
-  if (isProdHost) {
-    return 'https://malicounda-api.onrender.com/api';
-  }
-
-  // 2. Prioritize explicit environment variables (if not overridden by ProdHost)
+  // 1. Prioritize explicit environment variables FIRST
   const rawEnv = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL) as string | undefined;
 
   if (rawEnv) {
     const trimmed = rawEnv.trim().replace(/\/+$/, "");
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-      return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
-    }
-    if (trimmed.startsWith("/")) {
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) {
       return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
     }
   }
 
-  // 3. Check build mode
+  // 2. APK Capacitor : fallback to production API
+  if (isCapacitorNative()) {
+    return 'https://malicounda-api.onrender.com/api'; // TODO: Replace with Koyeb URL
+  }
+
+  // 3. Web environments
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isProdHost = hostname === 'eforets.pages.dev' || hostname.endsWith('.pages.dev');
+  const isDevHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.');
   const isViteProd = import.meta.env.MODE === 'production';
 
   // Production or preview cloudflare environments
   if (isProdHost || (isViteProd && !isDevHost && hostname)) {
-    return 'https://malicounda-api.onrender.com/api';
+    return 'https://malicounda-api.onrender.com/api'; // TODO: Replace with Koyeb URL
   }
 
   // Development in a standard web browser (must use relative proxy to avoid cookie/CORS issues)
   if (isDevHost && hostname && !isTauriEnv()) {
     return '/api';
-  }
-
-  // Mobile / Desktop production app (native wrapper)
-  if (isViteProd) {
-    return 'https://malicounda-api.onrender.com/api';
   }
 
   // Mobile / Desktop local development

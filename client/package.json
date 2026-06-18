@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsc && vite build --config vite.simple.config.ts",
+    "build:pages": "vite build --config vite.simple.config.ts",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
