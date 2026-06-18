@@ -254,36 +254,31 @@ const SectorAgentDashboard = () => {
             })()}
           </p>
         </div>
-        {/* Search and refresh removed for sector agent */}
+        
+        {/* Note de la campagne cynégétique */}
+        {activeCampaign?.isActive && activeCampaign?.notes && (
+          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-md shadow-sm max-w-lg text-sm font-medium text-right">
+            {(() => {
+              const diffDays = Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString();
+              const year = activeCampaign.year || '';
+              
+              // Split the text to highlight variables in red
+              const text = activeCampaign.notes;
+              const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
+              
+              return parts.map((part: string, index: number) => {
+                if (part === '[ANNEE]') {
+                  return <span key={index} className="text-red-600 font-bold">{year}</span>;
+                }
+                if (part === '[COMPTEUR]') {
+                  return <span key={index} className="text-red-600 font-bold">{diffDays}</span>;
+                }
+                return <span key={index}>{part}</span>;
+              });
+            })()}
+          </div>
+        )}
       </div>
-
-      {/* Note de la campagne cynégétique */}
-      {activeCampaign?.isActive && activeCampaign?.notes && (
-        <Card className="bg-green-50 border-green-200">
-          <CardContent className="pt-6">
-            <p className="text-green-800 font-medium">
-              {(() => {
-                const diffDays = Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString();
-                const year = activeCampaign.year || '';
-                
-                // Split the text to highlight variables in red
-                const text = activeCampaign.notes;
-                const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
-                
-                return parts.map((part: string, index: number) => {
-                  if (part === '[ANNEE]') {
-                    return <span key={index} className="text-red-600 font-bold">{year}</span>;
-                  }
-                  if (part === '[COMPTEUR]') {
-                    return <span key={index} className="text-red-600 font-bold">{diffDays}</span>;
-                  }
-                  return <span key={index}>{part}</span>;
-                });
-              })()}
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Cartes de statistiques (données réelles) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">

@@ -486,45 +486,32 @@ const AdminDashboard = () => {
             Bienvenue, {user?.firstName} {user?.lastName}
           </p>
         </div>
-        {/* search field removed per request */}
+        
+        {/* Note de la campagne cynégétique */}
+        {activeCampaign?.isActive && activeCampaign?.notes && (
+          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-md shadow-sm max-w-lg text-sm font-medium text-right">
+            {(() => {
+              const diffDays = Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString();
+              const year = activeCampaign.year || '';
+              
+              const text = activeCampaign.notes;
+              const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
+              
+              return parts.map((part: string, index: number) => {
+                if (part === '[ANNEE]') {
+                  return <span key={index} className="text-red-600 font-bold">{year}</span>;
+                }
+                if (part === '[COMPTEUR]') {
+                  return <span key={index} className="text-red-600 font-bold">{diffDays}</span>;
+                }
+                return <span key={index}>{part}</span>;
+              });
+            })()}
+          </div>
+        )}
       </div>
 
       {/* Affichage d'erreur si l'API stats échoue */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative z-20">
-          <strong className="font-bold">Erreur API: </strong>
-          <span className="block sm:inline">{error.message}</span>
-        </div>
-      )}
-
-      {/* Note de la campagne cynégétique */}
-      {activeCampaign?.isActive && activeCampaign?.notes && (
-        <Card className="bg-green-50 border-green-200">
-          <CardContent className="pt-6">
-            <p className="text-green-800 font-medium">
-              {(() => {
-                const diffDays = Math.max(0, differenceInDays(new Date(activeCampaign.endDate), new Date())).toString();
-                const year = activeCampaign.year || '';
-                
-                const text = activeCampaign.notes;
-                const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
-                
-                return parts.map((part: string, index: number) => {
-                  if (part === '[ANNEE]') {
-                    return <span key={index} className="text-red-600 font-bold">{year}</span>;
-                  }
-                  if (part === '[COMPTEUR]') {
-                    return <span key={index} className="text-red-600 font-bold">{diffDays}</span>;
-                  }
-                  return <span key={index}>{part}</span>;
-                });
-              })()}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Cartes principales */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <Card className="text-center">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
