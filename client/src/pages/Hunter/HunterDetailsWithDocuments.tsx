@@ -681,7 +681,7 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium">{doc.label}</h4>
-                            {isPresent && (
+                            {isValid && (
                               <span className="inline-flex items-center gap-2 rounded-full bg-green-100 text-green-800 px-2 py-0.5 text-xs font-medium">
                                 <span className="w-4 h-4 grid place-items-center rounded-sm bg-green-600 text-white">
                                   <Check className="w-3 h-3" />
@@ -872,4 +872,5 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
 };
 
 export default HunterDetailsWithDocuments;
+
 
