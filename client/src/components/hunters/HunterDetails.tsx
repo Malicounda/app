@@ -715,7 +715,7 @@ const handleDocumentSubmit = () => {
             </Button>
             <Button
               onClick={handleDocumentSubmit}
-              disabled={!fileToUpload || updateDocument.isPending}
+              disabled={(!updatingDoc) || (!documentsByType[updatingDoc] && !fileToUpload) || updateDocument.isPending}
               className="mt-4 w-full"
             >
               {updateDocument.isPending ? 'Enregistrement...' : 'Enregistrer le document'}
