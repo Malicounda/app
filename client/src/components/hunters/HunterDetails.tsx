@@ -661,7 +661,9 @@ const handleDocumentSubmit = () => {
           <DialogHeader>
             <DialogTitle>Mettre à jour {updatingDoc && getDocumentLabel(updatingDoc)}</DialogTitle>
             <DialogDescription>
-              Téléchargez le nouveau document et renseignez sa date d'expiration si nécessaire.
+              {documentsByType[updatingDoc || ''] 
+                ? "Mettez à jour la date d'expiration ou sélectionnez un nouveau fichier pour le remplacer."
+                : "Téléchargez le nouveau document et renseignez sa date d'expiration si nécessaire."}
             </DialogDescription>
           </DialogHeader>
 
@@ -678,6 +680,13 @@ const handleDocumentSubmit = () => {
                 <p className="text-sm text-gray-500">
                   Fichier sélectionné: {fileToUpload.name} ({(fileToUpload.size / 1024).toFixed(2)} KB)
                 </p>
+              )}
+              {!fileToUpload && documentsByType[updatingDoc || ''] && (
+                <div className="bg-blue-50 border border-blue-200 p-2 mt-2 rounded">
+                  <p className="text-xs text-blue-700">
+                    ℹ️ Fichier déjà existant sur le serveur. Vous pouvez ignorer ce champ si vous modifiez uniquement la date.
+                  </p>
+                </div>
               )}
             </div>
 
