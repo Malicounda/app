@@ -37,9 +37,6 @@ export const uploadAttachment = async (req: Request, res: Response) => {
     const { documentType, issueDate: issueDateRaw, expiryDate: expiryDateRaw } = req.body as { documentType?: string; issueDate?: string; expiryDate?: string };
     const file = (req as any).file as Express.Multer.File | undefined;
 
-    if (!file) {
-      return res.status(400).json({ message: 'Aucun fichier fourni' });
-    }
     const base = toBaseName(documentType || '');
     if (!base) {
       return res.status(400).json({ message: 'Type de document invalide' });
@@ -47,6 +44,14 @@ export const uploadAttachment = async (req: Request, res: Response) => {
     const hunterIdNum = Number(hunterId);
     if (!Number.isInteger(hunterIdNum) || hunterIdNum <= 0) {
       return res.status(400).json({ message: 'ID du chasseur invalide' });
+    }
+
+    // Check if row exists and has file
+    const existingRow = await db.execute(sql`SELECT ${sql.raw('"' + base + '_name"')} FROM hunter_attachments WHERE hunter_id = ${hunterIdNum} LIMIT 1` as any);
+    const rowExistsAndHasFile = Array.isArray(existingRow) && existingRow.length > 0 && existingRow[0][`${base}_name`];
+
+    if (!file && !rowExistsAndHasFile) {
+      return res.status(400).json({ message: 'Un fichier est requis pour le premier ajout du document' });
     }
     console.debug('[attachments] uploadAttachment params', {
       hunterId,
@@ -65,13 +70,12 @@ export const uploadAttachment = async (req: Request, res: Response) => {
     }
 
     
-    const originalName = file.originalname || '';
-
-    const data: any = {
-      [`${base}_data`]: file.buffer ?? undefined,
-      [`${base}_mime`]: file.mimetype,
-      [`${base}_name`]: originalName,
-    };
+    const data: any = {};
+    if (file) {
+      data[`${base}_data`] = file.buffer ?? undefined;
+      data[`${base}_mime`] = file.mimetype;
+      data[`${base}_name`] = file.originalname || '';
+    }
 
     // (Optionnel) checksum désactivé pour éviter des colonnes manquantes
 

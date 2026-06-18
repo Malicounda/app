@@ -468,7 +468,10 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
   };
 
 const handleDocumentSubmit = () => {
-    if (!updatingDoc || !fileToUpload) {
+    if (!updatingDoc) return;
+
+    const hasExistingFile = documentsByType[updatingDoc];
+    if (!hasExistingFile && !fileToUpload) {
       toast({
         title: "Erreur",
         description: "Veuillez sélectionner un fichier à télécharger",
