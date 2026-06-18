@@ -700,13 +700,29 @@ const handleDocumentSubmit = () => {
               <div className="grid w-full max-w-sm items-center gap-1.5">
                 <Label htmlFor="expiry-date">Date d'expiration {['idCardDocument','weaponPermit','insurance','weaponReceipt'].includes(updatingDoc || '') ? '(obligatoire)' : '(optionnel)'}
                 </Label>
-                <Input
-                  id="expiry-date"
-                  type="date"
-                  value={expiryDate}
-                  onChange={(e) => setExpiryDate(e.target.value)}
-                  required={['idCardDocument','weaponPermit','insurance','weaponReceipt'].includes(updatingDoc || '')}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="expiry-date"
+                    type="date"
+                    value={expiryDate}
+                    onChange={(e) => setExpiryDate(e.target.value)}
+                    required={['idCardDocument','weaponPermit','insurance','weaponReceipt'].includes(updatingDoc || '')}
+                    disabled={!fileToUpload && documentsByType[updatingDoc || ''] && !confirmDateChange}
+                    className={!fileToUpload && documentsByType[updatingDoc || ''] && !confirmDateChange ? "bg-gray-100 text-gray-500" : ""}
+                  />
+                  {!fileToUpload && documentsByType[updatingDoc || ''] && !confirmDateChange && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="icon" 
+                      className="shrink-0"
+                      onClick={() => setConfirmDateChange(true)}
+                      title="Modifier la date"
+                    >
+                      <Edit className="h-4 w-4 text-blue-600" />
+                    </Button>
+                  )}
+                </div>
                 {['idCardDocument','weaponPermit','insurance','weaponReceipt'].includes(updatingDoc || '') && (
                   <p className="text-xs text-gray-500">Cette date est obligatoire pour ce document.</p>
                 )}
@@ -723,20 +739,6 @@ const handleDocumentSubmit = () => {
                   <Ban className="h-4 w-4" /> Modification refusée
                 </p>
                 <p className="text-sm text-red-700 mt-1">{submitError}</p>
-              </div>
-            )}
-            {!fileToUpload && documentsByType[updatingDoc || ''] && updatingDoc !== 'hunterPhoto' && (
-              <div className="flex items-center space-x-2 mt-4 bg-yellow-50 p-3 rounded border border-yellow-200">
-                <input 
-                  type="checkbox" 
-                  id="confirm-date" 
-                  checked={confirmDateChange}
-                  onChange={(e) => setConfirmDateChange(e.target.checked)}
-                  className="h-4 w-4 text-yellow-600 rounded border-gray-300"
-                />
-                <Label htmlFor="confirm-date" className="text-sm text-yellow-800 cursor-pointer">
-                  Je confirme vouloir modifier manuellement la date d'expiration du document existant.
-                </Label>
               </div>
             )}
           </div>
