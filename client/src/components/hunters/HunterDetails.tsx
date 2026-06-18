@@ -95,6 +95,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
   const [documentsByType, setDocumentsByType] = useState<Record<string, boolean>>({});
   // State pour les attachments avec dates d'expiration
   const [attachmentItems, setAttachmentItems] = useState<any[]>([]);
+  const [confirmDateChange, setConfirmDateChange] = useState(false);
 
   // Récupérer les attachments avec dates d'expiration
   const { data: attachmentData, isLoading: loadingAttachments, error: attachmentError } = useQuery({
@@ -467,6 +468,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       setExpiryDate('');
     }
     setFileToUpload(null);
+    setConfirmDateChange(false);
   };
 
 const handleDocumentSubmit = () => {
@@ -711,25 +713,45 @@ const handleDocumentSubmit = () => {
                 Note : La photo d'identité n'a pas de date d'expiration.
               </p>
             )}
+            {!fileToUpload && documentsByType[updatingDoc || ''] && updatingDoc !== 'hunterPhoto' && (
+              <div className="flex items-center space-x-2 mt-4 bg-yellow-50 p-3 rounded border border-yellow-200">
+                <input 
+                  type="checkbox" 
+                  id="confirm-date" 
+                  checked={confirmDateChange}
+                  onChange={(e) => setConfirmDateChange(e.target.checked)}
+                  className="h-4 w-4 text-yellow-600 rounded border-gray-300"
+                />
+                <Label htmlFor="confirm-date" className="text-sm text-yellow-800 cursor-pointer">
+                  Je confirme vouloir modifier manuellement la date d'expiration du document existant.
+                </Label>
+              </div>
+            )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6">
             <Button
               variant="outline"
+              className="mt-2 sm:mt-0"
               onClick={() => {
                 setUpdatingDoc(null);
                 setFileToUpload(null);
                 setExpiryDate('');
+                setConfirmDateChange(false);
               }}
             >
               Annuler
             </Button>
             <Button
               onClick={handleDocumentSubmit}
-              disabled={(!updatingDoc) || (!documentsByType[updatingDoc] && !fileToUpload) || updateDocument.isPending}
-              className="mt-4 w-full"
+              disabled={
+                (!updatingDoc) || 
+                (!documentsByType[updatingDoc] && !fileToUpload) || 
+                (documentsByType[updatingDoc] && !fileToUpload && updatingDoc !== 'hunterPhoto' && !confirmDateChange) || 
+                updateDocument.isPending
+              }
             >
-              {updateDocument.isPending ? 'Enregistrement...' : 'Enregistrer le document'}
+              {updateDocument.isPending ? 'Enregistrement...' : 'Enregistrer'}
             </Button>
           </DialogFooter>
         </DialogContent>
