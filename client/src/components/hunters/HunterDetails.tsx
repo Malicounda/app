@@ -164,8 +164,7 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
       queryClient.invalidateQueries({ queryKey: ["hunter-attachments", hunterId] });
       queryClient.invalidateQueries({ queryKey: ["hunter", hunterId] });
       // Forcer la mise à jour de l'état local des documents
-      setDocumentsByType({});
-      setAttachmentItems([]);
+      fetchDocuments();
       toast({
         title: "Document mis à jour",
         description: "Le document a été mis à jour avec succès.",
