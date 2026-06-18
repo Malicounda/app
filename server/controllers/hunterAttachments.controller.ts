@@ -292,7 +292,7 @@ export const getAttachmentsStatus = async (req: Request, res: Response) => {
         const expiry = row?.id_card_expiry_date ?? null;
         const computed = computeStatus(isPresent, expiry);
         return isPresent
-          ? { type: 'idCardDocument', present: true, mime: row?.id_card_mime, name: row?.id_card_name, expiryDate: expiry, status: computed.status, daysLeft: computed.daysLeft }
+          ? { type: 'idCardDocument', present: true, mime: row?.id_card_mime, name: row?.id_card_name, expiryDate: expiry, status: computed.status }
           : { type: 'idCardDocument', present: false, status: 'missing' };
       })(),
       weaponPermit: (() => {
@@ -300,7 +300,7 @@ export const getAttachmentsStatus = async (req: Request, res: Response) => {
         const expiry = row?.weapon_permit_expiry_date ?? null;
         const computed = computeStatus(isPresent, expiry);
         return isPresent
-          ? { type: 'weaponPermit', present: true, mime: row?.weapon_permit_mime, name: row?.weapon_permit_name, expiryDate: expiry, status: computed.status, daysLeft: computed.daysLeft }
+          ? { type: 'weaponPermit', present: true, mime: row?.weapon_permit_mime, name: row?.weapon_permit_name, expiryDate: expiry, status: computed.status }
           : { type: 'weaponPermit', present: false, status: 'missing' };
       })(),
       hunterPhoto: present('hunter_photo_data') ? { type: 'hunterPhoto', present: true, mime: row?.hunter_photo_mime, name: row?.hunter_photo_name } : null,
@@ -309,7 +309,7 @@ export const getAttachmentsStatus = async (req: Request, res: Response) => {
         const expiry = row?.treasury_stamp_expiry_date ?? null;
         const computed = computeStatus(isPresent, expiry);
         return isPresent
-          ? { type: 'treasuryStamp', present: true, mime: row?.treasury_stamp_mime, name: row?.treasury_stamp_name, expiryDate: expiry, status: computed.status, daysLeft: computed.daysLeft }
+          ? { type: 'treasuryStamp', present: true, mime: row?.treasury_stamp_mime, name: row?.treasury_stamp_name, expiryDate: expiry, status: computed.status }
           : { type: 'treasuryStamp', present: false, status: 'missing' };
       })(),
       weaponReceipt: (() => {
@@ -317,7 +317,7 @@ export const getAttachmentsStatus = async (req: Request, res: Response) => {
         const expiry = row?.weapon_receipt_expiry_date ?? null;
         const computed = computeStatus(isPresent, expiry);
         return isPresent
-          ? { type: 'weaponReceipt', present: true, mime: row?.weapon_receipt_mime, name: row?.weapon_receipt_name, expiryDate: expiry, status: computed.status, daysLeft: computed.daysLeft }
+          ? { type: 'weaponReceipt', present: true, mime: row?.weapon_receipt_mime, name: row?.weapon_receipt_name, expiryDate: expiry, status: computed.status }
           : { type: 'weaponReceipt', present: false, status: 'missing' };
       })(),
       insurance: (() => {
@@ -325,7 +325,7 @@ export const getAttachmentsStatus = async (req: Request, res: Response) => {
         const expiry = row?.insurance_expiry_date ?? null;
         const computed = computeStatus(isPresent, expiry);
         return isPresent
-          ? { type: 'insurance', present: true, mime: row?.insurance_mime, name: row?.insurance_name, expiryDate: expiry, status: computed.status, daysLeft: computed.daysLeft }
+          ? { type: 'insurance', present: true, mime: row?.insurance_mime, name: row?.insurance_name, expiryDate: expiry, status: computed.status }
           : { type: 'insurance', present: false, status: 'missing' };
       })(),
       moralCertificate: present('moral_certificate_data') ? { type: 'moralCertificate', present: true, mime: row?.moral_certificate_mime, name: row?.moral_certificate_name } : null,

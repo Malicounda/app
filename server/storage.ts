@@ -1486,6 +1486,9 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
 
     // Permit request operations
     async isHunterDocumentLocked(hunterId: number, documentType: string): Promise<{ locked: boolean, reason?: string }> {
+      const hunter = await db.select().from(hunters).where(eq(hunters.id, hunterId)).limit(1).then(res => res[0]);
+      const hunterName = hunter ? `${hunter.firstName} ${hunter.lastName}` : 'ce chasseur';
+
       // 1. Check if the hunter has any pending/approved permit requests
       const requests = await db.select().from(permitRequests)
         .where(and(
@@ -1494,7 +1497,7 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
         )).limit(1);
       
       if (requests.length > 0) {
-        return { locked: true, reason: 'Vous avez une demande de permis en cours.' };
+        return { locked: true, reason: `Modification refusée : ${hunterName} possède une demande de permis en cours (N° ${requests[0].id}).` };
       }
 
       // 2. Check if the hunter has any valid permits
@@ -1519,22 +1522,18 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
             insurance: 'insurance',
             moralcertificate: 'moral_certificate'
           };
-          return map[type.toLowerCase()] || null;
+          return map[type.toLowerCase().replace(/[^a-z]/g, '')] || null;
         };
 
         const base = toBaseNameLocal(documentType);
+        
         if (base) {
-           const attList = await db.execute(sqlRaw`SELECT * FROM hunter_attachments WHERE hunter_id = ${hunterId} LIMIT 1`);
-           const att: any = Array.isArray(attList) ? attList[0] : (attList as any)[0];
-           if (att) {
-             const expiryCol = `${base}_expiry_date`;
-             const expiry = att[expiryCol];
-             if (expiry) {
-               const expDate = new Date(expiry);
-               if (!isNaN(expDate.getTime()) && expDate.getTime() < Date.now()) {
-                 isExpired = true;
-               }
-             }
+           const att = await db.select().from(hunterAttachments).where(eq(hunterAttachments.hunterId, hunterId)).limit(1);
+           if (att.length > 0 && (att[0] as any)[`${base}_expiry_date`]) {
+              const expDate = new Date((att[0] as any)[`${base}_expiry_date`]);
+              if (!isNaN(expDate.getTime()) && expDate < new Date()) {
+                isExpired = true;
+              }
            }
         }
         
