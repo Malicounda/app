@@ -97,19 +97,12 @@ export default function DemandePermisChasse() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch('/api/hunters/me', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        if (response.ok) {
-          const profile = await response.json();
-          setHunterProfile(profile);
-        } else if (response.status !== 404) {
-          console.warn("Could not load hunter profile, status:", response.status);
+        const profile = await apiRequest<any>({ url: '/api/hunters/me', method: 'GET' });
+        setHunterProfile(profile);
+      } catch (err: any) {
+        if (err?.status !== 404) {
+          console.warn("Network error loading profile", err);
         }
-      } catch (err) {
-        console.warn("Network error loading profile");
       }
     };
     if (user) {
