@@ -359,21 +359,8 @@ router.get('/campaign', isAuthenticated, async (req, res) => {
       return res.json({ ...legacy, periods: [] });
     }
 
-    // 3) Charger les périodes spécifiques liées à la campagne
-    const periodsRows: any[] = await db.execute(sql`
-      SELECT code, name, start_date, end_date, enabled, derogation_enabled
-      FROM hunting_campaign_periods
-      WHERE campaign_id = ${campaignRow.id}
-      ORDER BY code ASC
-    `);
-    const periods = (periodsRows || []).map((p: any) => ({
-      code: String(p.code),
-      name: String(p.name),
-      startDate: p.start_date instanceof Date ? p.start_date.toISOString().split('T')[0] : String(p.start_date),
-      endDate: p.end_date instanceof Date ? p.end_date.toISOString().split('T')[0] : String(p.end_date),
-      enabled: !!p.enabled,
-      derogationEnabled: !!p.derogation_enabled,
-    }));
+    // 3) Anciennes périodes de chasse supprimées
+    const periods: any[] = [];
 
     return res.json({
       id: Number(campaignRow.id),
@@ -415,21 +402,7 @@ router.get('/campaign-periods', isAuthenticated, async (req, res) => {
       return res.json({ ok: true, data: [] });
     }
 
-    const periodsRows: any[] = await db.execute(sql`
-      SELECT code, name, start_date, end_date, enabled, derogation_enabled
-      FROM hunting_campaign_periods
-      WHERE campaign_id = ${campaignRow.id}
-      ORDER BY code ASC
-    `);
-
-    const data = (periodsRows || []).map((p: any) => ({
-      code: String(p.code),
-      name: String(p.name),
-      startDate: p.start_date instanceof Date ? p.start_date.toISOString().split('T')[0] : String(p.start_date),
-      endDate: p.end_date instanceof Date ? p.end_date.toISOString().split('T')[0] : String(p.end_date),
-      enabled: !!p.enabled,
-      derogationEnabled: !!p.derogation_enabled,
-    }));
+    const data: any[] = [];
 
     return res.json({ ok: true, data });
   } catch (error) {
@@ -446,9 +419,7 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
       return res.status(403).json({ message: "Accès refusé: réservé aux administrateurs" });
     }
 
-    const { startDate, endDate, year, isActive, notes, inactiveNotes, periods, categoryPeriods } = req.body || {} as {
       startDate?: string; endDate?: string; year?: string; isActive?: boolean; notes?: string; inactiveNotes?: string;
-      periods?: Array<{ code: string; name?: string; groupe?: string; genre?: string; startDate: string; endDate: string; enabled?: boolean; derogationEnabled?: boolean }>
       categoryPeriods?: Array<{ categoryKey: string; startDate: string; endDate: string; enabled?: boolean; derogationEnabled?: boolean }>
     };
 
@@ -481,53 +452,47 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
     `);
     const campaign = upsertCampaignRows?.[0];
 
-    // Gérer les périodes spécifiques si fournies
-    if (Array.isArray(periods)) {
+    // Gérer les périodes spécifiques par catégorie (si fournies)
+    if (Array.isArray(categoryPeriods)) {
       // campStart/campEnd déjà calculés et vérifiés
-
-      for (const p of periods) {
-        if (!p || !p.code || !p.startDate || !p.endDate) continue;
+      for (const p of categoryPeriods) {
+        if (!p || !p.categoryKey || !p.startDate || !p.endDate) continue;
         const pStart = new Date(p.startDate);
         const pEnd = new Date(p.endDate);
         const derog = !!p.derogationEnabled;
 
-        // Validation: chaque période doit avoir une fin >= début
         if (pEnd < pStart) {
           return res.status(400).json({
-            message: `La date de fermeture de la période '${p.code}' ne peut pas être antérieure à sa date d'ouverture.`,
-            code: p.code,
+            message: `La date de fermeture de la période de catégorie '${p.categoryKey}' ne peut pas être antérieure à sa date d'ouverture.`,
+            categoryKey: p.categoryKey,
           });
         }
         if (!derog) {
           if (pStart < campStart || pEnd > campEnd) {
             return res.status(400).json({
-              message: `La période '${p.code}' doit être comprise entre la date d'ouverture et de fermeture de la campagne, sauf dérogation.`,
-              code: p.code,
+              message: `La période de catégorie '${p.categoryKey}' doit être comprise entre la date d'ouverture et de fermeture de la campagne, sauf dérogation.`,
+              categoryKey: p.categoryKey,
             });
           }
         }
-        const name = p.name || (p.code === 'big_game' ? 'Grande chasse' : p.code === 'waterfowl' ? "Gibier d'Eau" : p.code);
-        await db.execute(sql`
-          INSERT INTO hunting_campaign_periods (campaign_id, code, name, start_date, end_date, enabled, derogation_enabled)
-          VALUES (${campaign.id}, ${p.code}, ${name}, ${p.startDate}, ${p.endDate}, ${p.enabled ?? true}, ${derog})
-          ON CONFLICT (campaign_id, code) DO UPDATE SET
-            name = EXCLUDED.name,
-            start_date = EXCLUDED.start_date,
-            end_date = EXCLUDED.end_date,
-            enabled = EXCLUDED.enabled,
-            derogation_enabled = EXCLUDED.derogation_enabled,
-            updated_at = CURRENT_TIMESTAMP
-        `);
+        try {
+          await db.execute(sql`
+            INSERT INTO hunting_campaign_category_periods (campaign_id, category_key, start_date, end_date, enabled, derogation_enabled)
+            VALUES (${campaign.id}, ${p.categoryKey}, ${p.startDate}, ${p.endDate}, ${p.enabled ?? true}, ${derog})
+            ON CONFLICT (campaign_id, category_key) DO UPDATE SET
+              start_date = EXCLUDED.start_date,
+              end_date = EXCLUDED.end_date,
+              enabled = EXCLUDED.enabled,
+              derogation_enabled = EXCLUDED.derogation_enabled,
+              updated_at = CURRENT_TIMESTAMP
+          `);
+        } catch {
+          // table absente -> ignorer
+        }
       }
     }
 
     // Réponse enrichie avec periods
-    const periodsRows: any[] = await db.execute(sql`
-      SELECT code, name, start_date, end_date, enabled, derogation_enabled
-      FROM hunting_campaign_periods
-      WHERE campaign_id = ${campaign.id}
-      ORDER BY code ASC
-    `);
     const result = {
       id: Number(campaign.id),
       startDate: campaign.start_date instanceof Date ? campaign.start_date.toISOString().split('T')[0] : String(campaign.start_date),
@@ -536,15 +501,26 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
       isActive: !!campaign.is_active,
       notes: campaign.notes ? String(campaign.notes) : '',
       inactiveNotes: campaign.inactive_notes ? String(campaign.inactive_notes) : '',
-      periods: (periodsRows || []).map((p: any) => ({
-        code: String(p.code),
-        name: String(p.name),
+      periods: [],
+    };
+    
+    try {
+      const catRows: any[] = await db.execute(sql`
+        SELECT category_key, start_date, end_date, enabled, derogation_enabled
+        FROM hunting_campaign_category_periods
+        WHERE campaign_id = ${campaign.id}
+        ORDER BY category_key ASC
+      `);
+      (result as any).categoryPeriods = (catRows || []).map((p: any) => ({
+        categoryKey: String(p.category_key),
         startDate: p.start_date instanceof Date ? p.start_date.toISOString().split('T')[0] : String(p.start_date),
         endDate: p.end_date instanceof Date ? p.end_date.toISOString().split('T')[0] : String(p.end_date),
         enabled: !!p.enabled,
         derogationEnabled: !!p.derogation_enabled,
-      })),
-    };
+      }));
+    } catch {
+      (result as any).categoryPeriods = [];
+    }
 
     return res.status(200).json(result);
   } catch (error) {

@@ -1800,30 +1800,6 @@ export const hunterDocuments = pgTable("hunter_documents", {
 	}
 });
 
-export const huntingCampaignPeriods = pgTable("hunting_campaign_periods", {
-	id: serial("id").primaryKey().notNull(),
-	campaignId: integer("campaign_id").notNull(),
-	code: text("code").notNull(),
-	name: text("name").notNull(),
-	startDate: date("start_date").notNull(),
-	endDate: date("end_date").notNull(),
-	enabled: boolean("enabled").default(true).notNull(),
-	derogationEnabled: boolean("derogation_enabled").default(false).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	categoryKey: text("category_key"),
-},
-(table) => {
-	return {
-		idxHcpCampaign: index("idx_hcp_campaign").using("btree", table.campaignId.asc().nullsLast()),
-		idxHcpUniqueCampaignCode: uniqueIndex("idx_hcp_unique_campaign_code").using("btree", table.campaignId.asc().nullsLast(), table.code.asc().nullsLast()),
-		huntingCampaignPeriodsCampaignIdFkey: foreignKey({
-			columns: [table.campaignId],
-			foreignColumns: [huntingCampaigns.id],
-			name: "hunting_campaign_periods_campaign_id_fkey"
-		}).onDelete("cascade"),
-	}
-});
 
 export const lieux = pgTable("lieux", {
 	id: serial("id").primaryKey().notNull(),

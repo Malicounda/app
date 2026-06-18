@@ -1846,13 +1846,8 @@ export default function Settings() {
     inactiveNotes: '',
   });
 
-  // Périodes spécifiques dynamiques (CRUD)
-  type PeriodRow = { code: string; name: string; startDate: Date; endDate: Date; derogationEnabled: boolean; groupe?: string; genre?: string };
-  const [specificPeriods, setSpecificPeriods] = useState<PeriodRow[]>([]);
-  const [newPeriodOpen, setNewPeriodOpen] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [isEditingInactiveNote, setIsEditingInactiveNote] = useState(false);
-  const [newPeriod, setNewPeriod] = useState<PeriodRow>({ code: "", name: "", startDate: new Date(), endDate: new Date(), derogationEnabled: false, groupe: "", genre: "" });
 
   type CategoryPeriodRow = { categoryKey: string; startDate: Date; endDate: Date; derogationEnabled: boolean };
   const [categoryPeriods, setCategoryPeriods] = useState<CategoryPeriodRow[]>([]);
@@ -2442,49 +2437,6 @@ export default function Settings() {
 
   // ... rest of the code remains the same ...
 
-  // Auto-compléter groupe/genre des périodes spécifiques après chargement des catégories
-  // Objectif: si l'API campagne ne renvoie pas groupe/genre, on déduit à partir des catégories
-  useEffect(() => {
-    if (!Array.isArray(specificPeriods) || specificPeriods.length === 0) return;
-    if (!Array.isArray(categories) || categories.length === 0) return;
-
-    // Construire des index pour matcher rapidement
-    const byGenre = new Map<string, typeof categories[number]>();
-    const byLabel = new Map<string, typeof categories[number]>();
-    for (const c of categories) {
-      const gKey = String(c.genre || '').toLowerCase();
-      const lKey = String(c.labelFr || '').toLowerCase();
-      if (gKey) byGenre.set(gKey, c);
-      if (lKey) byLabel.set(lKey, c);
-    }
-
-    let changed = false;
-    const next = specificPeriods.map((p) => {
-      const hasGroup = !!(p.groupe && p.groupe.trim() !== '');
-      const hasGenre = !!(p.genre && p.genre.trim() !== '');
-      if (hasGroup && hasGenre) return p;
-
-      const nameKey = String(p.name || '').toLowerCase();
-      const genreKey = String(p.genre || '').toLowerCase();
-
-      // Priorité: match sur genre, sinon sur labelFr
-      const matched = (genreKey && byGenre.get(genreKey)) || (nameKey && byLabel.get(nameKey));
-      if (matched) {
-        changed = true;
-        return {
-          ...p,
-          groupe: hasGroup ? p.groupe : (matched.groupe || ''),
-          genre: hasGenre ? p.genre : (matched.genre || ''),
-          name: p.name || matched.genre || matched.labelFr || '',
-        };
-      }
-      return p;
-    });
-
-    if (changed) {
-      setSpecificPeriods(next);
-    }
-  }, [categories, specificPeriods]);
 
   // Sauvegarde d'une catégorie (incluant le prix) sans reload
   const saveCategoryRow = async (rowId: number, updatedFields?: Partial<PermitCategoryRow>) => {
@@ -2558,17 +2510,7 @@ export default function Settings() {
         year: `${startYear}-${endYear}`
       };
 
-      // Build specific periods payload from CRUD list (compatible with new backend)
-      const periods = specificPeriods.map(p => ({
-        code: p.code,
-        name: p.name,
-        groupe: p.groupe,
-        genre: p.genre,
-        startDate: p.startDate,
-        endDate: p.endDate,
-        enabled: true,
-        derogationEnabled: p.derogationEnabled,
-      }));
+
 
       const categoryPeriodsPayload = categoryPeriods
         .filter(p => p.categoryKey && p.categoryKey.trim() !== '')
@@ -2580,18 +2522,18 @@ export default function Settings() {
           derogationEnabled: p.derogationEnabled,
         }));
 
-      // Validation client: chaque période end >= start
-      const invalidPeriod = periods.find(p => new Date(p.endDate).getTime() < new Date(p.startDate).getTime());
-      if (invalidPeriod) {
+      // Validation client: chaque période end >= start (Catégories)
+      const invalidCatPeriod = categoryPeriodsPayload.find(p => new Date(p.endDate).getTime() < new Date(p.startDate).getTime());
+      if (invalidCatPeriod) {
         setCampaignInfoModal({
           open: true,
           title: "Information",
-          description: `La date de fermeture de la période '${invalidPeriod.code}' ne peut pas être antérieure à sa date d'ouverture.`,
+          description: `La date de fermeture de la période de catégorie '${invalidCatPeriod.categoryKey}' ne peut pas être antérieure à sa date d'ouverture.`,
         });
         return;
       }
 
-      const resp = await apiRequest<any>('POST', '/api/settings/campaign', { ...campaignWithYear, periods, categoryPeriods: categoryPeriodsPayload });
+      const resp = await apiRequest<any>('POST', '/api/settings/campaign', { ...campaignWithYear, categoryPeriods: categoryPeriodsPayload });
       if (!resp.ok) throw new Error(resp.error || 'Erreur lors de la sauvegarde des paramètres');
 
       setCampaignInfoModal({

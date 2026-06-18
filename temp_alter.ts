@@ -3,8 +3,8 @@ import { sql } from 'drizzle-orm';
 
 async function run() {
   try {
-    await db.execute(sql`ALTER TABLE hunting_campaigns ADD COLUMN inactive_notes TEXT;`);
-    console.log("Success");
+    await db.execute(sql`DROP TABLE IF EXISTS hunting_campaign_periods CASCADE;`);
+    console.log("Table dropped successfully");
   } catch (e) {
     console.error("Error:", e);
   }
