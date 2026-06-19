@@ -159,16 +159,24 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
   try {
     const rows: Array<{ region: string; species_id: string; nom_espece: string | null; nom_scientifique: string | null; quantity: number }>
       = await db.execute(
-        sql`SELECT 
-              COALESCE(LOWER(TRIM(u.region)), 'nondefini') AS region,
-              d.espece_id AS species_id,
-              COALESCE(d.nom_espece, '') AS nom_espece,
-              COALESCE(d.nom_scientifique, '') AS nom_scientifique,
-              COALESCE(SUM(d.quantity), 0) AS quantity
-            FROM declaration_especes d
-            LEFT JOIN users u ON u.id = d.user_id
-            WHERE COALESCE(d.quantity, 0) > 0
-            GROUP BY COALESCE(LOWER(TRIM(u.region)), 'nondefini'), d.espece_id, d.nom_espece, d.nom_scientifique
+        sql`SELECT
+              COALESCE(LOWER(TRIM(x.region)), 'nondefini') AS region,
+              x.species_id,
+              COALESCE(x.nom_espece, '') AS nom_espece,
+              COALESCE(x.nom_scientifique, '') AS nom_scientifique,
+              COALESCE(SUM(x.quantity), 0) AS quantity
+            FROM (
+              SELECT region, espece_id AS species_id, nom_espece, nom_scientifique, quantity
+              FROM declaration_especes
+              WHERE (status IS NULL OR status = 'pending')
+
+              UNION ALL
+
+              SELECT region, species_id, species_name AS nom_espece, scientific_name AS nom_scientifique, quantity
+              FROM hunting_activities
+            ) x
+            WHERE COALESCE(x.quantity, 0) > 0
+            GROUP BY COALESCE(LOWER(TRIM(x.region)), 'nondefini'), x.species_id, x.nom_espece, x.nom_scientifique
             ORDER BY region ASC, species_id ASC` as any
       ) as any;
 
@@ -704,8 +712,15 @@ router.get('/national/aggregates', isAuthenticated, async (req, res) => {
       db.select({ total: sql<number>`COALESCE(SUM((${permits.price})::numeric), 0)` }).from(permits),
       db.select({ total: sql<number>`COALESCE(SUM((${taxes.amount})::numeric), 0)` }).from(taxes),
       db.select({ count: count() }).from(taxes),
-      // Pièces abattues: cumul des déclarations (declaration_especes.quantity) et non des taxes
-      db.execute(sql`SELECT COALESCE(SUM(quantity), 0) AS total FROM declaration_especes` as any),
+      // Pièces abattues: cumul des déclarations en attente et des activités validées
+      db.execute(sql`
+        SELECT COALESCE(SUM(quantity), 0) AS total
+        FROM (
+          SELECT quantity FROM declaration_especes WHERE status IS NULL OR status = 'pending'
+          UNION ALL
+          SELECT quantity FROM hunting_activities
+        ) x
+      ` as any),
       // Compteur d'infractions (PV) - basé sur la table alerts existante
       prisma.alerts.count(),
     ]);
@@ -746,12 +761,22 @@ router.get('/national/by-region', isAuthenticated, async (req, res) => {
       .where(eq(permits.status, 'active'))
       .groupBy(sql`LOWER(TRIM(${users.region}))`);
 
-    // Pièces abattues (quantité) par région (émetteur de la déclaration)
+    // Pièces abattues (quantité) par région (émetteur de la déclaration ou région d'activité)
     const piecesByRegion: Array<{ region: string; pieces: number }> = await db.execute(
-      sql`SELECT LOWER(TRIM(u.region)) AS region, COALESCE(SUM(d.quantity), 0) AS pieces
-          FROM declaration_especes d
-          INNER JOIN users u ON u.id = d.user_id
-          GROUP BY LOWER(TRIM(u.region))` as any
+      sql`SELECT LOWER(TRIM(region)) AS region, COALESCE(SUM(pieces), 0) AS pieces
+          FROM (
+            SELECT LOWER(TRIM(u.region)) AS region, COALESCE(d.quantity, 0) AS pieces
+            FROM declaration_especes d
+            INNER JOIN users u ON u.id = d.user_id
+            WHERE d.status IS NULL OR d.status = 'pending'
+
+            UNION ALL
+
+            SELECT LOWER(TRIM(ha.region)) AS region, COALESCE(ha.quantity, 0) AS pieces
+            FROM hunting_activities ha
+            WHERE ha.region IS NOT NULL
+          ) x
+          GROUP BY LOWER(TRIM(region))` as any
     ) as any;
 
     // Revenu par région (prix permis + taxes)

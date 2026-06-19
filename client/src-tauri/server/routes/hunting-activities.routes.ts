@@ -234,4 +234,59 @@ router.get('/:id/photo', isAuthenticated, async (req, res) => {
   }
 });
 
+// Supprimer une activité de chasse
+router.delete('/:id', isAuthenticated, async (req, res) => {
+  try {
+    const activityId = Number(req.params.id);
+
+    if (Number.isNaN(activityId)) {
+      return res.status(400).json({ message: 'ID d\'activité invalide' });
+    }
+
+    // Récupérer l'activité pour vérification des droits et cascade
+    const [existingActivity]: any[] = await db.execute(sql`
+      SELECT id, hunter_id, source_type, source_id FROM hunting_activities
+      WHERE id = ${activityId}
+    `);
+
+    if (!existingActivity) {
+      return res.status(404).json({ message: 'Activité non trouvée' });
+    }
+
+    // Vérifier les permissions (chasseur concerné ou admin/agent)
+    const isOwner = req.user?.hunterId === existingActivity.hunter_id;
+    const isAdmin = req.user?.role === 'admin' || req.user?.role === 'regional_agent' || req.user?.role === 'sector_agent' || req.user?.role === 'agent' || req.user?.role === 'sub-agent';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: 'Non autorisé à supprimer cette activité' });
+    }
+
+    // Supprimer l'activité
+    await db.execute(sql`
+      DELETE FROM hunting_activities
+      WHERE id = ${activityId}
+    `);
+
+    // Si l'activité provenait d'une déclaration de guide, on supprime aussi la déclaration d'espèce correspondante
+    if (existingActivity.source_type === 'guide_declaration' && existingActivity.source_id) {
+      await db.execute(sql`
+        DELETE FROM declaration_especes
+        WHERE id = ${existingActivity.source_id}
+      `);
+    }
+
+    console.log(`✅ Activité de chasse #${activityId} supprimée avec succès`);
+
+    res.json({
+      message: 'Activité supprimée avec succès'
+    });
+  } catch (error: any) {
+    console.error('❌ Erreur lors de la suppression de l\'activité:', error);
+    res.status(500).json({ 
+      message: 'Échec de la suppression de l\'activité',
+      error: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    });
+  }
+});
+
 export default router;

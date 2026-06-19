@@ -72,17 +72,17 @@ export default function HunterCarnetModal({ hunterId, hunterName, open, onClose 
   // Mutation pour supprimer une activité
   const deleteActivityMutation = useMutation({
     mutationFn: async (activity: any) => {
-      // Supprimer selon le type d'activité
-      if (activity.source_type === 'direct_declaration' || activity.source_type === 'guide_declaration') {
-        // Supprimer de declaration_especes
-        return apiRequest({
-          url: `/api/declaration-especes/${activity.id}`,
-          method: "DELETE",
-        });
-      } else {
+      // Supprimer selon le statut de validation
+      if (activity.is_validated_activity) {
         // Supprimer de hunting_activities
         return apiRequest({
           url: `/api/hunting-activities/${activity.id}`,
+          method: "DELETE",
+        });
+      } else {
+        // Supprimer de declaration_especes
+        return apiRequest({
+          url: `/api/declaration-especes/${activity.id}`,
           method: "DELETE",
         });
       }
