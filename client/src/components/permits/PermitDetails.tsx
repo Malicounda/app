@@ -866,12 +866,26 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
     },
     onError: (error: Error) => {
       setIsDeleting(false);
-      // Message simple demandé par l'utilisateur
-      const agentRegion = (user?.region || '').toString();
-      const issuerRegion = ((permit as any)?.issuerRegion || '').toString();
-      setDeleteForbiddenMessage(
-        `Agent Régional de ${agentRegion || 'N/A'} : seul l'administrateur ou l'agent régional de l'émetteur (${issuerRegion || 'inconnu'}) peut supprimer ce permis.`
-      );
+      const msg = error.message || '';
+      const isSafeguardError = 
+        msg.toLowerCase().includes('taxe') ||
+        msg.toLowerCase().includes('declaration') ||
+        msg.toLowerCase().includes('déclaration') ||
+        msg.toLowerCase().includes('activite') ||
+        msg.toLowerCase().includes('activité') ||
+        msg.toLowerCase().includes('associe') ||
+        msg.toLowerCase().includes('associé');
+
+      if (isSafeguardError) {
+        setDeleteForbiddenMessage(msg);
+      } else {
+        // Message simple demandé par l'utilisateur
+        const agentRegion = (user?.region || '').toString();
+        const issuerRegion = ((permit as any)?.issuerRegion || '').toString();
+        setDeleteForbiddenMessage(
+          `Agent Régional de ${agentRegion || 'N/A'} : seul l'administrateur ou l'agent régional de l'émetteur (${issuerRegion || 'inconnu'}) peut supprimer ce permis.`
+        );
+      }
       setShowDeleteForbidden(true);
     },
     onSettled: () => setIsDeleting(false),
