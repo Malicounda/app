@@ -1708,6 +1708,37 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
       }
     }
 
+    // Vérifier si le permis est associé à des taxes, des déclarations ou des activités
+    const taxCheck: any[] = await db.execute(sql`
+      SELECT COUNT(*) as count FROM taxes WHERE permit_id = ${permitId}
+    `);
+    const taxCount = Number(taxCheck[0]?.count || 0);
+    if (taxCount > 0) {
+      return res.status(400).json({
+        message: "Ce permis ne peut pas être supprimé directement car il est associé à une ou plusieurs taxes d'abattage. Veuillez d'abord supprimer ces taxes."
+      });
+    }
+
+    const declCheck: any[] = await db.execute(sql`
+      SELECT COUNT(*) as count FROM declaration_especes WHERE permit_id = ${permitId}
+    `);
+    const declCount = Number(declCheck[0]?.count || 0);
+    if (declCount > 0) {
+      return res.status(400).json({
+        message: "Ce permis ne peut pas être supprimé directement car il a fait l'objet de déclarations d'abattage. Veuillez d'abord supprimer ces déclarations."
+      });
+    }
+
+    const activityCheck: any[] = await db.execute(sql`
+      SELECT COUNT(*) as count FROM hunting_activities WHERE permit_id = ${permitId}
+    `);
+    const activityCount = Number(activityCheck[0]?.count || 0);
+    if (activityCount > 0) {
+      return res.status(400).json({
+        message: "Ce permis ne peut pas être supprimé directement car il a fait l'objet d'activités de chasse. Veuillez d'abord supprimer ces activités."
+      });
+    }
+
     // Supprimer d'abord toutes les taxes associées à ce permis (suppression en cascade logique)
     try {
       const deletedTaxes = await db
@@ -1815,6 +1846,46 @@ router.delete('/suspended/all', isAuthenticated, async (req, res) => {
       columns: { id: true, permitNumber: true }
     });
 
+    if (permitsToDelete.length === 0) {
+      return res.json({
+        message: "Aucun permis suspendu à supprimer",
+        count: 0
+      });
+    }
+
+    const ids = permitsToDelete.map(p => p.id);
+
+    // Vérifier si des permis suspendus sont associés à des taxes, des déclarations ou des activités
+    const taxCheck: any[] = await db.execute(sql`
+      SELECT COUNT(*) as count FROM taxes WHERE permit_id IN (${sql.raw(ids.join(','))})
+    `);
+    const taxCount = Number(taxCheck[0]?.count || 0);
+    if (taxCount > 0) {
+      return res.status(400).json({
+        message: "Certains permis suspendus ne peuvent pas être supprimés directement car ils sont associés à des taxes d'abattage."
+      });
+    }
+
+    const declCheck: any[] = await db.execute(sql`
+      SELECT COUNT(*) as count FROM declaration_especes WHERE permit_id IN (${sql.raw(ids.join(','))})
+    `);
+    const declCount = Number(declCheck[0]?.count || 0);
+    if (declCount > 0) {
+      return res.status(400).json({
+        message: "Certains permis suspendus ne peuvent pas être supprimés directement car ils ont fait l'objet de déclarations d'abattage."
+      });
+    }
+
+    const activityCheck: any[] = await db.execute(sql`
+      SELECT COUNT(*) as count FROM hunting_activities WHERE permit_id IN (${sql.raw(ids.join(','))})
+    `);
+    const activityCount = Number(activityCheck[0]?.count || 0);
+    if (activityCount > 0) {
+      return res.status(400).json({
+        message: "Certains permis suspendus ne peuvent pas être supprimés directement car ils ont fait l'objet d'activités de chasse."
+      });
+    }
+
     // Supprimer les permis
     const result = await db.delete(permits)
       .where(eq(permits.status, 'suspended'))
@@ -1852,6 +1923,37 @@ router.post('/batch/delete', isAuthenticated, async (req, res) => {
     const ids = permitIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
     if (ids.length !== permitIds.length) {
       return res.status(400).json({ message: 'Un ou plusieurs IDs de permis sont invalides' });
+    }
+
+    // Vérifier si des permis du lot sont associés à des taxes, des déclarations ou des activités
+    const taxCheck: any[] = await db.execute(sql`
+      SELECT COUNT(*) as count FROM taxes WHERE permit_id IN (${sql.raw(ids.join(','))})
+    `);
+    const taxCount = Number(taxCheck[0]?.count || 0);
+    if (taxCount > 0) {
+      return res.status(400).json({
+        message: "Certains permis sélectionnés ne peuvent pas être supprimés directement car ils sont associés à des taxes d'abattage."
+      });
+    }
+
+    const declCheck: any[] = await db.execute(sql`
+      SELECT COUNT(*) as count FROM declaration_especes WHERE permit_id IN (${sql.raw(ids.join(','))})
+    `);
+    const declCount = Number(declCheck[0]?.count || 0);
+    if (declCount > 0) {
+      return res.status(400).json({
+        message: "Certains permis sélectionnés ne peuvent pas être supprimés directement car ils ont fait l'objet de déclarations d'abattage."
+      });
+    }
+
+    const activityCheck: any[] = await db.execute(sql`
+      SELECT COUNT(*) as count FROM hunting_activities WHERE permit_id IN (${sql.raw(ids.join(','))})
+    `);
+    const activityCount = Number(activityCheck[0]?.count || 0);
+    if (activityCount > 0) {
+      return res.status(400).json({
+        message: "Certains permis sélectionnés ne peuvent pas être supprimés directement car ils ont fait l'objet d'activités de chasse."
+      });
     }
 
     // Supprimer les permis
