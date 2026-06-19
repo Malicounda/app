@@ -1287,15 +1287,15 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[92%] md:max-w-[740px] lg:max-w-[820px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[92%] md:max-w-[740px] lg:max-w-[820px] max-h-[95vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader className="space-y-1">
             <DialogTitle className="text-xl font-bold flex items-center justify-between">
               Détails du Permis
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs">
               Consultez les informations détaillées du permis de chasse
             </DialogDescription>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
               <div>
                 <div className="text-xs text-gray-500">Émis le</div>
                 <div className="text-sm font-semibold">{formatSafeDate(permit?.issueDate)}</div>
@@ -1330,12 +1330,12 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
           ) : permit && hunter ? (
             <div>
               {/* Version détaillée pour l'écran (non imprimable) */}
-              <div className="hidden-print mb-6">
+              <div className="hidden-print mb-3">
                 <Card className="printable-table">
-                  <CardContent className="pt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <CardContent className="p-4 pt-4 pb-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           <div>
                             <h3 className="text-sm font-medium text-gray-500">Numéro de Permis</h3>
                             <p className="text-base font-bold">{permit.permitNumber}</p>
@@ -1459,43 +1459,43 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-col items-center justify-center border-l border-gray-200 pl-6">
-                        <div className="mb-4">
+                      <div className="flex flex-col items-center justify-center border-l border-gray-200 pl-4">
+                        <div className="mb-2">
                           {hunterPhotoUrl ? (
                             <img
                               src={hunterPhotoUrl}
                               alt="Photo du chasseur"
-                              className="w-32 h-32 rounded-full object-cover mb-2 mx-auto border"
+                              className="w-28 h-28 rounded-full object-cover mb-1 mx-auto border"
                               onError={() => setHunterPhotoUrl(null)}
                             />
                           ) : (
-                            <div className="w-32 h-32 bg-gray-200 rounded-full mb-2 mx-auto flex items-center justify-center">
-                              <User className="h-16 w-16 text-gray-400" />
+                            <div className="w-28 h-28 bg-gray-200 rounded-full mb-1 mx-auto flex items-center justify-center">
+                              <User className="h-12 w-12 text-gray-400" />
                             </div>
                           )}
-                          <p className="text-center text-sm text-gray-500">Photo du chasseur</p>
+                          <p className="text-center text-xs text-gray-500 font-medium">Photo du chasseur</p>
                         </div>
                         {/* QR Code Réactivé comme demandé */}
                         {qrCodeUrl && (
-                          <div className="mt-4 w-full">
+                          <div className="mt-2 w-full">
                             <img
                               src={qrCodeUrl}
                               alt="QR Code"
-                              className="w-32 h-32 mx-auto"
+                              className="w-28 h-28 mx-auto"
                             />
-                            <p className="text-center text-sm text-gray-500 mt-2">QR Code d'identification</p>
-                            <Separator className="my-4" />
+                            <p className="text-center text-xs text-gray-500 mt-1 font-medium">QR Code d'identification</p>
+                            <Separator className="my-2" />
                             {/* Section informations déplacée ici */}
-                            <div className="space-y-3 text-center">
+                            <div className="space-y-2 text-center">
                               <div>
-                                <h3 className="text-sm font-medium text-gray-500">Prix</h3>
-                                <p className="text-base">{Number(permit.price).toLocaleString()} FCFA</p>
+                                <h3 className="text-xs font-medium text-gray-500">Prix</h3>
+                                <p className="text-sm font-semibold">{Number(permit.price).toLocaleString()} FCFA</p>
                               </div>
                               <div>
-                                <h3 className="text-sm font-medium text-gray-500">N° Quittance Permis</h3>
-                                <p className="text-base font-bold">{permit.receiptNumber || 'Non défini'}</p>
+                                <h3 className="text-xs font-medium text-gray-500">N° Quittance Permis</h3>
+                                <p className="text-sm font-bold">{permit.receiptNumber || 'Non défini'}</p>
                               </div>
-                              <div className="border-t pt-3 mt-3">
+                              <div className="border-t pt-2 mt-2">
                                 <div className="space-y-1">
                                   {(() => {
                                     // Préférer la dernière entrée de renouvellement pour afficher le lieu de service
@@ -1557,7 +1557,8 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
           )}
 
           {permit && hunter && (
-            <DialogFooter className="gap-1 no-print flex flex-wrap items-center justify-start w-full pl-0">
+            <DialogFooter className="no-print flex flex-col gap-2 w-full pl-0 mt-2 border-t pt-2 items-start justify-start sm:justify-start">
+              <div className="flex flex-wrap gap-1.5 items-center w-full justify-start">
               {/* Bouton d'impression - accessible à tous */}
               <Button
                 variant="outline"
@@ -1579,8 +1580,8 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
                 Imprimer le Quitus
               </Button>
 
-              {/* Boutons d'actions */}
-              <>
+              </div>
+              <div className="flex flex-wrap gap-1.5 items-center w-full justify-start">
                     {/* Bouton renouveler */}
                     {permissions.canEditPermit && (() => {
                       // Vérifier si la date d'expiration est atteinte
@@ -1694,7 +1695,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
                         Demander suppression
                       </Button>
                     )}
-              </>
+              </div>
             </DialogFooter>
           )}
         </DialogContent>
