@@ -2354,23 +2354,6 @@ export default function Settings() {
               waterGameEnabled: typeof water?.enabled === 'boolean' ? water.enabled : prev.waterGameEnabled,
               waterGameDerogation: typeof water?.derogationEnabled === 'boolean' ? water.derogationEnabled : prev.waterGameDerogation,
             }));
-
-            // Store full list for CRUD (groupe/genre optionnels côté UI)
-            setSpecificPeriods(periods.map(p => ({
-              code: String(p.code || ''),
-              name: String(p.name || ''),
-              startDate: p.startDate ? new Date(p.startDate) : new Date(),
-              endDate: p.endDate ? new Date(p.endDate) : new Date(),
-              derogationEnabled: !!p.derogationEnabled,
-              groupe: (p as any).groupe || '',
-              genre: (p as any).genre || '',
-            })));
-          } else {
-            // Fallback: initialize with two conventional periods from current season state
-            setSpecificPeriods([
-              { code: 'big_game', name: 'Grande chasse', startDate: new Date(), endDate: new Date(), derogationEnabled: false },
-              { code: 'waterfowl', name: "Gibier d'Eau", startDate: new Date(), endDate: new Date(), derogationEnabled: false },
-            ]);
           }
 
           if (Array.isArray((data as any).categoryPeriods)) {

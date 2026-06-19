@@ -182,21 +182,6 @@ async function computeValidityAndExpiry(params: {
             }
           }
 
-          // 2) Fallback: période globale par type (big/small/waterfowl)
-          if (!periodEnd) {
-            const rows: any[] = await db.execute(sql`
-              SELECT end_date
-              FROM hunting_campaign_periods
-              WHERE campaign_id = ${campaign.id} AND code = ${groupCode} AND (enabled IS DISTINCT FROM FALSE)
-              ORDER BY end_date DESC
-              LIMIT 1
-            `);
-            if (rows && rows.length > 0) {
-              const endRaw = rows[0]?.end_date;
-              const dt = endRaw ? new Date(endRaw) : null;
-              periodEnd = (dt && !isNaN(dt.getTime())) ? dt : null;
-            }
-          }
         } catch (e) {
           // ignorer: si table absente ou colonne manquante, on reste sur bornage par campagne
         }

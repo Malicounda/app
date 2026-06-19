@@ -127,6 +127,8 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
   const [errorModal, setErrorModal] = useState<{ open: boolean; title: string; description: string }>(
     { open: false, title: '', description: '' }
   );
+  // Info sur la campagne
+  const [campaignInfo, setCampaignInfo] = useState<{ isActive: boolean; inactiveNotes: string; endDate?: Date } | null>(null);
 
   // Fonction pour générer un numéro de permis en utilisant la nouvelle API
   const generatePermitNumber = async (hunterId: number): Promise<string> => {
@@ -278,6 +280,11 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
         const endYear = campaign?.endDate ? new Date(campaign.endDate).getFullYear() : new Date().getFullYear();
         const seasonYear = `${startYear}-${endYear}`;
         setSeasonYear(seasonYear);
+        setCampaignInfo({
+          isActive: !!campaign?.isActive,
+          inactiveNotes: campaign?.inactiveNotes || '',
+          endDate: campaign?.endDate ? new Date(campaign.endDate) : undefined,
+        });
 
         // 2) Charger les catégories actives avec les prix de la saison
         const cats = await apiRequest<any[]>({ url: `/api/permit-categories?activeOnly=true&season=${encodeURIComponent(seasonYear)}`, method: 'GET' });
@@ -477,6 +484,35 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
           description: `Données chasseur obligatoire manques${details ? `: ${details}` : ''}`,
         });
         return; // Bloquer la soumission
+      }
+
+      // Vérifier l'état de la campagne (pour les permis cynégétiques)
+      const targetGroup = getCategoryGroup(data.categoryId);
+      if (['resident', 'coutumier', 'touriste'].includes(targetGroup)) {
+        if (campaignInfo) {
+          if (!campaignInfo.isActive) {
+            setErrorModal({
+              open: true,
+              title: "Campagne inactive",
+              description: campaignInfo.inactiveNotes || "La campagne cynégétique est actuellement fermée. Vous ne pouvez pas délivrer de permis pour le moment.",
+            });
+            return;
+          }
+          if (campaignInfo.endDate) {
+            const end = new Date(campaignInfo.endDate);
+            const now = new Date();
+            now.setHours(0,0,0,0);
+            end.setHours(23,59,59,999);
+            if (now > end) {
+              setErrorModal({
+                open: true,
+                title: "Campagne terminée",
+                description: "Impossible de délivrer ce permis : la campagne de chasse est terminée (date de fin dépassée).",
+              });
+              return;
+            }
+          }
+        }
       }
 
       // Vérification préalable: unicité par catégorie

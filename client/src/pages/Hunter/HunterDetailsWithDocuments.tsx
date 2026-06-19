@@ -695,12 +695,7 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
                                 Expiré
                               </span>
                             )}
-                            {isDueSoon && (
-                              <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-medium">
-                                <AlertTriangle className="w-3 h-3" />
-                                À mettre à jour
-                              </span>
-                            )}
+
                             {validity === 'missing' && (
                               <span className="inline-flex items-center gap-2 rounded-full bg-red-100 text-red-800 px-2 py-0.5 text-xs font-medium">
                                 <XCircle className="w-3 h-3" />
