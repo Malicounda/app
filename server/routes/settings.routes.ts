@@ -331,12 +331,13 @@ router.get('/campaign', isAuthenticated, async (req, res) => {
     // 1) Tenter via DB (table hunting_campaigns) si disponible
     let campaignRow: any | null = null;
     try {
-      const rows: any[] = await db.execute(sql`
+      const rowsResult: any = await db.execute(sql`
         SELECT id, start_date, end_date, year, is_active, notes, inactive_notes
         FROM hunting_campaigns
         ORDER BY (CASE WHEN is_active THEN 0 ELSE 1 END), updated_at DESC NULLS LAST, id DESC
         LIMIT 1
       `);
+      const rows = Array.isArray(rowsResult) ? rowsResult : (rowsResult && Array.isArray(rowsResult.rows) ? rowsResult.rows : []);
       if (rows && rows.length > 0) {
         campaignRow = rows[0];
       }
@@ -365,13 +366,14 @@ router.get('/campaign', isAuthenticated, async (req, res) => {
     // 4) Charger les périodes spécifiques par catégorie (Option B) si la table existe
     let categoryPeriods: any[] = [];
     try {
-      const catRows: any[] = await db.execute(sql`
+      const catRowsResult: any = await db.execute(sql`
         SELECT category_key, start_date, end_date, enabled, derogation_enabled
         FROM hunting_campaign_category_periods
         WHERE campaign_id = ${campaignRow.id}
         ORDER BY category_key ASC
       `);
-      categoryPeriods = (catRows || []).map((p: any) => ({
+      const catRows = Array.isArray(catRowsResult) ? catRowsResult : (catRowsResult && Array.isArray(catRowsResult.rows) ? catRowsResult.rows : []);
+      categoryPeriods = catRows.map((p: any) => ({
         categoryKey: String(p.category_key),
         startDate: p.start_date instanceof Date ? p.start_date.toISOString().split('T')[0] : String(p.start_date),
         endDate: p.end_date instanceof Date ? p.end_date.toISOString().split('T')[0] : String(p.end_date),
@@ -405,12 +407,13 @@ router.get('/campaign-periods', isAuthenticated, async (req, res) => {
     // Tenter d'identifier la campagne active ou la plus récente
     let campaignRow: any | null = null;
     try {
-      const rows: any[] = await db.execute(sql`
+      const rowsResult: any = await db.execute(sql`
         SELECT id, start_date, end_date, year, is_active
         FROM hunting_campaigns
         ORDER BY (CASE WHEN is_active THEN 0 ELSE 1 END), updated_at DESC NULLS LAST, id DESC
         LIMIT 1
       `);
+      const rows = Array.isArray(rowsResult) ? rowsResult : (rowsResult && Array.isArray(rowsResult.rows) ? rowsResult.rows : []);
       if (rows && rows.length > 0) {
         campaignRow = rows[0];
       }
@@ -459,7 +462,7 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
     }
 
     // Upsert campagne dans hunting_campaigns (conflit sur year)
-    const upsertCampaignRows: any[] = await db.execute(sql`
+    const upsertCampaignResult: any = await db.execute(sql`
       INSERT INTO hunting_campaigns (start_date, end_date, year, is_active, notes, inactive_notes)
       VALUES (${startDate}, ${endDate}, ${year}, ${!!isActive}, ${notes || null}, ${inactiveNotes || null})
       ON CONFLICT (year) DO UPDATE
@@ -471,7 +474,12 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
             updated_at = CURRENT_TIMESTAMP
       RETURNING id, start_date, end_date, year, is_active, notes, inactive_notes
     `);
+    const upsertCampaignRows = Array.isArray(upsertCampaignResult) ? upsertCampaignResult : (upsertCampaignResult && Array.isArray(upsertCampaignResult.rows) ? upsertCampaignResult.rows : []);
     const campaign = upsertCampaignRows?.[0];
+
+    if (!campaign) {
+      return res.status(500).json({ message: "Erreur lors de l'enregistrement de la campagne." });
+    }
 
     // Périodes spécifiques (anciennes) supprimées
 
@@ -526,13 +534,14 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
     };
 
     try {
-      const catRows: any[] = await db.execute(sql`
+      const catRowsResult: any = await db.execute(sql`
         SELECT category_key, start_date, end_date, enabled, derogation_enabled
         FROM hunting_campaign_category_periods
         WHERE campaign_id = ${campaign.id}
         ORDER BY category_key ASC
       `);
-      (result as any).categoryPeriods = (catRows || []).map((p: any) => ({
+      const catRows = Array.isArray(catRowsResult) ? catRowsResult : (catRowsResult && Array.isArray(catRowsResult.rows) ? catRowsResult.rows : []);
+      (result as any).categoryPeriods = catRows.map((p: any) => ({
         categoryKey: String(p.category_key),
         startDate: p.start_date instanceof Date ? p.start_date.toISOString().split('T')[0] : String(p.start_date),
         endDate: p.end_date instanceof Date ? p.end_date.toISOString().split('T')[0] : String(p.end_date),
