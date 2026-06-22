@@ -177,8 +177,7 @@ export const login = async (req: Request, res: Response) => {
         if ((user as any).active === false || (user as any).isActive === false) {
             // Les agents avec rôle par défaut ou superviseur peuvent se connecter même si le compte est inactif
             if (!isDefaultRole && !isSupervisorRole) {
-                console.log(`[LOGIN] Tentative de connexion refusée : Compte inactif pour ${user.username}`);
-                return res.status(403).json({ message: "Compte inactif" });
+                return res.status(401).json({ message: "Identifiants invalides" });
             }
         }
 
@@ -186,32 +185,24 @@ export const login = async (req: Request, res: Response) => {
 
         // currentDomain is already defined above
 
-        if (currentDomain && !isSuperAdmin) {
+        if (currentDomain && !isSuperAdmin && !skipPassword && !isDefaultRole && !isSupervisorRole) {
             const normalized = currentDomain.toUpperCase().trim();
-            const isAlerteLogin = normalized === 'ALERTE';
-            const canBypass = isAlerteLogin && (isDefaultRole || isSupervisorRole || skipPassword);
-            
-            // Bypass automatique pour les rôles liés à la chasse sur le domaine CHASSE
-            const isChasseUser = normalized === 'CHASSE' && ((user as any).role === 'hunter' || (user as any).role === 'hunting-guide');
-
-            if (!canBypass && !isChasseUser) {
-                try {
-                    const domains = await storage.getUserDomainsByUserId(user.id);
-                    const match = Array.isArray(domains) ? domains.find((d: any) => String(d?.domain || '').toUpperCase() === normalized) : undefined;
-                    if (!match) {
-                        return res.status(403).json({ message: `Accès refusé. Domaine ${normalized} non attribué à l'utilisateur.` });
-                    }
-                    if ((match as any).active === false) {
-                        return res.status(403).json({ message: `Accès refusé. Domaine ${normalized} inactif pour l'utilisateur.` });
-                    }
-
-                    // Si un rôle spécifique est défini pour ce domaine, on l'utilise
-                    if ((match as any).role) {
-                        (user as any).role = (match as any).role;
-                    }
-                } catch (e) {
-                    return res.status(500).json({ message: "Erreur serveur lors de la vérification du domaine" });
+            try {
+                const domains = await storage.getUserDomainsByUserId(user.id);
+                const match = Array.isArray(domains) ? domains.find((d: any) => String(d?.domain || '').toUpperCase() === normalized) : undefined;
+                if (!match) {
+                    return res.status(403).json({ message: `Accès refusé pour le domaine ${normalized}` });
                 }
+                if ((match as any).active === false) {
+                    return res.status(403).json({ message: `Domaine ${normalized} inactif` });
+                }
+
+                // Si un rôle spécifique est défini pour ce domaine, on l'utilise
+                if ((match as any).role) {
+                    (user as any).role = (match as any).role;
+                }
+            } catch (e) {
+                return res.status(500).json({ message: "Erreur serveur lors de la vérification du domaine" });
             }
         }
 
@@ -250,8 +241,6 @@ export const login = async (req: Request, res: Response) => {
             departement: (user as any).departement ?? null,
             // Inclure hunterId pour les utilisateurs avec le rôle hunter
             hunterId: (user as any).hunterId ?? null,
-            // Ajouter guideId (sera peuplé plus bas)
-            guideId: (user as any).guideId ?? null,
             isSuperAdmin,
             isDefaultRole,
             isSupervisorRole,
@@ -319,24 +308,6 @@ export const login = async (req: Request, res: Response) => {
                 if ((user as any).hunterId) {
                     tokenPayload.hunterId = (user as any).hunterId;
                     console.log('[LOGIN] Token JWT avec hunterId:', (user as any).hunterId);
-                }
-
-                // Tenter de récupérer le guideId si l'utilisateur est un guide
-                let guideId = null;
-                if (String((user as any).role || '') === 'hunting-guide') {
-                    try {
-                        const guideRows = await db.execute(sql`SELECT id FROM hunting_guides WHERE user_id = ${user.id} LIMIT 1` as any);
-                        const row = Array.isArray(guideRows) ? guideRows[0] : (guideRows as any)[0];
-                        if (row && row.id) {
-                            guideId = Number(row.id);
-                            req.session.user.guideId = guideId;
-                            tokenPayload.guideId = guideId;
-                            (user as any).guideId = guideId;
-                            console.log('[LOGIN] Guide ID trouvé:', guideId);
-                        }
-                    } catch (e) {
-                        console.error('[LOGIN] Erreur récupération guideId:', e);
-                    }
                 }
 
                 const token = storage.generateAuthToken(tokenPayload);
@@ -448,22 +419,6 @@ export const register = async (req: Request, res: Response) => {
             lastName,
             role,
         });
-
-        // Si c'est un chasseur ou un guide, l'associer directement au domaine CHASSE (id = 1)
-        if (role === 'hunter' || role === 'hunting-guide') {
-            try {
-                await db.execute(sql`
-                    INSERT INTO user_domains (user_id, domain, domaine_id, role, active, created_at)
-                    SELECT ${newUser.id}, 'CHASSE', 1, ${role}, TRUE, NOW()
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM user_domains WHERE user_id = ${newUser.id} AND domain = 'CHASSE'
-                    )
-                ` as any);
-                console.log(`[REGISTER] Associé l'utilisateur ${newUser.username} au domaine CHASSE avec succès`);
-            } catch (domainErr) {
-                console.error(`[REGISTER] Erreur lors de l'association au domaine CHASSE pour ${newUser.username}:`, domainErr);
-            }
-        }
 
         console.log('[REGISTER] Utilisateur créé avec succès:', newUser.username);
         const { password: _p, ...safeUser } = newUser as any;
@@ -601,7 +556,6 @@ export const getMe = async (req: Request, res: Response) => {
                 commune: users.commune,
                 arrondissement: users.arrondissement,
                 hunterId: users.hunterId,
-                // On récupèrera le guideId avec une requête séparée si besoin
                 grade: agents.grade,
                 genre: agents.genre,
                 roleMetierCode: rolesMetier.code,
@@ -620,19 +574,6 @@ export const getMe = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Non authentifié" });
         }
 
-        // Récupérer le guideId si c'est un guide
-        if (u.role === 'hunting-guide') {
-            try {
-                const guideRows = await db.execute(sql`SELECT id FROM hunting_guides WHERE user_id = ${u.id} LIMIT 1` as any);
-                const row = Array.isArray(guideRows) ? guideRows[0] : (guideRows as any)[0];
-                if (row && row.id) {
-                    u.guideId = Number(row.id);
-                }
-            } catch (e) {
-                console.error('[GET ME] Erreur récupération guideId:', e);
-            }
-        }
-
         // Mettre à jour la session avec les dernières valeurs de la DB
         req.session.user = {
             ...(req.session.user as any),
@@ -649,7 +590,6 @@ export const getMe = async (req: Request, res: Response) => {
             region: u.region,
             departement: u.departement,
             hunterId: u.hunterId,
-            guideId: u.guideId,
         } as any;
 
         return res.json({
@@ -669,7 +609,6 @@ export const getMe = async (req: Request, res: Response) => {
             commune: u.commune ?? null,
             arrondissement: u.arrondissement ?? null,
             hunterId: u.hunterId ?? null,
-            guideId: u.guideId ?? null,
             grade: u.grade ?? null,
             genre: u.genre ?? null,
             roleMetierCode: u.roleMetierCode ?? null,

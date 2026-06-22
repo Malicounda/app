@@ -362,6 +362,26 @@ router.get('/campaign', isAuthenticated, async (req, res) => {
     // 3) Anciennes périodes de chasse supprimées
     const periods: any[] = [];
 
+    // 4) Périodes spécifiques par catégorie
+    let categoryPeriods: any[] = [];
+    try {
+      const catRows: any[] = await db.execute(sql`
+        SELECT category_key, start_date, end_date, enabled, derogation_enabled
+        FROM hunting_campaign_category_periods
+        WHERE campaign_id = ${campaignRow.id}
+        ORDER BY category_key ASC
+      `);
+      categoryPeriods = (catRows || []).map((p: any) => ({
+        categoryKey: String(p.category_key),
+        startDate: p.start_date instanceof Date ? p.start_date.toISOString().split('T')[0] : String(p.start_date),
+        endDate: p.end_date instanceof Date ? p.end_date.toISOString().split('T')[0] : String(p.end_date),
+        enabled: !!p.enabled,
+        derogationEnabled: !!p.derogation_enabled,
+      }));
+    } catch {
+      // Ignorer si la table n'existe pas ou erreur
+    }
+
     return res.json({
       id: Number(campaignRow.id),
       startDate: campaignRow.start_date instanceof Date ? campaignRow.start_date.toISOString().split('T')[0] : String(campaignRow.start_date),
@@ -419,6 +439,7 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
       return res.status(403).json({ message: "Accès refusé: réservé aux administrateurs" });
     }
 
+    const { startDate, endDate, year, isActive, notes, inactiveNotes, categoryPeriods } = req.body as {
       startDate?: string; endDate?: string; year?: string; isActive?: boolean; notes?: string; inactiveNotes?: string;
       categoryPeriods?: Array<{ categoryKey: string; startDate: string; endDate: string; enabled?: boolean; derogationEnabled?: boolean }>
     };
