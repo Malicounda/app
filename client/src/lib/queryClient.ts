@@ -89,6 +89,37 @@ function mapOfflineEntity(method: string, url: string) {
   return null;
 }
 
+function getHumanHttpErrorMessage(status: number): string {
+  switch (status) {
+    case 400:
+      return "La requête envoyée est invalide.";
+    case 401:
+      return "Votre session a expiré. Veuillez vous reconnecter.";
+    case 403:
+      return "Vous n'avez pas les droits nécessaires pour effectuer cette action.";
+    case 404:
+      return "La ressource demandée est introuvable ou n'est plus disponible.";
+    case 408:
+      return "Le délai d'attente de la requête a expiré. Veuillez réessayer.";
+    case 409:
+      return "Un conflit a été détecté avec les données existantes.";
+    case 429:
+      return "Trop de requêtes effectuées. Veuillez patienter quelques instants.";
+    case 502:
+    case 503:
+    case 504:
+      return "Le serveur est momentanément indisponible. Veuillez réessayer dans quelques secondes.";
+    default:
+      return status >= 500
+        ? "Une erreur serveur est survenue. Veuillez réessayer ultérieurement."
+        : "Une erreur est survenue lors du traitement de votre requête.";
+  }
+}
+
+function isHtmlPayload(text: string): boolean {
+  return /<(!doctype|html|head|body|title|h1|div|p)\b/i.test(text);
+}
+
 async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: string }) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -104,18 +135,20 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
       typeof body?.message === "string" ? body.message.trim() : (typeof body?.error === "string" ? body.error.trim() : "");
     let baseMessage = serverMessage;
 
-    if (body?.debug) {
+    if (body?.debug && import.meta.env.DEV) {
       console.error('[API Error Debug]', body.debug);
       if (body?.stack) console.error('[API Error Stack]', body.stack);
       baseMessage += ` (Debug: ${body.debug})`;
     }
 
     if (!baseMessage) {
-      if (res.status >= 500) {
-        baseMessage = "Erreur serveur";
+      if (res.status >= 500 || !text || isHtmlPayload(text)) {
+        baseMessage = getHumanHttpErrorMessage(res.status);
       } else {
-        baseMessage = `${res.status}: ${text}`;
+        baseMessage = text.length > 220 ? getHumanHttpErrorMessage(res.status) : `${res.status}: ${text}`;
       }
+    } else if (isHtmlPayload(baseMessage)) {
+      baseMessage = getHumanHttpErrorMessage(res.status);
     }
 
     const error: any = new Error(baseMessage);
@@ -382,7 +415,14 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000,
       refetchInterval: false,
       gcTime: 30 * 60 * 1000,
-      retry: false,
+      // Retry intelligent : 1 tentative automatique sur erreur réseau/5xx, jamais sur 401/403/404
+      retry: (failureCount, error: any) => {
+        if (failureCount >= 1) return false;
+        const status = Number(error?.status);
+        if ([400, 401, 403, 404, 409, 422].includes(status)) return false;
+        return typeof navigator === 'undefined' || navigator.onLine;
+      },
+      retryDelay: 800,
     },
     mutations: {
       retry: false,

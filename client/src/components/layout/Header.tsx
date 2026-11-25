@@ -79,7 +79,7 @@ export default function Header() {
   };
 
   return (
-    <header id="app-header" className={`${isSuperAdmin ? 'bg-[#131b2e]' : 'bg-[#0b6b3a]'} text-white px-2 sm:px-3 py-0 sm:py-0.5 flex justify-between items-center fixed w-full z-[100] top-0`}>
+    <header id="app-header" className={`${isSuperAdmin ? 'bg-[#131b2e]' : 'bg-[#0b6b3a]'} text-white px-2 sm:px-3 py-0 sm:py-0.5 flex justify-between items-center fixed w-full z-[210] top-0`}>
       <div className="flex items-center">
         {/* Bouton hamburger pour mobile uniquement */}
         <button

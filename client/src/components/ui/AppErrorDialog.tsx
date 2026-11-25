@@ -113,13 +113,22 @@ export default function AppErrorDialog() {
   const bodyText = (() => {
     if (accessDenied) {
       const msg = String(detail?.message || "").trim();
-      if (msg && !/session|expir/i.test(msg)) return msg;
+      if (msg && !/session|expir/i.test(msg) && !/<(!doctype|html|head|body)\b/i.test(msg)) return msg;
       return ACCESS_DENIED_MESSAGE;
     }
     if (sessionExpired) {
       return "Reconnectez-vous depuis la page de connexion, puis réessayez.";
     }
-    if (detail?.message) return detail.message;
+    const rawMsg = typeof detail?.message === "string" ? detail.message.trim() : "";
+    if (rawMsg && !/<(!doctype|html|head|body|title|h1|p)\b/i.test(rawMsg)) {
+      return rawMsg;
+    }
+    if (detail?.status === 404) {
+      return "La ressource demandée est introuvable ou n'est plus disponible.";
+    }
+    if (detail?.status && detail.status >= 500) {
+      return "Le serveur rencontre une difficulté temporaire. Veuillez réessayer dans quelques instants.";
+    }
     return "Une erreur est survenue lors du traitement de votre requête.";
   })();
 

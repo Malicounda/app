@@ -1958,7 +1958,7 @@ function AlertsPage() {
   const showLeftColumn = canSendAlerts && !((isHunter || isGuide) && activeTab === 'outbox') && !(activeTab === 'inbox' && (isRegionalAgent || isSectorAgent));
 
   return (
-    <div className={isHunter || isGuide || isAlertMobileChromeless ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50" : `flex flex-col overflow-hidden bg-[#2d6a4f] h-full`}>
+    <div className={isHunter || isGuide || isAlertMobileChromeless ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50" : `flex flex-col overflow-hidden bg-transparent h-full`}>
       {(isHunter || isGuide || isAlertMobileChromeless) && <AgentTopHeader />}
       <div className={isHunter || isGuide ? "flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain pb-24" : isAlertMobileChromeless ? "flex-1 flex flex-col min-h-0 overflow-hidden" : `w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 py-2 sm:py-3 lg:py-4`}>
         <div className={isHunter || isGuide ? "w-full max-w-3xl flex flex-col flex-1 min-h-0 mx-auto px-2 sm:px-4 py-4" : `w-full flex flex-col flex-1 min-h-0 mx-auto`}>
@@ -1989,8 +1989,10 @@ function AlertsPage() {
                 <Button
                   onClick={() => {
                     let smsPath = "/sms";
-                    if (user?.type === "secteur" || user?.role === "sub-agent") {
+                    if (isSectorAgent || user?.type === "secteur" || user?.role === "sub-agent") {
                       smsPath = "/sector-sms";
+                    } else if (isRegionalAgent || user?.role === "agent") {
+                      smsPath = "/regional-sms";
                     }
                     navigate(smsPath);
                   }}

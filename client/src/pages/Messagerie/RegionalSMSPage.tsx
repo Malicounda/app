@@ -278,7 +278,7 @@ export default function RegionalSMSPage() {
           <aside className="md:w-64 mt-3 md:mt-0 md:ml-0 md:order-2 bg-gray-100 border border-gray-200 md:border-l md:border-t-0 rounded-lg md:rounded-l-none p-3 md:p-4 h-full overflow-auto">
             <button
               onClick={() => setActiveTab("nouveau")}
-              className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full py-2.5 px-4 text-sm shadow"
+              className="w-full inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full py-2.5 px-4 text-sm font-medium shadow transition-colors"
             >
               Nouveau message
             </button>

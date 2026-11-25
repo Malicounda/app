@@ -1003,7 +1003,7 @@ export default function HuntingReports() {
         </div>
 
         {!showForm ? (
-          <div className="relative flex-1 flex flex-col min-h-0">
+          <div className="relative flex-1 flex flex-col min-h-0 overflow-y-auto subtle-scrollbar pr-1 pb-4">
             <div className="w-full max-w-4xl mx-auto bg-gradient-to-br from-[#0b3d2e] to-[#14532d] rounded-lg shadow-2xl p-3 sm:p-6 relative overflow-hidden flex flex-col justify-center items-center font-serif text-white shrink-0">
               <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px), repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px)` }}></div>
               <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner">
@@ -1022,9 +1022,9 @@ export default function HuntingReports() {
                 )}
               </div>
             </div>
-            <div className="bg-emerald-50/70 rounded-lg shadow-xl p-2 sm:p-4 md:p-6 relative overflow-hidden mt-2">
-              <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-6 md:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner"><div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1 h-1 sm:w-1.5 sm:h-1.5 md:w-2 md:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div></div>
-              <div className="ml-5 sm:ml-8 md:ml-12 pb-2">
+            <div className="bg-emerald-50/70 rounded-lg shadow-xl p-2 sm:p-4 md:p-6 relative mt-2 flex-1 min-h-[260px] flex flex-col">
+              <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-6 md:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner rounded-l-lg"><div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1 h-1 sm:w-1.5 sm:h-1.5 md:w-2 md:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div></div>
+              <div className="ml-5 sm:ml-8 md:ml-12 pb-2 flex-1 min-h-0 overflow-y-auto subtle-scrollbar pr-1">
                 <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg shadow-md">
                   <h2 className="text-base sm:text-lg md:text-xl font-bold text-amber-900 mb-3 sm:mb-4">Informations importantes</h2>
                   <div className="space-y-3 sm:space-y-4">

@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm/sql';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import session from 'express-session';
+import helmet from 'helmet';
 import fs from 'fs';
 import { createServer, type Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
@@ -66,6 +67,21 @@ import { globalEncodingFixer } from './routes/middlewares/global-encoding.middle
 // Initialiser l'application Express
 const app: Express = express();
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
+
+// En-têtes de sécurité HTTP niveau audit (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy...)
+app.use(
+  helmet({
+    // L'API sert du JSON et des pièces jointes cross-origin (Cloudflare Pages + Capacitor)
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginEmbedderPolicy: false,
+    hsts: process.env.NODE_ENV === 'production'
+      ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+      : false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  })
+);
 
 // Appliquer le correctif global d'encodage (fichiers Multer et headers de téléchargement)
 app.use(globalEncodingFixer);
@@ -109,8 +125,12 @@ const corsOptions: cors.CorsOptions = {
     // Nettoyer l'origine (retirer le slash final éventuel)
     const normalizedOrigin = origin ? origin.replace(/\/$/, '') : origin;
 
-    // Autoriser les domaines serveo.net (tunnels SSH) et les déploiements Cloudflare Pages (.pages.dev)
-    if (!normalizedOrigin || allowedOrigins.includes(normalizedOrigin) || (normalizedOrigin && normalizedOrigin.includes('.serveo.net')) || (normalizedOrigin && normalizedOrigin.includes('.pages.dev'))) {
+    // En production, autoriser uniquement les origines explicites + les previews officiels *.eforets.pages.dev
+    const isOfficialPagesPreview =
+      typeof normalizedOrigin === 'string' &&
+      /^https:\/\/[a-z0-9-]+\.eforets\.pages\.dev$/i.test(normalizedOrigin);
+
+    if (!normalizedOrigin || allowedOrigins.includes(normalizedOrigin) || isOfficialPagesPreview) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -166,6 +186,16 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // Configuration de la session
 const allowInsecure = process.env.ALLOW_INSECURE_COOKIES === 'true';
 const isProd = process.env.NODE_ENV === 'production';
+
+if (isProd) {
+  if (!process.env.SESSION_SECRET) {
+    log('⚠️ [SECURITY AUDIT] SESSION_SECRET non défini en production ! Définissez une clé aléatoire forte dans les variables d\'environnement.', 'security');
+  }
+  if (!process.env.JWT_SECRET && !process.env.JWT_TOKEN) {
+    log('⚠️ [SECURITY AUDIT] JWT_SECRET non défini en production ! Définissez une clé aléatoire forte dans les variables d\'environnement.', 'security');
+  }
+}
+
 const sessionConfig: session.SessionOptions = {
   name: 'connect.sid',
   secret: process.env.SESSION_SECRET || 'sigpe-secret-key',
@@ -619,6 +649,25 @@ const startServer = async (): Promise<HttpServer> => {
       } else if (!fileExists) {
         next();
       }
+    });
+
+    // Handler 404 JSON propre pour toute route /api/* inconnue (évite de renvoyer du HTML brut)
+    app.use('/api', (_req: Request, res: Response) => {
+      res.status(404).json({ message: 'Ressource API introuvable.' });
+    });
+
+    // Gestionnaire global d'erreurs Express (jamais de stack trace exposée en production)
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = Number(err?.status || err?.statusCode) || 500;
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (status >= 500) {
+        console.error('[GLOBAL ERROR HANDLER]', err);
+      }
+      res.status(status).json({
+        message: isProduction && status >= 500
+          ? 'Une erreur interne du serveur est survenue.'
+          : (err?.message || 'Erreur lors du traitement de la requête.'),
+      });
     });
 
     // Démarrer le serveur sur le port 3000

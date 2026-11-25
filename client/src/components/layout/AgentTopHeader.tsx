@@ -6,12 +6,102 @@ import { Bell, MessageSquare, User as UserIcon } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { apiRequestBlob } from "@/lib/api";
 import { getMessagingDomaineQueryParam } from "@/utils/messagingDomain";
+
+// Cache mémoire persistant entre navigations : affichage instantané (0 ms) sans cercle blanc
+const avatarMemoryCache = new Map<string, string>();
 
 export default function AgentTopHeader() {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const [profileEditMode, setProfileEditMode] = useState(false);
+  const avatarCacheKey = user ? `${user.role}:${user.id}` : "";
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() =>
+    avatarCacheKey ? avatarMemoryCache.get(avatarCacheKey) || null : null
+  );
+  const [avatarError, setAvatarError] = useState(false);
+
+  // Charger la photo de profil une seule fois par session et la garder en cache
+  useEffect(() => {
+    let active = true;
+    setAvatarError(false);
+
+    if (!user || !avatarCacheKey) {
+      setAvatarUrl(null);
+      return;
+    }
+
+    const cached = avatarMemoryCache.get(avatarCacheKey);
+    if (cached) {
+      setAvatarUrl(cached);
+      return;
+    }
+
+    const saveAndSet = (url: string) => {
+      avatarMemoryCache.set(avatarCacheKey, url);
+      if (active) setAvatarUrl(url);
+    };
+
+    const loadAvatar = async () => {
+      const rawPhoto = (user as any)?.photo;
+      if (typeof rawPhoto === "string" && (rawPhoto.startsWith("data:") || rawPhoto.startsWith("http"))) {
+        saveAndSet(rawPhoto);
+        return;
+      }
+
+      // Pour les guides, privilégier l'ID réel dans hunting_guides si guideId absent
+      if (user.role === "hunting-guide") {
+        let realGuideId: string | number | undefined = user.guideId;
+        if (!realGuideId && user.id) {
+          try {
+            const infoRes = await authenticatedFetch(`/api/guides/${user.id}`);
+            if (infoRes.ok) {
+              const gd = await infoRes.json();
+              realGuideId = gd?.id ?? gd?.guideId ?? user.id;
+            }
+          } catch {
+            realGuideId = user.id;
+          }
+        }
+        const guideEndpoints = realGuideId
+          ? [`/api/guides/${realGuideId}/photo`, `/api/guides/photo/${realGuideId}`]
+          : [];
+        for (const ep of guideEndpoints) {
+          try {
+            const res = await apiRequestBlob(ep, "GET");
+            if (res.ok && res.blob && res.blob.size > 0) {
+              saveAndSet(URL.createObjectURL(res.blob));
+              return;
+            }
+          } catch {
+            // Essayer le suivant
+          }
+        }
+        return;
+      }
+
+      if (user.role === "hunter") {
+        const ownerId = user.hunterId || user.id;
+        if (ownerId) {
+          try {
+            const res = await apiRequestBlob(`/api/hunters/${ownerId}/photo`, "GET");
+            if (res.ok && res.blob && res.blob.size > 0) {
+              saveAndSet(URL.createObjectURL(res.blob));
+              return;
+            }
+          } catch {
+            // Ignorer
+          }
+        }
+      }
+    };
+
+    loadAvatar();
+    return () => {
+      active = false;
+    };
+  }, [avatarCacheKey, user]);
 
   useEffect(() => {
     const handleEditState = (e: Event) => {
@@ -80,9 +170,18 @@ export default function AgentTopHeader() {
         {/* Ligne du haut : avatar + nom + (desktop: onglets inline) */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Avatar style contact téléphone */}
-            <div className="w-12 h-12 rounded-full bg-white/25 backdrop-blur flex items-center justify-center shrink-0 border-2 border-white/40">
-              <UserIcon className="w-6 h-6 text-white" strokeWidth={1.5} />
+            {/* Avatar style contact téléphone avec photo de profil si disponible */}
+            <div className="w-12 h-12 rounded-full bg-white/25 backdrop-blur flex items-center justify-center shrink-0 border-2 border-white/40 overflow-hidden">
+              {avatarUrl && !avatarError ? (
+                <img
+                  src={avatarUrl}
+                  alt={`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Profil"}
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <UserIcon className="w-6 h-6 text-white" strokeWidth={1.5} />
+              )}
             </div>
             <div className="min-w-0">
               <h1 className="text-lg font-bold truncate">

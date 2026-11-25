@@ -1636,13 +1636,13 @@ export default function SimpleSMSPage() {
   }
 
   return (
-    <div className={`flex flex-col bg-[#2d6a4f] ${usePhoneMessagingUi ? 'h-full' : 'min-h-screen'}`}>
+    <div className={`flex flex-col bg-transparent ${usePhoneMessagingUi ? 'h-full' : 'min-h-screen'}`}>
       {inboxOnly && <AgentTopHeader />}
       <ResponsivePage className={`bg-transparent w-full ${usePhoneMessagingUi ? 'flex-1 h-full flex flex-col' : 'flex-1'}`}>
         <div className={`${usePhoneMessagingUi || isDefaultRole ? 'w-full' : inboxOnly ? 'mx-auto max-w-3xl' : 'mx-auto max-w-6xl'} ${usePhoneMessagingUi ? 'h-full flex flex-col flex-1' : ''}`}>
           <div className={`grid ${(usePhoneMessagingUi || isDefaultRole) ? 'gap-0' : 'gap-4'} ${inboxOnly || usePhoneMessagingUi || isDefaultRole ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} ${usePhoneMessagingUi ? 'h-full flex-1' : isDefaultRole ? 'h-auto pb-8' : 'lg:h-[78vh]'}`}>
             {!usePhoneMessagingUi && !isDefaultRole && (
-              <section className="bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden flex flex-col min-h-0 shadow-sm lg:h-[78vh]">
+              <section className="bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden flex flex-col min-h-0 shadow-sm lg:h-[78vh] lg:order-2">
                 <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0 flex items-start gap-2">
                     <div className="h-9 w-9 rounded-full bg-green-50 text-green-700 flex items-center justify-center shrink-0">
@@ -1734,7 +1734,7 @@ export default function SimpleSMSPage() {
             )}
 
             {!inboxOnly && !isDefaultRole && !usePhoneMessagingUi && (
-              <aside id="composer-panel" className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 shadow-sm lg:h-[78vh] lg:overflow-auto">
+              <aside id="composer-panel" className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 shadow-sm lg:h-[78vh] lg:overflow-auto lg:order-1">
                 <InternalMessageComposer
                   loading={sending}
                   onSubmit={handleSubmit}

@@ -191,6 +191,12 @@ export default function AssociateHunters({ guideId, onAssociationComplete, open,
     // Démarrer la caméra pour le scan QR
     const startCamera = async () => {
         try {
+            // Nettoyer toute instance précédente avant de redémarrer
+            if (qrScannerRef.current) {
+                qrScannerRef.current.stop();
+                qrScannerRef.current.destroy();
+                qrScannerRef.current = null;
+            }
             setIsScanning(true);
             
             if (videoRef.current) {
@@ -245,9 +251,18 @@ export default function AssociateHunters({ guideId, onAssociationComplete, open,
     // Arrêter la caméra
     const stopCamera = () => {
         if (qrScannerRef.current) {
-            qrScannerRef.current.stop();
-            qrScannerRef.current.destroy();
+            try {
+                qrScannerRef.current.stop();
+                qrScannerRef.current.destroy();
+            } catch (_) {
+                // Ignorer si déjà détruit
+            }
             qrScannerRef.current = null;
+        }
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach((track) => track.stop());
+            videoRef.current.srcObject = null;
         }
         setIsScanning(false);
     };
@@ -406,14 +421,14 @@ export default function AssociateHunters({ guideId, onAssociationComplete, open,
                     <DialogTrigger asChild>
                         {trigger}
                     </DialogTrigger>
-                ) : (
+                ) : open === undefined ? (
                     <DialogTrigger asChild>
                         <Button size="sm" className="bg-black hover:bg-gray-800 text-white" disabled={!guideId}>
                             <Users className="h-4 w-4 mr-2" />
                             Associer des chasseurs
                         </Button>
                     </DialogTrigger>
-                )}
+                ) : null}
                 <DialogContent className="max-w-md w-[95vw] rounded-2xl p-0 overflow-hidden bg-white shadow-2xl border-2 border-emerald-500/80 ring-4 ring-emerald-500/20">
                     <div className="bg-emerald-50/50 px-6 py-5 border-b border-emerald-100/50">
                         <DialogHeader>
@@ -428,7 +443,16 @@ export default function AssociateHunters({ guideId, onAssociationComplete, open,
                     </div>
 
                     <div className="p-6 pt-4">
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        <Tabs
+                            value={activeTab}
+                            onValueChange={(val) => {
+                                if (val !== 'qr' && (isScanning || qrScannerRef.current)) {
+                                    stopCamera();
+                                }
+                                setActiveTab(val);
+                            }}
+                            className="w-full"
+                        >
                             <TabsList className="grid w-full grid-cols-2 mb-6 bg-slate-100/80 p-1 rounded-xl">
                                 <TabsTrigger value="qr" className="flex items-center justify-center gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-emerald-700 transition-all">
                                     <QrCode className="h-4 w-4" />

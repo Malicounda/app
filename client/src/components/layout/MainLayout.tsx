@@ -1,4 +1,4 @@
-import { OfflineIndicator } from "@/components/ui/offline-indicator";
+import PageLoader from "@/components/ui/PageLoader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStats } from "@/lib/hooks/useStats";
 import { useUnreadNotificationsCount } from "@/lib/hooks/useUnreadNotifications";
@@ -6,7 +6,7 @@ import '@/styles/darkSuperAdmin.css';
 import '@/styles/pageFrame.css';
 import '@/styles/superAdminTheme.css';
 import { getHomePage, isSectorSubRole } from "@/utils/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { MdDescription, MdGroup, MdNotificationImportant, MdReceipt, MdMessage } from 'react-icons/md';
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
@@ -192,13 +192,16 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
   // Expose fixed top offset as a CSS variable for pages using fixed overlays
   useEffect(() => {
-    const headerEl = document.getElementById('app-header');
     const compute = () => {
-      const h = headerEl ? `${headerEl.offsetHeight}px` : headerHeight;
+      const headerEl = document.getElementById('app-header');
+      const measured = headerEl?.offsetHeight || 0;
+      const h = measured > 0 ? `${measured}px` : headerHeight;
       const fixedTop = hideMinistryHeader ? navHeight : h;
       document.documentElement.style.setProperty('--fixed-top', fixedTop);
     };
     compute();
+    const rafId = requestAnimationFrame(compute);
+    const headerEl = document.getElementById('app-header');
     let ro: ResizeObserver | null = null;
     if (headerEl && typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver(() => compute());
@@ -206,11 +209,11 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     }
     window.addEventListener('resize', compute);
     return () => {
-      document.documentElement.style.removeProperty('--fixed-top');
+      cancelAnimationFrame(rafId);
       window.removeEventListener('resize', compute);
       ro?.disconnect();
     };
-  }, [hideMinistryHeader, navHeight]);
+  }, [hideMinistryHeader, navHeight, chromeless, user?.role]);
 
   // Expose sidebar width as a CSS variable for pages needing layout offsets (e.g., MapPage)
   useEffect(() => {
@@ -314,10 +317,10 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         {/* Sidebar desktop: FIXED pour une scrollbar toujours visible au-dessus du contenu - MASQUÉ SUR MOBILE */}
         {!chromeless && (
         <div
-          className={`sidebar-desktop hidden md:block fixed left-0 ${isSuperAdmin ? 'bg-[#0d1220]' : 'bg-white'} shadow-sm z-[200] ${isSidebarCollapsed ? 'w-16' : 'w-64'} border-r-2 ${isSuperAdmin ? 'border-[#3d4947]' : 'border-gray-300'} transition-all duration-300 ease-in-out`}
+          className={`sidebar-desktop hidden md:block fixed left-0 ${isSuperAdmin ? 'bg-[#0d1220]' : 'bg-white'} shadow-sm z-[90] ${isSidebarCollapsed ? 'w-16' : 'w-64'} border-r-2 ${isSuperAdmin ? 'border-[#3d4947]' : 'border-gray-300'} transition-all duration-300 ease-in-out`}
           style={{
-            top: 'var(--fixed-top)',
-            height: 'calc(100vh - var(--fixed-top))',
+            top: 'var(--fixed-top, 56px)',
+            height: 'calc(100vh - var(--fixed-top, 56px))',
             borderTop: isSuperAdmin ? '2px solid #29a195' : '2px solid #3b82f6',
             display: 'flex',
             willChange: 'width',
@@ -417,7 +420,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
           {/* Main Section - responsive */}
           <main
             className={[
-              "main-content flex-1 overflow-x-hidden transition-all duration-200",
+              "main-content flex-1 overflow-x-hidden transition-colors duration-200",
               location && (location.includes('sms') || location === '/alerts') ? "overflow-hidden flex flex-col" : "overflow-y-auto",
               location && location.startsWith('/map')
                 ? "bg-transparent"
@@ -425,13 +428,16 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
             ].join(' ')}
             style={{
               scrollBehavior: 'smooth',
+              scrollbarGutter: 'stable',
               ...(chromeless ? { WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } : {})
             }}
           >
             {/* Retour en haut lors des changements de page */}
             {location && location.startsWith('/map') ? (
               <div ref={(el) => { if (el) el && (el as HTMLElement).scrollTop === 0; }} className="container-responsive">
-                {showRestrictedAccess ? restrictedContent : children}
+                <Suspense fallback={<PageLoader />}>
+                  {showRestrictedAccess ? restrictedContent : children}
+                </Suspense>
               </div>
             ) : chromeless ? (
               <div 
@@ -439,16 +445,19 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
                 className={`w-full ${location && (location.includes('sms') || location === '/alerts' || (location === '/profile' && !isHunterOrGuide)) ? 'h-full overflow-hidden' : 'min-h-full'} ${location !== '/sms' && location !== '/alerts' ? 'pb-20' : ''}`}
                 style={chromeless && location !== '/sms' && location !== '/alerts' && location !== '/profile' ? { paddingTop: '1.5rem' } : undefined}
               >
-                {showRestrictedAccess ? restrictedContent : children}
+                <Suspense fallback={<PageLoader />}>
+                  {showRestrictedAccess ? restrictedContent : children}
+                </Suspense>
               </div>
             ) : (
               <div className="page-frame-container">
                 <div ref={(el) => { if (el) el.scrollTop = 0; }} className="page-frame-inner">
-                  {children}
+                  <Suspense fallback={<PageLoader />}>
+                    {children}
+                  </Suspense>
                 </div>
               </div>
             )}
-            <OfflineIndicator />
           </main>
         </div>
       </div>
@@ -490,10 +499,10 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         </div>
       )}
 
-      {/* Navigation mobile unifiée pour Chasseurs et Guides */}
-      {/* Reflète exactement les items de la Navbar latérale originale pour cohérence */}
+      {/* Navigation basse unifiée pour Chasseurs et Guides (téléphone, tablette et ordinateur) */}
       {chromeless && isHunterOrGuide && !smsChatOpen && (
-        <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] flex items-center justify-around px-2 pb-safe z-[250] md:hidden">
+        <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] flex items-center justify-center px-2 pb-safe z-[250]">
+          <div className="w-full max-w-xl h-full flex items-center justify-around">
           {user?.role === 'hunter' ? (
             <>
               {/* Chasseur: Accueil | Demande Permis | Messagerie | Profil */}
@@ -571,6 +580,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
               </button>
             </>
           )}
+          </div>
         </div>
       )}
     </div>

@@ -10,15 +10,22 @@ export function SplashScreen({ message = "Chargement..." }: SplashScreenProps) {
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50">
       <div className="flex flex-col items-center justify-center space-y-6 max-w-sm w-full px-6 text-center">
         {/* Logo de l'application */}
-        <div className="relative">
+        <div className="relative flex items-center justify-center w-24 h-24">
           <div className="absolute inset-0 bg-green-500 rounded-full blur-xl opacity-20 animate-pulse"></div>
-          <img 
-            src="/assets/logoprojets/Sans fond_Scodi/android-chrome-192x192.png" 
-            alt="SCoDi Logo" 
-            className="w-24 h-24 object-contain relative z-10"
+          <img
+            src="/logo-scodi.png"
+            alt="SCoDi Logo"
+            width={96}
+            height={96}
+            loading="eager"
+            decoding="sync"
+            className="w-24 h-24 object-contain relative z-10 drop-shadow-sm"
             onError={(e) => {
-              // Fallback si le logo n'est pas trouvé
-              (e.target as HTMLImageElement).src = getAppLogo();
+              const img = e.currentTarget;
+              if (!img.dataset.fallback) {
+                img.dataset.fallback = "1";
+                img.src = getAppLogo();
+              }
             }}
           />
         </div>

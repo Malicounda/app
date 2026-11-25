@@ -101,7 +101,7 @@ export default function SectorHunters() {
   const sendSmsToHunter = (hunterId: number) => {
     // Stocker l'id du chasseur dans le localStorage pour le récupérer dans la page SMS
     localStorage.setItem('smsRecipientId', hunterId.toString());
-    navigate("/sms");
+    navigate("/sector-sms");
   };
 
   // Impression (scopée) d'un conteneur

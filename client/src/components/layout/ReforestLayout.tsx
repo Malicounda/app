@@ -1,8 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import PageLoader from '@/components/ui/PageLoader';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, FileText, LayoutDashboard, LogOut, MapPin, MessageSquare, RefreshCw, Sprout, TreePine, User } from 'lucide-react';
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Link, useLocation } from 'wouter';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
@@ -173,7 +174,9 @@ export default function ReforestLayout({ children }: { children: React.ReactNode
         </div>
       </header>
       <main className="w-full max-w-[98%] mx-auto px-2 sm:px-4 py-6">
-        {children}
+        <Suspense fallback={<PageLoader />}>
+          {children}
+        </Suspense>
       </main>
     </div>
   );

@@ -18,87 +18,92 @@ import NotFound from "@/pages/not-found";
 import { isUserSuperAdmin } from "@/utils/navigation";
 import { isChasseAPK } from "@/utils/environment";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import { PwaUpdatePrompt } from "@/components/ui/PwaUpdatePrompt";
 import { SplashScreen } from "@/components/ui/SplashScreen";
+import PageLoader from "@/components/ui/PageLoader";
+import NetworkStatusBanner from "@/components/ui/NetworkStatusBanner";
 
+// Pages d'entrée et dashboards principaux gardés en import direct pour un démarrage instantané
 import HomePageWrapper from "@/components/auth/HomePageWrapper";
-import RegisterForm from "@/components/auth/RegisterForm";
-import HuntingActivities from "@/pages/Activites chasse/HuntingActivities";
-import HuntingDeclarations from "@/pages/Activites chasse/HuntingDeclarations";
-import HuntingReports from "@/pages/Activites chasse/HuntingReports";
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import CreateAgentForm from "@/pages/admin/CreateAgentForm";
-import GestiondesAgents from "@/pages/admin/GestiondesAgents";
-import RegionsZones from "@/pages/admin/RegionsZones";
-import SectorAgentDashboard from "@/pages/agents-secteur/Dashboard";
-import SectorSubAgentsPage from "@/pages/agents-secteur/SectorSubAgents";
-import AlerteLogin from "@/pages/AlerteLogin";
-import AndroidSettings from "@/pages/AndroidSettings";
-import ChangeprofilPage from "@/pages/Changeprofil";
-import Accounts from "@/pages/ConfigSysteme/Accounts";
-import EspecesFauniques from "@/pages/ConfigSysteme/EspecesFauniques";
-import Infractions from "@/pages/ConfigSysteme/Infractions";
-import Settings from "@/pages/ConfigSysteme/Settings";
-import GeoJSONTestPage from "@/pages/GeoJSONTestPage";
-import AssociateHunters from "@/pages/Guides/AssociateHunters";
-import GuideDashboard from "@/pages/Guides/GuideDashboard";
-import Guides from "@/pages/Guides/Guides";
-import AdminHistory from "@/pages/Historique/AdminHistory";
-import History from "@/pages/Historique/History";
-import HunterDashboard from "@/pages/Hunter/Dashboard";
 import Login from "@/pages/Login";
-import MapPage from "@/pages/MapPage";
-import AlertsPage from "@/pages/Messagerie/AlertsPage";
-import RegionalSMSPage from "@/pages/Messagerie/RegionalSMSPage";
-import SectorSMSPage from "@/pages/Messagerie/SectorSMSPage";
-import SMSPage from "@/pages/Messagerie/SMSPage";
-import NationalStatistics from "@/pages/National/NationalStatistics";
-import DemandePermisChasse from "@/pages/Permis/DemandePermisChasse";
-import DetailDemandePermis from "@/pages/Permis/DetailDemandePermis";
-import GestionPermisPage from "@/pages/Permis/GestionPermisPage";
-import HunterPermits from "@/pages/Permis/HunterPermits";
-import PermitRequestReception from "@/pages/Permis/PermitRequestReception";
-import Permits from "@/pages/Permis/Permits";
-import ProduitsForestiers from "@/pages/ProduitsForestiers";
-import Agents from "@/pages/Profile/Agents";
-import Hunters from "@/pages/Profile/Hunters";
-import Profile from "@/pages/Profile/ProfilePage";
-
-import AgentDefaultPage from "@/pages/AgentDefault/AgentDefaultPage";
-import BrigadeDashboard from "@/pages/brigade/BrigadeDashboard";
-import PosteControlDashboard from "@/pages/poste-control/PosteControlDashboard";
-import CatalogueEspecesPage from "@/pages/Reboisement/CatalogueEspecesPage";
-import ReboisementCommunautes from "@/pages/Reboisement/Communautes";
-import ReboisementDemandes from "@/pages/Reboisement/Demandes";
-import ReboisementLocalisation from "@/pages/Reboisement/Localisation";
-import ReforestationAdminDashboard from "@/pages/Reboisement/ReforestationAdminDashboard";
-import ReforestationDepartementDashboard from "@/pages/Reboisement/ReforestationDepartementDashboard";
-import ReforestationRegionalDashboard from "@/pages/Reboisement/ReforestationRegionalDashboard";
-import ReforestationSMSPage from "@/pages/Reboisement/ReforestationSMSPage";
-import ReforestationReports from "@/pages/Reboisement/reports/ReforestationReports";
-import ReboisementSuivi from "@/pages/Reboisement/Suivi";
+import AlerteLogin from "@/pages/AlerteLogin";
 import ReboisementLogin from "@/pages/ReboisementLogin";
-import ReboisementPepinieres from "@/pages/ReboisementPepinieres";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
 import RegionalAgentDashboard from "@/pages/Regional/regional-dashboard";
-import RegionalGuidesPage from "@/pages/Regional/RegionalGuides";
-import RegionalStatsPage from "@/pages/Regional/RegionalStats";
-import SubAccounts from "@/pages/Regional/SubAccounts";
-import SectorGuidesPage from "@/pages/Secteur/SectorGuides";
-import SectorHunters from "@/pages/Secteur/SectorHunters";
-import SectorPermits from "@/pages/Secteur/SectorPermits";
-import SectorRequests from "@/pages/Secteur/SectorRequests";
-import SousSecteurDashboard from "@/pages/sous-secteur/SousSecteurDashboard";
-import AffectationsPage from "@/pages/SuperAdmin/AffectationsPage";
-import SuperAdminAgentsPage from "@/pages/SuperAdmin/AgentsPage";
-import DomainesPage from "@/pages/SuperAdmin/DomainesPage";
-import RolesMetierPage from "@/pages/SuperAdmin/RolesMetierPage";
-import ThemePage from "@/pages/SuperAdmin/ThemePage";
-import ApkHistoryPage from "@/pages/SuperAdmin/ApkHistoryPage";
-import SupervisorPage from "@/pages/Supervisor/SupervisorPage";
-import Taxes from "@/pages/Taxes";
-import TriageDashboard from "@/pages/triage/TriageDashboard";
+import SectorAgentDashboard from "@/pages/agents-secteur/Dashboard";
+import HunterDashboard from "@/pages/Hunter/Dashboard";
+
+// Code-splitting (lazy-loading) des pages métier : charge uniquement ce que l'utilisateur ouvre
+const RegisterForm = lazy(() => import("@/components/auth/RegisterForm"));
+const HuntingActivities = lazy(() => import("@/pages/Activites chasse/HuntingActivities"));
+const HuntingDeclarations = lazy(() => import("@/pages/Activites chasse/HuntingDeclarations"));
+const HuntingReports = lazy(() => import("@/pages/Activites chasse/HuntingReports"));
+const CreateAgentForm = lazy(() => import("@/pages/admin/CreateAgentForm"));
+const GestiondesAgents = lazy(() => import("@/pages/admin/GestiondesAgents"));
+const RegionsZones = lazy(() => import("@/pages/admin/RegionsZones"));
+const SectorSubAgentsPage = lazy(() => import("@/pages/agents-secteur/SectorSubAgents"));
+const AndroidSettings = lazy(() => import("@/pages/AndroidSettings"));
+const ChangeprofilPage = lazy(() => import("@/pages/Changeprofil"));
+const Accounts = lazy(() => import("@/pages/ConfigSysteme/Accounts"));
+const EspecesFauniques = lazy(() => import("@/pages/ConfigSysteme/EspecesFauniques"));
+const Infractions = lazy(() => import("@/pages/ConfigSysteme/Infractions"));
+const Settings = lazy(() => import("@/pages/ConfigSysteme/Settings"));
+const GeoJSONTestPage = lazy(() => import("@/pages/GeoJSONTestPage"));
+const AssociateHunters = lazy(() => import("@/pages/Guides/AssociateHunters"));
+const GuideDashboard = lazy(() => import("@/pages/Guides/GuideDashboard"));
+const Guides = lazy(() => import("@/pages/Guides/Guides"));
+const AdminHistory = lazy(() => import("@/pages/Historique/AdminHistory"));
+const History = lazy(() => import("@/pages/Historique/History"));
+const MapPage = lazy(() => import("@/pages/MapPage"));
+const AlertsPage = lazy(() => import("@/pages/Messagerie/AlertsPage"));
+const RegionalSMSPage = lazy(() => import("@/pages/Messagerie/RegionalSMSPage"));
+const SectorSMSPage = lazy(() => import("@/pages/Messagerie/SectorSMSPage"));
+const SMSPage = lazy(() => import("@/pages/Messagerie/SMSPage"));
+const NationalStatistics = lazy(() => import("@/pages/National/NationalStatistics"));
+const DemandePermisChasse = lazy(() => import("@/pages/Permis/DemandePermisChasse"));
+const DetailDemandePermis = lazy(() => import("@/pages/Permis/DetailDemandePermis"));
+const GestionPermisPage = lazy(() => import("@/pages/Permis/GestionPermisPage"));
+const HunterPermits = lazy(() => import("@/pages/Permis/HunterPermits"));
+const PermitRequestReception = lazy(() => import("@/pages/Permis/PermitRequestReception"));
+const Permits = lazy(() => import("@/pages/Permis/Permits"));
+const ProduitsForestiers = lazy(() => import("@/pages/ProduitsForestiers"));
+const Agents = lazy(() => import("@/pages/Profile/Agents"));
+const Hunters = lazy(() => import("@/pages/Profile/Hunters"));
+const Profile = lazy(() => import("@/pages/Profile/ProfilePage"));
+
+const AgentDefaultPage = lazy(() => import("@/pages/AgentDefault/AgentDefaultPage"));
+const BrigadeDashboard = lazy(() => import("@/pages/brigade/BrigadeDashboard"));
+const PosteControlDashboard = lazy(() => import("@/pages/poste-control/PosteControlDashboard"));
+const CatalogueEspecesPage = lazy(() => import("@/pages/Reboisement/CatalogueEspecesPage"));
+const ReboisementCommunautes = lazy(() => import("@/pages/Reboisement/Communautes"));
+const ReboisementDemandes = lazy(() => import("@/pages/Reboisement/Demandes"));
+const ReboisementLocalisation = lazy(() => import("@/pages/Reboisement/Localisation"));
+const ReforestationAdminDashboard = lazy(() => import("@/pages/Reboisement/ReforestationAdminDashboard"));
+const ReforestationDepartementDashboard = lazy(() => import("@/pages/Reboisement/ReforestationDepartementDashboard"));
+const ReforestationRegionalDashboard = lazy(() => import("@/pages/Reboisement/ReforestationRegionalDashboard"));
+const ReforestationSMSPage = lazy(() => import("@/pages/Reboisement/ReforestationSMSPage"));
+const ReforestationReports = lazy(() => import("@/pages/Reboisement/reports/ReforestationReports"));
+const ReboisementSuivi = lazy(() => import("@/pages/Reboisement/Suivi"));
+const ReboisementPepinieres = lazy(() => import("@/pages/ReboisementPepinieres"));
+const RegionalGuidesPage = lazy(() => import("@/pages/Regional/RegionalGuides"));
+const RegionalStatsPage = lazy(() => import("@/pages/Regional/RegionalStats"));
+const SubAccounts = lazy(() => import("@/pages/Regional/SubAccounts"));
+const SectorGuidesPage = lazy(() => import("@/pages/Secteur/SectorGuides"));
+const SectorHunters = lazy(() => import("@/pages/Secteur/SectorHunters"));
+const SectorPermits = lazy(() => import("@/pages/Secteur/SectorPermits"));
+const SectorRequests = lazy(() => import("@/pages/Secteur/SectorRequests"));
+const SousSecteurDashboard = lazy(() => import("@/pages/sous-secteur/SousSecteurDashboard"));
+const AffectationsPage = lazy(() => import("@/pages/SuperAdmin/AffectationsPage"));
+const SuperAdminAgentsPage = lazy(() => import("@/pages/SuperAdmin/AgentsPage"));
+const DomainesPage = lazy(() => import("@/pages/SuperAdmin/DomainesPage"));
+const RolesMetierPage = lazy(() => import("@/pages/SuperAdmin/RolesMetierPage"));
+const ThemePage = lazy(() => import("@/pages/SuperAdmin/ThemePage"));
+const ApkHistoryPage = lazy(() => import("@/pages/SuperAdmin/ApkHistoryPage"));
+const SupervisorPage = lazy(() => import("@/pages/Supervisor/SupervisorPage"));
+const Taxes = lazy(() => import("@/pages/Taxes"));
+const TriageDashboard = lazy(() => import("@/pages/triage/TriageDashboard"));
 
 import AppErrorDialog from "@/components/ui/AppErrorDialog";
 import { queryClient } from "./lib/queryClient";
@@ -1271,7 +1276,10 @@ function AppContent() {
   return (
     <>
       <GlobalThemeLoader />
-      <Router />
+      <NetworkStatusBanner />
+      <Suspense fallback={<PageLoader />}>
+        <Router />
+      </Suspense>
       <Toaster />
       <AppErrorDialog />
       <DebugInfo />
