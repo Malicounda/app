@@ -17,7 +17,8 @@ import { isAuthenticated } from './middlewares/auth.middleware.js';
 const router = Router();
 
 const CANONICAL_REGION_LABELS: Record<string, string> = {
-  national: 'NATIONAL',
+  national: 'DEFCCS',
+  defccs: 'DEFCCS',
   dakar: 'DAKAR',
   thies: 'THIÈS',
   saintlouis: 'SAINT-LOUIS',
@@ -41,6 +42,7 @@ function normalizeRegionKey(raw: string | null | undefined): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[-_\s]+/g, '');
+  if (s === 'defccs') return 'national';
   return s || 'nondefini';
 }
 
@@ -1547,36 +1549,82 @@ router.get('/national/by-region', isAuthenticated, async (req, res) => {
       .innerJoin(users, eq(taxes.createdBy, users.id))
       .groupBy(sql`LOWER(TRIM(${users.region}))`);
 
+    const infractionsRevenueByRegion: Array<{ region: string; total: number }> = await db.execute(
+      sql`SELECT
+            LOWER(TRIM(COALESCE(NULLIF(TRIM(l.region), ''), NULLIF(TRIM(u.region), ''), 'national'))) AS region,
+            COALESCE(SUM(COALESCE(i.montant_chiffre::numeric, 0)), 0) AS total
+          FROM infractions i
+          LEFT JOIN lieux l ON l.id = i.lieu_id
+          LEFT JOIN users u ON u.id = i.created_by
+          GROUP BY 1` as any
+    ) as any;
+
     // Fusionner par région normalisée (sans accents ni casse) pour éviter les doublons type THIES / THIÈS
-    const map = new Map<string, { region: string; activePermits: number; piecesAbattues: number; revenue: number; taxAmount: number }>();
+    const map = new Map<
+      string,
+      {
+        region: string;
+        activePermits: number;
+        piecesAbattues: number;
+        revenue: number;
+        permitAmount: number;
+        taxAmount: number;
+        infractionAmount: number;
+      }
+    >();
+    const getOrInit = (rawRegion: string) => {
+      const key = normalizeRegionKey(rawRegion);
+      const label = canonicalRegionName(rawRegion);
+      return (
+        map.get(key) || {
+          region: label,
+          activePermits: 0,
+          piecesAbattues: 0,
+          revenue: 0,
+          permitAmount: 0,
+          taxAmount: 0,
+          infractionAmount: 0,
+        }
+      );
+    };
+
     for (const row of activePermitsByRegion) {
       const key = normalizeRegionKey(row.region);
-      const label = canonicalRegionName(row.region);
-      const prev = map.get(key) || { region: label, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
+      const prev = getOrInit(row.region);
       prev.activePermits += Number(row.count || 0);
       map.set(key, prev);
     }
     for (const row of piecesByRegion) {
       const key = normalizeRegionKey(row.region);
-      const label = canonicalRegionName(row.region);
-      const prev = map.get(key) || { region: label, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
+      const prev = getOrInit(row.region);
       prev.piecesAbattues += Number(row.pieces || 0);
       map.set(key, prev);
     }
     for (const row of permitRevenueByRegion) {
       const key = normalizeRegionKey(row.region);
-      const label = canonicalRegionName(row.region);
-      const prev = map.get(key) || { region: label, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
-      prev.revenue += Number(row.total || 0);
+      const prev = getOrInit(row.region);
+      const pAmt = Number(row.total || 0);
+      prev.permitAmount += pAmt;
+      prev.revenue += pAmt;
       map.set(key, prev);
     }
     for (const row of taxesRevenueByRegion) {
       const key = normalizeRegionKey(row.region);
-      const label = canonicalRegionName(row.region);
-      const prev = map.get(key) || { region: label, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
+      const prev = getOrInit(row.region);
       const tax = Number(row.total || 0);
       prev.revenue += tax;
       prev.taxAmount += tax;
+      map.set(key, prev);
+    }
+    const infraRowsList = Array.isArray(infractionsRevenueByRegion)
+      ? infractionsRevenueByRegion
+      : (infractionsRevenueByRegion as any)?.rows || [];
+    for (const row of infraRowsList) {
+      const infraAmt = Number(row.total || 0);
+      if (infraAmt <= 0) continue;
+      const key = normalizeRegionKey(row.region);
+      const prev = getOrInit(row.region);
+      prev.infractionAmount += infraAmt;
       map.set(key, prev);
     }
 
@@ -1743,35 +1791,46 @@ router.get('/national/permit-expirations', isAuthenticated, async (req, res) => 
   }
 });
 
-// GET /api/stats/national/weapons-by-permit-category - Armes par catégorie de permis
+// GET /api/stats/national/weapons-by-permit-category - Armes par catégorie de permis (avec marque et calibre)
 router.get('/national/weapons-by-permit-category', isAuthenticated, async (req, res) => {
   try {
     const data = await db
       .select({
         permitCategory: permits.categoryId,
         weaponType: hunters.weaponType,
+        brand: hunters.weaponBrand,
+        caliber: hunters.weaponCaliber,
         count: count()
       })
       .from(hunters)
       .innerJoin(permits, eq(hunters.id, permits.hunterId))
       .where(sql`hunters.weapon_type IS NOT NULL AND permits.category_id IS NOT NULL`)
-      .groupBy(permits.categoryId, hunters.weaponType)
-      .orderBy(permits.categoryId, hunters.weaponType);
+      .groupBy(permits.categoryId, hunters.weaponType, hunters.weaponBrand, hunters.weaponCaliber)
+      .orderBy(permits.categoryId, hunters.weaponType, hunters.weaponBrand, hunters.weaponCaliber);
 
-    const result = (data || []).map((w: any) => ({
-      permitCategory: w.permitCategory || 'Non spécifié',
-      weaponType: w.weaponType || 'Non spécifié',
-      count: Number(w.count || 0)
-    }));
+    const merged = new Map<
+      string,
+      { permitCategory: string; weaponType: string; brand: string; caliber: string; count: number }
+    >();
+    for (const w of data || []) {
+      const permitCategory = String((w as any).permitCategory || 'Non spécifié').trim() || 'Non spécifié';
+      const weaponType = String((w as any).weaponType || 'Non spécifié').trim() || 'Non spécifié';
+      const brand = String((w as any).brand || 'Non spécifié').trim() || 'Non spécifié';
+      const caliber = String((w as any).caliber || 'Non spécifié').trim() || 'Non spécifié';
+      const key = `${permitCategory.toLowerCase()}::${weaponType.toLowerCase()}::${brand.toLowerCase()}::${caliber.toLowerCase()}`;
+      const prev = merged.get(key) || { permitCategory, weaponType, brand, caliber, count: 0 };
+      prev.count += Number((w as any).count || 0);
+      merged.set(key, prev);
+    }
 
-    return res.json(result);
+    return res.json(Array.from(merged.values()));
   } catch (error) {
     console.error('Erreur /api/stats/national/weapons-by-permit-category:', error);
     return res.status(500).json({ message: 'Erreur lors de la récupération des armes par catégorie de permis' });
   }
 });
 
-// GET /api/stats/national/weapons-by-region - Armes par région d'enregistrement
+// GET /api/stats/national/weapons-by-region - Armes par région d'enregistrement (avec marque et calibre)
 router.get('/national/weapons-by-region', isAuthenticated, async (req, res) => {
   try {
     const data = await db
@@ -1779,21 +1838,26 @@ router.get('/national/weapons-by-region', isAuthenticated, async (req, res) => {
         region: sql<string>`LOWER(TRIM(${hunters.region}))`,
         brand: hunters.weaponBrand,
         weaponType: hunters.weaponType,
+        caliber: hunters.weaponCaliber,
         count: count()
       })
       .from(hunters)
       .where(sql`weapon_type IS NOT NULL AND region IS NOT NULL`)
-      .groupBy(sql`LOWER(TRIM(${hunters.region}))`, hunters.weaponBrand, hunters.weaponType)
-      .orderBy(sql`LOWER(TRIM(${hunters.region}))`, hunters.weaponBrand);
+      .groupBy(sql`LOWER(TRIM(${hunters.region}))`, hunters.weaponBrand, hunters.weaponType, hunters.weaponCaliber)
+      .orderBy(sql`LOWER(TRIM(${hunters.region}))`, hunters.weaponBrand, hunters.weaponCaliber);
 
-    const merged = new Map<string, { region: string; brand: string; weaponType: string; count: number }>();
+    const merged = new Map<
+      string,
+      { region: string; brand: string; weaponType: string; caliber: string; count: number }
+    >();
     for (const w of data || []) {
       const regKey = normalizeRegionKey((w as any).region);
       const regLabel = (w as any).region ? canonicalRegionName((w as any).region) : 'Non spécifié';
-      const brand = (w as any).brand || 'Non spécifié';
-      const weaponType = (w as any).weaponType || 'Non spécifié';
-      const key = `${regKey}::${brand.toLowerCase()}::${weaponType.toLowerCase()}`;
-      const prev = merged.get(key) || { region: regLabel, brand, weaponType, count: 0 };
+      const brand = String((w as any).brand || 'Non spécifié').trim() || 'Non spécifié';
+      const weaponType = String((w as any).weaponType || 'Non spécifié').trim() || 'Non spécifié';
+      const caliber = String((w as any).caliber || 'Non spécifié').trim() || 'Non spécifié';
+      const key = `${regKey}::${brand.toLowerCase()}::${weaponType.toLowerCase()}::${caliber.toLowerCase()}`;
+      const prev = merged.get(key) || { region: regLabel, brand, weaponType, caliber, count: 0 };
       prev.count += Number((w as any).count || 0);
       merged.set(key, prev);
     }

@@ -75,6 +75,8 @@ interface PermitExpiration {
 interface WeaponByPermitCategory {
   permitCategory: string;
   weaponType: string;
+  brand?: string;
+  caliber?: string;
   count: number;
 }
 
@@ -82,6 +84,7 @@ interface WeaponByRegion {
   region: string;
   brand: string;
   weaponType: string;
+  caliber?: string;
   count: number;
 }
 
@@ -199,7 +202,8 @@ export default function NationalStatistics() {
   // Normalisation/affichage des régions - Chargées dynamiquement depuis l'API
   // Les libellés et l'ordre sont maintenant récupérés depuis la base de données
   const REGION_LABELS: Record<string, string> = {
-    national: 'NATIONAL',
+    national: 'DEFCCS',
+    defccs: 'DEFCCS',
     dakar: 'DAKAR',
     thies: 'THIÈS',
     saintlouis: 'SAINT-LOUIS',
@@ -221,7 +225,14 @@ export default function NationalStatistics() {
   const canonicalRegionKey = (raw?: string) => {
     const key = String(raw || '').trim().toLowerCase();
     if (!key) return 'nondefini';
-    return removeDiacritics(key).replace(/[^a-z0-9]+/g, '');
+    const cleaned = removeDiacritics(key).replace(/[^a-z0-9]+/g, '');
+    if (cleaned === 'defccs') return 'national';
+    return cleaned;
+  };
+  // Pour les fichiers exportés, les émissions de la DEFCCS ('national'/'defccs') sont comptabilisées dans Dakar ('dakar')
+  const exportRegionKey = (raw?: string) => {
+    const k = canonicalRegionKey(raw);
+    return k === 'national' || k === 'defccs' ? 'dakar' : k;
   };
 
   const prettyRegion = (raw?: string) => {
@@ -786,12 +797,84 @@ export default function NationalStatistics() {
   }, [revenueByDepartment]);
 
   const revenueRegionRows = useMemo<RevenueGroupingRow[]>(() => {
-    return (byRegion || []).map((row) => ({
-      key: `region:${row.region || 'non défini'}`,
-      region: prettyRegion(row.region),
-      revenue: Number(row.revenue || 0),
-    }));
+    return (byRegion || []).map((row) => {
+      const pAmt = Number((row as any).permitAmount ?? Math.max(0, Number(row.revenue || 0) - Number((row as any).taxAmount || 0)));
+      const tAmt = Number((row as any).taxAmount || 0);
+      const iAmt = Number((row as any).infractionAmount || 0);
+      return {
+        key: `region:${row.region || 'non défini'}`,
+        region: prettyRegion(row.region),
+        revenue: pAmt + tAmt + iAmt,
+      };
+    });
   }, [byRegion]);
+
+  // Répartition dynamique (Permis, Taxes d'abattage, Infractions) selon la région sélectionnée
+  const selectedRegionRevenueBreakdown = useMemo(() => {
+    if (revenueRegion === 'toutes') {
+      let totalPermits = 0;
+      let totalTaxes = 0;
+      for (const r of byRegion || []) {
+        const tAmt = Number((r as any).taxAmount || 0);
+        const pAmt = Number((r as any).permitAmount ?? Math.max(0, Number(r.revenue || 0) - tAmt));
+        totalPermits += pAmt;
+        totalTaxes += tAmt;
+      }
+      const permitTax = aggregates?.revenue ?? (totalPermits + totalTaxes);
+      if (totalPermits + totalTaxes === 0 && permitTax > 0) {
+        totalPermits = permitTax;
+      }
+      const infractions = Number(infraStats?.montant_total ?? 0);
+      return {
+        permits: totalPermits,
+        taxes: totalTaxes,
+        permitTax,
+        infractions,
+        total: permitTax + infractions,
+      };
+    }
+
+    const targetKey = canonicalRegionKey(revenueRegion);
+    let permits = 0;
+    let taxes = 0;
+    let infractions = 0;
+
+    for (const r of byRegion || []) {
+      if (canonicalRegionKey(r.region) === targetKey) {
+        const tAmt = Number((r as any).taxAmount || 0);
+        const pAmt = Number((r as any).permitAmount ?? Math.max(0, Number(r.revenue || 0) - tAmt));
+        permits += pAmt;
+        taxes += tAmt;
+        infractions += Number((r as any).infractionAmount || 0);
+      }
+    }
+
+    // Fallback depuis infractionsData si infractionAmount n'est pas encore remonté dans byRegion
+    if (infractions === 0 && (infractionsData || []).length > 0) {
+      for (const inf of infractionsData || []) {
+        if (canonicalRegionKey(inf.region || 'non défini') === targetKey) {
+          infractions += Number(inf.montant_chiffre || 0);
+        }
+      }
+    }
+
+    const permitTax = permits + taxes;
+    return {
+      permits,
+      taxes,
+      permitTax,
+      infractions,
+      total: permitTax + infractions,
+    };
+  }, [revenueRegion, byRegion, aggregates, infraStats, infractionsData]);
+
+  const selectedRegionPieData = useMemo(() => {
+    return [
+      { name: 'Permis', value: selectedRegionRevenueBreakdown.permits, color: '#2563eb' },
+      { name: "Taxes d'abattage", value: selectedRegionRevenueBreakdown.taxes, color: '#10b981' },
+      { name: 'Infractions', value: selectedRegionRevenueBreakdown.infractions, color: '#f97316' },
+    ].filter((item) => item.value > 0);
+  }, [selectedRegionRevenueBreakdown]);
 
   const revenueDepartmentRows = useMemo<RevenueGroupingRow[]>(() => {
     return revenueDepartmentSorted.map((row) => ({
@@ -1180,16 +1263,32 @@ export default function NationalStatistics() {
   }, [mapAlerts]);
 
   // Export Excel Recettes (Onglet 1 : Recettes par région/département + Onglet 2 : Recette chasse)
+  // Dans les fichiers exportés, DEFCCS ('national'/'defccs') est comptabilisé dans Dakar ('dakar').
   const exportRevenueCsv = () => {
     const firstSheetName = revenueGroupBy === 'departement' ? 'Recettes par département' : 'Recettes par région';
     const firstSheetHeader =
       revenueGroupBy === 'departement'
         ? ['Région', 'Département', 'Recette (FCFA)']
         : ['Région', 'Recette (FCFA)'];
-    const firstSheetRows: (string | number)[][] =
-      revenueGroupBy === 'departement'
-        ? revenueTableRows.map((r) => [r.region, r.departement || 'Non défini', r.revenue])
-        : revenueTableRows.map((r) => [r.region, r.revenue]);
+    let firstSheetRows: (string | number)[][];
+    if (revenueGroupBy === 'departement') {
+      firstSheetRows = revenueTableRows.map((r) => {
+        const expKey = exportRegionKey(r.region);
+        return [REGION_LABELS[expKey] || r.region, r.departement || 'Non défini', r.revenue];
+      });
+    } else {
+      const byExpReg = new Map<string, { label: string; revenue: number }>();
+      for (const r of revenueTableRows) {
+        const expKey = exportRegionKey(r.region);
+        const label = REGION_LABELS[expKey] || r.region;
+        const cur = byExpReg.get(expKey) || { label, revenue: 0 };
+        cur.revenue += Number(r.revenue || 0);
+        byExpReg.set(expKey, cur);
+      }
+      firstSheetRows = Array.from(byExpReg.values())
+        .sort((a, b) => b.revenue - a.revenue)
+        .map((r) => [r.label, r.revenue]);
+    }
 
     // Onglet 2 : "Recette chasse" (Tableau 11 : Recettes liées à la gestion de la faune)
     const baseRegionCols: { key: string; label: string }[] = [
@@ -1209,7 +1308,6 @@ export default function NationalStatistics() {
       ziguinchor: 'Ziguinchor',
       matam: 'Matam',
       diourbel: 'Diourbel',
-      national: 'National',
       nondefini: 'Non défini',
     };
 
@@ -1225,9 +1323,9 @@ export default function NationalStatistics() {
       return canonicalRegionKey(item.regionKey || item.regionLabel) === activeFilterKey;
     });
 
-    // Ajouter dynamiquement toute autre région ou zone présente dans les recettes
+    // Ajouter dynamiquement toute autre région ou zone présente dans les recettes (DEFCCS est rattaché à Dakar)
     for (const item of matrixItems) {
-      const rk = canonicalRegionKey(item.regionKey || item.regionLabel);
+      const rk = exportRegionKey(item.regionKey || item.regionLabel);
       if (rk && !knownRegKeys.has(rk)) {
         knownRegKeys.add(rk);
         regionCols.push({
@@ -1240,7 +1338,7 @@ export default function NationalStatistics() {
     const getCellAmount = (section: RevenueChasseMatrixItem['section'], rowLabel: string, regKey: string): number => {
       let sum = 0;
       for (const item of matrixItems) {
-        const rk = canonicalRegionKey(item.regionKey || item.regionLabel);
+        const rk = exportRegionKey(item.regionKey || item.regionLabel);
         if (item.section === section && item.rowLabel === rowLabel && rk === regKey) {
           sum += Number(item.amount || 0);
         }
@@ -1495,43 +1593,267 @@ export default function NationalStatistics() {
     exportArrayToCsv(`alertes_${alertPeriod}.csv`, header, rows);
   };
 
-  // Export CSV pour les armes
+  // Export Excel multi-onglets pour les armes (4 onglets correspondant aux 4 sections de la page)
   const exportWeaponsCsv = () => {
-    const header = ['Région', 'Marque', "Type d'arme", 'Nombre'];
-    const rows = (filteredWeaponsByRegion || []).map(w => [
-      prettyRegion(w.region),
-      w.brand || 'Non spécifié',
-      w.weaponType || 'Non spécifié',
-      Number(w.count || 0)
+    // 1. Expiration des permis de port d'arme
+    const exp3 = Number(permitExpirations?.expiring3Months ?? 0);
+    const exp6 = Number(permitExpirations?.expiring6Months ?? 0);
+    const exp12 = Number(permitExpirations?.expiring1Year ?? 0);
+    const expAlready = Number(permitExpirations?.expired ?? 0);
+    const expirationHeaders = ["Statut d'expiration", 'Nombre de permis'];
+    const expirationRows: (string | number)[][] = [
+      ['Expire dans 3 mois', exp3],
+      ['Expire dans 6 mois', exp6],
+      ['Expire dans 1 an', exp12],
+      ['Déjà expirés', expAlready],
+      ['Total', exp3 + exp6 + exp12 + expAlready],
+    ];
+
+    // 2. Répartition par marque
+    const brandsSource = (weaponStats?.weaponsByBrand || []).filter(
+      (b) => weaponBrandFilter === 'toutes' || (b.brand || 'Non spécifié') === weaponBrandFilter
+    );
+    const totalBrandsCount = brandsSource.reduce((acc, b) => acc + Number(b.count || 0), 0);
+    const brandHeaders = ['Marque', "Nombre d'armes"];
+    const brandRows: (string | number)[][] = [
+      ...brandsSource.map((b) => [b.brand || 'Non spécifié', Number(b.count || 0)]),
+      ['Total', totalBrandsCount],
+    ];
+
+    // Fonction utilitaire pour fusionner verticalement les cellules identiques consécutives sur les colonnes textuelles
+    const buildColumnMerges = (
+      dataRows: (string | number)[][],
+      colLetters: string[]
+    ): { rows: (string | number)[][]; merges: string[] } => {
+      const merges: string[] = [];
+      const cloned = dataRows.map((r) => [...r]);
+      const n = cloned.length;
+
+      colLetters.forEach((colLetter, colIdx) => {
+        let startIdx = 0;
+        while (startIdx < n) {
+          const val = String(cloned[startIdx][colIdx] ?? '').trim();
+          let endIdx = startIdx;
+          while (
+            endIdx + 1 < n &&
+            String(cloned[endIdx + 1][colIdx] ?? '').trim().toLowerCase() === val.toLowerCase() &&
+            // Pour les colonnes > 0, ne fusionner que si la colonne parente à gauche fait partie du même bloc
+            (colIdx === 0 ||
+              String(dataRows[endIdx + 1][0] ?? '').trim().toLowerCase() ===
+                String(dataRows[startIdx][0] ?? '').trim().toLowerCase())
+          ) {
+            endIdx += 1;
+          }
+          if (endIdx > startIdx && val.length > 0) {
+            // Ligne Excel = index + 2 (car ligne 1 = en-tête)
+            merges.push(`${colLetter}${startIdx + 2}:${colLetter}${endIdx + 2}`);
+            for (let k = startIdx + 1; k <= endIdx; k++) {
+              cloned[k][colIdx] = '';
+            }
+          }
+          startIdx = endIdx + 1;
+        }
+      });
+
+      return { rows: cloned, merges };
+    };
+
+    // 3. Armes par région d'enregistrement (DEFCCS comptabilisé dans Dakar à l'export, avec calibre et fusion)
+    const regionWeaponsSource = filteredWeaponsByRegion || [];
+    const byExpWeaponReg = new Map<
+      string,
+      { regionLabel: string; weaponType: string; brand: string; caliber: string; count: number }
+    >();
+    for (const w of regionWeaponsSource) {
+      const expKey = exportRegionKey(w.region);
+      const regionLabel = REGION_LABELS[expKey] || prettyRegion(w.region);
+      const weaponType = String(w.weaponType || 'Non spécifié').trim() || 'Non spécifié';
+      const brand = String(w.brand || 'Non spécifié').trim() || 'Non spécifié';
+      const caliber = String(w.caliber || 'Non spécifié').trim() || 'Non spécifié';
+      const k = `${expKey}::${weaponType.toLowerCase()}::${brand.toLowerCase()}::${caliber.toLowerCase()}`;
+      const cur = byExpWeaponReg.get(k) || { regionLabel, weaponType, brand, caliber, count: 0 };
+      cur.count += Number(w.count || 0);
+      byExpWeaponReg.set(k, cur);
+    }
+    const mergedRegionWeapons = Array.from(byExpWeaponReg.values()).sort(
+      (a, b) =>
+        a.regionLabel.localeCompare(b.regionLabel) ||
+        a.weaponType.localeCompare(b.weaponType) ||
+        a.brand.localeCompare(b.brand) ||
+        a.caliber.localeCompare(b.caliber)
+    );
+    const totalRegionWeapons = mergedRegionWeapons.reduce((acc, w) => acc + w.count, 0);
+    const regionWeaponsHeaders = ['Région', "Type d'arme", 'Marque', 'Calibre', 'Nombre'];
+    const rawRegionWeaponRows: (string | number)[][] = mergedRegionWeapons.map((w) => [
+      w.regionLabel,
+      w.weaponType,
+      w.brand,
+      w.caliber,
+      w.count,
     ]);
-    exportArrayToCsv('armes_statistiques.csv', header, rows);
+    const regionWeaponBuilt = buildColumnMerges(rawRegionWeaponRows, ['A', 'B', 'C', 'D']);
+    const regionWeaponsRows: (string | number)[][] = [
+      ...regionWeaponBuilt.rows,
+      ['Total', '', '', '', totalRegionWeapons],
+    ];
+
+    // 4. Armes utilisées selon la catégorie de permis (avec Marque, Calibre, regroupement et fusion)
+    const permitCatWeaponsSource = (weaponsByPermitCategory || []).filter((w) => {
+      const categoryMatch = weaponCategoryFilter === 'toutes' || (w.weaponType || 'Non spécifié') === weaponCategoryFilter;
+      const brandMatch = weaponBrandFilter === 'toutes' || (w.brand || 'Non spécifié') === weaponBrandFilter;
+      return categoryMatch && brandMatch;
+    });
+    const byPermitCatWeapon = new Map<
+      string,
+      { permitCategory: string; weaponType: string; brand: string; caliber: string; count: number }
+    >();
+    for (const w of permitCatWeaponsSource) {
+      const permitCategory = String(w.permitCategory || 'Non spécifié').trim() || 'Non spécifié';
+      const weaponType = String(w.weaponType || 'Non spécifié').trim() || 'Non spécifié';
+      const brand = String(w.brand || 'Non spécifié').trim() || 'Non spécifié';
+      const caliber = String(w.caliber || 'Non spécifié').trim() || 'Non spécifié';
+      const k = `${permitCategory.toLowerCase()}::${weaponType.toLowerCase()}::${brand.toLowerCase()}::${caliber.toLowerCase()}`;
+      const cur = byPermitCatWeapon.get(k) || { permitCategory, weaponType, brand, caliber, count: 0 };
+      cur.count += Number(w.count || 0);
+      byPermitCatWeapon.set(k, cur);
+    }
+    const mergedPermitCatWeapons = Array.from(byPermitCatWeapon.values()).sort(
+      (a, b) =>
+        a.permitCategory.localeCompare(b.permitCategory) ||
+        a.weaponType.localeCompare(b.weaponType) ||
+        a.brand.localeCompare(b.brand) ||
+        a.caliber.localeCompare(b.caliber)
+    );
+    const totalPermitCatWeapons = mergedPermitCatWeapons.reduce((acc, w) => acc + w.count, 0);
+    const permitCatHeaders = ['Catégorie de permis', "Type d'arme", 'Marque', 'Calibre', 'Nombre'];
+    const rawPermitCatRows: (string | number)[][] = mergedPermitCatWeapons.map((w) => [
+      w.permitCategory,
+      w.weaponType,
+      w.brand,
+      w.caliber,
+      w.count,
+    ]);
+    const permitCatBuilt = buildColumnMerges(rawPermitCatRows, ['A', 'B', 'C', 'D']);
+    const permitCatRows: (string | number)[][] = [
+      ...permitCatBuilt.rows,
+      ['Total', '', '', '', totalPermitCatWeapons],
+    ];
+
+    exportMultiSheetXlsx('statistiques_armes.xlsx', [
+      {
+        name: 'Expiration des permis',
+        headers: expirationHeaders,
+        rows: expirationRows,
+      },
+      {
+        name: 'Répartition par marque',
+        headers: brandHeaders,
+        rows: brandRows,
+      },
+      {
+        name: 'Armes par région',
+        headers: regionWeaponsHeaders,
+        rows: regionWeaponsRows,
+        merges: regionWeaponBuilt.merges,
+      },
+      {
+        name: 'Armes par catégorie permis',
+        headers: permitCatHeaders,
+        rows: permitCatRows,
+        merges: permitCatBuilt.merges,
+      },
+    ]);
   };
 
-  // Export unifié pour l'onglet actif
+  // Export unifié pour l'onglet actif (dans les exports, DEFCCS est comptabilisé dans Dakar)
   const handleExportActiveTab = () => {
     switch (activeTab) {
       case 'overview': {
         const header = ['Région (Top 5)', 'Permis actifs', 'Prélèvements', 'Recette (FCFA)'];
-        const rows = topRegions.map(r => [r.region, r.activePermits, r.piecesAbattues, r.revenue]);
+        const byExpReg = new Map<
+          string,
+          { region: string; activePermits: number; piecesAbattues: number; revenue: number }
+        >();
+        for (const r of byRegion || []) {
+          const expKey = exportRegionKey(r.region);
+          const label = REGION_LABELS[expKey] || prettyRegion(r.region);
+          const cur = byExpReg.get(expKey) || {
+            region: label,
+            activePermits: 0,
+            piecesAbattues: 0,
+            revenue: 0,
+          };
+          cur.activePermits += Number((r as any).activePermits || 0);
+          cur.piecesAbattues += Number(r.piecesAbattues || 0);
+          cur.revenue += Number(r.revenue || 0);
+          byExpReg.set(expKey, cur);
+        }
+        const rows = Array.from(byExpReg.values())
+          .sort((a, b) => b.piecesAbattues - a.piecesAbattues || b.revenue - a.revenue)
+          .slice(0, 5)
+          .map((r) => [r.region, r.activePermits, r.piecesAbattues, r.revenue]);
         exportArrayToCsv('vue_ensemble_nationale.csv', header, rows);
         break;
       }
       case 'regions': {
         const header = ['Région', 'Permis actifs', 'Prélèvements', "Taxe d'abattage (FCFA)", 'Recette (FCFA)'];
-        const rows = (filteredByRegion || []).map(r => [
-          (r.region || '').toUpperCase(),
-          Number(r.activePermits ?? 0),
-          Number(r.piecesAbattues ?? 0),
-          Number((r as any).taxAmount || 0),
-          Number(r.revenue ?? 0),
+        const byExpReg = new Map<
+          string,
+          { region: string; activePermits: number; piecesAbattues: number; taxAmount: number; revenue: number }
+        >();
+        for (const r of filteredByRegion || []) {
+          const expKey = exportRegionKey(r.region);
+          const label = (REGION_LABELS[expKey] || r.region || '').toUpperCase();
+          const cur = byExpReg.get(expKey) || {
+            region: label,
+            activePermits: 0,
+            piecesAbattues: 0,
+            taxAmount: 0,
+            revenue: 0,
+          };
+          cur.activePermits += Number(r.activePermits ?? 0);
+          cur.piecesAbattues += Number(r.piecesAbattues ?? 0);
+          cur.taxAmount += Number((r as any).taxAmount || 0);
+          cur.revenue += Number(r.revenue ?? 0);
+          byExpReg.set(expKey, cur);
+        }
+        const rows = Array.from(byExpReg.values()).map((r) => [
+          r.region,
+          r.activePermits,
+          r.piecesAbattues,
+          r.taxAmount,
+          r.revenue,
         ]);
         exportArrayToCsv('statistiques_par_region.csv', header, rows);
         break;
       }
       case 'categories': {
         const huntersHeaders = ['Régions', 'Coutumiers', 'Résidents', 'Touristes', 'Totaux'];
+        const expHuntersMap = new Map<
+          string,
+          { regionLabel: string; coutumier: number; resident: number; touristique: number; total: number }
+        >();
+        for (const r of huntersPivotTable.rows) {
+          const expKey = exportRegionKey(r.regionKey);
+          const label = REGION_LABELS[expKey] || r.regionLabel;
+          const cur = expHuntersMap.get(expKey) || {
+            regionLabel: label,
+            coutumier: 0,
+            resident: 0,
+            touristique: 0,
+            total: 0,
+          };
+          cur.coutumier += r.coutumier;
+          cur.resident += r.resident;
+          cur.touristique += r.touristique;
+          cur.total += r.total;
+          expHuntersMap.set(expKey, cur);
+        }
+        const expHuntersRows = Array.from(expHuntersMap.values()).sort((a, b) =>
+          a.regionLabel.localeCompare(b.regionLabel)
+        );
         const huntersRows: (string | number)[][] = [
-          ...huntersPivotTable.rows.map((r) => [
+          ...expHuntersRows.map((r) => [
             r.regionLabel,
             r.coutumier,
             r.resident,
@@ -1554,8 +1876,31 @@ export default function NationalStatistics() {
           'Permis sportif grande chasse',
           'Total',
         ];
+        const expPermitsMap = new Map<
+          string,
+          { regionLabel: string; petiteChasse: number; gibierEau: number; grandeChasse: number; total: number }
+        >();
+        for (const r of permitsPivotTable.rows) {
+          const expKey = exportRegionKey(r.regionKey);
+          const label = REGION_LABELS[expKey] || r.regionLabel;
+          const cur = expPermitsMap.get(expKey) || {
+            regionLabel: label,
+            petiteChasse: 0,
+            gibierEau: 0,
+            grandeChasse: 0,
+            total: 0,
+          };
+          cur.petiteChasse += r.petiteChasse;
+          cur.gibierEau += r.gibierEau;
+          cur.grandeChasse += r.grandeChasse;
+          cur.total += r.total;
+          expPermitsMap.set(expKey, cur);
+        }
+        const expPermitsRows = Array.from(expPermitsMap.values()).sort((a, b) =>
+          a.regionLabel.localeCompare(b.regionLabel)
+        );
         const permitsRows: (string | number)[][] = [
-          ...permitsPivotTable.rows.map((r) => [
+          ...expPermitsRows.map((r) => [
             r.regionLabel,
             r.petiteChasse,
             r.gibierEau,
@@ -1604,7 +1949,7 @@ export default function NationalStatistics() {
         >();
         for (const r of rowsData) {
           const id = r.speciesId || 'unknown';
-          const regKey = canonicalRegionKey(r.region);
+          const regKey = exportRegionKey(r.region);
           const regLabel = REGION_LABELS[regKey] || prettyRegion(r.region);
           const groupKey = `${id}::${regKey}`;
           const entry = bySpeciesRegion.get(groupKey) || {
@@ -1683,14 +2028,13 @@ export default function NationalStatistics() {
           ziguinchor: 'Ziguinchor',
           matam: 'Matam',
           diourbel: 'Diourbel',
-          national: 'National',
           nondefini: 'Non défini',
         };
         const regionCols = [...baseRegionCols];
         const knownRegKeys = new Set(regionCols.map((c) => c.key));
-        // Ajout dynamique de toute autre région ou zone présente dans les déclarations
+        // Ajout dynamique de toute autre région ou zone présente dans les déclarations (DEFCCS -> Dakar)
         for (const r of rowsData) {
-          const rk = canonicalRegionKey(r.region);
+          const rk = exportRegionKey(r.region);
           if (rk && !knownRegKeys.has(rk)) {
             knownRegKeys.add(rk);
             regionCols.push({
@@ -1724,7 +2068,7 @@ export default function NationalStatistics() {
             byReg: new Map<string, number>(),
             total: 0,
           };
-          const rk = canonicalRegionKey(r.region);
+          const rk = exportRegionKey(r.region);
           const qty = Number(r.quantity) || 0;
           spEntry.byReg.set(rk, (spEntry.byReg.get(rk) || 0) + qty);
           spEntry.total += qty;
@@ -1820,7 +2164,7 @@ export default function NationalStatistics() {
           row.code || '',
           row.article_code || row.item_article || '',
           [row.agent_prenom, row.agent_nom].filter(Boolean).join(' '),
-          row.region ? REGION_LABELS[canonicalRegionKey(row.region)] || prettyRegion(row.region) : '',
+          row.region ? REGION_LABELS[exportRegionKey(row.region)] || prettyRegion(row.region) : '',
           row.departement || '',
           Number(row.montant_chiffre || 0),
           row.numero_quittance || '',
@@ -1885,7 +2229,7 @@ export default function NationalStatistics() {
           >();
 
           for (const row of rowsSubset) {
-            const regKey = canonicalRegionKey(row.region || row.created_by_region || 'non défini');
+            const regKey = exportRegionKey(row.region || row.created_by_region || 'non défini');
             const regLabel =
               REGION_LABELS[regKey] ||
               prettyRegion(row.region || row.created_by_region || 'Non défini');
@@ -2537,13 +2881,24 @@ export default function NationalStatistics() {
                       </div>
                       <div className="flex flex-col">
                         <Label>Région</Label>
-                        <Select value={revenueRegion} onValueChange={setRevenueRegion} disabled={revenueGroupBy !== 'region'}>
+                        <Select value={revenueRegion} onValueChange={setRevenueRegion}>
                           <SelectTrigger className="w-[240px]"><SelectValue placeholder="Toutes" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="toutes">Toutes</SelectItem>
-                            {Array.from(new Set((byRegion || []).map(r => prettyRegion(r.region))))
-                              .sort((a,b)=> a.localeCompare(b))
-                              .map(r => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                            {Array.from(
+                              new Set([
+                                ...(byRegion || []).map((r) => prettyRegion(r.region)),
+                                ...(infractionsData || [])
+                                  .filter((inf) => Number(inf.montant_chiffre || 0) > 0 && inf.region)
+                                  .map((inf) => prettyRegion(inf.region || '')),
+                              ].filter(Boolean))
+                            )
+                              .sort((a, b) => a.localeCompare(b))
+                              .map((r) => (
+                                <SelectItem key={r} value={r}>
+                                  {r}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -2630,76 +2985,106 @@ export default function NationalStatistics() {
                     <>
                       <div className="grid gap-4 md:grid-cols-3">
                         <div className="bg-white p-4 rounded-lg border">
-                          <p className="text-sm text-muted-foreground">Total (Permis + Taxes + Infractions)</p>
-                          <div className="text-2xl font-bold">{
-                            ((aggregates?.revenue ?? 0) + Number(infraStats?.montant_total ?? 0)).toLocaleString('fr-FR')
-                          } FCFA</div>
+                          <p className="text-sm text-muted-foreground">
+                            Total (Permis + Taxes + Infractions){revenueRegion !== 'toutes' ? ` — ${revenueRegion}` : ''}
+                          </p>
+                          <div className="text-2xl font-bold">
+                            {selectedRegionRevenueBreakdown.total.toLocaleString('fr-FR')} FCFA
+                          </div>
                         </div>
                         <div className="bg-white p-4 rounded-lg border">
-                          <p className="text-sm text-muted-foreground">Permis + Taxes</p>
-                          <div className="text-2xl font-bold">{(aggregates?.revenue ?? 0).toLocaleString('fr-FR')} FCFA</div>
+                          <p className="text-sm text-muted-foreground">
+                            Permis + Taxes{revenueRegion !== 'toutes' ? ` — ${revenueRegion}` : ''}
+                          </p>
+                          <div className="text-2xl font-bold">
+                            {selectedRegionRevenueBreakdown.permitTax.toLocaleString('fr-FR')} FCFA
+                          </div>
                         </div>
                         <div className="bg-white p-4 rounded-lg border">
-                          <p className="text-sm text-muted-foreground">Infractions</p>
-                          <div className="text-2xl font-bold">{Number(infraStats?.montant_total ?? 0).toLocaleString('fr-FR')} FCFA</div>
+                          <p className="text-sm text-muted-foreground">
+                            Infractions{revenueRegion !== 'toutes' ? ` — ${revenueRegion}` : ''}
+                          </p>
+                          <div className="text-2xl font-bold">
+                            {selectedRegionRevenueBreakdown.infractions.toLocaleString('fr-FR')} FCFA
+                          </div>
                         </div>
                       </div>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="bg-white rounded-lg border p-4 h-[320px]">
-                          <h4 className="text-sm font-semibold mb-2">{revenueGroupBy === 'region' ? 'Recettes par région' : 'Recettes par département'}</h4>
-                          {revenueGroupBy === 'departement' && revenueByDepartmentLoading ? (
-                            <div>Chargement des données par département...</div>
-                          ) : filteredRevenueRows.length === 0 ? (
-                            <div className="text-sm text-muted-foreground">Aucune donnée disponible.</div>
+                      <div className="bg-white rounded-lg border p-4 h-[380px]">
+                        <h4 className="text-sm font-semibold mb-2">
+                          {revenueGroupBy === 'region' && revenueRegion !== 'toutes'
+                            ? `Répartition des recettes pour ${revenueRegion} (Permis, Taxes d'abattage et Infractions)`
+                            : revenueGroupBy === 'region'
+                            ? 'Répartition des recettes par région'
+                            : `Répartition des recettes par département${revenueRegion !== 'toutes' ? ` (${revenueRegion})` : ''}`}
+                        </h4>
+                        {revenueGroupBy === 'departement' && revenueByDepartmentLoading ? (
+                          <div>Chargement des données par département...</div>
+                        ) : revenueGroupBy === 'region' && revenueRegion !== 'toutes' ? (
+                          selectedRegionPieData.length === 0 ? (
+                            <div className="text-sm text-muted-foreground">
+                              Aucune recette enregistrée pour {revenueRegion}.
+                            </div>
                           ) : (
-                            <ResponsiveContainer width="100%" height="100%">
-                              <BarChart
-                                data={revenueChartData}
-                                layout="vertical"
-                                margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
-                              >
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis type="number" allowDecimals={false} tickFormatter={(v)=> Number(v).toLocaleString('fr-FR')} />
-                                <YAxis dataKey="label" type="category" width={180} />
-                                <Tooltip formatter={(v:any)=> Number(v).toLocaleString('fr-FR') + ' FCFA'} />
-                                <Legend />
-                                <Bar dataKey="revenue" name="Recette (FCFA)" fill="#7c3aed" />
-                              </BarChart>
+                            <ResponsiveContainer width="100%" height="90%">
+                              <PieChart>
+                                <Pie
+                                  data={selectedRegionPieData}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={true}
+                                  outerRadius={115}
+                                  dataKey="value"
+                                  nameKey="name"
+                                  label={({ name, value, percent }) =>
+                                    `${name} : ${Number(value || 0).toLocaleString('fr-FR')} FCFA (${(percent * 100).toFixed(0)}%)`
+                                  }
+                                >
+                                  {selectedRegionPieData.map((entry) => (
+                                    <Cell key={`reg-type-${entry.name}`} fill={entry.color} />
+                                  ))}
+                                </Pie>
+                                <Tooltip
+                                  formatter={(v: any, name: any) => [
+                                    `${Number(v || 0).toLocaleString('fr-FR')} FCFA`,
+                                    String(name || 'Montant'),
+                                  ]}
+                                />
+                              </PieChart>
                             </ResponsiveContainer>
-                          )}
-                        </div>
-
-                        <div className="bg-white rounded-lg border p-4 overflow-x-auto">
-                          <h4 className="text-sm font-semibold mb-2">Détails {revenueGroupBy === 'region' ? 'par région' : 'par département'}</h4>
-                          {revenueGroupBy === 'departement' && revenueByDepartmentLoading ? (
-                            <div>Chargement des données par département...</div>
-                          ) : revenueTableRows.length === 0 ? (
-                            <div className="text-sm text-muted-foreground">Aucune donnée disponible.</div>
-                          ) : (
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
-                                  {revenueGroupBy === 'departement' && (
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Département</th>
-                                  )}
-                                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Recette (FCFA)</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {revenueTableRows.map((row) => (
-                                  <tr key={row.key}>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{row.region}</td>
-                                    {revenueGroupBy === 'departement' && (
-                                      <td className="px-4 py-2 whitespace-nowrap text-sm">{row.departement || 'Non défini'}</td>
-                                    )}
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-right">{row.revenue.toLocaleString('fr-FR')}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
+                          )
+                        ) : filteredRevenueRows.filter((r) => Number(r.revenue || 0) > 0).length === 0 ? (
+                          <div className="text-sm text-muted-foreground">Aucune donnée disponible.</div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="90%">
+                            <PieChart>
+                              <Pie
+                                data={revenueChartData.filter((r) => Number(r.revenue || 0) > 0)}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={true}
+                                outerRadius={115}
+                                fill="#7c3aed"
+                                dataKey="revenue"
+                                nameKey="label"
+                                label={({ label, revenue, percent }) =>
+                                  `${label} : ${Number(revenue || 0).toLocaleString('fr-FR')} FCFA (${(percent * 100).toFixed(0)}%)`
+                                }
+                              >
+                                {revenueChartData
+                                  .filter((r) => Number(r.revenue || 0) > 0)
+                                  .map((entry, index) => (
+                                    <Cell key={`rev-pie-${entry.key || index}`} fill={COLORS[index % COLORS.length]} />
+                                  ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(v: any, name: any) => [
+                                  `${Number(v || 0).toLocaleString('fr-FR')} FCFA`,
+                                  String(name || 'Recette'),
+                                ]}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        )}
                       </div>
                     </>
                   )}
@@ -3329,8 +3714,9 @@ export default function NationalStatistics() {
                               <thead className="bg-gray-50">
                                 <tr>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marque</th>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type d'arme</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marque</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calibre</th>
                                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                                 </tr>
                               </thead>
@@ -3338,8 +3724,9 @@ export default function NationalStatistics() {
                                 {filteredWeaponsByRegion.map((item, index) => (
                                   <tr key={index}>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{prettyRegion(item.region)}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{item.brand || 'Non spécifié'}</td>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{item.weaponType || 'Non spécifié'}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{item.brand || 'Non spécifié'}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{item.caliber || 'Non spécifié'}</td>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-right">{item.count.toLocaleString('fr-FR')}</td>
                                   </tr>
                                 ))}
@@ -3366,6 +3753,8 @@ export default function NationalStatistics() {
                                 <tr>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie de permis</th>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type d'arme</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marque</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calibre</th>
                                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                                 </tr>
                               </thead>
@@ -3374,6 +3763,8 @@ export default function NationalStatistics() {
                                   <tr key={index}>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{item.permitCategory}</td>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{item.weaponType}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{item.brand || 'Non spécifié'}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{item.caliber || 'Non spécifié'}</td>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-right">{item.count.toLocaleString('fr-FR')}</td>
                                   </tr>
                                 ))}

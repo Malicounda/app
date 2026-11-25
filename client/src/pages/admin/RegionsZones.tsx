@@ -300,6 +300,8 @@ export default function RegionsZones() {
   const [openImport, setOpenImport] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [openDetailZoneId, setOpenDetailZoneId] = useState<number | null>(null);
+  const [zoneToDelete, setZoneToDelete] = useState<ZoneItem | null>(null);
+  const [isDeletingZone, setIsDeletingZone] = useState(false);
 
   // États pour la gestion des pièces jointes
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
@@ -363,23 +365,36 @@ export default function RegionsZones() {
   // Type union pour les coordonnées (géographiques ou UTM simplifié pour le Sénégal)
   type Coordinate = { latitude: string; longitude: string } | { easting: string; northing: string; utmZone: string };
 
+  // Calculer la superficie d'une zone en hectares (ha) : surface_ha direct ou area_sq_km * 100
+  const getZoneAreaHa = (z: ZoneItem): number | null => {
+    const ha = Number((z as any).surface_ha);
+    if (Number.isFinite(ha) && ha > 0) return ha;
+    const km2 = Number(z.area_sq_km);
+    if (Number.isFinite(km2) && km2 > 0) return km2 * 100;
+    return null;
+  };
+
   // Export CSV (Excel) des zones filtrées
   const exportZonesToCSV = () => {
     try {
       // Délimiteur ; pour Excel FR + BOM UTF-8 pour les accents
       const dlm = ';';
-      const rows = filteredZones.map(z => ({
-        'Nom': z.name ?? '',
-        'Type': getZoneTypeLabel(z.type || ''),
-        'Région': z.region || '',
-        'Département': z.departement || '',
-        'Superficie (km²)': z.area_sq_km != null ? Number(z.area_sq_km).toFixed(2).replace('.', ',') : '',
-        'Statut': getZoneStatusLabel(z.status || 'active'),
-        'Centre (lat, lon)': (z.centroid_lat && z.centroid_lon)
-          ? `${Number(z.centroid_lat).toFixed(4).replace('.', ',')}, ${Number(z.centroid_lon).toFixed(4).replace('.', ',')}`
-          : ''
-      }));
-      const headers = Object.keys(rows[0] || { 'Nom': '', 'Type': '', 'Région': '', 'Département': '', 'Superficie (km²)': '', 'Statut': '', 'Centre (lat, lon)': '' });
+      const rows = filteredZones.map(z => {
+        const areaHa = getZoneAreaHa(z);
+        return {
+          'Nom': z.name ?? '',
+          'Type': getZoneTypeLabel(z.type || ''),
+          'Région': z.region || '',
+          'Département': z.departement || '',
+          'Superficie (ha)': areaHa != null ? areaHa.toFixed(2).replace('.', ',') : '',
+          'Statut': getZoneStatusLabel(z.status || 'active'),
+          'Amodiataire': z.responsible_name || (z as any).responsibleName || '',
+          'Centre (lat, lon)': (z.centroid_lat && z.centroid_lon)
+            ? `${Number(z.centroid_lat).toFixed(4).replace('.', ',')}, ${Number(z.centroid_lon).toFixed(4).replace('.', ',')}`
+            : ''
+        };
+      });
+      const headers = Object.keys(rows[0] || { 'Nom': '', 'Type': '', 'Région': '', 'Département': '', 'Superficie (ha)': '', 'Statut': '', 'Amodiataire': '', 'Centre (lat, lon)': '' });
       const escapeCell = (s: string) => {
         const needsQuotes = /[";\n]/.test(s);
         const esc = s.replace(/"/g, '""');
@@ -3115,7 +3130,9 @@ export default function RegionsZones() {
                         <div className="flex items-center gap-1.5">
                           <span className="font-medium text-slate-700">Superficie:</span>
                           <span className="text-slate-600">
-                            {Number(zone.area_sq_km || 0) > 0 ? `${Number(zone.area_sq_km).toFixed(2)} km²` : "N/A"}
+                            {getZoneAreaHa(zone) != null
+                              ? `${getZoneAreaHa(zone)!.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ha`
+                              : "N/A"}
                           </span>
                         </div>
                         {zone.guides_count && (
@@ -3150,7 +3167,7 @@ export default function RegionsZones() {
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
-                      <Button variant="destructive" size="icon" onClick={() => onDelete(zone.id)} className="rounded-md h-6 w-6">
+                      <Button variant="destructive" size="icon" onClick={() => setZoneToDelete(zone)} className="rounded-md h-6 w-6">
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -3187,7 +3204,11 @@ export default function RegionsZones() {
                             <td className="px-3 sm:px-4 py-2 text-slate-600">{getZoneTypeLabel(zone.type || '')}</td>
                             <td className="px-3 sm:px-4 py-2 text-slate-600 hidden md:table-cell">{zone.region || '—'}</td>
                             <td className="px-3 sm:px-4 py-2 text-slate-600 hidden lg:table-cell">{zone.departement || '—'}</td>
-                            <td className="px-3 sm:px-4 py-2 text-slate-600 hidden lg:table-cell">{Number(zone.area_sq_km || 0) > 0 ? `${Number(zone.area_sq_km).toFixed(2)} km²` : 'N/A'}</td>
+                            <td className="px-3 sm:px-4 py-2 text-slate-600 hidden lg:table-cell">
+                              {getZoneAreaHa(zone) != null
+                                ? `${getZoneAreaHa(zone)!.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ha`
+                                : 'N/A'}
+                            </td>
                             <td className="px-3 sm:px-4 py-2">
                               <Badge variant={zone.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                                 {getZoneStatusLabel(zone.status || 'active')}
@@ -3208,7 +3229,7 @@ export default function RegionsZones() {
                                 >
                                   <Edit className="h-3 w-3" />
                                 </Button>
-                                <Button variant="destructive" size="sm" onClick={() => onDelete(zone.id)} className="rounded-lg h-7 px-2">
+                                <Button variant="destructive" size="sm" onClick={() => setZoneToDelete(zone)} className="rounded-lg h-7 px-2">
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>
@@ -3298,6 +3319,48 @@ export default function RegionsZones() {
           </DialogContent>
         </Dialog>
 
+        {/* Dialog Confirmation de suppression d'une zone */}
+        <Dialog open={!!zoneToDelete} onOpenChange={(open) => { if (!open && !isDeletingZone) setZoneToDelete(null); }}>
+          <DialogContent className="max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-slate-800">
+                Confirmer la suppression
+              </DialogTitle>
+              <DialogDescription className="text-slate-600 pt-2">
+                Êtes-vous sûr de vouloir supprimer la zone{" "}
+                <span className="font-semibold text-slate-900">« {zoneToDelete?.name} »</span> ? Cette action est irréversible.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 pt-4">
+              <Button
+                variant="outline"
+                disabled={isDeletingZone}
+                onClick={() => setZoneToDelete(null)}
+                className="rounded-lg"
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={isDeletingZone}
+                onClick={async () => {
+                  if (!zoneToDelete) return;
+                  setIsDeletingZone(true);
+                  try {
+                    await onDelete(zoneToDelete.id);
+                    setZoneToDelete(null);
+                  } finally {
+                    setIsDeletingZone(false);
+                  }
+                }}
+                className="rounded-lg"
+              >
+                {isDeletingZone ? "Suppression..." : "Supprimer"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Dialog Détails de la Zone */}
         <Dialog
           open={!!openDetailZoneId}
@@ -3381,10 +3444,12 @@ export default function RegionsZones() {
                           {zone.departement && ` • ${zone.departement}`}
                         </span>
                       </div>
-                      {zone.area_sq_km && (
+                      {getZoneAreaHa(zone) != null && (
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-slate-700">Superficie:</span>
-                          <span className="text-slate-600">{Number(zone.area_sq_km).toFixed(2)} km²</span>
+                          <span className="text-slate-600">
+                            {getZoneAreaHa(zone)!.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ha
+                          </span>
                         </div>
                       )}
                       {zone.guides_count && (
