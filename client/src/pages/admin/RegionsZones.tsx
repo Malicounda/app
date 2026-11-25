@@ -360,6 +360,10 @@ export default function RegionsZones() {
   const [editingZone, setEditingZone] = useState<ZoneItem | null>(null);
   // Filtre par type
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  // Filtre par statut
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  // Filtre par région
+  const [regionFilter, setRegionFilter] = useState<string>('all');
   // Mode d'affichage: cartes (par défaut) ou liste compacte
   const [displayMode, setDisplayMode] = useState<'cards' | 'list'>('cards');
   // Type union pour les coordonnées (géographiques ou UTM simplifié pour le Sénégal)
@@ -681,6 +685,8 @@ export default function RegionsZones() {
           if (typeof data.searchQuery === 'string') setSearchQuery(data.searchQuery);
           if (typeof data.currentPage === 'number' && data.currentPage > 0) setCurrentPage(data.currentPage);
           if (typeof data.typeFilter === 'string') { setTypeFilter(data.typeFilter); appliedFromPersist = true; }
+          if (typeof data.statusFilter === 'string') setStatusFilter(data.statusFilter);
+          if (typeof data.regionFilter === 'string') setRegionFilter(data.regionFilter);
           if (data.displayMode === 'cards' || data.displayMode === 'list') setDisplayMode(data.displayMode);
           if (data.form && typeof data.form === 'object') {
             const f = data.form;
@@ -729,6 +735,8 @@ export default function RegionsZones() {
         searchQuery,
         currentPage,
         typeFilter,
+        statusFilter,
+        regionFilter,
         displayMode,
         form,
       };
@@ -736,7 +744,7 @@ export default function RegionsZones() {
         window.localStorage.setItem(PERSIST_KEY, JSON.stringify(payload));
       }
     } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
-  }, [activeTab, searchQuery, currentPage, typeFilter, displayMode, form]);
+  }, [activeTab, searchQuery, currentPage, typeFilter, statusFilter, regionFilter, displayMode, form]);
   // Verrouillage des champs Région/Département après détection automatique
   const [locationLocked, setLocationLocked] = useState(false);
   // Boîte de dialogue informative en cas de périmètre hors autorisation
@@ -1524,8 +1532,18 @@ export default function RegionsZones() {
       // Autres rôles: pas de restriction supplémentaire
       return true;
     };
-    return zones.filter(z => byLocation(z) && byQuery(z) && byType(z) && byAllowed(z));
-  }, [zones, searchQuery, typeFilter, user, zoneTypesConfig]);
+    const byStatus = (z: ZoneItem) => {
+      if (statusFilter === 'all') return true;
+      return normalize(z.status || 'active') === normalize(statusFilter);
+    };
+
+    const byRegion = (z: ZoneItem) => {
+      if (regionFilter === 'all') return true;
+      return normalize(z.region) === normalize(regionFilter);
+    };
+
+    return zones.filter(z => byLocation(z) && byQuery(z) && byType(z) && byAllowed(z) && byStatus(z) && byRegion(z));
+  }, [zones, searchQuery, typeFilter, statusFilter, regionFilter, user, zoneTypesConfig]);
 
   // Pagination
   const getPaginatedData = () => {
@@ -1541,9 +1559,16 @@ export default function RegionsZones() {
   const endIndex = Math.min(startIndex + itemsPerPage, filteredZones.length);
 
   // Réinitialiser la page quand on change de recherche ou de filtre
+  // Options de régions dérivées des données
+  const regionFilterOptions = useMemo(() => {
+    const set = new Set<string>();
+    zones.forEach(z => { if (z.region) set.add(z.region); });
+    return Array.from(set).sort();
+  }, [zones]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, typeFilter]);
+  }, [searchQuery, typeFilter, statusFilter, regionFilter]);
 
   // Synchroniser les zones avec la carte pour appliquer les styles (zones inactives en gris avec croix)
   useEffect(() => {
@@ -2374,6 +2399,39 @@ export default function RegionsZones() {
                         {t.label}
                       </div>
                     </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filtre par statut */}
+            <div className="w-48">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="rounded-lg h-10 bg-white/80 backdrop-blur-sm">
+                  <SelectValue placeholder="Tous les statuts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  {(zoneStatusesConfig.length > 0
+                    ? zoneStatusesConfig.filter(s => s.isActive)
+                    : defaultZoneStatuses
+                  ).map((s) => (
+                    <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filtre par région */}
+            <div className="w-48">
+              <Select value={regionFilter} onValueChange={setRegionFilter}>
+                <SelectTrigger className="rounded-lg h-10 bg-white/80 backdrop-blur-sm">
+                  <SelectValue placeholder="Toutes les régions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les régions</SelectItem>
+                  {regionFilterOptions.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
