@@ -187,6 +187,9 @@ export default function NationalStatistics() {
   const [weaponRegionFilter, setWeaponRegionFilter] = useState<string>('toutes');
   const [weaponBrandFilter, setWeaponBrandFilter] = useState<string>('toutes');
   const [weaponCategoryFilter, setWeaponCategoryFilter] = useState<string>('toutes');
+
+  // Filtre dynamique Catégorie d'espèce (Gibier d'eau, Grande chasse, Petite chasse, etc.)
+  const [speciesCategoryFilter, setSpeciesCategoryFilter] = useState<string>('toutes');
   // Normalisation/affichage des régions - Chargées dynamiquement depuis l'API
   // Les libellés et l'ordre sont maintenant récupérés depuis la base de données
   const REGION_LABELS: Record<string, string> = {
@@ -322,6 +325,124 @@ export default function NationalStatistics() {
     speciesName?: string;
     scientificName?: string;
     quantity: number;
+    lat?: number | null;
+    lon?: number | null;
+    permitNumber?: string | null;
+    declaredBy?: string | null;
+    category?: string | null;
+  };
+
+  // Normalisation et libellé dynamique des catégories de chasse
+  const normalizeCategoryKey = (raw?: string | null): string => {
+    const s = String(raw || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '');
+    if (!s) return '';
+    if (s.includes('gibier') && s.includes('eau')) return 'gibier_eau';
+    if (s.includes('petite') && s.includes('chasse')) return 'petite_chasse';
+    if (s.includes('grande') && s.includes('chasse')) return 'grande_chasse';
+    return s;
+  };
+
+  const formatCategoryLabel = (rawKeyOrLabel: string): string => {
+    const key = normalizeCategoryKey(rawKeyOrLabel);
+    if (key === 'gibier_eau') return "Gibier d'eau";
+    if (key === 'petite_chasse') return 'Petite chasse';
+    if (key === 'grande_chasse') return 'Grande chasse';
+    const cleaned = String(rawKeyOrLabel || '').replace(/[_-]+/g, ' ').trim();
+    if (!cleaned) return 'Autre';
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  };
+
+  const { data: permitCategoriesData = [] } = useQuery<any[]>({
+    queryKey: ['/api/permit-categories', 'all-for-species-filter'],
+    enabled: Boolean(user),
+    queryFn: async () => {
+      const resp = await apiRequest<any>('GET', '/api/permit-categories?activeOnly=false');
+      if (!(resp as any).ok) return [];
+      return Array.isArray((resp as any).data) ? (resp as any).data : [];
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: allSpeciesCatalog = [] } = useQuery<any[]>({
+    queryKey: ['/api/settings/species', 'all-for-species-filter'],
+    enabled: Boolean(user),
+    queryFn: async () => {
+      const resp = await apiRequest<any>('GET', '/api/settings/species');
+      const serverResp = (resp as any)?.data;
+      if ((resp as any)?.ok && serverResp?.ok && Array.isArray(serverResp.data)) {
+        return serverResp.data;
+      }
+      return [];
+    },
+    staleTime: 60_000,
+  });
+
+  // Conversion WGS84 (Latitude, Longitude) -> UTM (X Easting, Y Northing en mètres)
+  const wgs84ToUtm = (latRaw?: number | null, lonRaw?: number | null): { x: string; y: string } => {
+    if (latRaw == null || lonRaw == null) return { x: '', y: '' };
+    const lat = Number(latRaw);
+    const lon = Number(lonRaw);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
+      return { x: '', y: '' };
+    }
+    // Si déjà en coordonnées projetées (mètres)
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      return { x: String(Math.round(lon)), y: String(Math.round(lat)) };
+    }
+    const a = 6378137.0;
+    const f = 1 / 298.257223563;
+    const k0 = 0.9996;
+    const eSq = 2 * f - f * f;
+    const ePrimeSq = eSq / (1 - eSq);
+
+    const latRad = (lat * Math.PI) / 180;
+    const lonRad = (lon * Math.PI) / 180;
+    const zoneNumber = Math.floor((lon + 180) / 6) + 1;
+    const lonOrigin = (zoneNumber - 1) * 6 - 180 + 3;
+    const lonOriginRad = (lonOrigin * Math.PI) / 180;
+
+    const N = a / Math.sqrt(1 - eSq * Math.sin(latRad) * Math.sin(latRad));
+    const T = Math.tan(latRad) * Math.tan(latRad);
+    const C = ePrimeSq * Math.cos(latRad) * Math.cos(latRad);
+    const A = Math.cos(latRad) * (lonRad - lonOriginRad);
+
+    const M =
+      a *
+      ((1 - eSq / 4 - (3 * eSq * eSq) / 64 - (5 * eSq * eSq * eSq) / 256) * latRad -
+        ((3 * eSq) / 8 + (3 * eSq * eSq) / 32 + (45 * eSq * eSq * eSq) / 1024) * Math.sin(2 * latRad) +
+        ((15 * eSq * eSq) / 256 + (45 * eSq * eSq * eSq) / 1024) * Math.sin(4 * latRad) -
+        ((35 * eSq * eSq * eSq) / 3072) * Math.sin(6 * latRad));
+
+    const easting =
+      k0 *
+        N *
+        (A +
+          ((1 - T + C) * Math.pow(A, 3)) / 6 +
+          ((5 - 18 * T + T * T + 72 * C - 58 * ePrimeSq) * Math.pow(A, 5)) / 120) +
+      500000.0;
+
+    let northing =
+      k0 *
+      (M +
+        N *
+          Math.tan(latRad) *
+          ((A * A) / 2 +
+            ((5 - T + 9 * C + 4 * C * C) * Math.pow(A, 4)) / 24 +
+            ((61 - 58 * T + T * T + 600 * C - 330 * ePrimeSq) * Math.pow(A, 6)) / 720));
+
+    if (lat < 0) {
+      northing += 10000000.0;
+    }
+
+    return {
+      x: String(Math.round(easting)),
+      y: String(Math.round(northing)),
+    };
   };
   const { data: speciesByRegion, isLoading: sbrLoading } = useQuery<SpeciesByRegion[]>({
     queryKey: ["/api/stats/national/species-by-region"],
@@ -341,6 +462,57 @@ export default function NationalStatistics() {
     refetchIntervalInBackground: false,
     staleTime: 5_000,
   });
+
+  // Options dynamiques du filtre de catégorie (issues de permit_categories, especes et des déclarations)
+  const speciesCategoryOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    // Catégories de base toujours présentes + dynamiques depuis permit_categories & especes
+    ['gibier_eau', 'grande_chasse', 'petite_chasse'].forEach((g) => {
+      map.set(normalizeCategoryKey(g), formatCategoryLabel(g));
+    });
+    (permitCategoriesData || []).forEach((c: any) => {
+      if (c?.groupe) {
+        const k = normalizeCategoryKey(c.groupe);
+        if (k && !map.has(k)) map.set(k, formatCategoryLabel(c.groupe));
+      }
+    });
+    (allSpeciesCatalog || []).forEach((sp: any) => {
+      if (sp?.groupe) {
+        const k = normalizeCategoryKey(sp.groupe);
+        if (k && !map.has(k)) map.set(k, formatCategoryLabel(sp.groupe));
+      }
+    });
+    (speciesByRegion || []).forEach((r) => {
+      if (r?.category) {
+        const k = normalizeCategoryKey(r.category);
+        if (k && !map.has(k)) map.set(k, formatCategoryLabel(r.category));
+      }
+    });
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [permitCategoriesData, allSpeciesCatalog, speciesByRegion]);
+
+  // Associer chaque espèce déclarée à sa catégorie (via r.category ou le catalogue especes)
+  const getRowCategoryKey = (r: SpeciesByRegion): string => {
+    if (r.category) {
+      const k = normalizeCategoryKey(r.category);
+      if (k) return k;
+    }
+    const foundSp = (allSpeciesCatalog || []).find(
+      (sp: any) =>
+        String(sp.id) === String(r.speciesId) ||
+        (sp.nom && r.speciesName && String(sp.nom).trim().toLowerCase() === String(r.speciesName).trim().toLowerCase())
+    );
+    if (foundSp?.groupe) {
+      return normalizeCategoryKey(foundSp.groupe);
+    }
+    return '';
+  };
+
+  const filteredSpeciesByRegion = useMemo(() => {
+    const rows = speciesByRegion || [];
+    if (speciesCategoryFilter === 'toutes') return rows;
+    return rows.filter((r) => getRowCategoryKey(r) === speciesCategoryFilter);
+  }, [speciesByRegion, speciesCategoryFilter, allSpeciesCatalog]);
 
   const isLoading = aggregatesLoading || byRegionLoading;
 
@@ -927,7 +1099,7 @@ export default function NationalStatistics() {
         break;
       }
       case 'especes': {
-        const rowsData = speciesByRegion || [];
+        const rowsData = filteredSpeciesByRegion || [];
         const regionKeyToLabel = new Map<string, string>();
         for (const r of rowsData) {
           const key = canonicalRegionKey(r.region);
@@ -935,20 +1107,57 @@ export default function NationalStatistics() {
           regionKeyToLabel.set(key, lbl);
         }
         const regions = sortRegions(Array.from(regionKeyToLabel.values()));
-        const bySpecies = new Map<string, { id: string; name: string; sci?: string; values: Record<string, number> }>();
+        const bySpecies = new Map<
+          string,
+          {
+            id: string;
+            name: string;
+            sci?: string;
+            values: Record<string, number>;
+            utmXSet: Set<string>;
+            utmYSet: Set<string>;
+            permitsSet: Set<string>;
+            declarantsSet: Set<string>;
+          }
+        >();
         for (const r of rowsData) {
           const id = r.speciesId || 'unknown';
           const key = canonicalRegionKey(r.region);
           const label = regionKeyToLabel.get(key) || prettyRegion(r.region);
-          const entry = bySpecies.get(id) || { id, name: r.speciesName || id, sci: r.scientificName, values: {} };
+          const entry = bySpecies.get(id) || {
+            id,
+            name: r.speciesName || id,
+            sci: r.scientificName,
+            values: {},
+            utmXSet: new Set<string>(),
+            utmYSet: new Set<string>(),
+            permitsSet: new Set<string>(),
+            declarantsSet: new Set<string>(),
+          };
           entry.values[label] = (entry.values[label] || 0) + (Number(r.quantity) || 0);
+          const utm = wgs84ToUtm(r.lat, r.lon);
+          if (utm.x && utm.y) {
+            entry.utmXSet.add(utm.x);
+            entry.utmYSet.add(utm.y);
+          }
+          if (r.permitNumber) entry.permitsSet.add(r.permitNumber);
+          if (r.declaredBy) entry.declarantsSet.add(r.declaredBy);
           bySpecies.set(id, entry);
         }
         const speciesList = Array.from(bySpecies.values()).sort((a, b) => a.name.localeCompare(b.name));
-        const header = ['Espèce', 'Nom scientifique', ...regions, 'Total'];
+        const header = ['Espèce', 'Nom scientifique', ...regions, 'UTM X', 'UTM Y', 'Permis', 'Déclarant', 'Total'];
         const csvRows = speciesList.map(sp => {
           const rowTotal = regions.reduce((s, reg) => s + (sp.values[reg] || 0), 0);
-          return [sp.name, sp.sci || '', ...regions.map(reg => sp.values[reg] || 0), rowTotal];
+          return [
+            sp.name,
+            sp.sci || '',
+            ...regions.map(reg => sp.values[reg] || 0),
+            Array.from(sp.utmXSet).join(' | '),
+            Array.from(sp.utmYSet).join(' | '),
+            Array.from(sp.permitsSet).join(' | '),
+            Array.from(sp.declarantsSet).join(' / ') || 'Chasseur',
+            rowTotal,
+          ];
         });
         exportArrayToCsv('especes_chassees_par_region.csv', header, csvRows);
         break;
@@ -1788,15 +1997,31 @@ export default function NationalStatistics() {
 
             <TabsContent value="especes">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <CardTitle>Pièces abattues par espèce et par région</CardTitle>
+                  <div className="flex items-center gap-2 print:hidden">
+                    <Label className="text-sm font-medium whitespace-nowrap">Catégorie :</Label>
+                    <Select value={speciesCategoryFilter} onValueChange={setSpeciesCategoryFilter}>
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Toutes les catégories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="toutes">Toutes les catégories</SelectItem>
+                        {speciesCategoryOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {sbrLoading ? (
                     <div>Chargement...</div>
                   ) : (
                     (() => {
-                      const rows = speciesByRegion || [];
+                      const rows = filteredSpeciesByRegion || [];
                       // Construire un mapping clé canonique -> libellé à partir des déclarations présentes
                       const regionKeyToLabel = new Map<string, string>();
                       for (const r of rows) {
@@ -1805,13 +2030,42 @@ export default function NationalStatistics() {
                         regionKeyToLabel.set(key, lbl);
                       }
                       const regions = sortRegions(Array.from(regionKeyToLabel.values()));
-                      const bySpecies = new Map<string, { id: string; name: string; sci?: string; values: Record<string, number> }>();
+                      const bySpecies = new Map<
+                        string,
+                        {
+                          id: string;
+                          name: string;
+                          sci?: string;
+                          values: Record<string, number>;
+                          utmCoords: Set<string>;
+                          permits: Set<string>;
+                          declarants: Set<string>;
+                        }
+                      >();
                       for (const r of rows) {
                         const id = r.speciesId || 'unknown';
                         const key = canonicalRegionKey(r.region);
                         const label = regionKeyToLabel.get(key) || prettyRegion(r.region);
-                        const entry = bySpecies.get(id) || { id, name: r.speciesName || id, sci: r.scientificName, values: {} };
+                        const entry = bySpecies.get(id) || {
+                          id,
+                          name: r.speciesName || id,
+                          sci: r.scientificName,
+                          values: {},
+                          utmCoords: new Set<string>(),
+                          permits: new Set<string>(),
+                          declarants: new Set<string>(),
+                        };
                         entry.values[label] = (entry.values[label] || 0) + (Number(r.quantity) || 0);
+                        const utm = wgs84ToUtm(r.lat, r.lon);
+                        if (utm.x && utm.y) {
+                          entry.utmCoords.add(`X: ${utm.x} / Y: ${utm.y}`);
+                        }
+                        if (r.permitNumber) {
+                          entry.permits.add(r.permitNumber);
+                        }
+                        if (r.declaredBy) {
+                          entry.declarants.add(r.declaredBy);
+                        }
                         bySpecies.set(id, entry);
                       }
                       const speciesList = Array.from(bySpecies.values()).sort((a,b) => a.name.localeCompare(b.name));
@@ -1829,6 +2083,9 @@ export default function NationalStatistics() {
                                 {regions.map((reg) => (
                                   <th key={reg} className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{reg}</th>
                                 ))}
+                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Coordonnées UTM (X / Y)</th>
+                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Permis</th>
+                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Déclarant</th>
                                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                               </tr>
                             </thead>
@@ -1836,6 +2093,9 @@ export default function NationalStatistics() {
                               {speciesList.map(sp => {
                                 const rowTotal = regions.reduce((s, reg) => s + (sp.values[reg] || 0), 0);
                                 regions.forEach(reg => { totalByRegion[reg] = (totalByRegion[reg] || 0) + (sp.values[reg] || 0); });
+                                const utmDisplay = Array.from(sp.utmCoords).join(' ; ') || '—';
+                                const permitDisplay = Array.from(sp.permits).join(', ') || '—';
+                                const declarantDisplay = Array.from(sp.declarants).join(' / ') || 'Chasseur';
                                 return (
                                   <tr key={sp.id}>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
@@ -1847,6 +2107,9 @@ export default function NationalStatistics() {
                                     {regions.map(reg => (
                                       <td key={reg} className="px-4 py-2 whitespace-nowrap text-sm text-right">{(sp.values[reg] || 0).toLocaleString('fr-FR')}</td>
                                     ))}
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-center text-gray-700">{utmDisplay}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-center font-medium text-gray-800">{permitDisplay}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-center text-gray-700">{declarantDisplay}</td>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-right font-semibold">{rowTotal.toLocaleString('fr-FR')}</td>
                                   </tr>
                                 );
@@ -1858,6 +2121,7 @@ export default function NationalStatistics() {
                                 {regions.map(reg => (
                                   <td key={reg} className="px-4 py-2 text-sm text-right font-semibold">{(totalByRegion[reg] || 0).toLocaleString('fr-FR')}</td>
                                 ))}
+                                <td colSpan={3}></td>
                                 <td className="px-4 py-2 text-sm text-right font-bold">{grandTotal.toLocaleString('fr-FR')}</td>
                               </tr>
                             </tfoot>

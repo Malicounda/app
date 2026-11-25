@@ -217,35 +217,84 @@ router.get('/national/permits-by-category-by-region', isAuthenticated, async (_r
 // GET /api/stats/national/species-by-region - Somme des quantités par espèce et par région (déclarations)
 router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
   try {
-    const rows: Array<{ region: string; species_id: string; nom_espece: string | null; nom_scientifique: string | null; quantity: number }>
-      = await db.execute(
-        sql`SELECT
-              COALESCE(LOWER(TRIM(x.region)), 'nondefini') AS region,
-              x.species_id,
-              COALESCE(x.nom_espece, '') AS nom_espece,
-              COALESCE(x.nom_scientifique, '') AS nom_scientifique,
-              COALESCE(SUM(x.quantity), 0) AS quantity
-            FROM (
-              SELECT region, espece_id AS species_id, nom_espece, nom_scientifique, quantity
-              FROM declaration_especes
-              WHERE (status IS NULL OR status = 'pending')
+    const rows: Array<{
+      region: string;
+      species_id: string;
+      nom_espece: string | null;
+      nom_scientifique: string | null;
+      quantity: number;
+      lat: string | number | null;
+      lon: string | number | null;
+      permit_number: string | null;
+      declared_by: string | null;
+      category: string | null;
+    }> = await db.execute(
+      sql`SELECT
+            COALESCE(LOWER(TRIM(x.region)), 'nondefini') AS region,
+            x.species_id,
+            COALESCE(x.nom_espece, '') AS nom_espece,
+            COALESCE(x.nom_scientifique, '') AS nom_scientifique,
+            COALESCE(x.quantity, 0) AS quantity,
+            x.lat,
+            x.lon,
+            COALESCE(x.permit_number, '') AS permit_number,
+            COALESCE(x.declared_by, 'Chasseur') AS declared_by,
+            COALESCE(NULLIF(TRIM(e.groupe), ''), NULLIF(TRIM(x.category), ''), '') AS category
+          FROM (
+            SELECT
+              d.region,
+              d.espece_id AS species_id,
+              d.nom_espece,
+              d.nom_scientifique,
+              d.quantity,
+              d.lat,
+              d.lon,
+              d.permit_number,
+              d.category,
+              CASE
+                WHEN d.guide_id IS NOT NULL OR LOWER(COALESCE(u.role::text, '')) = 'hunting-guide' THEN 'Guide'
+                ELSE 'Chasseur'
+              END AS declared_by
+            FROM declaration_especes d
+            LEFT JOIN users u ON u.id = d.user_id
+            WHERE (d.status IS NULL OR d.status = 'pending')
 
-              UNION ALL
+            UNION ALL
 
-              SELECT region, species_id, species_name AS nom_espece, scientific_name AS nom_scientifique, quantity
-              FROM hunting_activities
-            ) x
-            WHERE COALESCE(x.quantity, 0) > 0
-            GROUP BY COALESCE(LOWER(TRIM(x.region)), 'nondefini'), x.species_id, x.nom_espece, x.nom_scientifique
-            ORDER BY region ASC, species_id ASC` as any
-      ) as any;
+            SELECT
+              ha.region,
+              ha.species_id,
+              ha.species_name AS nom_espece,
+              ha.scientific_name AS nom_scientifique,
+              ha.quantity,
+              ha.lat,
+              ha.lon,
+              ha.permit_number,
+              d_src.category,
+              CASE
+                WHEN d_src.guide_id IS NOT NULL OR LOWER(COALESCE(u_src.role::text, '')) = 'hunting-guide' THEN 'Guide'
+                ELSE 'Chasseur'
+              END AS declared_by
+            FROM hunting_activities ha
+            LEFT JOIN declaration_especes d_src ON ha.source_id = d_src.id
+            LEFT JOIN users u_src ON u_src.id = d_src.user_id
+          ) x
+          LEFT JOIN especes e ON (e.id::text = x.species_id::text OR LOWER(TRIM(e.nom)) = LOWER(TRIM(x.nom_espece)))
+          WHERE COALESCE(x.quantity, 0) > 0
+          ORDER BY region ASC, species_id ASC` as any
+    ) as any;
 
     const data = (rows || []).map(r => ({
-      region: r.region || 'non défini',
+      region: canonicalRegionName(r.region),
       speciesId: r.species_id,
       speciesName: r.nom_espece || undefined,
       scientificName: r.nom_scientifique || undefined,
       quantity: Number(r.quantity || 0),
+      lat: r.lat != null && r.lat !== '' ? Number(r.lat) : null,
+      lon: r.lon != null && r.lon !== '' ? Number(r.lon) : null,
+      permitNumber: r.permit_number ? String(r.permit_number).trim() : null,
+      declaredBy: r.declared_by || 'Chasseur',
+      category: r.category ? String(r.category).trim() : null,
     }));
 
     return res.json(data);
