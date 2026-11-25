@@ -5,6 +5,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Masquer l'icône "œil" native ajoutée automatiquement par Microsoft Edge sur les champs mot de passe */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+}
+
 /* Styles globaux pour s'assurer que la carte occupe tout l'espace disponible */
 html, body, #root {
   height: 100%;

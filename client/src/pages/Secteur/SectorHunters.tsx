@@ -146,7 +146,6 @@ export default function SectorHunters() {
   const exportSectorCsv = () => {
     if (!filteredHunters) return;
     const columns = [
-      { key: 'id', label: 'ID' },
       { key: 'lastName', label: 'Nom' },
       { key: 'firstName', label: 'Prénom' },
       { key: 'idNumber', label: "N° ID" },
@@ -154,7 +153,6 @@ export default function SectorHunters() {
       { key: 'category', label: 'Catégorie' },
     ];
     const rows = filteredHunters.map(h => ({
-      id: String(h.id),
       lastName: h.lastName,
       firstName: h.firstName,
       idNumber: h.idNumber,
@@ -294,19 +292,6 @@ export default function SectorHunters() {
                       Ajouter un Chasseur
                     </Button>
                   )}
-                  <Button variant="outline" onClick={() => printTable('#sector-hunters-table')}>
-                    <Printer className="h-4 w-4 mr-2" />
-                    Imprimer
-                  </Button>
-                  <PdfLibraryLoader fallback={
-                    <Button variant="outline" disabled>
-                      <FileDown className="h-4 w-4 mr-2" /> PDF
-                    </Button>
-                  }>
-                    <Button variant="outline" onClick={exportSectorPdf}>
-                      <FileDown className="h-4 w-4 mr-2" /> PDF
-                    </Button>
-                  </PdfLibraryLoader>
                   <Button variant="outline" onClick={exportSectorCsv}>
                     <FileDown className="h-4 w-4 mr-2" /> CSV
                   </Button>
@@ -408,19 +393,6 @@ export default function SectorHunters() {
                       Ajouter un Chasseur
                     </Button>
                   )}
-                  <Button variant="outline" onClick={() => printTable('#national-hunters-table')}>
-                    <Printer className="h-4 w-4 mr-2" />
-                    Imprimer
-                  </Button>
-                  <PdfLibraryLoader fallback={
-                    <Button variant="outline" disabled>
-                      <FileDown className="h-4 w-4 mr-2" /> PDF
-                    </Button>
-                  }>
-                    <Button variant="outline" onClick={exportNationalPdf}>
-                      <FileDown className="h-4 w-4 mr-2" /> PDF
-                    </Button>
-                  </PdfLibraryLoader>
                   <Button variant="outline" onClick={exportNationalCsv}>
                     <FileDown className="h-4 w-4 mr-2" /> CSV
                   </Button>

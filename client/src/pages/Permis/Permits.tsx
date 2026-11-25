@@ -411,33 +411,6 @@ export default function Permits() {
                 <Button
                   variant="outline"
                   className="flex items-center gap-2 px-3 py-2 text-sm"
-                  onClick={handlePrint}
-                >
-                  <Printer className="h-4 w-4" />
-                  Imprimer
-                </Button>
-                <PdfLibraryLoader fallback={
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2 px-3 py-2 text-sm"
-                    disabled
-                  >
-                    <FileDown className="h-4 w-4" />
-                    PDF
-                  </Button>
-                }>
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2 px-3 py-2 text-sm"
-                    onClick={handleExportPdf}
-                  >
-                    <FileDown className="h-4 w-4" />
-                    PDF
-                  </Button>
-                </PdfLibraryLoader>
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2 px-3 py-2 text-sm"
                   onClick={handleExportCsv}
                 >
                   <FileDown className="h-4 w-4" />

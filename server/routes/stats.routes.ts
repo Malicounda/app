@@ -152,16 +152,21 @@ router.get('/national/permit-categories-breakdown', isAuthenticated, async (req,
   }
 });
 
-// GET /api/stats/national/hunters-by-category - Chasseurs par catégorie (national)
+// GET /api/stats/national/hunters-by-category - Chasseurs par région et catégorie (national)
 router.get('/national/hunters-by-category', isAuthenticated, async (_req, res) => {
   try {
     const data = await db
-      .select({ category: hunters.category, count: count() })
+      .select({
+        region: sql<string>`LOWER(TRIM(${hunters.region}))`,
+        category: hunters.category,
+        count: count(),
+      })
       .from(hunters)
-      .groupBy(hunters.category);
+      .groupBy(sql`LOWER(TRIM(${hunters.region}))`, hunters.category);
 
     return res.json(
       (data || []).map((h: any) => ({
+        region: canonicalRegionName(h.region),
         category: h.category || 'non défini',
         count: Number(h.count || 0),
       }))
@@ -177,24 +182,31 @@ router.get('/national/permits-by-category-by-region', isAuthenticated, async (_r
   try {
     const rows = await db
       .select({
-        region: sql<string>`LOWER(TRIM(${users.region}))`,
+        region: sql<string>`LOWER(TRIM(COALESCE(NULLIF(TRIM(${users.region}), ''), ${hunters.region})))`,
         categoryId: permits.categoryId,
+        permitType: permits.type,
         count: count(),
         avgDurationDays: sql<number>`COALESCE(AVG((DATE_PART('day', ${permits.expiryDate}::timestamp - ${permits.issueDate}::timestamp))), 0)`,
       })
       .from(permits)
-      .innerJoin(users, eq(permits.createdBy, users.id))
-      .groupBy(sql`LOWER(TRIM(${users.region}))`, permits.categoryId);
+      .leftJoin(users, eq(permits.createdBy, users.id))
+      .leftJoin(hunters, eq(permits.hunterId, hunters.id))
+      .groupBy(
+        sql`LOWER(TRIM(COALESCE(NULLIF(TRIM(${users.region}), ''), ${hunters.region})))`,
+        permits.categoryId,
+        permits.type
+      );
 
-    const merged = new Map<string, { region: string; categoryId: string; count: number; totalDays: number }>();
+    const merged = new Map<string, { region: string; categoryId: string; permitType: string; count: number; totalDays: number }>();
     for (const r of rows || []) {
       const regKey = normalizeRegionKey(r.region);
       const regLabel = canonicalRegionName(r.region);
-      const cat = r.categoryId || 'non défini';
-      const key = `${regKey}::${cat}`;
+      const cat = r.categoryId || r.permitType || 'non défini';
+      const pType = r.permitType || r.categoryId || '';
+      const key = `${regKey}::${cat}::${pType}`;
       const cnt = Number(r.count || 0);
       const avg = Number(r.avgDurationDays || 0);
-      const prev = merged.get(key) || { region: regLabel, categoryId: cat, count: 0, totalDays: 0 };
+      const prev = merged.get(key) || { region: regLabel, categoryId: cat, permitType: pType, count: 0, totalDays: 0 };
       prev.count += cnt;
       prev.totalDays += avg * cnt;
       merged.set(key, prev);
@@ -204,6 +216,7 @@ router.get('/national/permits-by-category-by-region', isAuthenticated, async (_r
       Array.from(merged.values()).map((r) => ({
         region: r.region,
         categoryId: r.categoryId,
+        permitType: r.permitType,
         count: r.count,
         avgDurationDays: r.count > 0 ? r.totalDays / r.count : 0,
       }))
@@ -239,16 +252,28 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
             x.lon,
             COALESCE(x.permit_number, '') AS permit_number,
             COALESCE(x.declared_by, 'Chasseur') AS declared_by,
-            COALESCE(NULLIF(TRIM(e.groupe), ''), NULLIF(TRIM(x.category), ''), '') AS category
+            COALESCE(
+              NULLIF(TRIM(e.groupe), ''),
+              NULLIF(TRIM(x.category), ''),
+              NULLIF(TRIM(p.type), ''),
+              NULLIF(TRIM(p.category_id), ''),
+              ''
+            ) AS category
           FROM (
             SELECT
-              d.region,
+              COALESCE(
+                NULLIF(TRIM(d.region), ''),
+                NULLIF(TRIM(u.region), ''),
+                NULLIF(TRIM(h_d.region), ''),
+                NULLIF(TRIM(d.location), '')
+              ) AS region,
               d.espece_id AS species_id,
               d.nom_espece,
               d.nom_scientifique,
               d.quantity,
               d.lat,
               d.lon,
+              d.permit_id,
               d.permit_number,
               d.category,
               CASE
@@ -257,18 +282,26 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
               END AS declared_by
             FROM declaration_especes d
             LEFT JOIN users u ON u.id = d.user_id
+            LEFT JOIN hunters h_d ON h_d.id = d.hunter_id
             WHERE (d.status IS NULL OR d.status = 'pending')
 
             UNION ALL
 
             SELECT
-              ha.region,
+              COALESCE(
+                NULLIF(TRIM(ha.region), ''),
+                NULLIF(TRIM(d_src.region), ''),
+                NULLIF(TRIM(u_src.region), ''),
+                NULLIF(TRIM(h_ha.region), ''),
+                NULLIF(TRIM(ha.location), '')
+              ) AS region,
               ha.species_id,
               ha.species_name AS nom_espece,
               ha.scientific_name AS nom_scientifique,
               ha.quantity,
               ha.lat,
               ha.lon,
+              ha.permit_id,
               ha.permit_number,
               d_src.category,
               CASE
@@ -278,8 +311,10 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
             FROM hunting_activities ha
             LEFT JOIN declaration_especes d_src ON ha.source_id = d_src.id
             LEFT JOIN users u_src ON u_src.id = d_src.user_id
+            LEFT JOIN hunters h_ha ON h_ha.id = ha.hunter_id
           ) x
           LEFT JOIN especes e ON (e.id::text = x.species_id::text OR LOWER(TRIM(e.nom)) = LOWER(TRIM(x.nom_espece)))
+          LEFT JOIN permits p ON (p.id = x.permit_id OR (x.permit_id IS NULL AND p.permit_number = x.permit_number))
           WHERE COALESCE(x.quantity, 0) > 0
           ORDER BY region ASC, species_id ASC` as any
     ) as any;
@@ -300,7 +335,7 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
     return res.json(data);
   } catch (error) {
     console.error('Erreur /api/stats/national/species-by-region:', error);
-    return res.status(500).json({ message: 'Erreur lors de la récupération des pièces abattues par espèce et par région' });
+    return res.status(500).json({ message: 'Erreur lors de la récupération des prélèvements par espèce et par région' });
   }
 });
 
@@ -1271,6 +1306,193 @@ router.get('/national/revenue-by-department', isAuthenticated, async (_req, res)
   } catch (error: any) {
     console.error('Erreur /api/stats/national/revenue-by-department:', error);
     return res.status(500).json({ message: 'Erreur lors de la récupération des recettes par département', debug: error?.message || String(error), stack: error?.stack });
+  }
+});
+
+// GET /api/stats/national/revenue-chasse-matrix - Matrice détaillée des recettes liées à la gestion de la faune par région
+router.get('/national/revenue-chasse-matrix', isAuthenticated, async (_req, res) => {
+  try {
+    const [permitRows, taxRows, infractionRows] = await Promise.all([
+      db.execute(
+        sql`SELECT
+              COALESCE(
+                NULLIF(TRIM(u.region), ''),
+                NULLIF(TRIM(h.region), ''),
+                'national'
+              ) AS region,
+              COALESCE(p.category_id, '') AS category_id,
+              COALESCE(p.type, '') AS permit_type,
+              COALESCE(pc.groupe, '') AS pc_groupe,
+              COALESCE(pc.genre, '') AS pc_genre,
+              COALESCE(pc.label_fr, '') AS pc_label,
+              COALESCE(h.category, '') AS hunter_category,
+              COALESCE(SUM((p.price)::numeric), 0) AS total_amount
+            FROM permits p
+            LEFT JOIN users u ON u.id = p.created_by
+            LEFT JOIN hunters h ON h.id = p.hunter_id
+            LEFT JOIN permit_categories pc ON pc.key = p.category_id
+            GROUP BY 1, 2, 3, 4, 5, 6, 7` as any
+      ),
+      db.execute(
+        sql`SELECT
+              COALESCE(
+                NULLIF(TRIM(u.region), ''),
+                NULLIF(TRIM(t.external_hunter_region), ''),
+                NULLIF(TRIM(h.region), ''),
+                'national'
+              ) AS region,
+              COALESCE(t.animal_type, '') AS animal_type,
+              COALESCE(e.groupe, '') AS espece_groupe,
+              COALESCE(SUM((t.amount)::numeric), 0) AS total_amount
+            FROM taxes t
+            LEFT JOIN users u ON u.id = t.created_by
+            LEFT JOIN hunters h ON h.id = t.hunter_id
+            LEFT JOIN especes e ON (LOWER(TRIM(e.nom)) = LOWER(TRIM(t.animal_type)) OR e.id::text = t.animal_type)
+            GROUP BY 1, 2, 3` as any
+      ),
+      db.execute(
+        sql`SELECT
+              COALESCE(
+                NULLIF(TRIM(l.region), ''),
+                NULLIF(TRIM(u.region), ''),
+                'national'
+              ) AS region,
+              COALESCE(SUM(COALESCE(i.montant_chiffre::numeric, 0)), 0) AS total_amount
+            FROM infractions i
+            LEFT JOIN lieux l ON l.id = i.lieu_id
+            LEFT JOIN users u ON u.id = i.created_by
+            GROUP BY 1` as any
+      ),
+    ]);
+
+    const norm = (s: any) =>
+      String(s || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+    const pList = Array.isArray(permitRows) ? permitRows : (permitRows as any)?.rows || [];
+    const tList = Array.isArray(taxRows) ? taxRows : (taxRows as any)?.rows || [];
+    const iList = Array.isArray(infractionRows) ? infractionRows : (infractionRows as any)?.rows || [];
+
+    const items: Array<{
+      section: 'petite_chasse' | 'gibier_eau' | 'grande_chasse' | 'licence_taxe' | 'contentieux';
+      rowLabel: string;
+      regionKey: string;
+      regionLabel: string;
+      amount: number;
+    }> = [];
+
+    for (const r of pList) {
+      const amount = Number(r.total_amount || 0);
+      if (amount <= 0) continue;
+      const regionKey = normalizeRegionKey(r.region);
+      const regionLabel = canonicalRegionName(r.region);
+      const combined = norm(`${r.category_id} ${r.permit_type} ${r.pc_groupe} ${r.pc_label}`);
+      const genreStr = norm(`${r.pc_genre} ${r.category_id} ${r.permit_type} ${r.hunter_category}`);
+
+      // Vérifier s'il s'agit d'un permis spécial / licence / attestation (Section 4)
+      if (combined.includes('oisellerie')) {
+        items.push({ section: 'licence_taxe', rowLabel: "Permis spécial d'oisellerie", regionKey, regionLabel, amount });
+        continue;
+      }
+      if (combined.includes('pisteur')) {
+        items.push({ section: 'licence_taxe', rowLabel: 'Attestation pisteur', regionKey, regionLabel, amount });
+        continue;
+      }
+      if (combined.includes('collecteur')) {
+        items.push({ section: 'licence_taxe', rowLabel: 'Attestation Collecteur', regionKey, regionLabel, amount });
+        continue;
+      }
+      if (combined.includes('ramasseur')) {
+        items.push({ section: 'licence_taxe', rowLabel: 'Taxe Ramasseur', regionKey, regionLabel, amount });
+        continue;
+      }
+      if (combined.includes('amodiation')) {
+        items.push({ section: 'licence_taxe', rowLabel: 'Taxe amodiation', regionKey, regionLabel, amount });
+        continue;
+      }
+      if (combined.includes('reserve')) {
+        items.push({ section: 'licence_taxe', rowLabel: 'Taxe réserve privée', regionKey, regionLabel, amount });
+        continue;
+      }
+      if (combined.includes('licence') || combined.includes('guide')) {
+        items.push({ section: 'licence_taxe', rowLabel: 'Licence', regionKey, regionLabel, amount });
+        continue;
+      }
+
+      // Déterminer le sous-type de chasseur (Coutumier, Résident, Touriste)
+      let subRow = 'Résident';
+      if (genreStr.includes('coutum')) {
+        subRow = 'Coutumier';
+      } else if (genreStr.includes('touris') || genreStr.includes('passag')) {
+        subRow = 'Touriste';
+      }
+
+      if (combined.includes('eau') || combined.includes('waterfowl')) {
+        items.push({ section: 'gibier_eau', rowLabel: subRow, regionKey, regionLabel, amount });
+      } else if (combined.includes('grande')) {
+        items.push({ section: 'grande_chasse', rowLabel: subRow, regionKey, regionLabel, amount });
+      } else {
+        items.push({ section: 'petite_chasse', rowLabel: subRow, regionKey, regionLabel, amount });
+      }
+    }
+
+    for (const r of tList) {
+      const amount = Number(r.total_amount || 0);
+      if (amount <= 0) continue;
+      const regionKey = normalizeRegionKey(r.region);
+      const regionLabel = canonicalRegionName(r.region);
+      const animalNorm = norm(r.animal_type);
+      const grpNorm = norm(r.espece_groupe);
+
+      let rowLabel = 'Taxe phaco';
+      if (animalNorm.includes('phaco') || animalNorm.includes('warthog')) {
+        rowLabel = 'Taxe phaco';
+      } else if (
+        animalNorm.includes('grande') ||
+        grpNorm.includes('grande') ||
+        animalNorm.includes('cephalope') ||
+        animalNorm.includes('guib') ||
+        animalNorm.includes('buffle') ||
+        animalNorm.includes('hippotrague') ||
+        animalNorm.includes('cobe')
+      ) {
+        rowLabel = 'Taxe grande chasse';
+      } else if (animalNorm.includes('pisteur')) {
+        rowLabel = 'Attestation pisteur';
+      } else if (animalNorm.includes('oisellerie')) {
+        rowLabel = "Permis spécial d'oisellerie";
+      } else if (animalNorm.includes('collecteur')) {
+        rowLabel = 'Attestation Collecteur';
+      } else if (animalNorm.includes('ramasseur')) {
+        rowLabel = 'Taxe Ramasseur';
+      } else if (animalNorm.includes('licence')) {
+        rowLabel = 'Licence';
+      } else if (animalNorm.includes('amodiation')) {
+        rowLabel = 'Taxe amodiation';
+      } else if (animalNorm.includes('reserve')) {
+        rowLabel = 'Taxe réserve privée';
+      } else if (r.animal_type && String(r.animal_type).trim()) {
+        rowLabel = `Taxe ${String(r.animal_type).trim()}`;
+      }
+
+      items.push({ section: 'licence_taxe', rowLabel, regionKey, regionLabel, amount });
+    }
+
+    for (const r of iList) {
+      const amount = Number(r.total_amount || 0);
+      if (amount <= 0) continue;
+      const regionKey = normalizeRegionKey(r.region);
+      const regionLabel = canonicalRegionName(r.region);
+      items.push({ section: 'contentieux', rowLabel: 'Contentieux', regionKey, regionLabel, amount });
+    }
+
+    return res.json(items);
+  } catch (error: any) {
+    console.error('Erreur /api/stats/national/revenue-chasse-matrix:', error);
+    return res.status(500).json({ message: 'Erreur lors de la récupération de la matrice des recettes chasse' });
   }
 });
 

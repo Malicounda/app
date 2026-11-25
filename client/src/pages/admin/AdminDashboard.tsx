@@ -594,16 +594,8 @@ const AdminDashboard = () => {
             </select>
             <button
               type="button"
-              onClick={handleExportPDF}
-              className="ml-2 inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium bg-white hover:bg-gray-50"
-              title="Télécharger en PDF"
-            >
-              Export PDF
-            </button>
-            <button
-              type="button"
               onClick={handleExportExcel}
-              className="inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium bg-white hover:bg-gray-50"
+              className="ml-2 inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium bg-white hover:bg-gray-50"
               title="Télécharger en Excel (CSV)"
             >
               Export Excel

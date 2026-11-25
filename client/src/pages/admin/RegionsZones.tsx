@@ -2381,9 +2381,6 @@ export default function RegionsZones() {
               <Button variant="outline" size="sm" onClick={exportZonesToCSV} className="rounded-lg">
                 <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
               </Button>
-              <Button variant="outline" size="sm" onClick={exportZonesToPDF} className="rounded-lg">
-                <FileText className="h-4 w-4 mr-1" /> PDF
-              </Button>
             </div>
           </div>
 

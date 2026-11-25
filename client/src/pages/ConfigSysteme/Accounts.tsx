@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { exportArrayToCsv } from "@/utils/export";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, ChevronDownIcon, Download, Edit, Eye, EyeOff, Printer, RefreshCw, Search, Trash2, User, UserPlus } from "lucide-react";
 import { useState } from "react";
@@ -543,14 +544,20 @@ export default function Accounts() {
     window.print();
   };
 
-  const handleExportPDF = () => {
-    alert("Exportation en PDF simulée !");
-    // Ici, tu peux intégrer une bibliothèque comme jsPDF pour générer un PDF
-  };
-
   const handleExport = () => {
-    alert("Exportation des données simulée !");
-    // Ici, tu peux ajouter une logique pour exporter les données (par exemple, en CSV)
+    const filteredList = filterUsers(users);
+    const header = ["Nom d'utilisateur", "Rôle", "Nom", "Prénom", "Email", "Téléphone", "Région", "Statut"];
+    const rows = filteredList.map((u) => [
+      u.username || "",
+      u.role || "",
+      u.lastName || "",
+      u.firstName || "",
+      u.email || "",
+      u.phone || "",
+      u.region || "",
+      u.isSuspended ? "Suspendu" : "Actif",
+    ]);
+    exportArrayToCsv("utilisateurs_scodi.csv", header, rows);
   };
 
   // Rendu de tableau d'utilisateurs
@@ -907,10 +914,6 @@ export default function Accounts() {
               </div>
             </div>
             <div className="flex space-x-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={handlePrint}>
-                <Printer className="mr-2 h-4 w-4" />
-                Imprimer
-              </Button>
               <Button variant="outline" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
                 Exporter

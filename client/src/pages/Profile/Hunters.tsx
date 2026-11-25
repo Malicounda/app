@@ -26,6 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useHunters, useNationalHunters } from "@/lib/hooks/useHunters";
 import { apiRequest } from "@/lib/queryClient";
+import { exportArrayToCsv } from "@/utils/export";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -376,6 +377,20 @@ export default function Hunters() {
     }, 1000);
   };
 
+  const handleExportCsv = () => {
+    const header = ["Nom", "Prénom", "N° Pièce", "Téléphone", "Catégorie", "Région", "Département"];
+    const rows = (filteredHunters || []).map((h: any) => [
+      h.lastName || "",
+      h.firstName || "",
+      h.idNumber || "",
+      h.phone || "",
+      h.category || "",
+      h.region || "",
+      h.departement || h.zone || "",
+    ]);
+    exportArrayToCsv(`chasseurs_${activeTab}.csv`, header, rows);
+  };
+
   const viewHunterDetails = (hunterId: number) => {
     setSelectedHunterId(hunterId);
   };
@@ -473,22 +488,7 @@ export default function Hunters() {
               variant="outline"
               size="sm"
               className="flex items-center gap-1 text-xs"
-              onClick={handlePrint}
-            >
-              <Printer className="h-3.5 w-3.5" />
-              Imprimer
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 text-xs"
-            >
-              PDF
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 text-xs"
+              onClick={handleExportCsv}
             >
               Exporter
             </Button>

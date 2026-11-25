@@ -49,6 +49,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
 import { departmentsByRegion, regionEnum } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
+import { exportArrayToCsv } from "@/utils/export";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, Eye, EyeOff, FileDown, FileText, MapPin, User, UserCog, UserPlus } from "lucide-react";
 
@@ -432,11 +433,23 @@ export default function AgentsPage() {
                   </Select>
                 </div>
                 <div className="w-full sm:w-1/3 flex justify-end space-x-2">
-                  <Button variant="outline">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Imprimer
-                  </Button>
-                  <Button variant="outline">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const header = ["Nom d'utilisateur", "Nom", "Prénom", "Région", "Matricule", "Téléphone", "Email", "Statut"];
+                      const rows = filteredRegionalAgents.map((a) => [
+                        a.username || "",
+                        a.lastName || "",
+                        a.firstName || "",
+                        a.region || "",
+                        a.matricule || "",
+                        a.phone || "",
+                        a.email || "",
+                        a.isSuspended ? "Suspendu" : "Actif",
+                      ]);
+                      exportArrayToCsv("agents_regionaux.csv", header, rows);
+                    }}
+                  >
                     <FileDown className="h-4 w-4 mr-2" />
                     Exporter
                   </Button>
@@ -560,11 +573,24 @@ export default function AgentsPage() {
                   </Select>
                 </div>
                 <div className="w-full sm:w-1/3 flex justify-end space-x-2">
-                  <Button variant="outline">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Imprimer
-                  </Button>
-                  <Button variant="outline">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const header = ["Nom d'utilisateur", "Nom", "Prénom", "Région", "Secteur", "Matricule", "Téléphone", "Email", "Statut"];
+                      const rows = filteredSectorAgents.map((a) => [
+                        a.username || "",
+                        a.lastName || "",
+                        a.firstName || "",
+                        a.region || "",
+                        a.departement || a.zone || "",
+                        a.matricule || "",
+                        a.phone || "",
+                        a.email || "",
+                        a.isSuspended ? "Suspendu" : "Actif",
+                      ]);
+                      exportArrayToCsv("agents_secteur.csv", header, rows);
+                    }}
+                  >
                     <FileDown className="h-4 w-4 mr-2" />
                     Exporter
                   </Button>

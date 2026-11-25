@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/api";
-import { exportArrayToCsv } from "@/utils/export";
+import { exportArrayToCsv, exportMultiSheetXlsx } from "@/utils/export";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -148,8 +148,8 @@ export default function NationalStatistics() {
     }
     const data = (resp as any).data || [];
     const header = [
-      'Alerte ID', 'Date Alerte', 'Nature', 'Région Alerte', 'Département Alerte',
-      'Destinataire ID', 'Nom', 'Prénom', 'Rôle', 'Région Service', 'Département Service', 'Lu', 'Date Notification'
+      'Date Alerte', 'Nature', 'Région Alerte', 'Département Alerte',
+      'Nom', 'Prénom', 'Rôle', 'Région Service', 'Département Service', 'Lu', 'Date Notification'
     ];
     const rows: (string | number)[][] = [];
     for (const a of data) {
@@ -157,12 +157,10 @@ export default function NationalStatistics() {
         const last = rec.user?.last_name || '';
         const first = rec.user?.first_name || '';
         rows.push([
-          a.alert_id ?? '',
           a.created_at ? new Date(a.created_at).toLocaleString('fr-FR') : '',
           a.nature || '',
           prettyRegion(a.region || ''),
           a.departement || '',
-          rec.user?.id ?? '',
           last,
           first,
           rec.user?.role || '',
@@ -182,14 +180,22 @@ export default function NationalStatistics() {
   const [revenueGroupBy, setRevenueGroupBy] = useState<'region'|'departement'>('region');
   const [revenueRegion, setRevenueRegion] = useState<string>('toutes');
   const [revenueView, setRevenueView] = useState<'table' | 'chart'>('table');
+  const [hoveredRevenueGroup, setHoveredRevenueGroup] = useState<'domanial' | 'contentieux' | null>(null);
 
   // Filtres Armes
   const [weaponRegionFilter, setWeaponRegionFilter] = useState<string>('toutes');
   const [weaponBrandFilter, setWeaponBrandFilter] = useState<string>('toutes');
   const [weaponCategoryFilter, setWeaponCategoryFilter] = useState<string>('toutes');
 
-  // Filtre dynamique Catégorie d'espèce (Gibier d'eau, Grande chasse, Petite chasse, etc.)
+  // Filtres dynamiques Catégorie d'espèce et Région (onglet Espèces chassées)
   const [speciesCategoryFilter, setSpeciesCategoryFilter] = useState<string>('toutes');
+  const [speciesRegionFilter, setSpeciesRegionFilter] = useState<string>('toutes');
+
+  // Filtres Région pour les onglets Par région, Catégories de permis, Infractions et Alertes
+  const [statsRegionFilter, setStatsRegionFilter] = useState<string>('toutes');
+  const [categoriesRegionFilter, setCategoriesRegionFilter] = useState<string>('toutes');
+  const [infractionsRegionFilter, setInfractionsRegionFilter] = useState<string>('toutes');
+  const [alertRegionFilter, setAlertRegionFilter] = useState<string>('toutes');
   // Normalisation/affichage des régions - Chargées dynamiquement depuis l'API
   // Les libellés et l'ordre sont maintenant récupérés depuis la base de données
   const REGION_LABELS: Record<string, string> = {
@@ -277,6 +283,29 @@ export default function NationalStatistics() {
         return [] as RevenueDepartmentRow[];
       }
       return ((resp as any).data || []) as RevenueDepartmentRow[];
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 5_000,
+  });
+
+  type RevenueChasseMatrixItem = {
+    section: 'petite_chasse' | 'gibier_eau' | 'grande_chasse' | 'licence_taxe' | 'contentieux';
+    rowLabel: string;
+    regionKey: string;
+    regionLabel: string;
+    amount: number;
+  };
+
+  const { data: revenueChasseMatrix = [] } = useQuery<RevenueChasseMatrixItem[]>({
+    queryKey: ["/api/stats/national/revenue-chasse-matrix"],
+    enabled: Boolean(user),
+    queryFn: async () => {
+      const resp = await apiRequest<any>("GET", "/api/stats/national/revenue-chasse-matrix");
+      if (!(resp as any).ok) {
+        console.error("Erreur /api/stats/national/revenue-chasse-matrix:", (resp as any).error);
+        return [] as RevenueChasseMatrixItem[];
+      }
+      return ((resp as any).data || []) as RevenueChasseMatrixItem[];
     },
     placeholderData: keepPreviousData,
     staleTime: 5_000,
@@ -508,11 +537,31 @@ export default function NationalStatistics() {
     return '';
   };
 
+  // Options dynamiques du filtre Région en fonction des déclarations existantes
+  const speciesRegionOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    (speciesByRegion || []).forEach((r) => {
+      const key = canonicalRegionKey(r.region);
+      const label = REGION_LABELS[key] || prettyRegion(r.region);
+      if (key && !map.has(key)) {
+        map.set(key, label);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [speciesByRegion]);
+
   const filteredSpeciesByRegion = useMemo(() => {
-    const rows = speciesByRegion || [];
-    if (speciesCategoryFilter === 'toutes') return rows;
-    return rows.filter((r) => getRowCategoryKey(r) === speciesCategoryFilter);
-  }, [speciesByRegion, speciesCategoryFilter, allSpeciesCatalog]);
+    let rows = speciesByRegion || [];
+    if (speciesRegionFilter !== 'toutes') {
+      rows = rows.filter((r) => canonicalRegionKey(r.region) === speciesRegionFilter);
+    }
+    if (speciesCategoryFilter !== 'toutes') {
+      rows = rows.filter((r) => getRowCategoryKey(r) === speciesCategoryFilter);
+    }
+    return rows;
+  }, [speciesByRegion, speciesRegionFilter, speciesCategoryFilter, allSpeciesCatalog]);
 
   const isLoading = aggregatesLoading || byRegionLoading;
 
@@ -583,10 +632,47 @@ export default function NationalStatistics() {
 
   const [infraGroupBy, setInfraGroupBy] = useState<'region'|'departement'>('region');
   const [infractionsView, setInfractionsView] = useState<'table' | 'chart'>('table');
+
+  const statsRegionOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    (byRegion || []).forEach((r) => {
+      const key = canonicalRegionKey(r.region);
+      const label = REGION_LABELS[key] || prettyRegion(r.region);
+      if (key && !map.has(key)) map.set(key, label);
+    });
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [byRegion]);
+
+  const filteredByRegion = useMemo(() => {
+    const rows = byRegion || [];
+    if (statsRegionFilter === 'toutes') return rows;
+    return rows.filter((r) => canonicalRegionKey(r.region) === statsRegionFilter);
+  }, [byRegion, statsRegionFilter]);
+
+  const infractionsRegionOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    (infractionsData || []).forEach((inf) => {
+      const key = canonicalRegionKey(inf.region || 'non défini');
+      const label = REGION_LABELS[key] || prettyRegion(inf.region || 'non défini');
+      if (key && !map.has(key)) map.set(key, label);
+    });
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [infractionsData]);
+
+  const filteredInfractionsData = useMemo(() => {
+    const rows = infractionsData || [];
+    if (infractionsRegionFilter === 'toutes') return rows;
+    return rows.filter((inf) => canonicalRegionKey(inf.region || 'non défini') === infractionsRegionFilter);
+  }, [infractionsData, infractionsRegionFilter]);
+
   const infraGrouped = useMemo(() => {
     const key = infraGroupBy;
     const map = new Map<string, { label: string; count: number; amount: number }>();
-    for (const inf of (infractionsData || [])) {
+    for (const inf of (filteredInfractionsData || [])) {
       const label = prettyRegion(key === 'region' ? (inf.region || 'non défini') : (inf.departement || 'non défini'));
       const cur = map.get(label) || { label, count: 0, amount: 0 };
       cur.count += 1;
@@ -594,14 +680,25 @@ export default function NationalStatistics() {
       map.set(label, cur);
     }
     return Array.from(map.values()).sort((a,b)=> b.count - a.count || b.amount - a.amount);
-  }, [infractionsData, infraGroupBy]);
+  }, [filteredInfractionsData, infraGroupBy]);
 
   const infractionsMonthlyData = useMemo(() => {
-    if (!infractionsData || infractionsData.length === 0) return [] as Array<{ monthKey: string; label: string; infractions: number; contrevenants: number }>;
     const monthFormatter = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' });
     const monthlyMap = new Map<string, { label: string; infractions: number; contrevenants: number }>();
 
-    for (const row of infractionsData) {
+    // Pré-remplir les 12 mois de l'année en cours pour avoir un axe temporel complet et cohérent
+    const currentYear = new Date().getFullYear();
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(currentYear, m, 1);
+      const mk = `${currentYear}-${String(m + 1).padStart(2, '0')}`;
+      monthlyMap.set(mk, {
+        label: monthFormatter.format(d),
+        infractions: 0,
+        contrevenants: 0,
+      });
+    }
+
+    for (const row of filteredInfractionsData || []) {
       if (!row?.date_infraction) continue;
       const date = new Date(row.date_infraction);
       if (Number.isNaN(date.getTime())) continue;
@@ -620,34 +717,64 @@ export default function NationalStatistics() {
     return Array.from(monthlyMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([monthKey, value]) => ({ monthKey, ...value }));
-  }, [infractionsData]);
+  }, [filteredInfractionsData]);
 
   const revenueMonthlyData = useMemo(() => {
-    if (!revenueByMonth || revenueByMonth.length === 0) {
-      return [] as Array<{ monthKey: string; label: string; permitTax: number; infractions: number }>;
-    }
     const monthFormatter = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' });
+    const monthlyMap = new Map<
+      string,
+      {
+        monthKey: string;
+        label: string;
+        permits: number;
+        taxes: number;
+        permitTax: number;
+        infractions: number;
+        total: number;
+      }
+    >();
 
-    return revenueByMonth
-      .map((row): { monthKey: string; label: string; permitTax: number; infractions: number } => {
-        const [yearStr, monthStr] = String(row.monthKey || '').split('-');
-        const year = Number(yearStr);
-        const monthIndex = Number(monthStr) - 1;
-        const hasValidDate = Number.isFinite(year) && Number.isFinite(monthIndex) && monthIndex >= 0;
-        const date = hasValidDate ? new Date(year, monthIndex, 1) : null;
-        const label = date ? monthFormatter.format(date) : String(row.monthKey || '');
-        const permitAmount = Number(row.permitAmount || 0);
-        const taxAmount = Number(row.taxAmount || 0);
-        const infractionAmount = Number(row.infractionAmount || 0);
-        const permitTax = permitAmount + taxAmount;
-        return {
-          monthKey: String(row.monthKey || ''),
-          label,
-          permitTax,
-          infractions: infractionAmount,
-        };
-      })
-      .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+    // Pré-remplir les 12 mois de l'année en cours pour un histogramme mensuel complet et lisible
+    const currentYear = new Date().getFullYear();
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(currentYear, m, 1);
+      const mk = `${currentYear}-${String(m + 1).padStart(2, '0')}`;
+      monthlyMap.set(mk, {
+        monthKey: mk,
+        label: monthFormatter.format(d),
+        permits: 0,
+        taxes: 0,
+        permitTax: 0,
+        infractions: 0,
+        total: 0,
+      });
+    }
+
+    for (const row of revenueByMonth || []) {
+      const mk = String(row.monthKey || '');
+      if (!mk) continue;
+      const [yearStr, monthStr] = mk.split('-');
+      const year = Number(yearStr);
+      const monthIndex = Number(monthStr) - 1;
+      const hasValidDate = Number.isFinite(year) && Number.isFinite(monthIndex) && monthIndex >= 0;
+      const date = hasValidDate ? new Date(year, monthIndex, 1) : null;
+      const label = date ? monthFormatter.format(date) : mk;
+      const permitAmount = Number(row.permitAmount || 0);
+      const taxAmount = Number(row.taxAmount || 0);
+      const infractionAmount = Number(row.infractionAmount || 0);
+      const permitTax = permitAmount + taxAmount;
+      monthlyMap.set(mk, {
+        monthKey: mk,
+        label,
+        permits: permitAmount,
+        taxes: taxAmount,
+        permitTax,
+        infractions: infractionAmount,
+        total: permitTax + infractionAmount,
+      });
+    }
+
+    return Array.from(monthlyMap.values()).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
   }, [revenueByMonth]);
 
   const revenueDepartmentSorted = useMemo(() => {
@@ -741,8 +868,8 @@ export default function NationalStatistics() {
   };
 
   // Nouveaux endpoints pour l'onglet Catégories de permis
-  type HuntersByCategory = { category: string; count: number };
-  type PermitsByCategoryByRegion = { region: string; categoryId: string; count: number; avgDurationDays: number };
+  type HuntersByCategory = { region?: string; category: string; count: number };
+  type PermitsByCategoryByRegion = { region: string; categoryId: string; permitType?: string; count: number; avgDurationDays: number };
 
   const { data: huntersByCategory, isLoading: hbcLoading } = useQuery<HuntersByCategory[]>({
     queryKey: ["/api/stats/national/hunters-by-category"],
@@ -781,6 +908,125 @@ export default function NationalStatistics() {
     refetchIntervalInBackground: false,
     staleTime: 5_000,
   });
+
+  // Options de filtre Région pour l'onglet Catégories de permis
+  const categoriesRegionOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    (huntersByCategory || []).forEach((h) => {
+      const key = canonicalRegionKey(h.region || 'non défini');
+      const label = REGION_LABELS[key] || prettyRegion(h.region || 'non défini');
+      if (key && !map.has(key)) map.set(key, label);
+    });
+    (permitsCatByRegion || []).forEach((p) => {
+      const key = canonicalRegionKey(p.region || 'non défini');
+      const label = REGION_LABELS[key] || prettyRegion(p.region || 'non défini');
+      if (key && !map.has(key)) map.set(key, label);
+    });
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [huntersByCategory, permitsCatByRegion]);
+
+  // Tableau 1 (Capture 2) : Chasseurs par région et catégorie (Coutumiers, Résidents, Touristes, Totaux)
+  const huntersPivotTable = useMemo(() => {
+    const byReg = new Map<
+      string,
+      { regionKey: string; regionLabel: string; coutumier: number; resident: number; touristique: number; total: number }
+    >();
+
+    for (const h of huntersByCategory || []) {
+      const regKey = canonicalRegionKey(h.region || 'non défini');
+      if (categoriesRegionFilter !== 'toutes' && regKey !== categoriesRegionFilter) continue;
+      const regLabel = REGION_LABELS[regKey] || prettyRegion(h.region || 'non défini');
+      const entry = byReg.get(regKey) || {
+        regionKey: regKey,
+        regionLabel: regLabel,
+        coutumier: 0,
+        resident: 0,
+        touristique: 0,
+        total: 0,
+      };
+      const catNorm = removeDiacritics(String(h.category || '').toLowerCase());
+      const cnt = Number(h.count || 0);
+      if (catNorm.includes('coutum')) {
+        entry.coutumier += cnt;
+      } else if (catNorm.includes('touris') || catNorm.includes('passag')) {
+        entry.touristique += cnt;
+      } else {
+        entry.resident += cnt;
+      }
+      entry.total += cnt;
+      byReg.set(regKey, entry);
+    }
+
+    const rows = Array.from(byReg.values()).sort((a, b) => a.regionLabel.localeCompare(b.regionLabel));
+    const totals = rows.reduce(
+      (acc, r) => {
+        acc.coutumier += r.coutumier;
+        acc.resident += r.resident;
+        acc.touristique += r.touristique;
+        acc.total += r.total;
+        return acc;
+      },
+      { coutumier: 0, resident: 0, touristique: 0, total: 0 }
+    );
+    return { rows, totals };
+  }, [huntersByCategory, categoriesRegionFilter]);
+
+  // Tableau 2 (Capture 3) : Nombre de permis délivrés par région (Petite chasse, Gibier d'eau, Grande chasse, Total)
+  const permitsPivotTable = useMemo(() => {
+    const byReg = new Map<
+      string,
+      {
+        regionKey: string;
+        regionLabel: string;
+        petiteChasse: number;
+        gibierEau: number;
+        grandeChasse: number;
+        total: number;
+      }
+    >();
+
+    for (const p of permitsCatByRegion || []) {
+      const regKey = canonicalRegionKey(p.region || 'non défini');
+      if (categoriesRegionFilter !== 'toutes' && regKey !== categoriesRegionFilter) continue;
+      const regLabel = REGION_LABELS[regKey] || prettyRegion(p.region || 'non défini');
+      const entry = byReg.get(regKey) || {
+        regionKey: regKey,
+        regionLabel: regLabel,
+        petiteChasse: 0,
+        gibierEau: 0,
+        grandeChasse: 0,
+        total: 0,
+      };
+
+      const rawCat = removeDiacritics(`${p.categoryId || ''} ${p.permitType || ''}`.toLowerCase());
+      const cnt = Number(p.count || 0);
+      if (rawCat.includes('eau') || rawCat.includes('waterfowl')) {
+        entry.gibierEau += cnt;
+      } else if (rawCat.includes('grande')) {
+        entry.grandeChasse += cnt;
+      } else {
+        // Petite chasse (inclut permis sportifs petite chasse / coutumier)
+        entry.petiteChasse += cnt;
+      }
+      entry.total += cnt;
+      byReg.set(regKey, entry);
+    }
+
+    const rows = Array.from(byReg.values()).sort((a, b) => a.regionLabel.localeCompare(b.regionLabel));
+    const totals = rows.reduce(
+      (acc, r) => {
+        acc.petiteChasse += r.petiteChasse;
+        acc.gibierEau += r.gibierEau;
+        acc.grandeChasse += r.grandeChasse;
+        acc.total += r.total;
+        return acc;
+      },
+      { petiteChasse: 0, gibierEau: 0, grandeChasse: 0, total: 0 }
+    );
+    return { rows, totals };
+  }, [permitsCatByRegion, categoriesRegionFilter]);
 
   // Données pour l'onglet Armes
   const { data: weaponStats, isLoading: weaponStatsLoading } = useQuery<WeaponStats>({
@@ -933,24 +1179,218 @@ export default function NationalStatistics() {
     return ['toutes', ...Array.from(set).sort((a,b)=>a.localeCompare(b))];
   }, [mapAlerts]);
 
-  // Export CSV Recettes (selon filtre actif : région ou département)
+  // Export Excel Recettes (Onglet 1 : Recettes par région/département + Onglet 2 : Recette chasse)
   const exportRevenueCsv = () => {
-    if (revenueGroupBy === 'departement') {
-      const header = ['Région', 'Département', 'Recette (FCFA)'];
-      const rows = revenueTableRows.map(r => [r.region, r.departement || 'Non défini', r.revenue]);
-      exportArrayToCsv('recettes_par_departement.csv', header, rows);
-      return;
+    const firstSheetName = revenueGroupBy === 'departement' ? 'Recettes par département' : 'Recettes par région';
+    const firstSheetHeader =
+      revenueGroupBy === 'departement'
+        ? ['Région', 'Département', 'Recette (FCFA)']
+        : ['Région', 'Recette (FCFA)'];
+    const firstSheetRows: (string | number)[][] =
+      revenueGroupBy === 'departement'
+        ? revenueTableRows.map((r) => [r.region, r.departement || 'Non défini', r.revenue])
+        : revenueTableRows.map((r) => [r.region, r.revenue]);
+
+    // Onglet 2 : "Recette chasse" (Tableau 11 : Recettes liées à la gestion de la faune)
+    const baseRegionCols: { key: string; label: string }[] = [
+      { key: 'saintlouis', label: 'Saint-Louis' },
+      { key: 'tambacounda', label: 'Tambacounda' },
+      { key: 'kedougou', label: 'Kédougou' },
+      { key: 'kaffrine', label: 'Kaffrine' },
+      { key: 'sedhiou', label: 'Sédhiou' },
+      { key: 'fatick', label: 'Fatick' },
+      { key: 'kaolack', label: 'Kaolack' },
+      { key: 'kolda', label: 'Kolda' },
+      { key: 'dakar', label: 'Dakar' },
+      { key: 'thies', label: 'Thiès' },
+      { key: 'louga', label: 'Louga' },
+    ];
+    const extraFullLabels: Record<string, string> = {
+      ziguinchor: 'Ziguinchor',
+      matam: 'Matam',
+      diourbel: 'Diourbel',
+      national: 'National',
+      nondefini: 'Non défini',
+    };
+
+    const regionCols = [...baseRegionCols];
+    const knownRegKeys = new Set(regionCols.map((c) => c.key));
+
+    // Filtrer selon la région sélectionnée si un filtre région est actif
+    const activeFilterKey =
+      revenueGroupBy === 'region' && revenueRegion !== 'toutes' ? canonicalRegionKey(revenueRegion) : null;
+
+    const matrixItems = (revenueChasseMatrix || []).filter((item) => {
+      if (!activeFilterKey) return true;
+      return canonicalRegionKey(item.regionKey || item.regionLabel) === activeFilterKey;
+    });
+
+    // Ajouter dynamiquement toute autre région ou zone présente dans les recettes
+    for (const item of matrixItems) {
+      const rk = canonicalRegionKey(item.regionKey || item.regionLabel);
+      if (rk && !knownRegKeys.has(rk)) {
+        knownRegKeys.add(rk);
+        regionCols.push({
+          key: rk,
+          label: extraFullLabels[rk] || REGION_LABELS[rk] || prettyRegion(item.regionLabel),
+        });
+      }
     }
-    const header = ['Région', 'Recette (FCFA)'];
-    const rows = revenueTableRows.map(r => [r.region, r.revenue]);
-    exportArrayToCsv('recettes_par_region.csv', header, rows);
+
+    const getCellAmount = (section: RevenueChasseMatrixItem['section'], rowLabel: string, regKey: string): number => {
+      let sum = 0;
+      for (const item of matrixItems) {
+        const rk = canonicalRegionKey(item.regionKey || item.regionLabel);
+        if (item.section === section && item.rowLabel === rowLabel && rk === regKey) {
+          sum += Number(item.amount || 0);
+        }
+      }
+      return sum;
+    };
+
+    const recetteChasseHeader = ['Type permis', ...regionCols.map((c) => c.label), 'Total'];
+    const recetteChasseRows: (string | number)[][] = [];
+
+    const domanialByRegion = new Map<string, number>();
+    let domanialGrandTotal = 0;
+
+    const buildSection = (
+      sectionKey: RevenueChasseMatrixItem['section'],
+      sectionTitle: string,
+      defaultRows: string[],
+      totalLabel: string
+    ) => {
+      // Ligne d'en-tête de section (en gras)
+      recetteChasseRows.push([sectionTitle, ...regionCols.map(() => ''), '']);
+
+      // Inclure dynamiquement toute ligne supplémentaire présente en base pour cette section
+      const rowLabels = [...defaultRows];
+      const seenLabels = new Set(rowLabels);
+      for (const item of matrixItems) {
+        if (item.section === sectionKey && !seenLabels.has(item.rowLabel)) {
+          seenLabels.add(item.rowLabel);
+          rowLabels.push(item.rowLabel);
+        }
+      }
+
+      const sectionRegTotals = new Map<string, number>();
+      let sectionTotal = 0;
+
+      for (const rLabel of rowLabels) {
+        let rowSum = 0;
+        const cells = regionCols.map((c) => {
+          const val = getCellAmount(sectionKey, rLabel, c.key);
+          rowSum += val;
+          sectionRegTotals.set(c.key, (sectionRegTotals.get(c.key) || 0) + val);
+          domanialByRegion.set(c.key, (domanialByRegion.get(c.key) || 0) + val);
+          return val;
+        });
+        sectionTotal += rowSum;
+        domanialGrandTotal += rowSum;
+        recetteChasseRows.push([rLabel, ...cells, rowSum]);
+      }
+
+      recetteChasseRows.push([
+        totalLabel,
+        ...regionCols.map((c) => sectionRegTotals.get(c.key) || 0),
+        sectionTotal,
+      ]);
+    };
+
+    // 1. Petite chasse
+    buildSection('petite_chasse', 'Petite chasse', ['Coutumier', 'Résident', 'Touriste'], 'Total 1');
+
+    // 2. Gibier d'eau
+    buildSection('gibier_eau', "Gibier d'eau", ['Résident', 'Touriste'], 'Total 2');
+
+    // 3. Grande chasse
+    buildSection('grande_chasse', 'Grande chasse', ['Résident', 'Touriste'], 'Total 3');
+
+    // 4. Licence, Taxe et Redevances
+    buildSection(
+      'licence_taxe',
+      'Licence, Taxe et Redevances',
+      [
+        'Taxe phaco',
+        'Taxe grande chasse',
+        'Attestation pisteur',
+        "Permis spécial d'oisellerie",
+        'Attestation Collecteur',
+        'Taxe Ramasseur',
+        'Licence',
+        'Taxe amodiation',
+        'Taxe réserve privée',
+      ],
+      'Total 4'
+    );
+
+    const curYear = new Date().getFullYear();
+
+    // Total domanial
+    recetteChasseRows.push([
+      `Total domanial ${curYear}`,
+      ...regionCols.map((c) => domanialByRegion.get(c.key) || 0),
+      domanialGrandTotal,
+    ]);
+
+    // Contentieux (Infractions)
+    const contentieuxByRegion = new Map<string, number>();
+    let contentieuxGrandTotal = 0;
+    for (const c of regionCols) {
+      const val = getCellAmount('contentieux', 'Contentieux', c.key);
+      contentieuxByRegion.set(c.key, val);
+      contentieuxGrandTotal += val;
+    }
+    recetteChasseRows.push([
+      `Contentieux ${curYear}`,
+      ...regionCols.map((c) => contentieuxByRegion.get(c.key) || 0),
+      contentieuxGrandTotal,
+    ]);
+
+    // Total RECETTES CHASSES
+    recetteChasseRows.push([
+      `Total RECETTES CHASSES ${curYear}`,
+      ...regionCols.map((c) => (domanialByRegion.get(c.key) || 0) + (contentieuxByRegion.get(c.key) || 0)),
+      domanialGrandTotal + contentieuxGrandTotal,
+    ]);
+
+    exportMultiSheetXlsx('recettes_gestion_faune.xlsx', [
+      {
+        name: firstSheetName,
+        headers: firstSheetHeader,
+        rows: firstSheetRows,
+      },
+      {
+        name: 'Recette chasse',
+        headers: recetteChasseHeader,
+        rows: recetteChasseRows,
+      },
+    ]);
   };
+
+  const alertRegionOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    (mapAlerts || []).forEach((a) => {
+      const key = canonicalRegionKey(a.region || 'non défini');
+      const label = REGION_LABELS[key] || prettyRegion(a.region || 'non défini');
+      if (key && !map.has(key)) map.set(key, label);
+    });
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [mapAlerts]);
+
+  const filteredMapAlerts = useMemo(() => {
+    const rows = mapAlerts || [];
+    if (alertRegionFilter === 'toutes') return rows;
+    return rows.filter((a) => canonicalRegionKey(a.region || 'non défini') === alertRegionFilter);
+  }, [mapAlerts, alertRegionFilter]);
 
   const groupedAlerts = useMemo(() => {
     // nature -> regionLabel -> count
     const byNature = new Map<string, Map<string, number>>();
     const regionsSet = new Set<string>();
-    (mapAlerts || []).forEach(a => {
+    (filteredMapAlerts || []).forEach(a => {
       const nat = (a.nature || 'non défini').toString();
       const reg = prettyRegion(a.region || 'non défini');
       regionsSet.add(reg);
@@ -967,7 +1407,7 @@ export default function NationalStatistics() {
       return obj;
     }).sort((a,b)=> a.nature.localeCompare(b.nature));
     return { regions, rows } as { regions: string[]; rows: Array<Record<string, any>> };
-  }, [mapAlerts]);
+  }, [filteredMapAlerts]);
 
   // Données filtrées pour les armes
   const filteredWeaponsByRegion = useMemo(() => {
@@ -1035,7 +1475,7 @@ export default function NationalStatistics() {
       'Expéditeur', 'Rôle expéditeur', 'Région expéditeur', 'Département expéditeur',
       'Latitude', 'Longitude'
     ];
-    const rows = (mapAlerts || []).map(a => {
+    const rows = (filteredMapAlerts || []).map(a => {
       const senderName = [a.sender?.first_name || '', a.sender?.last_name || ''].filter(Boolean).join(' ').trim();
       return [
         a.created_at ? new Date(a.created_at as any).toLocaleString('fr-FR') : '',
@@ -1071,14 +1511,14 @@ export default function NationalStatistics() {
   const handleExportActiveTab = () => {
     switch (activeTab) {
       case 'overview': {
-        const header = ['Région (Top 5)', 'Permis actifs', 'Pièces abattues', 'Recette (FCFA)'];
+        const header = ['Région (Top 5)', 'Permis actifs', 'Prélèvements', 'Recette (FCFA)'];
         const rows = topRegions.map(r => [r.region, r.activePermits, r.piecesAbattues, r.revenue]);
         exportArrayToCsv('vue_ensemble_nationale.csv', header, rows);
         break;
       }
       case 'regions': {
-        const header = ['Région', 'Permis actifs', 'Pièces abattues', "Taxe d'abattage (FCFA)", 'Recette (FCFA)'];
-        const rows = (byRegion || []).map(r => [
+        const header = ['Région', 'Permis actifs', 'Prélèvements', "Taxe d'abattage (FCFA)", 'Recette (FCFA)'];
+        const rows = (filteredByRegion || []).map(r => [
           (r.region || '').toUpperCase(),
           Number(r.activePermits ?? 0),
           Number(r.piecesAbattues ?? 0),
@@ -1089,31 +1529,73 @@ export default function NationalStatistics() {
         break;
       }
       case 'categories': {
-        const header = ['Région', 'Catégorie de permis', 'Nombre'];
-        const rows = (permitsCatByRegion || []).map(r => [
-          prettyRegion(r.region),
-          String(r.categoryId || 'non défini').toUpperCase(),
-          Number(r.count || 0),
+        const huntersHeaders = ['Régions', 'Coutumiers', 'Résidents', 'Touristes', 'Totaux'];
+        const huntersRows: (string | number)[][] = [
+          ...huntersPivotTable.rows.map((r) => [
+            r.regionLabel,
+            r.coutumier,
+            r.resident,
+            r.touristique,
+            r.total,
+          ]),
+          [
+            `Total ${new Date().getFullYear()}`,
+            huntersPivotTable.totals.coutumier,
+            huntersPivotTable.totals.resident,
+            huntersPivotTable.totals.touristique,
+            huntersPivotTable.totals.total,
+          ],
+        ];
+
+        const permitsHeaders = [
+          'Région',
+          'Permis sportifs petite chasse',
+          "Permis sportif gibiers d'eau",
+          'Permis sportif grande chasse',
+          'Total',
+        ];
+        const permitsRows: (string | number)[][] = [
+          ...permitsPivotTable.rows.map((r) => [
+            r.regionLabel,
+            r.petiteChasse,
+            r.gibierEau,
+            r.grandeChasse,
+            r.total,
+          ]),
+          [
+            'Total',
+            permitsPivotTable.totals.petiteChasse,
+            permitsPivotTable.totals.gibierEau,
+            permitsPivotTable.totals.grandeChasse,
+            permitsPivotTable.totals.total,
+          ],
+        ];
+
+        exportMultiSheetXlsx('categories_chasseurs_et_permis.xlsx', [
+          {
+            name: 'Tableau 1 - Chasseurs',
+            headers: huntersHeaders,
+            rows: huntersRows,
+          },
+          {
+            name: 'Tableau 2 - Permis délivrés',
+            headers: permitsHeaders,
+            rows: permitsRows,
+          },
         ]);
-        exportArrayToCsv('categories_permis_par_region.csv', header, rows);
         break;
       }
       case 'especes': {
         const rowsData = filteredSpeciesByRegion || [];
-        const regionKeyToLabel = new Map<string, string>();
-        for (const r of rowsData) {
-          const key = canonicalRegionKey(r.region);
-          const lbl = REGION_LABELS[key] || prettyRegion(r.region);
-          regionKeyToLabel.set(key, lbl);
-        }
-        const regions = sortRegions(Array.from(regionKeyToLabel.values()));
-        const bySpecies = new Map<
+        const bySpeciesRegion = new Map<
           string,
           {
             id: string;
             name: string;
             sci?: string;
-            values: Record<string, number>;
+            regionLabel: string;
+            categoriesSet: Set<string>;
+            quantity: number;
             utmXSet: Set<string>;
             utmYSet: Set<string>;
             permitsSet: Set<string>;
@@ -1122,19 +1604,28 @@ export default function NationalStatistics() {
         >();
         for (const r of rowsData) {
           const id = r.speciesId || 'unknown';
-          const key = canonicalRegionKey(r.region);
-          const label = regionKeyToLabel.get(key) || prettyRegion(r.region);
-          const entry = bySpecies.get(id) || {
+          const regKey = canonicalRegionKey(r.region);
+          const regLabel = REGION_LABELS[regKey] || prettyRegion(r.region);
+          const groupKey = `${id}::${regKey}`;
+          const entry = bySpeciesRegion.get(groupKey) || {
             id,
             name: r.speciesName || id,
             sci: r.scientificName,
-            values: {},
+            regionLabel: regLabel,
+            categoriesSet: new Set<string>(),
+            quantity: 0,
             utmXSet: new Set<string>(),
             utmYSet: new Set<string>(),
             permitsSet: new Set<string>(),
             declarantsSet: new Set<string>(),
           };
-          entry.values[label] = (entry.values[label] || 0) + (Number(r.quantity) || 0);
+          entry.quantity += Number(r.quantity) || 0;
+          const catKey = getRowCategoryKey(r);
+          if (catKey) {
+            entry.categoriesSet.add(formatCategoryLabel(catKey));
+          } else if (r.category) {
+            entry.categoriesSet.add(formatCategoryLabel(r.category));
+          }
           const utm = wgs84ToUtm(r.lat, r.lon);
           if (utm.x && utm.y) {
             entry.utmXSet.add(utm.x);
@@ -1142,40 +1633,401 @@ export default function NationalStatistics() {
           }
           if (r.permitNumber) entry.permitsSet.add(r.permitNumber);
           if (r.declaredBy) entry.declarantsSet.add(r.declaredBy);
-          bySpecies.set(id, entry);
+          bySpeciesRegion.set(groupKey, entry);
         }
-        const speciesList = Array.from(bySpecies.values()).sort((a, b) => a.name.localeCompare(b.name));
-        const header = ['Espèce', 'Nom scientifique', ...regions, 'UTM X', 'UTM Y', 'Permis', 'Déclarant', 'Total'];
-        const csvRows = speciesList.map(sp => {
-          const rowTotal = regions.reduce((s, reg) => s + (sp.values[reg] || 0), 0);
-          return [
+        const speciesList = Array.from(bySpeciesRegion.values()).sort(
+          (a, b) => a.name.localeCompare(b.name) || a.regionLabel.localeCompare(b.regionLabel)
+        );
+        const totalQuantity = speciesList.reduce((acc, sp) => acc + sp.quantity, 0);
+        const prelevementsHeader = [
+          'Espèce',
+          'Nom scientifique',
+          'Catégorie',
+          'Région',
+          'UTM X',
+          'UTM Y',
+          'Permis',
+          'Déclarant',
+          'Total',
+        ];
+        const prelevementsRows: (string | number)[][] = [
+          ...speciesList.map((sp) => [
             sp.name,
             sp.sci || '',
-            ...regions.map(reg => sp.values[reg] || 0),
+            Array.from(sp.categoriesSet).join(' / ') || 'Non définie',
+            sp.regionLabel,
             Array.from(sp.utmXSet).join(' | '),
             Array.from(sp.utmYSet).join(' | '),
             Array.from(sp.permitsSet).join(' | '),
             Array.from(sp.declarantsSet).join(' / ') || 'Chasseur',
-            rowTotal,
-          ];
-        });
-        exportArrayToCsv('especes_chassees_par_region.csv', header, csvRows);
+            sp.quantity,
+          ]),
+          ['Total', '', '', '', '', '', '', '', totalQuantity],
+        ];
+
+        // Onglet 2 : "Les Espèces" (Tableau croisé Type gibier x Régions avec sous-totaux par catégorie)
+        const baseRegionCols: { key: string; label: string }[] = [
+          { key: 'thies', label: 'Thiès' },
+          { key: 'kedougou', label: 'Kédougou' },
+          { key: 'sedhiou', label: 'Sédhiou' },
+          { key: 'fatick', label: 'Fatick' },
+          { key: 'kaffrine', label: 'Kaffrine' },
+          { key: 'kolda', label: 'Kolda' },
+          { key: 'saintlouis', label: 'Saint-Louis' },
+          { key: 'tambacounda', label: 'Tambacounda' },
+          { key: 'kaolack', label: 'Kaolack' },
+          { key: 'louga', label: 'Louga' },
+        ];
+        const extraFullLabels: Record<string, string> = {
+          dakar: 'Dakar',
+          ziguinchor: 'Ziguinchor',
+          matam: 'Matam',
+          diourbel: 'Diourbel',
+          national: 'National',
+          nondefini: 'Non défini',
+        };
+        const regionCols = [...baseRegionCols];
+        const knownRegKeys = new Set(regionCols.map((c) => c.key));
+        // Ajout dynamique de toute autre région ou zone présente dans les déclarations
+        for (const r of rowsData) {
+          const rk = canonicalRegionKey(r.region);
+          if (rk && !knownRegKeys.has(rk)) {
+            knownRegKeys.add(rk);
+            regionCols.push({
+              key: rk,
+              label: extraFullLabels[rk] || REGION_LABELS[rk] || prettyRegion(r.region),
+            });
+          }
+        }
+
+        // Regrouper les espèces par catégorie -> espèce -> région -> quantité
+        const categoryOrder = ['gibier_eau', 'petite_chasse', 'grande_chasse'];
+        const byCatSpecies = new Map<
+          string,
+          Map<string, { name: string; byReg: Map<string, number>; total: number }>
+        >();
+        for (const ck of categoryOrder) {
+          byCatSpecies.set(ck, new Map());
+        }
+
+        for (const r of rowsData) {
+          const rawCatKey = getRowCategoryKey(r) || normalizeCategoryKey(r.category) || 'petite_chasse';
+          const catKey = byCatSpecies.has(rawCatKey) ? rawCatKey : rawCatKey;
+          if (!byCatSpecies.has(catKey)) {
+            byCatSpecies.set(catKey, new Map());
+          }
+          const spMap = byCatSpecies.get(catKey)!;
+          const spName = (r.speciesName || r.speciesId || 'Inconnue').trim();
+          const spKey = spName.toLowerCase();
+          const spEntry = spMap.get(spKey) || {
+            name: spName,
+            byReg: new Map<string, number>(),
+            total: 0,
+          };
+          const rk = canonicalRegionKey(r.region);
+          const qty = Number(r.quantity) || 0;
+          spEntry.byReg.set(rk, (spEntry.byReg.get(rk) || 0) + qty);
+          spEntry.total += qty;
+          spMap.set(spKey, spEntry);
+        }
+
+        const especesPivotHeader = ['Type gibier', ...regionCols.map((c) => c.label), 'Total'];
+        const especesPivotRows: (string | number)[][] = [];
+        const grandRegionTotals = new Map<string, number>();
+        let grandTotal = 0;
+        let sectionIndex = 0;
+
+        for (const [catKey, spMap] of Array.from(byCatSpecies.entries())) {
+          // Toujours afficher les 3 catégories principales ou toute catégorie ayant des données
+          if (spMap.size === 0 && !categoryOrder.includes(catKey)) continue;
+          sectionIndex += 1;
+          const catTitle =
+            catKey === 'gibier_eau'
+              ? "Gibier d'eau"
+              : catKey === 'petite_chasse'
+              ? 'Petite chasse'
+              : catKey === 'grande_chasse'
+              ? 'Grande Chasse'
+              : formatCategoryLabel(catKey);
+
+          // Ligne de titre de catégorie
+          especesPivotRows.push([catTitle, ...regionCols.map(() => ''), '']);
+
+          const catRegionTotals = new Map<string, number>();
+          let catTotal = 0;
+
+          const sortedSpecies = Array.from(spMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+          for (const sp of sortedSpecies) {
+            const regCells = regionCols.map((c) => {
+              const val = sp.byReg.get(c.key) || 0;
+              if (val > 0) {
+                catRegionTotals.set(c.key, (catRegionTotals.get(c.key) || 0) + val);
+                grandRegionTotals.set(c.key, (grandRegionTotals.get(c.key) || 0) + val);
+              }
+              return val > 0 ? val : '';
+            });
+            catTotal += sp.total;
+            grandTotal += sp.total;
+            especesPivotRows.push([sp.name, ...regCells, sp.total]);
+          }
+
+          // Ligne sous-total de la catégorie (Total 1, Total 2, Total 3)
+          especesPivotRows.push([
+            `Total ${sectionIndex}`,
+            ...regionCols.map((c) => catRegionTotals.get(c.key) ?? 0),
+            catTotal,
+          ]);
+        }
+
+        // Ligne Total général en bas
+        const curYear = new Date().getFullYear();
+        especesPivotRows.push([
+          `Total ${curYear}`,
+          ...regionCols.map((c) => grandRegionTotals.get(c.key) ?? 0),
+          grandTotal,
+        ]);
+
+        exportMultiSheetXlsx('prelevements_et_especes.xlsx', [
+          {
+            name: 'Prélèvements',
+            headers: prelevementsHeader,
+            rows: prelevementsRows,
+          },
+          {
+            name: 'Les Espèces',
+            headers: especesPivotHeader,
+            rows: especesPivotRows,
+          },
+        ]);
         break;
       }
       case 'infractions': {
-        const header = ['Date', 'Nature', 'Code visé', 'Article', 'Agent verbalisateur', 'Région', 'Département', 'Montant (FCFA)', 'N° Quittance'];
-        const rows = (infractionsData || []).map((row: any) => [
+        const listHeader = [
+          'Date',
+          'Nature',
+          'Code visé',
+          'Article',
+          'Agent verbalisateur',
+          'Région',
+          'Département',
+          'Montant (FCFA)',
+          'N° Quittance',
+        ];
+        const allInfractions = filteredInfractionsData || [];
+        const listRows: (string | number)[][] = allInfractions.map((row: any) => [
           row.date_infraction ? new Date(row.date_infraction).toLocaleDateString('fr-FR') : '',
-          row.nature || '',
+          row.nature || row.item_nature || '',
           row.code || '',
-          row.article_code || '',
+          row.article_code || row.item_article || '',
           [row.agent_prenom, row.agent_nom].filter(Boolean).join(' '),
-          row.region || '',
+          row.region ? REGION_LABELS[canonicalRegionKey(row.region)] || prettyRegion(row.region) : '',
           row.departement || '',
           Number(row.montant_chiffre || 0),
           row.numero_quittance || '',
         ]);
-        exportArrayToCsv('infractions_national.csv', header, rows);
+
+        const isForestierInfraction = (row: any): boolean => {
+          const codeNorm = removeDiacritics(String(row.code || '').toLowerCase());
+          const natNorm = removeDiacritics(String(row.nature || row.item_nature || '').toLowerCase());
+          if (codeNorm.includes('chasse') || codeNorm.includes('faune')) return false;
+          if (codeNorm.includes('forest')) return true;
+          if (
+            natNorm.includes('chasse') ||
+            natNorm.includes('gibier') ||
+            natNorm.includes('ivoire') ||
+            natNorm.includes('faune') ||
+            natNorm.includes('braconn') ||
+            natNorm.includes('trophee')
+          ) {
+            return false;
+          }
+          if (
+            natNorm.includes('arbre') ||
+            natNorm.includes('bois') ||
+            natNorm.includes('charbon') ||
+            natNorm.includes('foret') ||
+            natNorm.includes('forest') ||
+            natNorm.includes('defrich') ||
+            natNorm.includes('coupe') ||
+            natNorm.includes('elagage')
+          ) {
+            return true;
+          }
+          return false;
+        };
+
+        const buildContentieuxSheet = (
+          rowsSubset: any[]
+        ): { rows: (string | number)[][]; merges: string[] } => {
+          // Sous-en-tête (ligne 2) sous Transactions (D1:F1 fusionné) -> D2: Transigés, E2: Montant, F2: Instance
+          const sheetRows: (string | number)[][] = [
+            ['', '', '', 'Transigés', 'Montant', 'Instance', ''],
+          ];
+          const merges: string[] = ['A1:A2', 'B1:B2', 'C1:C2', 'D1:F1', 'G1:G2'];
+
+          // Regrouper par Région -> Nature d'infraction
+          const byRegion = new Map<
+            string,
+            {
+              regionLabel: string;
+              byNature: Map<
+                string,
+                {
+                  natureLabel: string;
+                  nbrPv: number;
+                  transiges: number;
+                  montant: number;
+                  instance: number;
+                  tribunal: number;
+                }
+              >;
+            }
+          >();
+
+          for (const row of rowsSubset) {
+            const regKey = canonicalRegionKey(row.region || row.created_by_region || 'non défini');
+            const regLabel =
+              REGION_LABELS[regKey] ||
+              prettyRegion(row.region || row.created_by_region || 'Non défini');
+            const natureRaw = String(row.nature || row.item_nature || 'Non spécifiée')
+              .replace(/\s+/g, ' ')
+              .trim();
+            const natureKey = removeDiacritics(natureRaw.toLowerCase())
+              .replace(/['’`]+/g, "'")
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            const regEntry = byRegion.get(regKey) || {
+              regionLabel: regLabel,
+              byNature: new Map(),
+            };
+            const natEntry = regEntry.byNature.get(natureKey) || {
+              natureLabel: natureRaw,
+              nbrPv: 0,
+              transiges: 0,
+              montant: 0,
+              instance: 0,
+              tribunal: 0,
+            };
+
+            natEntry.nbrPv += 1;
+
+            const montant = Number(row.montant_chiffre || 0);
+            const hasQuittance = Boolean(row.numero_quittance && String(row.numero_quittance).trim());
+            const obsNorm = removeDiacritics(String(row.observations || '').trim().toLowerCase());
+            const isTribunal =
+              obsNorm.includes('tribunal') ||
+              obsNorm.includes('justice') ||
+              obsNorm.includes('defere') ||
+              obsNorm.includes('parquet');
+
+            if (isTribunal) {
+              natEntry.tribunal += 1;
+            } else if (montant > 0 || hasQuittance) {
+              natEntry.transiges += 1;
+              natEntry.montant += montant;
+            } else {
+              // Transaction en instance (non encore réglée et non déférée au tribunal)
+              natEntry.instance += 1;
+            }
+
+            regEntry.byNature.set(natureKey, natEntry);
+            byRegion.set(regKey, regEntry);
+          }
+
+          let totalPv = 0;
+          let totalTransiges = 0;
+          let totalMontant = 0;
+          let totalInstance = 0;
+          let totalTribunal = 0;
+
+          const sortedRegions = Array.from(byRegion.values()).sort((a, b) =>
+            a.regionLabel.localeCompare(b.regionLabel)
+          );
+
+          // Les lignes de données commencent à la ligne Excel 3 (ligne 1 = headers, ligne 2 = sous-en-tête)
+          let currentExcelRow = 3;
+
+          for (const reg of sortedRegions) {
+            const natures = Array.from(reg.byNature.values()).sort((a, b) =>
+              a.natureLabel.localeCompare(b.natureLabel)
+            );
+            const startRow = currentExcelRow;
+            natures.forEach((nat, idx) => {
+              totalPv += nat.nbrPv;
+              totalTransiges += nat.transiges;
+              totalMontant += nat.montant;
+              totalInstance += nat.instance;
+              totalTribunal += nat.tribunal;
+
+              sheetRows.push([
+                idx === 0 ? reg.regionLabel : '',
+                nat.natureLabel,
+                nat.nbrPv,
+                nat.transiges,
+                nat.montant > 0 ? nat.montant : '',
+                nat.instance,
+                nat.tribunal,
+              ]);
+              currentExcelRow += 1;
+            });
+            const endRow = currentExcelRow - 1;
+            // Fusionner verticalement la cellule Région (colonne A) si plusieurs natures d'infractions dans la même région
+            if (endRow > startRow) {
+              merges.push(`A${startRow}:A${endRow}`);
+            }
+          }
+
+          const curYear = new Date().getFullYear();
+          sheetRows.push([
+            `Total ${curYear}`,
+            '',
+            totalPv,
+            totalTransiges,
+            totalMontant,
+            totalInstance,
+            totalTribunal,
+          ]);
+          merges.push(`A${currentExcelRow}:B${currentExcelRow}`);
+
+          return { rows: sheetRows, merges };
+        };
+
+        const chasseInfractions = allInfractions.filter((r: any) => !isForestierInfraction(r));
+        const forestierInfractions = allInfractions.filter((r: any) => isForestierInfraction(r));
+
+        const contentieuxHeader = [
+          'Régions',
+          'Nature infraction',
+          'Nbr P.V',
+          'Transactions',
+          '',
+          '',
+          'Tribunal',
+        ];
+
+        const chasseSheet = buildContentieuxSheet(chasseInfractions);
+        const forestierSheet = buildContentieuxSheet(forestierInfractions);
+
+        exportMultiSheetXlsx('infractions_national.xlsx', [
+          {
+            name: 'Liste des infractions',
+            headers: listHeader,
+            rows: listRows,
+          },
+          {
+            name: 'Contentieux de la chasse',
+            headers: contentieuxHeader,
+            rows: chasseSheet.rows,
+            merges: chasseSheet.merges,
+          },
+          {
+            name: 'Contentieux forestier',
+            headers: contentieuxHeader,
+            rows: forestierSheet.rows,
+            merges: forestierSheet.merges,
+          },
+        ]);
         break;
       }
       case 'alertes':
@@ -1211,10 +2063,6 @@ export default function NationalStatistics() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 justify-end print:hidden">
-              <Button variant="outline" className="flex items-center gap-2 px-3 py-2 text-sm" onClick={handlePrint}>
-                <Printer className="w-4 h-4" />
-                Imprimer
-              </Button>
               <Button variant="outline" className="flex items-center gap-2 px-3 py-2 text-sm" onClick={handleExportActiveTab}>
                 <FileDown className="w-4 h-4" />
                 Exporter
@@ -1313,7 +2161,7 @@ export default function NationalStatistics() {
 
                 <Card className="text-center">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Pièces abattues</CardTitle>
+                    <CardTitle className="text-sm font-medium">Prélèvements</CardTitle>
                     <Target className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent className="text-center">
@@ -1391,8 +2239,8 @@ export default function NationalStatistics() {
                         <YAxis dataKey="region" type="category" width={100} />
                         <Tooltip />
                         <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ width: '100%', textAlign: 'center' }} />
-                        {/* Pièces abattues: rouge clair */}
-                        <Bar xAxisId="count" dataKey="piecesAbattues" name="Pièces abattues" fill="#f00002" />
+                        {/* Prélèvements: rouge clair */}
+                        <Bar xAxisId="count" dataKey="piecesAbattues" name="Prélèvements" fill="#f00002" />
                         {/* Recette: prendre la couleur actuelle des permis (orange) */}
                         <Bar xAxisId="money" dataKey="revenue" name="Recette (FCFA)" fill="#ffc658" />
                         {/* Permis actifs: en bleu */}
@@ -1409,14 +2257,32 @@ export default function NationalStatistics() {
                   <CardTitle className="flex items-center gap-2">
                     <Target className="h-5 w-5" /> Liste des infractions
                   </CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="self-start sm:self-auto"
-                    onClick={() => setInfractionsView((prev) => (prev === 'table' ? 'chart' : 'table'))}
-                  >
-                    {infractionsView === 'table' ? 'Voir évolution mensuelle' : 'Voir la liste détaillée'}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-3 print:hidden">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                      <Select value={infractionsRegionFilter} onValueChange={setInfractionsRegionFilter}>
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue placeholder="Toutes les régions" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="toutes">Toutes les régions</SelectItem>
+                          {infractionsRegionOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="self-start sm:self-auto"
+                      onClick={() => setInfractionsView((prev) => (prev === 'table' ? 'chart' : 'table'))}
+                    >
+                      {infractionsView === 'table' ? 'Voir évolution mensuelle' : 'Voir la liste détaillée'}
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {infractionsLoading ? (
@@ -1425,21 +2291,21 @@ export default function NationalStatistics() {
                     infractionsMonthlyData.length === 0 ? (
                       <div className="text-sm text-muted-foreground">Aucune donnée mensuelle disponible.</div>
                     ) : (
-                      <div className="h-[320px]">
+                      <div className="h-[340px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={infractionsMonthlyData} margin={{ top: 16, right: 24, left: 8, bottom: 16 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="label" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
+                          <BarChart data={infractionsMonthlyData} margin={{ top: 16, right: 24, left: 8, bottom: 16 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                             <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                             <Tooltip formatter={(value: number) => value.toLocaleString('fr-FR')} />
                             <Legend />
-                            <Line type="monotone" dataKey="infractions" name="Infractions" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                            <Line type="monotone" dataKey="contrevenants" name="Contrevenants" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                          </LineChart>
+                            <Bar dataKey="infractions" name="Infractions" fill="#f97316" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="contrevenants" name="Contrevenants" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                          </BarChart>
                         </ResponsiveContainer>
                       </div>
                     )
-                  ) : (infractionsData.length === 0 ? (
+                  ) : (filteredInfractionsData.length === 0 ? (
                     <div className="text-sm text-muted-foreground">Aucune infraction trouvée.</div>
                   ) : (
                     <div className="overflow-x-auto">
@@ -1457,7 +2323,7 @@ export default function NationalStatistics() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {(infractionsData || []).map((row: any) => (
+                          {(filteredInfractionsData || []).map((row: any) => (
                             <tr key={row.id}>
                               <td className="px-4 py-2 whitespace-nowrap text-sm">{row.date_infraction ? new Date(row.date_infraction).toLocaleDateString('fr-FR') : ''}</td>
                               <td className="px-4 py-2 whitespace-nowrap text-sm">{row.nature || ''}</td>
@@ -1689,22 +2555,74 @@ export default function NationalStatistics() {
                     ) : (revenueMonthlyData.length === 0 ? (
                       <div className="text-sm text-muted-foreground">Aucune donnée mensuelle disponible pour les recettes.</div>
                     ) : (
-                      <div className="bg-white rounded-lg border p-4 h-[360px]">
-                        <h4 className="text-sm font-semibold mb-2">Évolution mensuelle des recettes</h4>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={revenueMonthlyData} margin={{ top: 16, right: 24, left: 8, bottom: 16 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="label" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
+                      <div className="bg-white rounded-lg border p-4 h-[380px]">
+                        <h4 className="text-sm font-semibold mb-3">Évolution mensuelle des recettes (FCFA)</h4>
+                        <ResponsiveContainer width="100%" height="90%">
+                          <BarChart data={revenueMonthlyData} margin={{ top: 12, right: 24, left: 12, bottom: 16 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                             <YAxis
                               allowDecimals={false}
                               tick={{ fontSize: 12 }}
                               tickFormatter={(value) => Number(value).toLocaleString('fr-FR')}
                             />
-                            <Tooltip formatter={(value: number) => [`${Number(value).toLocaleString('fr-FR')} FCFA`, 'Montant']} />
+                            <Tooltip
+                              content={({ active, payload, label }) => {
+                                if (!active || !payload || payload.length === 0) return null;
+                                const visibleItems = payload.filter((entry: any) => {
+                                  const val = Number(entry?.value || 0);
+                                  if (val <= 0) return false;
+                                  if (hoveredRevenueGroup === 'contentieux') {
+                                    return entry.dataKey === 'infractions';
+                                  }
+                                  if (hoveredRevenueGroup === 'domanial') {
+                                    return entry.dataKey === 'permits' || entry.dataKey === 'taxes';
+                                  }
+                                  return true;
+                                });
+                                if (visibleItems.length === 0) return null;
+                                return (
+                                  <div className="bg-white border border-gray-200 rounded-md shadow-md px-3 py-2 text-sm">
+                                    <div className="font-medium text-gray-900 mb-1">{label}</div>
+                                    {visibleItems.map((entry: any) => (
+                                      <div
+                                        key={entry.dataKey}
+                                        className="py-0.5 font-medium"
+                                        style={{ color: entry.color || entry.fill }}
+                                      >
+                                        {entry.name} : {Number(entry.value || 0).toLocaleString('fr-FR')} FCFA
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              }}
+                            />
                             <Legend />
-                            <Line type="monotone" dataKey="permitTax" name="Permis + Taxes" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                            <Line type="monotone" dataKey="infractions" name="Infractions" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                          </LineChart>
+                            <Bar
+                              dataKey="permits"
+                              name="Permis"
+                              fill="#2563eb"
+                              radius={[4, 4, 0, 0]}
+                              onMouseEnter={() => setHoveredRevenueGroup('domanial')}
+                              onMouseLeave={() => setHoveredRevenueGroup(null)}
+                            />
+                            <Bar
+                              dataKey="taxes"
+                              name="Taxes d'abattage"
+                              fill="#10b981"
+                              radius={[4, 4, 0, 0]}
+                              onMouseEnter={() => setHoveredRevenueGroup('domanial')}
+                              onMouseLeave={() => setHoveredRevenueGroup(null)}
+                            />
+                            <Bar
+                              dataKey="infractions"
+                              name="Contentieux (Infractions)"
+                              fill="#f97316"
+                              radius={[4, 4, 0, 0]}
+                              onMouseEnter={() => setHoveredRevenueGroup('contentieux')}
+                              onMouseLeave={() => setHoveredRevenueGroup(null)}
+                            />
+                          </BarChart>
                         </ResponsiveContainer>
                       </div>
                     ))
@@ -1819,11 +2737,23 @@ export default function NationalStatistics() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="flex flex-col">
+                      <Label>Région</Label>
+                      <Select value={alertRegionFilter} onValueChange={setAlertRegionFilter}>
+                        <SelectTrigger className="w-[200px]"><SelectValue placeholder="Toutes les régions" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="toutes">Toutes les régions</SelectItem>
+                          {alertRegionOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   {alertsLoading ? (
                     <div>Chargement...</div>
-                  ) : (mapAlerts.length === 0 ? (
+                  ) : (filteredMapAlerts.length === 0 ? (
                     <div className="text-sm text-muted-foreground">
                       Aucune alerte trouvée pour la période sélectionnée.
                       Essayez de passer la période sur « Année en cours » ou retirez le filtre de nature.
@@ -1869,7 +2799,7 @@ export default function NationalStatistics() {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {(mapAlerts || []).map((a) => {
+                            {(filteredMapAlerts || []).map((a) => {
                               const senderName = [a.sender?.first_name || '', a.sender?.last_name || ''].filter(Boolean).join(' ').trim();
                               const service = a.sender?.role === 'agent' || a.sender?.role === 'sub-agent'
                                 ? [a.sender?.region, a.sender?.departement].filter(Boolean).join(' / ')
@@ -1894,66 +2824,111 @@ export default function NationalStatistics() {
                 </CardContent>
               </Card>
             </TabsContent>
-            <TabsContent value="categories">
+            <TabsContent value="categories" className="space-y-4">
+              <div className="flex items-center justify-end gap-2 print:hidden">
+                <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                <Select value={categoriesRegionFilter} onValueChange={setCategoriesRegionFilter}>
+                  <SelectTrigger className="w-[220px] bg-white">
+                    <SelectValue placeholder="Toutes les régions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="toutes">Toutes les régions</SelectItem>
+                    {categoriesRegionOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
-                {/* Tableau 1: Chasseurs par catégorie (national) */}
+                {/* Tableau 1 (Capture 2) : Chasseurs par région et catégorie */}
                 <Card className="col-span-1">
                   <CardHeader>
-                    <CardTitle>Chasseurs par catégorie</CardTitle>
+                    <CardTitle>Tableau 1 : Répartition des chasseurs par région et catégorie</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {hbcLoading ? (
                       <div>Chargement...</div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
+                        <table className="min-w-full divide-y divide-gray-200 border">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Régions</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Coutumiers</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Résidents</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Touristes</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Totaux</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {(huntersByCategory || []).map((row) => (
-                              <tr key={row.category}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right">{Number(row.count || 0).toLocaleString('fr-FR')}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{String(row.category || '').toUpperCase()}</td>
+                            {huntersPivotTable.rows.map((row) => (
+                              <tr key={row.regionKey} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border-r">{row.regionLabel}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.coutumier.toLocaleString('fr-FR')}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.resident.toLocaleString('fr-FR')}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.touristique.toLocaleString('fr-FR')}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">{row.total.toLocaleString('fr-FR')}</td>
                               </tr>
                             ))}
                           </tbody>
+                          <tfoot className="bg-emerald-50 font-bold">
+                            <tr>
+                              <td className="px-4 py-3 text-sm font-bold text-gray-900 border-r">Total</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{huntersPivotTable.totals.coutumier.toLocaleString('fr-FR')}</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{huntersPivotTable.totals.resident.toLocaleString('fr-FR')}</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{huntersPivotTable.totals.touristique.toLocaleString('fr-FR')}</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-emerald-800">{huntersPivotTable.totals.total.toLocaleString('fr-FR')}</td>
+                            </tr>
+                          </tfoot>
                         </table>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
-                {/* Tableau 2: Permis par région et catégorie avec durée moyenne */}
+                {/* Tableau 2 (Capture 3) : Nombre de permis délivrés par région et par type */}
                 <Card className="col-span-1">
                   <CardHeader>
-                    <CardTitle>Permis par région et catégorie</CardTitle>
+                    <CardTitle>Tableau 2 : Nombre de permis délivrés</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {pcbrLoading ? (
                       <div>Chargement...</div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
+                        <table className="min-w-full divide-y divide-gray-200 border">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-normal break-words">Catégorie de permis</th>
-                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Région</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Permis sportifs petite chasse</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Permis sportif gibiers d'eau</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Permis sportif grande chasse</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Total</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {(permitsCatByRegion || []).map((row) => (
-                              <tr key={`${row.region}-${row.categoryId}`}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{prettyRegion(row.region)}</td>
-                                <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-700">{String(row.categoryId || 'non défini').toUpperCase()}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right">{Number(row.count || 0).toLocaleString('fr-FR')}</td>
+                            {permitsPivotTable.rows.map((row) => (
+                              <tr key={row.regionKey} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border-r">{row.regionLabel}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.petiteChasse.toLocaleString('fr-FR')}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.gibierEau.toLocaleString('fr-FR')}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.grandeChasse.toLocaleString('fr-FR')}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">{row.total.toLocaleString('fr-FR')}</td>
                               </tr>
                             ))}
                           </tbody>
+                          <tfoot className="bg-emerald-50 font-bold">
+                            <tr>
+                              <td className="px-4 py-3 text-sm font-bold text-gray-900 border-r">Total</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{permitsPivotTable.totals.petiteChasse.toLocaleString('fr-FR')}</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{permitsPivotTable.totals.gibierEau.toLocaleString('fr-FR')}</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{permitsPivotTable.totals.grandeChasse.toLocaleString('fr-FR')}</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-emerald-800">{permitsPivotTable.totals.total.toLocaleString('fr-FR')}</td>
+                            </tr>
+                          </tfoot>
                         </table>
                       </div>
                     )}
@@ -1963,8 +2938,24 @@ export default function NationalStatistics() {
             </TabsContent>
             <TabsContent value="regions">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <CardTitle>Statistiques par région</CardTitle>
+                  <div className="flex items-center gap-2 print:hidden">
+                    <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                    <Select value={statsRegionFilter} onValueChange={setStatsRegionFilter}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Toutes les régions" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="toutes">Toutes les régions</SelectItem>
+                        {statsRegionOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
@@ -1973,13 +2964,13 @@ export default function NationalStatistics() {
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permis actifs</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pièces abattues</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prélèvements</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxe d'abattage</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recette</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {(byRegion || []).map((r) => (
+                        {(filteredByRegion || []).map((r) => (
                           <tr key={r.region}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(r.region || '').toUpperCase()}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.activePermits ?? 0}</td>
@@ -1998,22 +2989,40 @@ export default function NationalStatistics() {
             <TabsContent value="especes">
               <Card>
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <CardTitle>Pièces abattues par espèce et par région</CardTitle>
-                  <div className="flex items-center gap-2 print:hidden">
-                    <Label className="text-sm font-medium whitespace-nowrap">Catégorie :</Label>
-                    <Select value={speciesCategoryFilter} onValueChange={setSpeciesCategoryFilter}>
-                      <SelectTrigger className="w-[220px]">
-                        <SelectValue placeholder="Toutes les catégories" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="toutes">Toutes les catégories</SelectItem>
-                        {speciesCategoryOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <CardTitle>Prélèvements par espèce et par région</CardTitle>
+                  <div className="flex flex-wrap items-center gap-3 print:hidden">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                      <Select value={speciesRegionFilter} onValueChange={setSpeciesRegionFilter}>
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue placeholder="Toutes les régions" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="toutes">Toutes les régions</SelectItem>
+                          {speciesRegionOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium whitespace-nowrap">Catégorie :</Label>
+                      <Select value={speciesCategoryFilter} onValueChange={setSpeciesCategoryFilter}>
+                        <SelectTrigger className="w-[220px]">
+                          <SelectValue placeholder="Toutes les catégories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="toutes">Toutes les catégories</SelectItem>
+                          {speciesCategoryOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -2022,21 +3031,16 @@ export default function NationalStatistics() {
                   ) : (
                     (() => {
                       const rows = filteredSpeciesByRegion || [];
-                      // Construire un mapping clé canonique -> libellé à partir des déclarations présentes
-                      const regionKeyToLabel = new Map<string, string>();
-                      for (const r of rows) {
-                        const key = canonicalRegionKey(r.region);
-                        const lbl = REGION_LABELS[key] || prettyRegion(r.region);
-                        regionKeyToLabel.set(key, lbl);
-                      }
-                      const regions = sortRegions(Array.from(regionKeyToLabel.values()));
-                      const bySpecies = new Map<
+                      const bySpeciesRegion = new Map<
                         string,
                         {
+                          key: string;
                           id: string;
                           name: string;
                           sci?: string;
-                          values: Record<string, number>;
+                          regionLabel: string;
+                          categories: Set<string>;
+                          quantity: number;
                           utmCoords: Set<string>;
                           permits: Set<string>;
                           declarants: Set<string>;
@@ -2044,18 +3048,28 @@ export default function NationalStatistics() {
                       >();
                       for (const r of rows) {
                         const id = r.speciesId || 'unknown';
-                        const key = canonicalRegionKey(r.region);
-                        const label = regionKeyToLabel.get(key) || prettyRegion(r.region);
-                        const entry = bySpecies.get(id) || {
+                        const regKey = canonicalRegionKey(r.region);
+                        const regLabel = REGION_LABELS[regKey] || prettyRegion(r.region);
+                        const groupKey = `${id}::${regKey}`;
+                        const entry = bySpeciesRegion.get(groupKey) || {
+                          key: groupKey,
                           id,
                           name: r.speciesName || id,
                           sci: r.scientificName,
-                          values: {},
+                          regionLabel: regLabel,
+                          categories: new Set<string>(),
+                          quantity: 0,
                           utmCoords: new Set<string>(),
                           permits: new Set<string>(),
                           declarants: new Set<string>(),
                         };
-                        entry.values[label] = (entry.values[label] || 0) + (Number(r.quantity) || 0);
+                        entry.quantity += Number(r.quantity) || 0;
+                        const catKey = getRowCategoryKey(r);
+                        if (catKey) {
+                          entry.categories.add(formatCategoryLabel(catKey));
+                        } else if (r.category) {
+                          entry.categories.add(formatCategoryLabel(r.category));
+                        }
                         const utm = wgs84ToUtm(r.lat, r.lon);
                         if (utm.x && utm.y) {
                           entry.utmCoords.add(`X: ${utm.x} / Y: ${utm.y}`);
@@ -2066,13 +3080,12 @@ export default function NationalStatistics() {
                         if (r.declaredBy) {
                           entry.declarants.add(r.declaredBy);
                         }
-                        bySpecies.set(id, entry);
+                        bySpeciesRegion.set(groupKey, entry);
                       }
-                      const speciesList = Array.from(bySpecies.values()).sort((a,b) => a.name.localeCompare(b.name));
-                      const totalByRegion: Record<string, number> = {};
-                      const grandTotal = speciesList.reduce((sum, sp) => {
-                        return sum + regions.reduce((s, reg) => s + (sp.values[reg] || 0), 0);
-                      }, 0);
+                      const speciesList = Array.from(bySpeciesRegion.values()).sort(
+                        (a, b) => a.name.localeCompare(b.name) || a.regionLabel.localeCompare(b.regionLabel)
+                      );
+                      const grandTotal = speciesList.reduce((sum, sp) => sum + sp.quantity, 0);
 
                       return (
                         <div className="overflow-x-auto">
@@ -2080,9 +3093,8 @@ export default function NationalStatistics() {
                             <thead className="bg-gray-50">
                               <tr>
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Espèce</th>
-                                {regions.map((reg) => (
-                                  <th key={reg} className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{reg}</th>
-                                ))}
+                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Coordonnées UTM (X / Y)</th>
                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Permis</th>
                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Déclarant</th>
@@ -2091,37 +3103,32 @@ export default function NationalStatistics() {
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                               {speciesList.map(sp => {
-                                const rowTotal = regions.reduce((s, reg) => s + (sp.values[reg] || 0), 0);
-                                regions.forEach(reg => { totalByRegion[reg] = (totalByRegion[reg] || 0) + (sp.values[reg] || 0); });
+                                const categoryDisplay = Array.from(sp.categories).join(' / ') || '—';
                                 const utmDisplay = Array.from(sp.utmCoords).join(' ; ') || '—';
                                 const permitDisplay = Array.from(sp.permits).join(', ') || '—';
                                 const declarantDisplay = Array.from(sp.declarants).join(' / ') || 'Chasseur';
                                 return (
-                                  <tr key={sp.id}>
+                                  <tr key={sp.key}>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                                       <div className="flex flex-col">
                                         <span className="font-medium">{sp.name}</span>
                                         {sp.sci && <span className="text-xs italic text-gray-500">{sp.sci}</span>}
                                       </div>
                                     </td>
-                                    {regions.map(reg => (
-                                      <td key={reg} className="px-4 py-2 whitespace-nowrap text-sm text-right">{(sp.values[reg] || 0).toLocaleString('fr-FR')}</td>
-                                    ))}
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-center text-gray-700">{categoryDisplay}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-center font-medium text-gray-800">{sp.regionLabel}</td>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-center text-gray-700">{utmDisplay}</td>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-center font-medium text-gray-800">{permitDisplay}</td>
                                     <td className="px-4 py-2 whitespace-nowrap text-sm text-center text-gray-700">{declarantDisplay}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-right font-semibold">{rowTotal.toLocaleString('fr-FR')}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-right font-semibold">{sp.quantity.toLocaleString('fr-FR')}</td>
                                   </tr>
                                 );
                               })}
                             </tbody>
                             <tfoot className="bg-gray-50">
                               <tr>
-                                <td className="px-4 py-2 text-sm font-semibold">Total par région</td>
-                                {regions.map(reg => (
-                                  <td key={reg} className="px-4 py-2 text-sm text-right font-semibold">{(totalByRegion[reg] || 0).toLocaleString('fr-FR')}</td>
-                                ))}
-                                <td colSpan={3}></td>
+                                <td className="px-4 py-2 text-sm font-semibold">Total</td>
+                                <td colSpan={5}></td>
                                 <td className="px-4 py-2 text-sm text-right font-bold">{grandTotal.toLocaleString('fr-FR')}</td>
                               </tr>
                             </tfoot>

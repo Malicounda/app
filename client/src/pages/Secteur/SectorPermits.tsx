@@ -10,6 +10,7 @@ import { usePermits } from "@/lib/hooks/usePermits";
 import { isPermitExpired, isPermitSuspended } from "@/lib/utils/permits";
 import { isSectorSubRole } from "@/utils/navigation";
 import { generatePdf } from "@/utils/pdfGenerator";
+import { exportArrayToCsv } from "@/utils/export";
 import { format } from "date-fns";
 import { BookPlus, BookText, FileDown, Printer, Search } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -153,12 +154,7 @@ export default function SectorPermits() {
     const columns = Object.keys(permitsList[0] || {});
     const body = permitsList.map((row) => columns.map((c) => (row as any)[c]));
 
-    generatePdf({
-      title: "Permis de Chasse - Secteur",
-      filename: "permis-secteur.pdf",
-      tableColumns: columns,
-      tableData: body,
-    });
+    exportArrayToCsv("permis-secteur.csv", columns, body);
     toast({
       title: "Export terminé",
       description: "La liste des permis a été exportée avec succès.",

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
 import { departmentsByRegion, regionEnum } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
+import { exportArrayToCsv } from "@/utils/export";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, TrendingUp, MapPin, UserCheck, AlertTriangle, MoreVertical, Filter, Download, PlusCircle, Edit, Shield, CheckCircle, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -458,7 +459,43 @@ export default function AffectationsPage() {
               <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
                 <Filter className="w-4 h-4 text-muted-foreground" />
               </Button>
-              <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0"
+                title="Exporter en CSV"
+                onClick={() => {
+                  const header = ["Matricule", "Nom et Prénom", "Domaine", "Niveau", "Zone (Région)", "Date", "Statut"];
+                  const rows = filtered.map((a) => {
+                    const matchedAgent = agentsList.find((ag: AgentInfo) => ag.idAgent === a.agentId);
+                    const fullName = [
+                      a.agentNom ?? matchedAgent?.nom,
+                      a.agentPrenom ?? matchedAgent?.prenom,
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    const regionDisplay =
+                      resolveRegionName(
+                        a.agentRegion ?? matchedAgent?.region,
+                        a.agentDepartement ?? matchedAgent?.departement
+                      ) ||
+                      a.agentRegion ||
+                      matchedAgent?.region ||
+                      a.codeZone ||
+                      "-";
+                    return [
+                      a.agentMatricule || "",
+                      fullName,
+                      a.domaineNom || "",
+                      a.niveauHierarchique || "",
+                      regionDisplay,
+                      a.dateAffectation ? new Date(a.dateAffectation).toLocaleDateString("fr-FR") : "",
+                      a.active ? "Actif" : "Inactif",
+                    ];
+                  });
+                  exportArrayToCsv("affectations_agents.csv", header, rows);
+                }}
+              >
                 <Download className="w-4 h-4 text-muted-foreground" />
               </Button>
             </div>

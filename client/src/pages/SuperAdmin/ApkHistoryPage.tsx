@@ -227,15 +227,6 @@ function SessionsTab() {
               <Download className="h-3.5 w-3.5" />
               Exporter CSV
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 text-xs text-slate-600 bg-white"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              Imprimer
-            </Button>
           </div>
         </div>
 
@@ -420,15 +411,6 @@ function AlertesTab() {
             >
               <Download className="h-3.5 w-3.5" />
               Exporter CSV
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 text-xs text-slate-600 bg-white"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              Imprimer
             </Button>
           </div>
         </div>
@@ -642,15 +624,6 @@ function MessagesTab() {
             >
               <Download className="h-3.5 w-3.5" />
               Exporter CSV
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 text-xs text-slate-600 bg-white"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              Imprimer
             </Button>
           </div>
         </div>

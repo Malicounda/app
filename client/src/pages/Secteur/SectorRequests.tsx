@@ -19,6 +19,7 @@ const safeFormatDate = (dateVal: any) => {
 import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { PdfLibraryLoader, generatePdf } from "@/utils/pdfGenerator";
+import { exportArrayToCsv } from "@/utils/export";
 import { useLocation } from "wouter";
 
 // Type pour les demandes de permis (ajustez selon votre schema)
@@ -164,12 +165,7 @@ export default function SectorRequests() {
     const columns = Object.keys(requestsList[0] || {});
     const body = requestsList.map((row) => columns.map((c) => (row as any)[c]));
 
-    generatePdf({
-      title: activeTab === "sector" ? "Demandes de Permis - Secteur" : "Demandes de Permis - National",
-      filename: activeTab === "sector" ? "demandes-secteur.pdf" : "demandes-national.pdf",
-      tableColumns: columns,
-      tableData: body,
-    });
+    exportArrayToCsv(activeTab === "sector" ? "demandes-secteur.csv" : "demandes-national.csv", columns, body);
     toast({
       title: "Export terminé",
       description: "La liste des demandes a été exportée avec succès.",

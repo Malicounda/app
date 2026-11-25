@@ -14,7 +14,7 @@ const resetDataTypes: Record<string, { value: string; label: string; tables: { t
       { tableName: 'taxes', display: "Taxes d'abattage" },
       { tableName: 'hunters', display: 'Chasseurs enregistrés' },
       { tableName: 'hunting_reports', display: "Déclarations d'abattage" },
-      { tableName: 'hunted_species', display: 'Espèces abattues' },
+      { tableName: 'hunted_species', display: 'Prélèvements' },
       { tableName: 'permit_requests', display: 'Demandes de permis' },
       { tableName: 'guide_hunter_associations', display: 'Associations guide-chasseur' },
       { tableName: 'history', display: 'Historique des opérations' },
