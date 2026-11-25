@@ -8,8 +8,9 @@ const PRECACHE_ASSETS = [
   '/index.html',
   '/offline.html',
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
+  '/scodi-icon-192.png',
+  '/scodi-icon-512.png',
+  '/icon-blason.svg',
   // Ajoutez ici les CSS et JS principaux de votre application
   '/assets/index.css',
   '/assets/index.js'

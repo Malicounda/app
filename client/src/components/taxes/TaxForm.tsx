@@ -504,14 +504,14 @@ export default function TaxForm({ taxId, open, onClose }: TaxFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[90%] md:max-w-[560px] max-h-[90vh] overflow-hidden no-scrollbar">
+      <DialogContent className="sm:max-w-[90%] md:max-w-[560px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center">
             {isEditing ? "Modifier une Taxe d'Abattage" : "Ajouter une Taxe d'Abattage"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="overflow-y-auto no-scrollbar max-h-[calc(90vh-140px)]">
+        <div>
         {loading ? (
           <div className="py-4 text-center">Chargement des données...</div>
         ) : (

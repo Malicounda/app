@@ -1,7 +1,7 @@
 import { and, eq, ilike } from 'drizzle-orm';
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { affectations, agents, domaines } from '../../shared/schema.js';
+import { affectations, agents, domaines, users } from '../../shared/schema.js';
 import { db } from '../db.js';
 
 // Schéma de validation pour la création
@@ -10,7 +10,7 @@ const createAffectationSchema = z.object({
   domaineId: z.number().int().positive(),
   niveauHierarchique: z.enum(['NATIONAL', 'REGIONAL', 'SECTEUR']),
   roleMetierId: z.number().int().positive().optional().nullable(),
-  codeZone: z.string().min(1),
+  codeZone: z.string().optional().nullable(),
   active: z.boolean().optional().default(true),
   dateAffectation: z.string().optional(), // ISO date string
 });
@@ -49,10 +49,15 @@ export async function listAffectations(req: Request, res: Response) {
         active: affectations.active,
         dateAffectation: affectations.dateAffectation,
         agentMatricule: agents.matriculeSol,
+        agentNom: agents.nom,
+        agentPrenom: agents.prenom,
+        agentRegion: users.region,
+        agentDepartement: users.departement,
         domaineNom: domaines.nomDomaine,
       })
       .from(affectations)
       .leftJoin(agents, eq(affectations.agentId, agents.idAgent))
+      .leftJoin(users, eq(agents.userId as any, users.id as any))
       .leftJoin(domaines, eq(affectations.domaineId, domaines.id));
 
     const list = conditions.length > 0
@@ -118,12 +123,27 @@ export async function createAffectation(req: Request, res: Response) {
       });
     }
 
+    let resolvedCodeZone = (parsed.codeZone || '').trim();
+    if (!resolvedCodeZone) {
+      const [agentWithUser] = await db
+        .select({ region: users.region, departement: users.departement })
+        .from(agents)
+        .leftJoin(users, eq(agents.userId as any, users.id as any))
+        .where(eq(agents.idAgent, parsed.agentId))
+        .limit(1);
+      resolvedCodeZone =
+        (agentWithUser?.region || agentWithUser?.departement || (parsed.niveauHierarchique === 'NATIONAL' ? 'NATIONAL' : 'NON DÉFINI'))
+          .toString()
+          .trim()
+          .toUpperCase();
+    }
+
     const [created] = await db.insert(affectations).values({
       agentId: parsed.agentId,
       domaineId: parsed.domaineId,
       niveauHierarchique: parsed.niveauHierarchique as any,
       roleMetierId: parsed.roleMetierId ?? null,
-      codeZone: parsed.codeZone,
+      codeZone: resolvedCodeZone,
       active: parsed.active ?? true,
       dateAffectation: parsed.dateAffectation ? new Date(parsed.dateAffectation) : new Date(),
     } as any).returning();

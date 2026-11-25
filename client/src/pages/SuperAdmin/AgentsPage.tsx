@@ -149,9 +149,19 @@ function GradeSelectField({
   triggerClassName?: string;
 }) {
   const current = value?.trim() || "";
-  const selectValue =
-    current && options.some((g) => g.label === current) ? current : current ? `__custom:${current}` : "none";
-  const hasCustom = current && !options.some((g) => g.label === current);
+  const matchedOption = current
+    ? options.find(
+        (g) =>
+          g.label.toLowerCase() === current.toLowerCase() ||
+          (g.code && g.code.toLowerCase() === current.toLowerCase())
+      )
+    : undefined;
+  const selectValue = matchedOption
+    ? matchedOption.label
+    : current
+      ? `__custom:${current}`
+      : "none";
+  const hasCustom = Boolean(current && !matchedOption);
 
   return (
     <Select
@@ -367,6 +377,77 @@ export default function SuperAdminAgentsPage() {
   // Normalize a string for comparison (remove accents, lowercase)
   const normalizeStr = (s: string) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[-_\s]+/g, "");
 
+  const resolveRegionAndDepartement = (rawRegion?: string | null, rawDepartement?: string | null) => {
+    const cleanReg = String(rawRegion || "").trim();
+    const cleanDep = String(rawDepartement || "").trim();
+    const normReg = normalizeStr(cleanReg);
+    const normDep = normalizeStr(cleanDep.replace(/^secteur\s+/i, ""));
+
+    let matchedRegion = "";
+    if (normReg === "national") {
+      matchedRegion = "national";
+    } else if (normReg) {
+      const foundReg = regionEnum.find(
+        (r) => normalizeStr(r.value) === normReg || normalizeStr(r.label) === normReg
+      );
+      if (foundReg) {
+        matchedRegion = foundReg.value;
+      }
+    }
+
+    let matchedDepartement = "";
+    if (normDep) {
+      const entries = Object.entries(departmentsByRegion) as [string, { value: string; label: string }[]][];
+      // Chercher d'abord dans la région déjà identifiée, sinon dans toutes les régions
+      const orderedEntries = matchedRegion
+        ? [
+            ...entries.filter(([k]) => k === matchedRegion),
+            ...entries.filter(([k]) => k !== matchedRegion),
+          ]
+        : entries;
+
+      for (const [regKey, depts] of orderedEntries) {
+        const foundDep = depts.find(
+          (d) =>
+            normalizeStr(d.value) === normDep ||
+            normalizeStr(d.label.replace(/^secteur\s+/i, "")) === normDep ||
+            normalizeStr(d.label) === normDep
+        );
+        if (foundDep) {
+          matchedDepartement = foundDep.value;
+          if (!matchedRegion) {
+            matchedRegion = regKey;
+          }
+          break;
+        }
+      }
+    }
+
+    return {
+      region: matchedRegion || cleanReg,
+      departement: matchedDepartement || cleanDep,
+    };
+  };
+
+  const normalizeGenreValue = (rawGenre?: string | null) => {
+    const g = String(rawGenre || "").trim().toUpperCase();
+    if (!g) return "";
+    if (g === "H" || g === "M" || g.startsWith("HOM") || g.startsWith("MAS")) return "H";
+    if (g === "F" || g.startsWith("FEM") || g.startsWith("FÉ")) return "F";
+    return "";
+  };
+
+  const getDisplayRegion = (r: AgentRow) => {
+    if (r.region && String(r.region).trim()) return r.region;
+    if (r.departement) {
+      const { region } = resolveRegionAndDepartement(r.region, r.departement);
+      if (region) {
+        return regionEnum.find((reg) => reg.value === region)?.label || region.toUpperCase();
+      }
+    }
+    return "-";
+  };
+
   const addDepId = departementsList.find((f: any) =>
     normalizeStr(String(f.properties?.nom || "")) === normalizeStr(newDepartement) ||
     normalizeStr(String(f.properties?.code || "")) === normalizeStr(newDepartement)
@@ -553,12 +634,29 @@ export default function SuperAdminAgentsPage() {
     setNom(row.nom || "");
     setPrenom(row.prenom || "");
     setGrade(row.grade || "");
-    setGenre(row.genre ? String(row.genre) : "");
-    setRoleMetierId(row.roleMetierId ? String(row.roleMetierId) : "");
-    
+    setGenre(normalizeGenreValue(row.genre));
+
+    const matchedRoleId = row.roleMetierId
+      ? String(row.roleMetierId)
+      : row.roleMetierLabel
+        ? String(
+            rolesMetier.find(
+              (rm) =>
+                normalizeStr(rm.labelFr) === normalizeStr(row.roleMetierLabel || "") ||
+                normalizeStr(rm.code) === normalizeStr(row.roleMetierLabel || "")
+            )?.id || ""
+          )
+        : "";
+    setRoleMetierId(matchedRoleId);
+
     let defaultSysRole = "agent";
-    if (row.userRole?.toLowerCase() === 'admin') {
+    if (row.userRole?.toLowerCase() === "admin") {
       defaultSysRole = row.adminDomainName ? "admin" : "super-admin";
+    } else if (row.userRole) {
+      const rLow = row.userRole.toLowerCase();
+      if (["agent", "hunter", "sub-agent", "super-admin"].includes(rLow)) {
+        defaultSysRole = rLow;
+      }
     }
     setEditSystemRole(defaultSysRole);
     setEditAdminDomainId(row.adminDomainId ? String(row.adminDomainId) : "");
@@ -568,12 +666,18 @@ export default function SuperAdminAgentsPage() {
     setShowPassword(false);
 
     const c = row.contact || {};
-    setContactTelephone(String(c?.telephone || c?.phone || row.phone || ""));
+    const rawPhone = String(c?.telephone || c?.phone || row.phone || "");
+    setContactTelephone(rawPhone ? formatPhoneNumber(rawPhone) : "");
     setContactEmail(String(c?.email || row.email || ""));
-    setEditRegion(row.region || "");
-    setEditDepartement(row.departement || "");
-    setEditCommune(row.commune || "");
-    setEditArrondissement(row.arrondissement || "");
+
+    const { region: resolvedRegion, departement: resolvedDepartement } = resolveRegionAndDepartement(
+      row.region,
+      row.departement
+    );
+    setEditRegion(resolvedRegion);
+    setEditDepartement(resolvedDepartement);
+    setEditCommune(row.commune ? String(row.commune).trim() : "");
+    setEditArrondissement(row.arrondissement ? String(row.arrondissement).trim() : "");
     setRegionUnlocked(false);
   };
 
@@ -1120,7 +1224,7 @@ export default function SuperAdminAgentsPage() {
                         <TableCell>{r.roleMetierLabel || (r.roleMetierId ? String(r.roleMetierId) : "-")}</TableCell>
                         <TableCell className="text-center">{r.genre || "-"}</TableCell>
                         <TableCell>{r.phone || (r.contact && (r.contact.telephone || r.contact.phone)) || "-"}</TableCell>
-                        <TableCell>{r.region || "-"}</TableCell>
+                        <TableCell>{getDisplayRegion(r)}</TableCell>
                         <TableCell>{r.departement || "-"}</TableCell>
                         <TableCell>{r.commune || "-"}</TableCell>
                         <TableCell>{r.arrondissement || "-"}</TableCell>
@@ -1166,7 +1270,7 @@ export default function SuperAdminAgentsPage() {
         </Dialog>
 
         <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center justify-center gap-4">
                 <DialogTitle>Modifier un agent</DialogTitle>
@@ -1434,11 +1538,16 @@ export default function SuperAdminAgentsPage() {
                       {regionEnum.map((r) => (
                         <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                       ))}
+                      {editRegion &&
+                        editRegion !== "national" &&
+                        !regionEnum.some((r) => r.value === editRegion) && (
+                          <SelectItem value={editRegion}>{editRegion}</SelectItem>
+                        )}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              {editRegion && (departmentsByRegion as any)[editRegion] && (
+              {((editRegion && (departmentsByRegion as any)[editRegion]) || editDepartement) && (
                 <div className="space-y-2">
                   <Label>Département / Secteur</Label>
                   <Select
@@ -1451,9 +1560,13 @@ export default function SuperAdminAgentsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Aucun</SelectItem>
-                      {(departmentsByRegion as any)[editRegion].map((d: any) => (
+                      {((departmentsByRegion as any)[editRegion] || []).map((d: any) => (
                         <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
                       ))}
+                      {editDepartement &&
+                        !((departmentsByRegion as any)[editRegion] || []).some(
+                          (d: any) => d.value === editDepartement
+                        ) && <SelectItem value={editDepartement}>{editDepartement}</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1463,7 +1576,14 @@ export default function SuperAdminAgentsPage() {
                   <div className="space-y-2">
                     <Label>Arrondissement</Label>
                     <Select
-                      value={editArrondissement || "none"}
+                      value={
+                        (editArrondissement &&
+                          arrondissementsEditList.find(
+                            (a: any) => normalizeStr(a.properties?.nom) === normalizeStr(editArrondissement)
+                          )?.properties?.nom) ||
+                        editArrondissement ||
+                        "none"
+                      }
                       onValueChange={(v) => setEditArrondissement(v === "none" ? "" : v)}
                       disabled={!editUnlocked && !regionUnlocked}
                     >
@@ -1475,13 +1595,24 @@ export default function SuperAdminAgentsPage() {
                         {arrondissementsEditList.map((a: any) => (
                           <SelectItem key={a.properties.id} value={a.properties.nom}>{a.properties.nom}</SelectItem>
                         ))}
+                        {editArrondissement &&
+                          !arrondissementsEditList.some(
+                            (a: any) => normalizeStr(a.properties?.nom) === normalizeStr(editArrondissement)
+                          ) && <SelectItem value={editArrondissement}>{editArrondissement}</SelectItem>}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Commune</Label>
                     <Select
-                      value={editCommune || "none"}
+                      value={
+                        (editCommune &&
+                          communesEditList.find(
+                            (c: any) => normalizeStr(c.properties?.nom) === normalizeStr(editCommune)
+                          )?.properties?.nom) ||
+                        editCommune ||
+                        "none"
+                      }
                       onValueChange={(v) => setEditCommune(v === "none" ? "" : v)}
                       disabled={!editUnlocked && !regionUnlocked}
                     >
@@ -1493,6 +1624,10 @@ export default function SuperAdminAgentsPage() {
                         {communesEditList.map((c: any) => (
                           <SelectItem key={c.properties.id} value={c.properties.nom}>{c.properties.nom}</SelectItem>
                         ))}
+                        {editCommune &&
+                          !communesEditList.some(
+                            (c: any) => normalizeStr(c.properties?.nom) === normalizeStr(editCommune)
+                          ) && <SelectItem value={editCommune}>{editCommune}</SelectItem>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1560,7 +1695,8 @@ export default function SuperAdminAgentsPage() {
                     !contactEmailUnlocked &&
                     !(enablePasswordChange && newPassword.trim().length >= 6) &&
                     !roleMetierUnlocked &&
-                    !regionUnlocked) ||
+                    !regionUnlocked &&
+                    !(editRegion && !editing?.region)) ||
                   (enablePasswordChange && newPassword.trim().length < 6)
                 }
               >
@@ -1585,7 +1721,7 @@ export default function SuperAdminAgentsPage() {
         </AlertDialog>
 
         <Dialog open={addOpen} onOpenChange={handleAddOpenChange}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Ajouter un agent</DialogTitle>
             </DialogHeader>

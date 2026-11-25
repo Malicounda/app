@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
+import { departmentsByRegion, regionEnum } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, TrendingUp, MapPin, UserCheck, AlertTriangle, MoreVertical, Filter, Download, PlusCircle, Edit, Shield, CheckCircle, XCircle } from "lucide-react";
@@ -36,6 +37,10 @@ type Affectation = {
   agentId: number;
   domaineId: number;
   agentMatricule?: string | null;
+  agentNom?: string | null;
+  agentPrenom?: string | null;
+  agentRegion?: string | null;
+  agentDepartement?: string | null;
   domaineNom?: string | null;
   niveauHierarchique: "NATIONAL" | "REGIONAL" | "SECTEUR";
   roleMetierId?: number | null;
@@ -86,17 +91,61 @@ export default function AffectationsPage() {
   const [geoRestrictionEnabled, setGeoRestrictionEnabled] = useState(false);
   const [restrictionType, setRestrictionType] = useState<string>("");
 
+  // Normalize a string for comparison (remove accents, lowercase)
+  const normalizeStr = (s: string) =>
+    String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[-_\s]+/g, "");
+
+  // Déduit le nom de la région d'un agent (même si seul le département est renseigné)
+  const resolveRegionName = (rawRegion?: string | null, rawDepartement?: string | null): string => {
+    const cleanReg = String(rawRegion || "").trim();
+    if (cleanReg) {
+      const normReg = normalizeStr(cleanReg);
+      if (normReg === "national") return "NATIONAL";
+      const found = regionEnum.find(
+        (r) => normalizeStr(r.value) === normReg || normalizeStr(r.label) === normReg
+      );
+      return found ? found.label : cleanReg.toUpperCase();
+    }
+
+    const cleanDep = String(rawDepartement || "").trim();
+    if (cleanDep) {
+      const normDep = normalizeStr(cleanDep.replace(/^secteur\s+/i, ""));
+      const entries = Object.entries(departmentsByRegion) as [string, { value: string; label: string }[]][];
+      for (const [regKey, depts] of entries) {
+        const foundDep = depts.find(
+          (d) =>
+            normalizeStr(d.value) === normDep ||
+            normalizeStr(d.label.replace(/^secteur\s+/i, "")) === normDep ||
+            normalizeStr(d.label) === normDep
+        );
+        if (foundDep) {
+          const foundReg = regionEnum.find((r) => r.value === regKey);
+          return foundReg ? foundReg.label : regKey.toUpperCase();
+        }
+      }
+    }
+
+    return "";
+  };
+
   // Auto-filled fields from selected agent
   const selectedAgent = useMemo(() => {
     if (!selectedAgentId) return null;
     return agentsList.find((a: AgentInfo) => String(a.idAgent) === selectedAgentId) || null;
   }, [selectedAgentId, agentsList]);
 
+  const selectedAgentRegion = useMemo(() => {
+    if (!selectedAgent) return "";
+    return resolveRegionName(selectedAgent.region, selectedAgent.departement);
+  }, [selectedAgent]);
+
   // Auto-fill when agent changes
   useEffect(() => {
     if (selectedAgent) {
-      // Set the geo restriction status from the user
-      // We'll need to fetch this - for now use the data we have
       setGeoRestrictionEnabled(false);
       setRestrictionType("");
     }
@@ -136,9 +185,14 @@ export default function AffectationsPage() {
 
   const saveAffectationMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedAgent || !selectedDomaineId || !selectedNiveau || !selectedZone) {
-        throw new Error("Veuillez remplir tous les champs obligatoires (Agent, Domaine, Niveau, Zone)");
+      if (!selectedAgent || !selectedDomaineId || !selectedNiveau) {
+        throw new Error("Veuillez remplir tous les champs obligatoires (Agent, Domaine, Niveau)");
       }
+      const autoZone =
+        selectedAgentRegion ||
+        selectedAgent.region ||
+        selectedAgent.departement ||
+        (selectedNiveau === "NATIONAL" ? "NATIONAL" : "NON DÉFINI");
       return apiRequest({
         url: "/api/affectations",
         method: "POST",
@@ -146,7 +200,7 @@ export default function AffectationsPage() {
           agentId: selectedAgent.idAgent,
           domaineId: Number(selectedDomaineId),
           niveauHierarchique: selectedNiveau,
-          codeZone: selectedZone,
+          codeZone: String(autoZone).toUpperCase(),
           active: true,
         },
       });
@@ -282,7 +336,7 @@ export default function AffectationsPage() {
               </div>
             </div>
 
-            {/* Row 2: Niveau et Zone */}
+            {/* Row 2: Niveau Hiérarchique */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mt-6">
               {/* Niveau Hiérarchique */}
               <div className="flex flex-col gap-2">
@@ -298,17 +352,6 @@ export default function AffectationsPage() {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Code Zone */}
-              <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground">Code Zone <span className="text-red-500">*</span></Label>
-                <Input
-                  placeholder="Ex: SEN, DKR, THI, etc."
-                  value={selectedZone}
-                  onChange={(e) => setSelectedZone(e.target.value)}
-                  className="py-5 uppercase"
-                />
-              </div>
             </div>
 
             {/* Row 3: Infos Agent auto-remplies (Région, Département, Commune, Arrondissement) */}
@@ -316,7 +359,7 @@ export default function AffectationsPage() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 sm:gap-8 mt-6 p-4 bg-muted/10 rounded-lg border border-border/50">
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Région</Label>
-                  <span className="text-sm font-medium text-foreground">{selectedAgent.region || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
+                  <span className="text-sm font-medium text-foreground">{selectedAgentRegion || selectedAgent.region || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Département</Label>
@@ -386,7 +429,7 @@ export default function AffectationsPage() {
 
               <Button
                 onClick={() => saveAffectationMutation.mutate()}
-                disabled={saveAffectationMutation.isPending || !selectedAgent || !selectedDomaineId || !selectedNiveau || !selectedZone}
+                disabled={saveAffectationMutation.isPending || !selectedAgent || !selectedDomaineId || !selectedNiveau}
                 className="bg-teal-600 text-white hover:bg-teal-700 px-8 py-6 rounded-lg font-bold flex items-center gap-3 transition-all shadow-[0_0_15px_rgba(13,148,136,0.2)] hover:shadow-[0_0_20px_rgba(13,148,136,0.4)]"
               >
                 <CheckCircle className="w-5 h-5" />
@@ -441,7 +484,25 @@ export default function AffectationsPage() {
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">Aucune affectation trouvée.</TableCell>
                     </TableRow>
-                  ) : pagination.currentItems.map((a) => (
+                  ) : pagination.currentItems.map((a) => {
+                    const matchedAgent = agentsList.find((ag: AgentInfo) => ag.idAgent === a.agentId);
+                    const fullName = [
+                      a.agentNom ?? matchedAgent?.nom,
+                      a.agentPrenom ?? matchedAgent?.prenom,
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    const regionDisplay =
+                      resolveRegionName(
+                        a.agentRegion ?? matchedAgent?.region,
+                        a.agentDepartement ?? matchedAgent?.departement
+                      ) ||
+                      a.agentRegion ||
+                      matchedAgent?.region ||
+                      a.codeZone ||
+                      "-";
+
+                    return (
                     <TableRow key={a.id} className="hover:bg-muted/40 transition-colors border-border/50">
                       <TableCell className="py-4 px-6">
                         <div className="flex items-center gap-3">
@@ -450,7 +511,7 @@ export default function AffectationsPage() {
                           </div>
                           <div>
                             <div className="font-medium text-foreground">{a.agentMatricule || "Inconnu"}</div>
-                            <div className="text-xs text-muted-foreground mt-0.5">ID: #{a.agentId}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">{fullName || "-"}</div>
                           </div>
                         </div>
                       </TableCell>
@@ -465,7 +526,7 @@ export default function AffectationsPage() {
                       <TableCell className="py-4 px-6">
                         <div className="flex items-center text-sm font-medium">
                           <MapPin className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-                          {a.codeZone}
+                          {regionDisplay}
                         </div>
                       </TableCell>
                       <TableCell className="py-4 px-6 text-sm text-muted-foreground">
@@ -481,7 +542,8 @@ export default function AffectationsPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

@@ -7,8 +7,8 @@ const PRECACHE_ASSETS = [
   '/index.html',
   '/offline.html',
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
+  '/scodi-icon-192.png',
+  '/scodi-icon-512.png',
   '/icon-blason.svg'
 ];
 
@@ -145,6 +145,10 @@ self.addEventListener('fetch', (event) => {
                 event.request.url.endsWith('.tsx') || 
                 event.request.url.endsWith('.ts') || 
                 event.request.url.endsWith('.jsx') || 
+                event.request.url.endsWith('.svg') || 
+                event.request.url.endsWith('.png') || 
+                event.request.url.endsWith('.ico') || 
+                event.request.url.endsWith('.json') || 
                 (event.request.url.includes('/src/') && (event.request.url.endsWith('.js') || event.request.url.endsWith('.ts') || event.request.url.endsWith('.tsx')));
   
   if (isDev) {

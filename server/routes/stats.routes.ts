@@ -16,6 +16,41 @@ import { isAuthenticated } from './middlewares/auth.middleware.js';
 
 const router = Router();
 
+const CANONICAL_REGION_LABELS: Record<string, string> = {
+  national: 'NATIONAL',
+  dakar: 'DAKAR',
+  thies: 'THIÈS',
+  saintlouis: 'SAINT-LOUIS',
+  louga: 'LOUGA',
+  fatick: 'FATICK',
+  kaolack: 'KAOLACK',
+  kaffrine: 'KAFFRINE',
+  matam: 'MATAM',
+  tambacounda: 'TAMBACOUNDA',
+  kedougou: 'KÉDOUGOU',
+  kolda: 'KOLDA',
+  sedhiou: 'SÉDHIOU',
+  ziguinchor: 'ZIGUINCHOR',
+  diourbel: 'DIOURBEL',
+};
+
+function normalizeRegionKey(raw: string | null | undefined): string {
+  const s = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-_\s]+/g, '');
+  return s || 'nondefini';
+}
+
+function canonicalRegionName(raw: string | null | undefined): string {
+  const key = normalizeRegionKey(raw);
+  if (CANONICAL_REGION_LABELS[key]) return CANONICAL_REGION_LABELS[key];
+  const cleaned = String(raw || '').trim();
+  return cleaned ? cleaned.toUpperCase() : 'Non défini';
+}
+
 // GET /api/stats - Récupérer les statistiques générales
 router.get('/', isAuthenticated, async (req, res) => {
   try {
@@ -151,12 +186,26 @@ router.get('/national/permits-by-category-by-region', isAuthenticated, async (_r
       .innerJoin(users, eq(permits.createdBy, users.id))
       .groupBy(sql`LOWER(TRIM(${users.region}))`, permits.categoryId);
 
+    const merged = new Map<string, { region: string; categoryId: string; count: number; totalDays: number }>();
+    for (const r of rows || []) {
+      const regKey = normalizeRegionKey(r.region);
+      const regLabel = canonicalRegionName(r.region);
+      const cat = r.categoryId || 'non défini';
+      const key = `${regKey}::${cat}`;
+      const cnt = Number(r.count || 0);
+      const avg = Number(r.avgDurationDays || 0);
+      const prev = merged.get(key) || { region: regLabel, categoryId: cat, count: 0, totalDays: 0 };
+      prev.count += cnt;
+      prev.totalDays += avg * cnt;
+      merged.set(key, prev);
+    }
+
     return res.json(
-      (rows || []).map((r: any) => ({
-        region: r.region || 'non défini',
-        categoryId: r.categoryId || 'non défini',
-        count: Number(r.count || 0),
-        avgDurationDays: Number(r.avgDurationDays || 0),
+      Array.from(merged.values()).map((r) => ({
+        region: r.region,
+        categoryId: r.categoryId,
+        count: r.count,
+        avgDurationDays: r.count > 0 ? r.totalDays / r.count : 0,
       }))
     );
   } catch (error) {
@@ -1155,15 +1204,21 @@ router.get('/national/revenue-by-department', isAuthenticated, async (_req, res)
             ORDER BY 1, 2` as any
     ) as any;
 
-    const data = (rows || []).map((row) => ({
-      region: row.region || 'non défini',
-      departement: row.departement || 'non défini',
-      permitAmount: Number(row.permit_amount || 0),
-      taxAmount: Number(row.tax_amount || 0),
-      infractionAmount: Number(row.infraction_amount || 0),
-    }));
+    const merged = new Map<string, { region: string; departement: string; permitAmount: number; taxAmount: number; infractionAmount: number }>();
+    for (const row of rows || []) {
+      const regKey = normalizeRegionKey(row.region);
+      const regLabel = canonicalRegionName(row.region);
+      const depKey = normalizeRegionKey(row.departement);
+      const depLabel = row.departement ? String(row.departement).trim().toUpperCase() : 'Non défini';
+      const key = `${regKey}::${depKey}`;
+      const prev = merged.get(key) || { region: regLabel, departement: depLabel, permitAmount: 0, taxAmount: 0, infractionAmount: 0 };
+      prev.permitAmount += Number(row.permit_amount || 0);
+      prev.taxAmount += Number(row.tax_amount || 0);
+      prev.infractionAmount += Number(row.infraction_amount || 0);
+      merged.set(key, prev);
+    }
 
-    return res.json(data);
+    return res.json(Array.from(merged.values()));
   } catch (error: any) {
     console.error('Erreur /api/stats/national/revenue-by-department:', error);
     return res.status(500).json({ message: 'Erreur lors de la récupération des recettes par département', debug: error?.message || String(error), stack: error?.stack });
@@ -1221,26 +1276,33 @@ router.get('/national/by-region', isAuthenticated, async (req, res) => {
       .innerJoin(users, eq(taxes.createdBy, users.id))
       .groupBy(sql`LOWER(TRIM(${users.region}))`);
 
-    // Fusionner par région
+    // Fusionner par région normalisée (sans accents ni casse) pour éviter les doublons type THIES / THIÈS
     const map = new Map<string, { region: string; activePermits: number; piecesAbattues: number; revenue: number; taxAmount: number }>();
     for (const row of activePermitsByRegion) {
-      map.set(row.region || 'non défini', { region: row.region || 'non défini', activePermits: Number(row.count || 0), piecesAbattues: 0, revenue: 0, taxAmount: 0 });
+      const key = normalizeRegionKey(row.region);
+      const label = canonicalRegionName(row.region);
+      const prev = map.get(key) || { region: label, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
+      prev.activePermits += Number(row.count || 0);
+      map.set(key, prev);
     }
     for (const row of piecesByRegion) {
-      const key = row.region || 'non défini';
-      const prev = map.get(key) || { region: key, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
-      prev.piecesAbattues = Number(row.pieces || 0);
+      const key = normalizeRegionKey(row.region);
+      const label = canonicalRegionName(row.region);
+      const prev = map.get(key) || { region: label, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
+      prev.piecesAbattues += Number(row.pieces || 0);
       map.set(key, prev);
     }
     for (const row of permitRevenueByRegion) {
-      const key = row.region || 'non défini';
-      const prev = map.get(key) || { region: key, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
+      const key = normalizeRegionKey(row.region);
+      const label = canonicalRegionName(row.region);
+      const prev = map.get(key) || { region: label, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
       prev.revenue += Number(row.total || 0);
       map.set(key, prev);
     }
     for (const row of taxesRevenueByRegion) {
-      const key = row.region || 'non défini';
-      const prev = map.get(key) || { region: key, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
+      const key = normalizeRegionKey(row.region);
+      const label = canonicalRegionName(row.region);
+      const prev = map.get(key) || { region: label, activePermits: 0, piecesAbattues: 0, revenue: 0, taxAmount: 0 };
       const tax = Number(row.total || 0);
       prev.revenue += tax;
       prev.taxAmount += tax;
@@ -1453,14 +1515,19 @@ router.get('/national/weapons-by-region', isAuthenticated, async (req, res) => {
       .groupBy(sql`LOWER(TRIM(${hunters.region}))`, hunters.weaponBrand, hunters.weaponType)
       .orderBy(sql`LOWER(TRIM(${hunters.region}))`, hunters.weaponBrand);
 
-    const result = (data || []).map((w: any) => ({
-      region: w.region || 'Non spécifié',
-      brand: w.brand || 'Non spécifié',
-      weaponType: w.weaponType || 'Non spécifié',
-      count: Number(w.count || 0)
-    }));
+    const merged = new Map<string, { region: string; brand: string; weaponType: string; count: number }>();
+    for (const w of data || []) {
+      const regKey = normalizeRegionKey((w as any).region);
+      const regLabel = (w as any).region ? canonicalRegionName((w as any).region) : 'Non spécifié';
+      const brand = (w as any).brand || 'Non spécifié';
+      const weaponType = (w as any).weaponType || 'Non spécifié';
+      const key = `${regKey}::${brand.toLowerCase()}::${weaponType.toLowerCase()}`;
+      const prev = merged.get(key) || { region: regLabel, brand, weaponType, count: 0 };
+      prev.count += Number((w as any).count || 0);
+      merged.set(key, prev);
+    }
 
-    return res.json(result);
+    return res.json(Array.from(merged.values()));
   } catch (error) {
     console.error('Erreur /api/stats/national/weapons-by-region:', error);
     return res.status(500).json({ message: 'Erreur lors de la récupération des armes par région' });

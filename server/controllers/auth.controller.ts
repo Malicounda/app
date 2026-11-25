@@ -44,8 +44,11 @@ export const login = async (req: Request, res: Response) => {
         console.log(`[LOGIN] Recherche par identifiant: ${idValue}, Domaine: ${currentDomain}`);
         let user;
         if (isAlerteLogin) {
-            // Pour ALERTE, le matricule est stocké strictement dans username
+            // Pour ALERTE, chercher par username puis par matricule (users.matricule / agents.matricule_sol, avec ou sans espaces)
             user = await storage.getUserByUsername(idValue);
+            if (!user) {
+                user = await storage.getUserByMatricule(idValue);
+            }
         } else {
             user = await storage.findUserByIdentifier(idValue);
         }

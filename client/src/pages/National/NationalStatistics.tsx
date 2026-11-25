@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/api";
+import { exportArrayToCsv } from "@/utils/export";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -147,16 +148,16 @@ export default function NationalStatistics() {
     }
     const data = (resp as any).data || [];
     const header = [
-      'AlerteID','DateAlerte','Nature','RegionAlerte','DepartementAlerte',
-      'DestinataireID','Nom','Prenom','Role','RegionService','DepartementService','Lu','DateNotification'
+      'Alerte ID', 'Date Alerte', 'Nature', 'Région Alerte', 'Département Alerte',
+      'Destinataire ID', 'Nom', 'Prénom', 'Rôle', 'Région Service', 'Département Service', 'Lu', 'Date Notification'
     ];
-    const lines: string[] = [];
+    const rows: (string | number)[][] = [];
     for (const a of data) {
       for (const rec of (a.recipients || [])) {
         const last = rec.user?.last_name || '';
         const first = rec.user?.first_name || '';
-        const row = [
-          a.alert_id,
+        rows.push([
+          a.alert_id ?? '',
           a.created_at ? new Date(a.created_at).toLocaleString('fr-FR') : '',
           a.nature || '',
           prettyRegion(a.region || ''),
@@ -169,18 +170,10 @@ export default function NationalStatistics() {
           rec.user?.departement || '',
           rec.is_read ? 'OUI' : 'NON',
           rec.created_at ? new Date(rec.created_at).toLocaleString('fr-FR') : ''
-        ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
-        lines.push(row);
+        ]);
       }
     }
-    const csv = [header.join(','), ...lines].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const durl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = durl;
-    link.download = `alertes_destinataires_${alertPeriod}.csv`;
-    link.click();
-    URL.revokeObjectURL(durl);
+    exportArrayToCsv(`alertes_destinataires_${alertPeriod}.csv`, header, rows);
   };
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
@@ -196,7 +189,24 @@ export default function NationalStatistics() {
   const [weaponCategoryFilter, setWeaponCategoryFilter] = useState<string>('toutes');
   // Normalisation/affichage des régions - Chargées dynamiquement depuis l'API
   // Les libellés et l'ordre sont maintenant récupérés depuis la base de données
-  const REGION_LABELS: Record<string, string> = {}; // Vide - sera rempli dynamiquement
+  const REGION_LABELS: Record<string, string> = {
+    national: 'NATIONAL',
+    dakar: 'DAKAR',
+    thies: 'THIÈS',
+    saintlouis: 'SAINT-LOUIS',
+    louga: 'LOUGA',
+    fatick: 'FATICK',
+    kaolack: 'KAOLACK',
+    kaffrine: 'KAFFRINE',
+    matam: 'MATAM',
+    tambacounda: 'TAMBACOUNDA',
+    kedougou: 'KÉDOUGOU',
+    kolda: 'KOLDA',
+    sedhiou: 'SÉDHIOU',
+    ziguinchor: 'ZIGUINCHOR',
+    diourbel: 'DIOURBEL',
+    nondefini: 'Non défini',
+  };
   const REGION_ORDER: string[] = []; // Vide - sera rempli dynamiquement
   const removeDiacritics = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const canonicalRegionKey = (raw?: string) => {
@@ -206,11 +216,12 @@ export default function NationalStatistics() {
   };
 
   const prettyRegion = (raw?: string) => {
-    const key = String(raw || 'non défini').trim().toLowerCase();
+    const key = canonicalRegionKey(raw);
     const label = REGION_LABELS[key];
     if (label) return label;
+    const rawTrimmed = String(raw || 'non défini').trim().toLowerCase();
     // Title-case simple par défaut
-    return key
+    return rawTrimmed
       .split(/\s+/)
       .map((w) => (w[0] ? w[0].toUpperCase() + w.slice(1) : w))
       .join(' ');
@@ -750,27 +761,17 @@ export default function NationalStatistics() {
     return ['toutes', ...Array.from(set).sort((a,b)=>a.localeCompare(b))];
   }, [mapAlerts]);
 
-  // Export CSV Recettes (par région)
+  // Export CSV Recettes (selon filtre actif : région ou département)
   const exportRevenueCsv = () => {
-    const rows = (byRegion || []).map(r => ({
-      region: prettyRegion(r.region),
-      revenue: Number(r.revenue || 0),
-      activePermits: Number((r as any).activePermits || 0),
-      piecesAbattues: Number((r as any).piecesAbattues || 0),
-    }));
-    const header = ['Region','Recette(FCFA)','PermisActifs','PiecesAbattues'];
-    const lines = rows
-      .sort((a,b)=> b.revenue - a.revenue)
-      .map(x => [x.region, x.revenue, x.activePermits, x.piecesAbattues]
-        .map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
-    const csv = [header.join(','), ...lines].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'recettes_par_region.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    if (revenueGroupBy === 'departement') {
+      const header = ['Région', 'Département', 'Recette (FCFA)'];
+      const rows = revenueTableRows.map(r => [r.region, r.departement || 'Non défini', r.revenue]);
+      exportArrayToCsv('recettes_par_departement.csv', header, rows);
+      return;
+    }
+    const header = ['Région', 'Recette (FCFA)'];
+    const rows = revenueTableRows.map(r => [r.region, r.revenue]);
+    exportArrayToCsv('recettes_par_region.csv', header, rows);
   };
 
   const groupedAlerts = useMemo(() => {
@@ -862,7 +863,7 @@ export default function NationalStatistics() {
       'Expéditeur', 'Rôle expéditeur', 'Région expéditeur', 'Département expéditeur',
       'Latitude', 'Longitude'
     ];
-    const lines = (mapAlerts || []).map(a => {
+    const rows = (mapAlerts || []).map(a => {
       const senderName = [a.sender?.first_name || '', a.sender?.last_name || ''].filter(Boolean).join(' ').trim();
       return [
         a.created_at ? new Date(a.created_at as any).toLocaleString('fr-FR') : '',
@@ -870,42 +871,116 @@ export default function NationalStatistics() {
         prettyRegion(a.region || ''),
         a.departement || '',
         a.title || '',
-        (a.message || '').replace(/\s+/g,' ').trim(),
+        (a.message || '').replace(/\s+/g, ' ').trim(),
         senderName,
         a.sender?.role || '',
         a.sender?.region || '',
         a.sender?.departement || '',
         String(a.lat ?? ''),
         String(a.lon ?? '')
-      ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+      ];
     });
-    const csv = [header.join(','), ...lines].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `alertes_${alertPeriod}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    exportArrayToCsv(`alertes_${alertPeriod}.csv`, header, rows);
   };
 
   // Export CSV pour les armes
   const exportWeaponsCsv = () => {
-    const header = ['Région', 'Marque', 'Type d\'arme', 'Nombre'];
-    const lines = (filteredWeaponsByRegion || []).map(w => [
+    const header = ['Région', 'Marque', "Type d'arme", 'Nombre'];
+    const rows = (filteredWeaponsByRegion || []).map(w => [
       prettyRegion(w.region),
       w.brand || 'Non spécifié',
       w.weaponType || 'Non spécifié',
-      String(w.count)
-    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
-    const csv = [header.join(','), ...lines].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'armes_statistiques.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+      Number(w.count || 0)
+    ]);
+    exportArrayToCsv('armes_statistiques.csv', header, rows);
+  };
+
+  // Export unifié pour l'onglet actif
+  const handleExportActiveTab = () => {
+    switch (activeTab) {
+      case 'overview': {
+        const header = ['Région (Top 5)', 'Permis actifs', 'Pièces abattues', 'Recette (FCFA)'];
+        const rows = topRegions.map(r => [r.region, r.activePermits, r.piecesAbattues, r.revenue]);
+        exportArrayToCsv('vue_ensemble_nationale.csv', header, rows);
+        break;
+      }
+      case 'regions': {
+        const header = ['Région', 'Permis actifs', 'Pièces abattues', "Taxe d'abattage (FCFA)", 'Recette (FCFA)'];
+        const rows = (byRegion || []).map(r => [
+          (r.region || '').toUpperCase(),
+          Number(r.activePermits ?? 0),
+          Number(r.piecesAbattues ?? 0),
+          Number((r as any).taxAmount || 0),
+          Number(r.revenue ?? 0),
+        ]);
+        exportArrayToCsv('statistiques_par_region.csv', header, rows);
+        break;
+      }
+      case 'categories': {
+        const header = ['Région', 'Catégorie de permis', 'Nombre'];
+        const rows = (permitsCatByRegion || []).map(r => [
+          prettyRegion(r.region),
+          String(r.categoryId || 'non défini').toUpperCase(),
+          Number(r.count || 0),
+        ]);
+        exportArrayToCsv('categories_permis_par_region.csv', header, rows);
+        break;
+      }
+      case 'especes': {
+        const rowsData = speciesByRegion || [];
+        const regionKeyToLabel = new Map<string, string>();
+        for (const r of rowsData) {
+          const key = canonicalRegionKey(r.region);
+          const lbl = REGION_LABELS[key] || prettyRegion(r.region);
+          regionKeyToLabel.set(key, lbl);
+        }
+        const regions = sortRegions(Array.from(regionKeyToLabel.values()));
+        const bySpecies = new Map<string, { id: string; name: string; sci?: string; values: Record<string, number> }>();
+        for (const r of rowsData) {
+          const id = r.speciesId || 'unknown';
+          const key = canonicalRegionKey(r.region);
+          const label = regionKeyToLabel.get(key) || prettyRegion(r.region);
+          const entry = bySpecies.get(id) || { id, name: r.speciesName || id, sci: r.scientificName, values: {} };
+          entry.values[label] = (entry.values[label] || 0) + (Number(r.quantity) || 0);
+          bySpecies.set(id, entry);
+        }
+        const speciesList = Array.from(bySpecies.values()).sort((a, b) => a.name.localeCompare(b.name));
+        const header = ['Espèce', 'Nom scientifique', ...regions, 'Total'];
+        const csvRows = speciesList.map(sp => {
+          const rowTotal = regions.reduce((s, reg) => s + (sp.values[reg] || 0), 0);
+          return [sp.name, sp.sci || '', ...regions.map(reg => sp.values[reg] || 0), rowTotal];
+        });
+        exportArrayToCsv('especes_chassees_par_region.csv', header, csvRows);
+        break;
+      }
+      case 'infractions': {
+        const header = ['Date', 'Nature', 'Code visé', 'Article', 'Agent verbalisateur', 'Région', 'Département', 'Montant (FCFA)', 'N° Quittance'];
+        const rows = (infractionsData || []).map((row: any) => [
+          row.date_infraction ? new Date(row.date_infraction).toLocaleDateString('fr-FR') : '',
+          row.nature || '',
+          row.code || '',
+          row.article_code || '',
+          [row.agent_prenom, row.agent_nom].filter(Boolean).join(' '),
+          row.region || '',
+          row.departement || '',
+          Number(row.montant_chiffre || 0),
+          row.numero_quittance || '',
+        ]);
+        exportArrayToCsv('infractions_national.csv', header, rows);
+        break;
+      }
+      case 'alertes':
+        exportAlertsCsv();
+        break;
+      case 'recette':
+        exportRevenueCsv();
+        break;
+      case 'armes':
+        exportWeaponsCsv();
+        break;
+      default:
+        break;
+    }
   };
 
   // Élargir le conteneur parent (page-frame-inner) pour ce tableau de bord
@@ -931,7 +1006,7 @@ export default function NationalStatistics() {
                 <Printer className="w-4 h-4" />
                 Imprimer
               </Button>
-              <Button variant="outline" className="flex items-center gap-2 px-3 py-2 text-sm">
+              <Button variant="outline" className="flex items-center gap-2 px-3 py-2 text-sm" onClick={handleExportActiveTab}>
                 <FileDown className="w-4 h-4" />
                 Exporter
               </Button>
@@ -1397,13 +1472,6 @@ export default function NationalStatistics() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex-1" />
-                      <Button variant="outline" className="flex items-center gap-2" onClick={exportRevenueCsv}>
-                        <FileDown className="w-4 h-4" /> Exporter Excel
-                      </Button>
-                      <Button variant="outline" className="flex items-center gap-2" onClick={handlePrint}>
-                        <Printer className="w-4 h-4" /> Imprimer
-                      </Button>
                     </div>
                   )}
                   {revenueView === 'chart' ? (
@@ -1542,16 +1610,6 @@ export default function NationalStatistics() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex-1" />
-                    <Button variant="outline" className="flex items-center gap-2" onClick={exportAlertsCsv}>
-                      <FileDown className="w-4 h-4" /> Exporter CSV
-                    </Button>
-                    <Button variant="outline" className="flex items-center gap-2" onClick={exportAlertsWithRecipientsCsv}>
-                      <FileDown className="w-4 h-4" /> Exporter destinataires
-                    </Button>
-                    <Button variant="outline" className="flex items-center gap-2" onClick={handlePrint}>
-                      <Printer className="w-4 h-4" /> Imprimer
-                    </Button>
                   </div>
 
                   {alertsLoading ? (
@@ -1855,13 +1913,6 @@ export default function NationalStatistics() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex-1" />
-                    <Button variant="outline" className="flex items-center gap-2" onClick={exportWeaponsCsv}>
-                      <FileDown className="w-4 h-4" /> Exporter Excel
-                    </Button>
-                    <Button variant="outline" className="flex items-center gap-2" onClick={handlePrint}>
-                      <Printer className="w-4 h-4" /> Imprimer
-                    </Button>
                   </div>
 
                   {weaponsLoading ? (

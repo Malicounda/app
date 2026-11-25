@@ -3,6 +3,7 @@ import compression from 'compression';
 import dotenv from 'dotenv';
 import { sql } from 'drizzle-orm/sql';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import session from 'express-session';
 import fs from 'fs';
 import { createServer, type Server as HttpServer } from 'http';
@@ -31,6 +32,7 @@ import { storage } from './storage.js';
 import { ensureAttachmentBlobsTable, logAttachmentStorageStatus } from './lib/messageAttachmentStorage.js';
 import { getUploadsDir, migrateLegacyUploadsToCanonical } from './lib/uploadsPath.js';
 import { log } from './utils/logger.js';
+import { ensurePortAvailable } from './utils/portGuard.js';
 import { CustomPGStore } from './utils/sessionStore.js';
 
 // Configuration des chemins de fichiers pour les modules ES
@@ -195,6 +197,28 @@ app.use(session(sessionConfig));
 app.get('/api/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
+
+// ── Limitation de requêtes (protection anti-bruteforce et anti-scraping) ──
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 tentatives par IP sur 15 min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Trop de tentatives. Veuillez réessayer dans 15 minutes.' },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300, // 300 requêtes par IP par minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Trop de requêtes. Veuillez patienter un instant.' },
+});
+
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/users/register', authLimiter);
+app.use('/api', apiLimiter);
 
 // Middleware pour vérifier et gérer la session
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -600,6 +624,21 @@ const startServer = async (): Promise<HttpServer> => {
     // Démarrer le serveur sur le port 3000
     const PORT = parseInt(process.env.PORT || '3000', 10);
     const HOST = process.env.HOST || '0.0.0.0'; // Écouter sur toutes les interfaces
+
+    // En développement uniquement (inactif en production), libérer le port s'il est occupé par une ancienne instance
+    await ensurePortAvailable(PORT, HOST);
+
+    // Gérer proprement les erreurs de démarrage du serveur HTTP (ex: EADDRINUSE en prod)
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        log(`❌ Le port ${PORT} est déjà utilisé sur ${HOST}. Arrêtez l'autre instance ou changez PORT.`, 'server');
+      } else if (err.code === 'EACCES') {
+        log(`❌ Permission refusée pour écouter sur ${HOST}:${PORT}.`, 'server');
+      } else {
+        log(`❌ Erreur du serveur HTTP: ${err.message}`, 'server');
+      }
+      process.exit(1);
+    });
 
     server.listen(PORT, HOST, () => {
       log(`🚀 Serveur démarré sur http://localhost:${PORT}`, 'server');

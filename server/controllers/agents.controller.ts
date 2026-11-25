@@ -33,7 +33,7 @@ const createAgentSchema = z.object({
 });
 
 const updateAgentSchema = z.object({
-  matriculeSol: z.string().min(1).optional(),
+  matriculeSol: z.string().min(1).optional().nullable(),
   nom: z.string().optional().nullable(),
   prenom: z.string().optional().nullable(),
   grade: z.string().optional().nullable(),
@@ -47,8 +47,8 @@ const updateAgentSchema = z.object({
   arrondissement: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   email: z.string().email().optional().nullable(),
-  userRole: z.string().optional(),
-  adminDomainId: z.number().int().optional(),
+  userRole: z.string().optional().nullable(),
+  adminDomainId: z.number().int().optional().nullable(),
 });
 
 async function getAgentJoinedRow(idAgent: number) {
@@ -275,7 +275,9 @@ export async function upsertAgentByUser(req: Request, res: Response) {
     const parsed = updateAgentSchema.parse(req.body);
     const updateData: any = {};
 
-    if (parsed.matriculeSol !== undefined) updateData.matriculeSol = parsed.matriculeSol;
+    if (parsed.matriculeSol !== undefined && parsed.matriculeSol !== null) {
+      updateData.matriculeSol = parsed.matriculeSol.trim();
+    }
     if (parsed.nom !== undefined) updateData.nom = parsed.nom;
     if (parsed.prenom !== undefined) updateData.prenom = parsed.prenom;
     if (parsed.grade !== undefined) updateData.grade = parsed.grade;
@@ -284,6 +286,9 @@ export async function upsertAgentByUser(req: Request, res: Response) {
     if (parsed.contact !== undefined) updateData.contact = parsed.contact;
 
     const userUpdateData: any = {};
+    if (parsed.matriculeSol !== undefined && parsed.matriculeSol !== null) {
+      userUpdateData.matricule = parsed.matriculeSol.trim();
+    }
     if (parsed.nom !== undefined) userUpdateData.lastName = parsed.nom;
     if (parsed.prenom !== undefined) userUpdateData.firstName = parsed.prenom;
     if (parsed.contact !== undefined && parsed.contact) {
@@ -297,6 +302,16 @@ export async function upsertAgentByUser(req: Request, res: Response) {
     if (parsed.commune !== undefined) userUpdateData.commune = parsed.commune;
     if (parsed.arrondissement !== undefined) userUpdateData.arrondissement = parsed.arrondissement;
 
+    if (parsed.userRole !== undefined && parsed.userRole !== null && (req.session as any)?.user?.isSuperAdmin) {
+      userUpdateData.role = parsed.userRole;
+      if (parsed.userRole === 'super-admin') {
+        userUpdateData.isSuperAdmin = true;
+        userUpdateData.role = 'admin';
+      } else {
+        userUpdateData.isSuperAdmin = false;
+      }
+    }
+
     if (parsed.password) {
       const salt = await bcrypt.genSalt(10);
       userUpdateData.password = await bcrypt.hash(parsed.password, salt);
@@ -309,6 +324,39 @@ export async function upsertAgentByUser(req: Request, res: Response) {
     const agentRow = await db.transaction(async (tx) => {
       if (Object.keys(userUpdateData).length > 0) {
         await tx.update(users).set(userUpdateData).where(eq(users.id as any, userId as any));
+      }
+
+      if (parsed.userRole !== undefined && parsed.userRole !== null && (req.session as any)?.user?.isSuperAdmin) {
+        if (parsed.userRole === 'admin' && parsed.adminDomainId) {
+          const existingDomain = await tx
+            .select()
+            .from(userDomains)
+            .where(and(eq(userDomains.userId as any, userId as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
+          if (existingDomain.length === 0) {
+            const domainNameRow = await tx
+              .select()
+              .from(domaines)
+              .where(eq(domaines.id as any, parsed.adminDomainId as any))
+              .limit(1);
+            await tx.insert(userDomains).values({
+              userId,
+              domain: (domainNameRow?.[0] as any)?.nomDomaine || 'UNKNOWN',
+              domaineId: parsed.adminDomainId,
+              role: 'admin',
+              active: true,
+            } as any);
+          } else {
+            await tx
+              .update(userDomains)
+              .set({ role: 'admin' as any, active: true } as any)
+              .where(and(eq(userDomains.userId as any, userId as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
+          }
+        } else if (parsed.userRole !== 'admin') {
+          await tx
+            .update(userDomains)
+            .set({ role: 'agent' as any } as any)
+            .where(and(eq(userDomains.userId as any, userId as any), eq(userDomains.role as any, 'admin' as any)));
+        }
       }
 
       const existing = await tx
@@ -557,7 +605,9 @@ export async function updateAgent(req: Request, res: Response) {
     const parsed = updateAgentSchema.parse(req.body);
     const updateData: any = {};
 
-    if (parsed.matriculeSol !== undefined) updateData.matriculeSol = parsed.matriculeSol;
+    if (parsed.matriculeSol !== undefined && parsed.matriculeSol !== null) {
+      updateData.matriculeSol = parsed.matriculeSol.trim();
+    }
     if (parsed.nom !== undefined) updateData.nom = parsed.nom;
     if (parsed.prenom !== undefined) updateData.prenom = parsed.prenom;
     if (parsed.grade !== undefined) updateData.grade = parsed.grade;
@@ -566,6 +616,9 @@ export async function updateAgent(req: Request, res: Response) {
     if (parsed.contact !== undefined) updateData.contact = parsed.contact;
 
     const userUpdateData: any = {};
+    if (parsed.matriculeSol !== undefined && parsed.matriculeSol !== null) {
+      userUpdateData.matricule = parsed.matriculeSol.trim();
+    }
     if (parsed.nom !== undefined) userUpdateData.lastName = parsed.nom;
     if (parsed.prenom !== undefined) userUpdateData.firstName = parsed.prenom;
     if (parsed.contact !== undefined && parsed.contact) {
@@ -579,7 +632,7 @@ export async function updateAgent(req: Request, res: Response) {
     if (parsed.commune !== undefined) userUpdateData.commune = parsed.commune;
     if (parsed.arrondissement !== undefined) userUpdateData.arrondissement = parsed.arrondissement;
 
-    if (parsed.userRole !== undefined && (req.session as any)?.user?.isSuperAdmin) {
+    if (parsed.userRole !== undefined && parsed.userRole !== null && (req.session as any)?.user?.isSuperAdmin) {
        userUpdateData.role = parsed.userRole;
        if (parsed.userRole === 'super-admin') {
            userUpdateData.isSuperAdmin = true;
@@ -623,7 +676,7 @@ export async function updateAgent(req: Request, res: Response) {
         await tx.update(users).set(userUpdateData).where(eq(users.id as any, agentRow.userId as any));
       }
 
-      if (parsed.userRole !== undefined && (req.session as any)?.user?.isSuperAdmin) {
+      if (parsed.userRole !== undefined && parsed.userRole !== null && (req.session as any)?.user?.isSuperAdmin) {
          if (parsed.userRole === 'admin' && parsed.adminDomainId) {
              const existingDomain = await tx.select().from(userDomains).where(and(eq(userDomains.userId as any, agentRow.userId as any), eq(userDomains.domaineId as any, parsed.adminDomainId as any)));
              if (existingDomain.length === 0) {
