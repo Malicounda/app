@@ -8,6 +8,7 @@ import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import ChatAttachmentBlock from "@/components/messaging/ChatAttachmentBlock";
 import { AgentNotFoundAvatar, ContactAvatar } from "@/components/messaging/ContactAvatar";
 import MessageAttachmentViewer from "@/components/messaging/MessageAttachmentViewer";
+import CameraCaptureModal from "@/components/messaging/CameraCaptureModal";
 import { guessAttachmentMime, repairAttachmentFileName } from "@/lib/attachmentMime";
 import { buildMessageAttachmentUrl } from "@/lib/messageAttachments";
 import {
@@ -91,6 +92,7 @@ export default function SimpleSMSPage() {
   const [selectedConvKeys, setSelectedConvKeys] = useState<Set<string>>(new Set());
   const [massDeleting, setMassDeleting] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
 
   const deleteConversationByKey = async (contactKey: string): Promise<boolean> => {
     const conv = conversations.find((c) => c.contactKey === contactKey);
@@ -745,7 +747,7 @@ export default function SimpleSMSPage() {
 
   if (isAlerteUser) {
     return (
-      <div className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-50 ${phoneView !== 'chat' ? 'pb-14 sm:pb-16' : ''} md:pb-0`} style={{ paddingTop: 'calc(52px + env(safe-area-inset-top, 0px))' }}>
+      <div className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-50 ${phoneView !== 'chat' ? 'pb-16' : ''}`} style={{ paddingTop: 'calc(52px + env(safe-area-inset-top, 0px))' }}>
         {/* supervisor phone Messaging UI */}
         {usePhoneMessagingUi && (
           <div className="bg-white flex-1 flex flex-col min-h-0 w-full h-full relative">
@@ -1112,7 +1114,7 @@ export default function SimpleSMSPage() {
                               <Plus className="h-4 w-4 text-gray-500" />
                               <span>Fichier</span>
                             </button>
-                            <button type="button" onClick={() => { document.getElementById('camera-capture-input-2')?.click(); }} className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors">
+                            <button type="button" onClick={() => { setShowAttachMenu(false); setShowCameraModal(true); }} className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors">
                               <Camera className="h-4 w-4 text-gray-500" />
                               <span>Caméra</span>
                             </button>
@@ -1381,7 +1383,7 @@ export default function SimpleSMSPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => document.getElementById('form-camera-input')?.click()}
+                      onClick={() => setShowCameraModal(true)}
                       className="w-full flex flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 px-2 py-3 hover:bg-gray-100 transition-colors"
                     >
                       <div className="text-sm font-semibold text-green-700">Prendre une photo</div>
@@ -1553,6 +1555,14 @@ export default function SimpleSMSPage() {
             </div>
           </div>
         )}
+        <CameraCaptureModal
+          open={showCameraModal}
+          onClose={() => setShowCameraModal(false)}
+          onCapture={(file) => {
+            setDefaultAttachment(file);
+            setShowAttachMenu(false);
+          }}
+        />
       </div>
     );
   }
@@ -1639,9 +1649,9 @@ export default function SimpleSMSPage() {
     <div className={`flex flex-col bg-transparent ${usePhoneMessagingUi ? 'h-full' : 'min-h-screen'}`}>
       {inboxOnly && <AgentTopHeader />}
       <ResponsivePage className={`bg-transparent w-full ${usePhoneMessagingUi ? 'flex-1 h-full flex flex-col' : 'flex-1'}`}>
-        <div className={`${usePhoneMessagingUi || isDefaultRole ? 'w-full' : inboxOnly ? 'mx-auto max-w-3xl' : 'mx-auto max-w-6xl'} ${usePhoneMessagingUi ? 'h-full flex flex-col flex-1' : ''}`}>
-          <div className={`grid ${(usePhoneMessagingUi || isDefaultRole) ? 'gap-0' : 'gap-4'} ${inboxOnly || usePhoneMessagingUi || isDefaultRole ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} ${usePhoneMessagingUi ? 'h-full flex-1' : isDefaultRole ? 'h-auto pb-8' : 'lg:h-[78vh]'}`}>
-            {!usePhoneMessagingUi && !isDefaultRole && (
+        <div className={`${usePhoneMessagingUi ? 'w-full' : inboxOnly ? 'mx-auto max-w-3xl' : 'mx-auto max-w-6xl'} ${usePhoneMessagingUi ? 'h-full flex flex-col flex-1' : ''}`}>
+          <div className={`grid ${usePhoneMessagingUi ? 'gap-0' : 'gap-4'} ${inboxOnly || usePhoneMessagingUi ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} ${usePhoneMessagingUi ? 'h-full flex-1' : 'lg:h-[78vh]'}`}>
+            {!usePhoneMessagingUi && (
               <section className="bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden flex flex-col min-h-0 shadow-sm lg:h-[78vh] lg:order-2">
                 <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0 flex items-start gap-2">
@@ -1733,7 +1743,7 @@ export default function SimpleSMSPage() {
               </section>
             )}
 
-            {!inboxOnly && !isDefaultRole && !usePhoneMessagingUi && (
+            {!inboxOnly && !usePhoneMessagingUi && (
               <aside id="composer-panel" className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 shadow-sm lg:h-[78vh] lg:overflow-auto lg:order-1">
                 <InternalMessageComposer
                   loading={sending}
@@ -1965,7 +1975,7 @@ export default function SimpleSMSPage() {
 
                         {/* Hidden input and button for direct Camera capture */}
                         <input id="camera-capture-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setDefaultAttachment(f); }} />
-                        <button type="button" onClick={() => document.getElementById('camera-capture-input')?.click()} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Camera className="h-4 w-4 text-gray-500" /></button>
+                        <button type="button" onClick={() => setShowCameraModal(true)} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Camera className="h-4 w-4 text-gray-500" /></button>
 
                         <div className="flex-1 relative">
                           <textarea value={defaultMsg} onChange={e => {
@@ -2163,6 +2173,14 @@ export default function SimpleSMSPage() {
         </div>
       )}
       <MessageAttachmentViewer payload={preview} onClose={() => setPreview(null)} />
+      <CameraCaptureModal
+        open={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onCapture={(file) => {
+          setDefaultAttachment(file);
+          setShowAttachMenu(false);
+        }}
+      />
     </div>
   );
 }

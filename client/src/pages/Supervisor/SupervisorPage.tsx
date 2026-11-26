@@ -372,6 +372,13 @@ export default function SupervisorPage() {
   const [monthFilter, setMonthFilter] = useState<string>('all');
   const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'year' | 'all'>('all');
 
+  // Garantir que le domaine actif reste ALERTE tant qu'on est sur l'accueil Superviseur Alerte
+  useEffect(() => {
+    try {
+      localStorage.setItem("domain", "ALERTE");
+    } catch {}
+  }, []);
+
   // Fetch all alerts in the system for complete stats, filtered by the supervisor's zone
   const { data: allReceivedAlerts } = useQuery({
     queryKey: ["supervisor-all-alerts", user?.id, user?.region, user?.departement, user?.commune, user?.arrondissement],
@@ -795,19 +802,28 @@ export default function SupervisorPage() {
               variant="alerts"
               alertsTone="orange"
               size="supervisor"
-              onClick={() => setLocation("/alerts")}
+              onClick={() => {
+                try { localStorage.setItem("domain", "ALERTE"); } catch {}
+                setLocation("/alerts");
+              }}
               badge={unreadAlerts}
               subtitle="Consulter les alertes et notifications"
             />
             <AlerteDomainActionCard
               variant="messages"
               size="supervisor"
-              onClick={() => setLocation("/sms")}
+              onClick={() => {
+                try { localStorage.setItem("domain", "ALERTE"); } catch {}
+                setLocation("/sms");
+              }}
               badge={unreadMessages}
               subtitle="Consulter vos messages et discussions"
             />
           </div>
-          <SupervisorMapCard onClick={() => setLocation("/map")} />
+          <SupervisorMapCard onClick={() => {
+            try { localStorage.setItem("domain", "ALERTE"); } catch {}
+            setLocation("/map");
+          }} />
         </div>
 
         <div className="flex flex-col items-center gap-4 pb-2 pt-4">
@@ -855,7 +871,10 @@ export default function SupervisorPage() {
                       <div
                         key={n.id}
                         className="group flex cursor-pointer items-center rounded-full bg-amber-100/50 px-3 py-1 transition-colors hover:bg-amber-200/50"
-                        onClick={() => setLocation("/alerts")}
+                        onClick={() => {
+                          try { localStorage.setItem("domain", "ALERTE"); } catch {}
+                          setLocation("/alerts");
+                        }}
                       >
                         {renderTickerItem(n)}
                       </div>

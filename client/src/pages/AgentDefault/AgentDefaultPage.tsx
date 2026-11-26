@@ -46,6 +46,13 @@ export default function AgentDefaultPage() {
   const [showLicense, setShowLicense] = useState(false);
   const [outOfZone, setOutOfZone] = useState(false);
 
+  // Garantir que le domaine actif reste ALERTE tant qu'on est sur l'accueil Alerte
+  useEffect(() => {
+    try {
+      localStorage.setItem("domain", "ALERTE");
+    } catch {}
+  }, []);
+
   const { data: unreadData } = useUnreadNotificationsCount();
   const unreadAlerts = unreadData?.count ?? 0;
 
@@ -108,7 +115,7 @@ export default function AgentDefaultPage() {
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#2d6a4f]">
       <AgentTopHeader />
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col items-center justify-center px-4 py-8 relative">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col items-center justify-center px-4 pt-8 pb-24 relative">
 
         {/* Main Centered Modal / Pop-up */}
         <div className="w-full max-w-sm bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl shadow-black/20 border border-white/50 p-7 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300 relative z-10">
@@ -144,6 +151,7 @@ export default function AgentDefaultPage() {
                   alert("Action bloquée : Vous êtes hors zone.");
                   return;
                 }
+                try { localStorage.setItem("domain", "ALERTE"); } catch {}
                 setLocation("/alerts");
               }}
               badge={unreadAlerts}
@@ -157,13 +165,8 @@ export default function AgentDefaultPage() {
               variant="messages"
               size="compact"
               onClick={() => {
-                let smsPath = "/sms";
-                if (user?.type === "secteur" || user?.role === "sub-agent") {
-                  smsPath = "/sector-sms";
-                } else if (user?.role === "agent") {
-                  smsPath = "/regional-sms";
-                }
-                setLocation(smsPath);
+                try { localStorage.setItem("domain", "ALERTE"); } catch {}
+                setLocation("/sms");
               }}
               badge={msgUnread}
               className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-green-100/30"
@@ -204,7 +207,10 @@ export default function AgentDefaultPage() {
                       <div
                         key={n.id}
                         className="group flex cursor-pointer items-center rounded-full bg-amber-100/50 px-3 py-1 transition-colors hover:bg-amber-200/50"
-                        onClick={() => setLocation("/alerts")}
+                        onClick={() => {
+                          try { localStorage.setItem("domain", "ALERTE"); } catch {}
+                          setLocation("/alerts");
+                        }}
                       >
                         {renderTickerItem(n)}
                       </div>

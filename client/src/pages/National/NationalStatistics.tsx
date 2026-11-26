@@ -197,6 +197,7 @@ export default function NationalStatistics() {
   // Filtres Région pour les onglets Par région, Catégories de permis, Infractions et Alertes
   const [statsRegionFilter, setStatsRegionFilter] = useState<string>('toutes');
   const [categoriesRegionFilter, setCategoriesRegionFilter] = useState<string>('toutes');
+  const [showCategoriesAnalysis, setShowCategoriesAnalysis] = useState<boolean>(false);
   const [infractionsRegionFilter, setInfractionsRegionFilter] = useState<string>('toutes');
   const [alertRegionFilter, setAlertRegionFilter] = useState<string>('toutes');
   // Normalisation/affichage des régions - Chargées dynamiquement depuis l'API
@@ -1616,6 +1617,30 @@ export default function NationalStatistics() {
     txRows.push([`Total ${curYear}`, '', txTotalPv, txTotalTransiges, txTotalMontant, txTotalInstance, txTotalTribunal]);
     txMerges.push(`A${txRowNum}:B${txRowNum}`);
 
+    // 2b. Onglet "Recettes par catégorie" (recettes générées par chaque catégorie de permis)
+    const permitCatDefs: Array<{ section: RevenueChasseMatrixItem['section']; rowLabel: string; display: string }> = [
+      { section: 'petite_chasse', rowLabel: 'Coutumier', display: 'Petite chasse — Coutumier' },
+      { section: 'petite_chasse', rowLabel: 'Résident', display: 'Petite chasse — Résident' },
+      { section: 'petite_chasse', rowLabel: 'Touriste', display: 'Petite chasse — Touriste' },
+      { section: 'gibier_eau', rowLabel: 'Résident', display: "Gibier d'eau — Résident" },
+      { section: 'gibier_eau', rowLabel: 'Touriste', display: "Gibier d'eau — Touriste" },
+      { section: 'grande_chasse', rowLabel: 'Résident', display: 'Grande chasse — Résident' },
+      { section: 'grande_chasse', rowLabel: 'Touriste', display: 'Grande chasse — Touriste' },
+    ];
+    const recCatTotals = permitCatDefs.map((def) => {
+      const amount = regionCols.reduce((sum, col) => sum + getCellAmount(def.section, def.rowLabel, col.key), 0);
+      return { display: def.display, amount };
+    });
+    const recCatGrandTotal = recCatTotals.reduce((acc, item) => acc + item.amount, 0);
+    const recCatRows: (string | number)[][] = [
+      ...recCatTotals.map((item) => [
+        item.display,
+        item.amount,
+        recCatGrandTotal > 0 ? `${((item.amount / recCatGrandTotal) * 100).toFixed(1)} %` : '0,0 %',
+      ]),
+      ['Total', recCatGrandTotal, recCatGrandTotal > 0 ? '100,0 %' : '0,0 %'],
+    ];
+
     exportMultiSheetXlsx('recettes_gestion_faune.xlsx', [
       {
         name: firstSheetName,
@@ -1626,6 +1651,11 @@ export default function NationalStatistics() {
         name: 'Recette chasse',
         headers: recetteChasseHeader,
         rows: recetteChasseRows,
+      },
+      {
+        name: 'Recettes par catégorie',
+        headers: ['Catégorie de permis', 'Montant (FCFA)', 'Part (%)'],
+        rows: recCatRows,
       },
       {
         name: 'Licences et amodiations',
@@ -1945,30 +1975,564 @@ export default function NationalStatistics() {
   const handleExportActiveTab = async () => {
     switch (activeTab) {
       case 'overview': {
-        const header = ['Région (Top 5)', 'Permis actifs', 'Prélèvements', 'Recette (FCFA)'];
+        const curYear = new Date().getFullYear();
+
+        // Charger permis, chasseurs et zones amodiées en parallèle pour le bilan complet
+        const [ovPermitsRes, ovHuntersRes, ovZonesRes] = await Promise.all([
+          apiRequest<any>('GET', '/api/permits').catch(() => ({ ok: false, data: [] })),
+          apiRequest<any>('GET', '/api/hunters').catch(() => ({ ok: false, data: [] })),
+          apiRequest<any>('GET', '/api/zones?lite=1').catch(() => ({ ok: false, data: [] })),
+        ]);
+        const ovPermitsRaw: any = ovPermitsRes?.data;
+        const ovHuntersRaw: any = ovHuntersRes?.data;
+        const ovZonesRaw: any = ovZonesRes?.data;
+        const ovPermitsList: any[] = Array.isArray(ovPermitsRaw) ? ovPermitsRaw : Array.isArray(ovPermitsRaw?.data) ? ovPermitsRaw.data : [];
+        const ovHuntersList: any[] = Array.isArray(ovHuntersRaw) ? ovHuntersRaw : Array.isArray(ovHuntersRaw?.data) ? ovHuntersRaw.data : [];
+        const ovZonesList: any[] = Array.isArray(ovZonesRaw?.features)
+          ? ovZonesRaw.features.map((f: any) => f?.properties || f)
+          : Array.isArray(ovZonesRaw)
+            ? ovZonesRaw
+            : Array.isArray(ovZonesRaw?.data)
+              ? ovZonesRaw.data
+              : [];
+
+        const normTxt = (s?: string | null) =>
+          String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        const normSlug = (s?: string | null) =>
+          normTxt(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+        // 1. Vue d'ensemble (Top 5 régions) + 2. Par région (toutes les régions)
         const byExpReg = new Map<
           string,
-          { region: string; activePermits: number; piecesAbattues: number; revenue: number }
+          { region: string; activePermits: number; piecesAbattues: number; taxAmount: number; revenue: number }
         >();
         for (const r of byRegion || []) {
           const expKey = exportRegionKey(r.region);
-          const label = REGION_LABELS[expKey] || prettyRegion(r.region);
+          const label = (REGION_LABELS[expKey] || prettyRegion(r.region)).toUpperCase();
           const cur = byExpReg.get(expKey) || {
             region: label,
             activePermits: 0,
             piecesAbattues: 0,
+            taxAmount: 0,
             revenue: 0,
           };
           cur.activePermits += Number((r as any).activePermits || 0);
           cur.piecesAbattues += Number(r.piecesAbattues || 0);
+          cur.taxAmount += Number((r as any).taxAmount || 0);
           cur.revenue += Number(r.revenue || 0);
           byExpReg.set(expKey, cur);
         }
-        const rows = Array.from(byExpReg.values())
-          .sort((a, b) => b.piecesAbattues - a.piecesAbattues || b.revenue - a.revenue)
-          .slice(0, 5)
-          .map((r) => [r.region, r.activePermits, r.piecesAbattues, r.revenue]);
-        exportArrayToCsv('vue_ensemble_nationale.csv', header, rows);
+        const allRegList = Array.from(byExpReg.values()).sort(
+          (a, b) => b.piecesAbattues - a.piecesAbattues || b.revenue - a.revenue
+        );
+        const overviewRows: (string | number)[][] = [
+          ...allRegList.slice(0, 5).map((r) => [r.region, r.activePermits, r.piecesAbattues, r.revenue]),
+        ];
+        const parRegionRows: (string | number)[][] = [
+          ...allRegList.map((r) => [r.region, r.activePermits, r.piecesAbattues, r.taxAmount, r.revenue]),
+          [
+            'Total',
+            allRegList.reduce((a, r) => a + r.activePermits, 0),
+            allRegList.reduce((a, r) => a + r.piecesAbattues, 0),
+            allRegList.reduce((a, r) => a + r.taxAmount, 0),
+            allRegList.reduce((a, r) => a + r.revenue, 0),
+          ],
+        ];
+
+        // 3. Chasseurs & 4. Permis délivrés
+        const ovHuntersMap = new Map<string, { regionLabel: string; coutumier: number; resident: number; touristique: number; total: number }>();
+        for (const r of huntersPivotTable.rows) {
+          const expKey = exportRegionKey(r.regionKey);
+          const cur = ovHuntersMap.get(expKey) || {
+            regionLabel: REGION_LABELS[expKey] || r.regionLabel,
+            coutumier: 0,
+            resident: 0,
+            touristique: 0,
+            total: 0,
+          };
+          cur.coutumier += r.coutumier;
+          cur.resident += r.resident;
+          cur.touristique += r.touristique;
+          cur.total += r.total;
+          ovHuntersMap.set(expKey, cur);
+        }
+        const ovHuntersRows: (string | number)[][] = [
+          ...Array.from(ovHuntersMap.values())
+            .sort((a, b) => a.regionLabel.localeCompare(b.regionLabel))
+            .map((r) => [r.regionLabel, r.coutumier, r.resident, r.touristique, r.total]),
+          [
+            `Total ${curYear}`,
+            huntersPivotTable.totals.coutumier,
+            huntersPivotTable.totals.resident,
+            huntersPivotTable.totals.touristique,
+            huntersPivotTable.totals.total,
+          ],
+        ];
+
+        const ovPermitsMap = new Map<string, { regionLabel: string; petiteChasse: number; gibierEau: number; grandeChasse: number; total: number }>();
+        for (const r of permitsPivotTable.rows) {
+          const expKey = exportRegionKey(r.regionKey);
+          const cur = ovPermitsMap.get(expKey) || {
+            regionLabel: REGION_LABELS[expKey] || r.regionLabel,
+            petiteChasse: 0,
+            gibierEau: 0,
+            grandeChasse: 0,
+            total: 0,
+          };
+          cur.petiteChasse += r.petiteChasse;
+          cur.gibierEau += r.gibierEau;
+          cur.grandeChasse += r.grandeChasse;
+          cur.total += r.total;
+          ovPermitsMap.set(expKey, cur);
+        }
+        const ovPermitsRows: (string | number)[][] = [
+          ...Array.from(ovPermitsMap.values())
+            .sort((a, b) => a.regionLabel.localeCompare(b.regionLabel))
+            .map((r) => [r.regionLabel, r.petiteChasse, r.gibierEau, r.grandeChasse, r.total]),
+          [
+            'Total',
+            permitsPivotTable.totals.petiteChasse,
+            permitsPivotTable.totals.gibierEau,
+            permitsPivotTable.totals.grandeChasse,
+            permitsPivotTable.totals.total,
+          ],
+        ];
+
+        // 5. Résident & 6. Touriste
+        const ovHunterInfo = new Map<number, { category: string; region: string }>();
+        for (const h of ovHuntersList) {
+          if (h?.id != null) {
+            ovHunterInfo.set(Number(h.id), { category: normTxt(h?.category || ''), region: String(h?.region || '') });
+          }
+        }
+        const ovResCols: Array<{ key: string; label: string }> = [
+          { key: 'saint-louis', label: 'Saint-Louis' },
+          { key: 'louga', label: 'Louga' },
+          { key: 'thies', label: 'Thiès' },
+          { key: 'fatick', label: 'Fatick' },
+          { key: 'kaolack', label: 'Kaolack' },
+          { key: 'kaffrine', label: 'Kaffrine' },
+          { key: 'tambacounda', label: 'Tambacounda' },
+          { key: 'kedougou', label: 'Kédougou' },
+          { key: 'kolda', label: 'Kolda' },
+          { key: 'sedhiou', label: 'Sédhiou' },
+          { key: 'dakar', label: 'Dakar' },
+        ];
+        const ovKnownRes = new Set(ovResCols.map((c) => c.key));
+        const ovResLabels = [
+          'Permis petite chasse résident',
+          'Permis de grande chasse résident',
+          'Permis coutumier',
+          "Permis spécial de chasse au gibier d'eau",
+        ] as const;
+        const ovResCounts = new Map<string, number>();
+
+        const ovAmodiees = ovZonesList
+          .filter((z) => {
+            const zt = normTxt(z?.type);
+            return (zt === 'amodiee' || zt.includes('amodi')) && Boolean(z?.name);
+          })
+          .sort((a, b) =>
+            prettyRegion(a?.region || '').localeCompare(prettyRegion(b?.region || '')) ||
+            String(a?.name || '').localeCompare(String(b?.name || ''))
+          );
+        const ovZoneCols: Array<{ key: string; label: string }> = ovAmodiees.map((z) => ({
+          key: normSlug(z.name),
+          label: String(z.name).trim(),
+        }));
+        const ovKnownZones = new Set(ovZoneCols.map((c) => c.key));
+        if (ovZoneCols.length === 0) {
+          ovZoneCols.push({ key: 'non-precisee', label: 'Zone non précisée' });
+          ovKnownZones.add('non-precisee');
+        }
+        const ovTourCounts = new Map<string, number>();
+
+        for (const p of ovPermitsList) {
+          const rawType = normTxt(p?.type || p?.category || p?.permitType || '');
+          const hInfo = ovHunterInfo.get(Number(p?.hunterId));
+          const hunterCat = normTxt(p?.hunterCategory || p?.hunter?.category || hInfo?.category || '');
+          const combined = `${rawType} ${hunterCat}`;
+          if (combined.includes('touriste')) {
+            const durTxt = normTxt(`${p?.duration || ''} ${p?.type || ''} ${p?.category || ''}`);
+            let dur: '1w' | '2w' | '1m' = '1w';
+            if (durTxt.includes('1 mois') || durTxt.includes('01 mois') || durTxt.includes('mensuel') || durTxt.includes('30')) dur = '1m';
+            else if (durTxt.includes('2 semaine') || durTxt.includes('02 semaine') || durTxt.includes('14') || durTxt.includes('15')) dur = '2w';
+            else if (p?.issueDate && p?.expiryDate) {
+              const days = Math.round((new Date(p.expiryDate).getTime() - new Date(p.issueDate).getTime()) / 86400000);
+              if (days > 20) dur = '1m';
+              else if (days > 10) dur = '2w';
+            }
+            const rawZk = normSlug(p?.amodieeZone || p?.huntingZone || p?.zone || p?.area);
+            let zk = ovZoneCols[0].key;
+            if (rawZk && ovKnownZones.has(rawZk)) zk = rawZk;
+            else if (rawZk) {
+              const found = ovZoneCols.find((c) => rawZk.includes(c.key) || c.key.includes(rawZk));
+              if (found) zk = found.key;
+              else {
+                if (!ovKnownZones.has('autres-zones')) {
+                  ovKnownZones.add('autres-zones');
+                  ovZoneCols.push({ key: 'autres-zones', label: 'Autres / Non précisée' });
+                }
+                zk = 'autres-zones';
+              }
+            }
+            const lbl =
+              combined.includes('gibier') || combined.includes('eau')
+                ? dur === '1w'
+                  ? "Permis spécial de chasse au gibier d'eau 01 semaine"
+                  : dur === '2w'
+                    ? "Permis spécial de chasse au gibier d'eau 02 semaines"
+                    : "Permis spécial de chasse au gibier d'eau 01 mois"
+                : combined.includes('grande')
+                  ? dur === '1w'
+                    ? 'Permis de grande chasse touriste 01 semaine'
+                    : dur === '2w'
+                      ? 'Permis de grande chasse touriste 02 semaines'
+                      : 'Permis de grande chasse touriste 01 mois'
+                  : dur === '1w'
+                    ? 'Permis petite chasse touriste 01 semaine'
+                    : dur === '2w'
+                      ? 'Permis petite chasse touriste 02 semaines'
+                      : 'Permis petite chasse touriste 01 mois';
+            ovTourCounts.set(`${lbl}|${zk}`, (ovTourCounts.get(`${lbl}|${zk}`) || 0) + 1);
+          } else {
+            const rk = exportRegionKey(p?.region || p?.issuerRegion || p?.hunter?.region || hInfo?.region || 'dakar');
+            if (!ovKnownRes.has(rk)) {
+              ovKnownRes.add(rk);
+              ovResCols.push({ key: rk, label: REGION_LABELS[rk] || prettyRegion(rk) });
+            }
+            const lbl = combined.includes('coutumier')
+              ? 'Permis coutumier'
+              : combined.includes('gibier') || combined.includes('eau')
+                ? "Permis spécial de chasse au gibier d'eau"
+                : combined.includes('grande')
+                  ? 'Permis de grande chasse résident'
+                  : 'Permis petite chasse résident';
+            ovResCounts.set(`${lbl}|${rk}`, (ovResCounts.get(`${lbl}|${rk}`) || 0) + 1);
+          }
+        }
+
+        const ovResColTotals = new Map<string, number>();
+        let ovResGrand = 0;
+        const ovResRows: (string | number)[][] = ovResLabels.map((lbl) => {
+          let rowSum = 0;
+          const cells = ovResCols.map((c) => {
+            const v = ovResCounts.get(`${lbl}|${c.key}`) || 0;
+            rowSum += v;
+            ovResColTotals.set(c.key, (ovResColTotals.get(c.key) || 0) + v);
+            return v > 0 ? v : '';
+          });
+          ovResGrand += rowSum;
+          return [lbl, ...cells, rowSum];
+        });
+        ovResRows.push(['Total', ...ovResCols.map((c) => ovResColTotals.get(c.key) || 0), ovResGrand]);
+
+        const ovTourSections = [
+          {
+            title: 'Petite chasse',
+            rows: ['Permis petite chasse touriste 01 semaine', 'Permis petite chasse touriste 02 semaines', 'Permis petite chasse touriste 01 mois'],
+            sub: 'Sous total 1',
+          },
+          {
+            title: "Chasse au gibier d'eau",
+            rows: ["Permis spécial de chasse au gibier d'eau 01 semaine", "Permis spécial de chasse au gibier d'eau 02 semaines", "Permis spécial de chasse au gibier d'eau 01 mois"],
+            sub: 'Sous total 2',
+          },
+          {
+            title: 'Grande chasse',
+            rows: ['Permis de grande chasse touriste 01 semaine', 'Permis de grande chasse touriste 02 semaines', 'Permis de grande chasse touriste 01 mois'],
+            sub: 'Sous total 3',
+          },
+        ];
+        const ovTourRows: (string | number)[][] = [];
+        const ovTourGrandByZone = new Map<string, number>();
+        let ovTourGrand = 0;
+        for (const sec of ovTourSections) {
+          ovTourRows.push([sec.title, ...ovZoneCols.map(() => ''), '']);
+          const secMap = new Map<string, number>();
+          let secTot = 0;
+          for (const rLabel of sec.rows) {
+            let rowSum = 0;
+            const cells = ovZoneCols.map((c) => {
+              const v = ovTourCounts.get(`${rLabel}|${c.key}`) || 0;
+              rowSum += v;
+              secMap.set(c.key, (secMap.get(c.key) || 0) + v);
+              ovTourGrandByZone.set(c.key, (ovTourGrandByZone.get(c.key) || 0) + v);
+              return v > 0 ? v : '';
+            });
+            secTot += rowSum;
+            ovTourGrand += rowSum;
+            ovTourRows.push([rLabel, ...cells, rowSum > 0 ? rowSum : '']);
+          }
+          ovTourRows.push([sec.sub, ...ovZoneCols.map((c) => secMap.get(c.key) || 0), secTot]);
+        }
+        ovTourRows.push(['Total', ...ovZoneCols.map((c) => ovTourGrandByZone.get(c.key) || 0), ovTourGrand]);
+
+        // 7. Prélèvements (Espèces x Régions)
+        const ovSpRegCols = [...ovResCols];
+        const ovSpKnown = new Set(ovSpRegCols.map((c) => c.key));
+        const ovByCatSp = new Map<string, Map<string, { name: string; byReg: Map<string, number>; total: number }>>([
+          ['gibier_eau', new Map()],
+          ['petite_chasse', new Map()],
+          ['grande_chasse', new Map()],
+        ]);
+        for (const r of speciesByRegion || []) {
+          const catRaw = normTxt(getRowCategoryKey(r) || r.category || 'petite_chasse');
+          const catKey = catRaw.includes('gibier') || catRaw.includes('eau') ? 'gibier_eau' : catRaw.includes('grande') ? 'grande_chasse' : 'petite_chasse';
+          const spMap = ovByCatSp.get(catKey)!;
+          const spName = (r.speciesName || r.speciesId || 'Inconnue').trim();
+          const spKey = spName.toLowerCase();
+          const entry = spMap.get(spKey) || { name: spName, byReg: new Map(), total: 0 };
+          const rk = exportRegionKey(r.region);
+          if (rk && !ovSpKnown.has(rk)) {
+            ovSpKnown.add(rk);
+            ovSpRegCols.push({ key: rk, label: REGION_LABELS[rk] || prettyRegion(r.region) });
+          }
+          const qty = Number(r.quantity || 0);
+          entry.byReg.set(rk, (entry.byReg.get(rk) || 0) + qty);
+          entry.total += qty;
+          spMap.set(spKey, entry);
+        }
+        const ovSpRows: (string | number)[][] = [];
+        const ovSpGrandByReg = new Map<string, number>();
+        let ovSpGrand = 0;
+        const ovSpSecs = [
+          { key: 'gibier_eau', title: "Gibier d'eau", tot: 'Total 1' },
+          { key: 'petite_chasse', title: 'Petite chasse', tot: 'Total 2' },
+          { key: 'grande_chasse', title: 'Grande Chasse', tot: 'Total 3' },
+        ];
+        for (const s of ovSpSecs) {
+          ovSpRows.push([s.title, ...ovSpRegCols.map(() => ''), '']);
+          const secByReg = new Map<string, number>();
+          let secTot = 0;
+          for (const sp of Array.from(ovByCatSp.get(s.key)!.values()).sort((a, b) => a.name.localeCompare(b.name))) {
+            const cells = ovSpRegCols.map((c) => {
+              const v = sp.byReg.get(c.key) || 0;
+              if (v > 0) {
+                secByReg.set(c.key, (secByReg.get(c.key) || 0) + v);
+                ovSpGrandByReg.set(c.key, (ovSpGrandByReg.get(c.key) || 0) + v);
+              }
+              return v > 0 ? v : '';
+            });
+            secTot += sp.total;
+            ovSpGrand += sp.total;
+            ovSpRows.push([sp.name, ...cells, sp.total]);
+          }
+          ovSpRows.push([s.tot, ...ovSpRegCols.map((c) => secByReg.get(c.key) || 0), secTot]);
+        }
+        ovSpRows.push([`Total ${curYear}`, ...ovSpRegCols.map((c) => ovSpGrandByReg.get(c.key) || 0), ovSpGrand]);
+
+        // 8. Recette chasse (matrice officielle DEFCCS)
+        const ovRevCols = [...ovResCols];
+        const ovRevKnown = new Set(ovRevCols.map((c) => c.key));
+        for (const item of revenueChasseMatrix || []) {
+          const rk = exportRegionKey(item.regionKey || item.regionLabel);
+          if (rk && !ovRevKnown.has(rk)) {
+            ovRevKnown.add(rk);
+            ovRevCols.push({ key: rk, label: REGION_LABELS[rk] || prettyRegion(item.regionLabel) });
+          }
+        }
+        const getOvMatrixAmt = (section: string, rowLabel: string, rk: string) => {
+          let sum = 0;
+          for (const it of revenueChasseMatrix || []) {
+            if (it.section === section && it.rowLabel === rowLabel && exportRegionKey(it.regionKey || it.regionLabel) === rk) {
+              sum += Number(it.amount || 0);
+            }
+          }
+          return sum;
+        };
+        const ovRevRows: (string | number)[][] = [];
+        const ovDomByReg = new Map<string, number>();
+        let ovDomGrand = 0;
+        const addOvRevSec = (secKey: string, title: string, labels: string[], totLbl: string) => {
+          ovRevRows.push([title, ...ovRevCols.map(() => ''), '']);
+          const secByReg = new Map<string, number>();
+          let secTot = 0;
+          for (const rl of labels) {
+            let rSum = 0;
+            const cells = ovRevCols.map((c) => {
+              const v = getOvMatrixAmt(secKey, rl, c.key);
+              rSum += v;
+              secByReg.set(c.key, (secByReg.get(c.key) || 0) + v);
+              ovDomByReg.set(c.key, (ovDomByReg.get(c.key) || 0) + v);
+              return v;
+            });
+            secTot += rSum;
+            ovDomGrand += rSum;
+            ovRevRows.push([rl, ...cells, rSum]);
+          }
+          ovRevRows.push([totLbl, ...ovRevCols.map((c) => secByReg.get(c.key) || 0), secTot]);
+        };
+        addOvRevSec('petite_chasse', 'Petite chasse', ['Coutumier', 'Résident', 'Touriste'], 'Total 1');
+        addOvRevSec('gibier_eau', "Gibier d'eau", ['Résident', 'Touriste'], 'Total 2');
+        addOvRevSec('grande_chasse', 'Grande chasse', ['Résident', 'Touriste'], 'Total 3');
+        addOvRevSec(
+          'licence_taxe',
+          'Licence, Taxe et Redevances',
+          ['Taxe phaco', 'Taxe grande chasse', 'Attestation pisteur', "Permis spécial d'oisellerie", 'Attestation Collecteur', 'Taxe Ramasseur', 'Licence', 'Taxe amodiation', 'Taxe réserve privée'],
+          'Total 4'
+        );
+        ovRevRows.push([`Total domanial ${curYear}`, ...ovRevCols.map((c) => ovDomByReg.get(c.key) || 0), ovDomGrand]);
+        const ovContByReg = new Map<string, number>();
+        let ovContGrand = 0;
+        for (const c of ovRevCols) {
+          const v = getOvMatrixAmt('contentieux', 'Contentieux', c.key);
+          ovContByReg.set(c.key, v);
+          ovContGrand += v;
+        }
+        ovRevRows.push([`Contentieux ${curYear}`, ...ovRevCols.map((c) => ovContByReg.get(c.key) || 0), ovContGrand]);
+        ovRevRows.push([
+          `Total RECETTES CHASSES ${curYear}`,
+          ...ovRevCols.map((c) => (ovDomByReg.get(c.key) || 0) + (ovContByReg.get(c.key) || 0)),
+          ovDomGrand + ovContGrand,
+        ]);
+
+        // 9. Licences et amodiations
+        const ovLicMerges = ['A1:A2', 'B1:B2', 'C1:C2', 'D1:E1', 'F1:G1'];
+        const ovLicRows: (string | number)[][] = [['', '', '', 'Montant', 'N° quittance et date', 'Montant', 'N° Quittance et date']];
+        let ovTotLic = 0;
+        let ovTotAmo = 0;
+        for (const z of ovAmodiees) {
+          const la = Number(z?.licence_amount ?? z?.licenceAmount ?? 0);
+          const aa = Number(z?.amodiation_amount ?? z?.amodiationAmount ?? 0);
+          if (la > 0) ovTotLic += la;
+          if (aa > 0) ovTotAmo += aa;
+          ovLicRows.push([
+            prettyRegion(z?.region || ''),
+            String(z?.name || ''),
+            String(z?.responsible_name || z?.responsibleName || ''),
+            la > 0 ? la : '',
+            String(z?.licence_receipt || z?.licenceReceipt || ''),
+            aa > 0 ? aa : '',
+            String(z?.amodiation_receipt || z?.amodiationReceipt || ''),
+          ]);
+        }
+        const ovLicTotRow = ovLicRows.length + 2;
+        ovLicRows.push(['Total', '', '', ovTotLic, '', ovTotAmo, '']);
+        ovLicMerges.push(`A${ovLicTotRow}:C${ovLicTotRow}`);
+
+        // 10. Transactions (Contentieux / Infractions)
+        const ovTxByReg = new Map<string, { regionLabel: string; byNature: Map<string, { natureLabel: string; nbrPv: number; transiges: number; montant: number; instance: number; tribunal: number }> }>();
+        for (const row of infractionsData || []) {
+          const rk = exportRegionKey(row.region || 'non défini');
+          const regionLabel = REGION_LABELS[rk] || prettyRegion(row.region || 'Non défini');
+          const rawNature = String((row as any).nature_infraction || (row as any).infraction_type || 'Non spécifiée').trim();
+          const natureKey = normTxt(rawNature) || 'non-specifiee';
+          const regEntry = ovTxByReg.get(rk) || { regionLabel, byNature: new Map() };
+          const natEntry = regEntry.byNature.get(natureKey) || { natureLabel: rawNature || 'Non spécifiée', nbrPv: 0, transiges: 0, montant: 0, instance: 0, tribunal: 0 };
+          natEntry.nbrPv += 1;
+          const m = Number(row.montant_chiffre || 0);
+          const hasQ = Boolean((row as any).numero_quittance && String((row as any).numero_quittance).trim());
+          const obs = normTxt((row as any).observations || '');
+          if (obs.includes('tribunal') || obs.includes('justice') || obs.includes('defere') || obs.includes('parquet')) natEntry.tribunal += 1;
+          else if (m > 0 || hasQ) { natEntry.transiges += 1; natEntry.montant += m; }
+          else natEntry.instance += 1;
+          regEntry.byNature.set(natureKey, natEntry);
+          ovTxByReg.set(rk, regEntry);
+        }
+        const ovTxMerges = ['A1:A2', 'B1:B2', 'C1:C2', 'D1:F1', 'G1:G2'];
+        const ovTxRows: (string | number)[][] = [['', '', '', 'Transigés', 'Montant', 'Instance', '']];
+        let ovPv = 0, ovTr = 0, ovMo = 0, ovIn = 0, ovTb = 0, ovTxRow = 3;
+        for (const reg of Array.from(ovTxByReg.values()).sort((a, b) => a.regionLabel.localeCompare(b.regionLabel))) {
+          const nats = Array.from(reg.byNature.values()).sort((a, b) => a.natureLabel.localeCompare(b.natureLabel));
+          const sr = ovTxRow;
+          nats.forEach((nat, idx) => {
+            ovPv += nat.nbrPv; ovTr += nat.transiges; ovMo += nat.montant; ovIn += nat.instance; ovTb += nat.tribunal;
+            ovTxRows.push([idx === 0 ? reg.regionLabel : '', nat.natureLabel, nat.nbrPv, nat.transiges, nat.montant > 0 ? nat.montant : '', nat.instance, nat.tribunal]);
+            ovTxRow += 1;
+          });
+          if (ovTxRow - 1 > sr) ovTxMerges.push(`A${sr}:A${ovTxRow - 1}`);
+        }
+        ovTxRows.push([`Total ${curYear}`, '', ovPv, ovTr, ovMo, ovIn, ovTb]);
+        ovTxMerges.push(`A${ovTxRow}:B${ovTxRow}`);
+
+        // 11. Alertes
+        const ovAlertsHeader = ['Nature', ...(groupedAlerts?.regions || []), 'Total'];
+        const ovAlertsRows: (string | number)[][] = (groupedAlerts?.rows || []).map((r) => [
+          r.nature,
+          ...(groupedAlerts?.regions || []).map((reg) => Number(r[reg] || 0)),
+          Number(r.total || 0),
+        ]);
+
+        // 12-15. Armes (Expirations, Marques, Régions, Catégories)
+        const ovExpRows: (string | number)[][] = [
+          ['Expire dans 3 mois', permitExpirations?.expiring3Months || 0],
+          ['Expire dans 6 mois', permitExpirations?.expiring6Months || 0],
+          ['Expire dans 1 an', permitExpirations?.expiring1Year || 0],
+          ['Déjà expirés', permitExpirations?.expired || 0],
+          [
+            'Total',
+            (permitExpirations?.expiring3Months || 0) +
+              (permitExpirations?.expiring6Months || 0) +
+              (permitExpirations?.expiring1Year || 0) +
+              (permitExpirations?.expired || 0),
+          ],
+        ];
+        const ovBrandRows: (string | number)[][] = [
+          ...(weaponStats?.weaponsByBrand || []).map((b) => [b.brand || 'Non spécifiée', b.count]),
+          ['Total', (weaponStats?.weaponsByBrand || []).reduce((a, b) => a + b.count, 0)],
+        ];
+        const ovWeaponRegRows: (string | number)[][] = [
+          ...(weaponsByRegion || []).map((w) => [
+            REGION_LABELS[exportRegionKey(w.region)] || prettyRegion(w.region),
+            w.brand || 'Non spécifiée',
+            w.weaponType || 'Non spécifié',
+            w.caliber || 'Non spécifié',
+            w.count,
+          ]),
+          ['Total', '', '', '', (weaponsByRegion || []).reduce((a, w) => a + w.count, 0)],
+        ];
+        const ovWeaponCatRows: (string | number)[][] = [
+          ...(weaponsByPermitCategory || []).map((w) => [
+            w.permitCategory || 'Non spécifiée',
+            w.weaponType || 'Non spécifié',
+            w.caliber || 'Non spécifié',
+            w.count,
+          ]),
+          ['Total', '', '', (weaponsByPermitCategory || []).reduce((a, w) => a + w.count, 0)],
+        ];
+
+        const ovPermitCatDefs = [
+          { section: 'petite_chasse', rowLabel: 'Coutumier', display: 'Petite chasse — Coutumier' },
+          { section: 'petite_chasse', rowLabel: 'Résident', display: 'Petite chasse — Résident' },
+          { section: 'petite_chasse', rowLabel: 'Touriste', display: 'Petite chasse — Touriste' },
+          { section: 'gibier_eau', rowLabel: 'Résident', display: "Gibier d'eau — Résident" },
+          { section: 'gibier_eau', rowLabel: 'Touriste', display: "Gibier d'eau — Touriste" },
+          { section: 'grande_chasse', rowLabel: 'Résident', display: 'Grande chasse — Résident' },
+          { section: 'grande_chasse', rowLabel: 'Touriste', display: 'Grande chasse — Touriste' },
+        ];
+        const ovRecCatItems = ovPermitCatDefs.map((def) => ({
+          display: def.display,
+          amount: ovRevCols.reduce((sum, col) => sum + getOvMatrixAmt(def.section, def.rowLabel, col.key), 0),
+        }));
+        const ovRecCatTotal = ovRecCatItems.reduce((a, b) => a + b.amount, 0);
+        const ovRecCatRows: (string | number)[][] = [
+          ...ovRecCatItems.map((it) => [
+            it.display,
+            it.amount,
+            ovRecCatTotal > 0 ? `${((it.amount / ovRecCatTotal) * 100).toFixed(1)} %` : '0,0 %',
+          ]),
+          ['Total', ovRecCatTotal, ovRecCatTotal > 0 ? '100,0 %' : '0,0 %'],
+        ];
+
+        exportMultiSheetXlsx(`bilan_national_chasse_${curYear}.xlsx`, [
+          { name: "Vue d'ensemble", headers: ['Région (Top 5)', 'Permis actifs', 'Prélèvements', 'Recette (FCFA)'], rows: overviewRows },
+          { name: 'Par région', headers: ['Région', 'Permis actifs', 'Prélèvements', "Taxe d'abattage (FCFA)", 'Recette (FCFA)'], rows: parRegionRows },
+          { name: 'Chasseurs', headers: ['Régions', 'Coutumiers', 'Résidents', 'Touristes', 'Totaux'], rows: ovHuntersRows },
+          { name: 'Permis délivrés', headers: ['Région', 'Permis sportifs petite chasse', "Permis sportif gibiers d'eau", 'Permis sportif grande chasse', 'Total'], rows: ovPermitsRows },
+          { name: 'Résident', headers: ['Nature permis', ...ovResCols.map((c) => c.label), 'Total'], rows: ovResRows },
+          { name: 'Touriste', headers: ['Nom des zones amodiées', ...ovZoneCols.map((c) => c.label), 'Total'], rows: ovTourRows },
+          { name: 'Prélèvements', headers: ['Type gibier', ...ovSpRegCols.map((c) => c.label), 'Total'], rows: ovSpRows },
+          { name: 'Recette chasse', headers: ['Type permis', ...ovRevCols.map((c) => c.label), 'Total'], rows: ovRevRows },
+          { name: 'Recettes par catégorie', headers: ['Catégorie de permis', 'Montant (FCFA)', 'Part (%)'], rows: ovRecCatRows },
+          { name: 'Licences et amodiations', headers: ['Région', 'Zone amodiée', 'Amodiataire', 'Licence', '', "Taxe d'amodiation", ''], rows: ovLicRows, merges: ovLicMerges },
+          { name: 'Transactions', headers: ['Régions', 'Nature infraction', 'Nbr P.V', 'Transactions', '', '', 'Tribunal'], rows: ovTxRows, merges: ovTxMerges },
+          { name: 'Alertes', headers: ovAlertsHeader, rows: ovAlertsRows },
+          { name: 'Armes - Expirations', headers: ['Statut expiration', 'Nombre'], rows: ovExpRows },
+          { name: 'Armes - Marques', headers: ['Marque', 'Nombre'], rows: ovBrandRows },
+          { name: 'Armes - Régions', headers: ['Région', 'Marque', "Type d'arme", 'Calibre', 'Nombre'], rows: ovWeaponRegRows },
+          { name: 'Armes - Catégories', headers: ['Catégorie de permis', "Type d'arme", 'Calibre', 'Nombre'], rows: ovWeaponCatRows },
+        ]);
         break;
       }
       case 'regions': {
@@ -3694,116 +4258,180 @@ export default function NationalStatistics() {
               </Card>
             </TabsContent>
             <TabsContent value="categories" className="space-y-4">
-              <div className="flex items-center justify-end gap-2 print:hidden">
-                <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
-                <Select value={categoriesRegionFilter} onValueChange={setCategoriesRegionFilter}>
-                  <SelectTrigger className="w-[220px] bg-white">
-                    <SelectValue placeholder="Toutes les régions" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="toutes">Toutes les régions</SelectItem>
-                    {categoriesRegionOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+                <Button
+                  variant={showCategoriesAnalysis ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowCategoriesAnalysis((v) => !v)}
+                >
+                  {showCategoriesAnalysis ? 'Retour aux répartitions' : 'Permis délivrés par région (%)'}
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                  <Select value={categoriesRegionFilter} onValueChange={setCategoriesRegionFilter}>
+                    <SelectTrigger className="w-[220px] bg-white">
+                      <SelectValue placeholder="Toutes les régions" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="toutes">Toutes les régions</SelectItem>
+                      {categoriesRegionOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                {/* Tableau 1 (Capture 2) : Chasseurs par région et catégorie */}
-                <Card className="col-span-1">
+              {showCategoriesAnalysis ? (
+                <Card>
                   <CardHeader>
-                    <CardTitle>Tableau 1 : Répartition des chasseurs par région et catégorie</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {hbcLoading ? (
-                      <div>Chargement...</div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 border">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Régions</th>
-                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Coutumiers</th>
-                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Résidents</th>
-                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Touristes</th>
-                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Totaux</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {huntersPivotTable.rows.map((row) => (
-                              <tr key={row.regionKey} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border-r">{row.regionLabel}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.coutumier.toLocaleString('fr-FR')}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.resident.toLocaleString('fr-FR')}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.touristique.toLocaleString('fr-FR')}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">{row.total.toLocaleString('fr-FR')}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot className="bg-emerald-50 font-bold">
-                            <tr>
-                              <td className="px-4 py-3 text-sm font-bold text-gray-900 border-r">Total</td>
-                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{huntersPivotTable.totals.coutumier.toLocaleString('fr-FR')}</td>
-                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{huntersPivotTable.totals.resident.toLocaleString('fr-FR')}</td>
-                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{huntersPivotTable.totals.touristique.toLocaleString('fr-FR')}</td>
-                              <td className="px-4 py-3 text-sm text-right font-bold text-emerald-800">{huntersPivotTable.totals.total.toLocaleString('fr-FR')}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Tableau 2 (Capture 3) : Nombre de permis délivrés par région et par type */}
-                <Card className="col-span-1">
-                  <CardHeader>
-                    <CardTitle>Tableau 2 : Nombre de permis délivrés</CardTitle>
+                    <CardTitle>Permis délivrés par région (%)</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {pcbrLoading ? (
-                      <div>Chargement...</div>
+                      <div className="flex items-center justify-center h-80 text-sm text-muted-foreground">Chargement...</div>
+                    ) : permitsPivotTable.rows.filter((r) => r.total > 0).length === 0 ? (
+                      <div className="flex items-center justify-center h-80 text-sm text-muted-foreground">Aucun permis délivré.</div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 border">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Région</th>
-                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Permis sportifs petite chasse</th>
-                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Permis sportif gibiers d'eau</th>
-                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-r">Permis sportif grande chasse</th>
-                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {permitsPivotTable.rows.map((row) => (
-                              <tr key={row.regionKey} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border-r">{row.regionLabel}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.petiteChasse.toLocaleString('fr-FR')}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.gibierEau.toLocaleString('fr-FR')}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700 border-r">{row.grandeChasse.toLocaleString('fr-FR')}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">{row.total.toLocaleString('fr-FR')}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot className="bg-emerald-50 font-bold">
-                            <tr>
-                              <td className="px-4 py-3 text-sm font-bold text-gray-900 border-r">Total</td>
-                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{permitsPivotTable.totals.petiteChasse.toLocaleString('fr-FR')}</td>
-                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{permitsPivotTable.totals.gibierEau.toLocaleString('fr-FR')}</td>
-                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 border-r">{permitsPivotTable.totals.grandeChasse.toLocaleString('fr-FR')}</td>
-                              <td className="px-4 py-3 text-sm text-right font-bold text-emerald-800">{permitsPivotTable.totals.total.toLocaleString('fr-FR')}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={permitsPivotTable.rows
+                                .filter((r) => r.total > 0)
+                                .map((r) => ({ name: r.regionLabel, value: r.total }))}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={110}
+                              paddingAngle={3}
+                              dataKey="value"
+                              nameKey="name"
+                              label={({ name, value, percent }) => `${name} : ${value} (${(percent * 100).toFixed(0)}%)`}
+                            >
+                              {permitsPivotTable.rows
+                                .filter((r) => r.total > 0)
+                                .map((entry, idx) => (
+                                  <Cell key={`perm-reg-${entry.regionKey}`} fill={COLORS[idx % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(v: any, name: any) => {
+                                const total = permitsPivotTable.totals.total || 1;
+                                const pct = ((Number(v) / total) * 100).toFixed(1);
+                                return [`${Number(v).toLocaleString('fr-FR')} permis (${pct}%)`, String(name)];
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+              /* Deux diagrammes circulaires (Donuts) côte à côte */
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card className="col-span-1">
+                  <CardHeader>
+                    <CardTitle>
+                      Total chasseurs enregistrés : {huntersPivotTable.totals.total.toLocaleString('fr-FR')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {hbcLoading ? (
+                      <div className="flex items-center justify-center h-72 text-sm text-muted-foreground">Chargement...</div>
+                    ) : huntersPivotTable.totals.total === 0 ? (
+                      <div className="flex items-center justify-center h-72 text-sm text-muted-foreground">Aucun chasseur enregistré pour cette sélection.</div>
+                    ) : (
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Coutumiers', value: huntersPivotTable.totals.coutumier, color: '#10b981' },
+                                { name: 'Résidents', value: huntersPivotTable.totals.resident, color: '#2563eb' },
+                                { name: 'Touristes', value: huntersPivotTable.totals.touristique, color: '#f59e0b' },
+                              ].filter((d) => d.value > 0)}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={55}
+                              outerRadius={95}
+                              paddingAngle={3}
+                              dataKey="value"
+                              nameKey="name"
+                              label={({ name, value, percent }) => `${name} : ${value} (${(percent * 100).toFixed(0)}%)`}
+                            >
+                              {[
+                                { name: 'Coutumiers', value: huntersPivotTable.totals.coutumier, color: '#10b981' },
+                                { name: 'Résidents', value: huntersPivotTable.totals.resident, color: '#2563eb' },
+                                { name: 'Touristes', value: huntersPivotTable.totals.touristique, color: '#f59e0b' },
+                              ]
+                                .filter((d) => d.value > 0)
+                                .map((entry) => (
+                                  <Cell key={`h-cat-${entry.name}`} fill={entry.color} />
+                                ))}
+                            </Pie>
+                            <Tooltip formatter={(v: any, name: any) => [`${Number(v).toLocaleString('fr-FR')} chasseur(s)`, String(name)]} />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="col-span-1">
+                  <CardHeader>
+                    <CardTitle>
+                      Total permis délivrés : {permitsPivotTable.totals.total.toLocaleString('fr-FR')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {pcbrLoading ? (
+                      <div className="flex items-center justify-center h-72 text-sm text-muted-foreground">Chargement...</div>
+                    ) : permitsPivotTable.totals.total === 0 ? (
+                      <div className="flex items-center justify-center h-72 text-sm text-muted-foreground">Aucun permis délivré pour cette sélection.</div>
+                    ) : (
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Petite chasse', value: permitsPivotTable.totals.petiteChasse, color: '#2563eb' },
+                                { name: "Gibiers d'eau", value: permitsPivotTable.totals.gibierEau, color: '#0d9488' },
+                                { name: 'Grande chasse', value: permitsPivotTable.totals.grandeChasse, color: '#8b5cf6' },
+                              ].filter((d) => d.value > 0)}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={55}
+                              outerRadius={95}
+                              paddingAngle={3}
+                              dataKey="value"
+                              nameKey="name"
+                              label={({ name, value, percent }) => `${name} : ${value} (${(percent * 100).toFixed(0)}%)`}
+                            >
+                              {[
+                                { name: 'Petite chasse', value: permitsPivotTable.totals.petiteChasse, color: '#2563eb' },
+                                { name: "Gibiers d'eau", value: permitsPivotTable.totals.gibierEau, color: '#0d9488' },
+                                { name: 'Grande chasse', value: permitsPivotTable.totals.grandeChasse, color: '#8b5cf6' },
+                              ]
+                                .filter((d) => d.value > 0)
+                                .map((entry) => (
+                                  <Cell key={`p-cat-${entry.name}`} fill={entry.color} />
+                                ))}
+                            </Pie>
+                            <Tooltip formatter={(v: any, name: any) => [`${Number(v).toLocaleString('fr-FR')} permis`, String(name)]} />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
                       </div>
                     )}
                   </CardContent>
                 </Card>
               </div>
+              )}
             </TabsContent>
             <TabsContent value="regions">
               <Card>

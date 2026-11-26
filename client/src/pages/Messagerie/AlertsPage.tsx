@@ -1942,14 +1942,14 @@ function AlertsPage() {
   const alertsTotalFooterClass =
     "shrink-0 border-t border-gray-200 bg-white py-2.5 px-3 text-center text-sm text-muted-foreground " +
     (isAlertMobileChromeless
-      ? "fixed left-0 right-0 z-[240] bottom-[56px] shadow-[0_-1px_4px_rgba(0,0,0,0.06)] md:static md:z-auto md:bottom-auto md:rounded-b-lg md:shadow-none"
+      ? "fixed left-0 right-0 z-[240] bottom-16 shadow-[0_-1px_4px_rgba(0,0,0,0.06)] md:static md:z-auto md:bottom-auto md:rounded-b-lg md:shadow-none"
       : "rounded-b-lg");
 
   const showInboxTotalFooter = activeTab === "inbox" && filteredInbox.length > 0;
   const showOutboxTotalFooter = activeTab !== "inbox" && sentAlertsData.length > 0;
   const listScrollPadding =
     isAlertMobileChromeless && (showInboxTotalFooter || showOutboxTotalFooter)
-      ? "pb-20 md:pb-0"
+      ? "pb-20 md:pb-4"
       : "";
 
   const mobileAlertLayout = isAlertMobileChromeless && canSendAlerts;
@@ -1960,7 +1960,7 @@ function AlertsPage() {
   return (
     <div className={isHunter || isGuide || isAlertMobileChromeless ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50" : `flex flex-col overflow-hidden bg-transparent h-full`}>
       {(isHunter || isGuide || isAlertMobileChromeless) && <AgentTopHeader />}
-      <div className={isHunter || isGuide ? "flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain pb-24" : isAlertMobileChromeless ? "flex-1 flex flex-col min-h-0 overflow-hidden" : `w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 py-2 sm:py-3 lg:py-4`}>
+      <div className={isHunter || isGuide ? "flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain pb-24" : isAlertMobileChromeless ? "flex-1 flex flex-col min-h-0 overflow-hidden pb-16" : `w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 py-2 sm:py-3 lg:py-4`}>
         <div className={isHunter || isGuide ? "w-full max-w-3xl flex flex-col flex-1 min-h-0 mx-auto px-2 sm:px-4 py-4" : `w-full flex flex-col flex-1 min-h-0 mx-auto`}>
           {/* Bouton Retour + Actions - Barre supérieure */}
           <div className="shrink-0 bg-white rounded-t-lg shadow-sm border border-b-0 border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 justify-between">
@@ -1988,6 +1988,11 @@ function AlertsPage() {
               {(isDefaultRole || isSupervisorRole) && (
                 <Button
                   onClick={() => {
+                    if (isAlerteDomain) {
+                      try { localStorage.setItem("domain", "ALERTE"); } catch {}
+                      navigate("/sms");
+                      return;
+                    }
                     let smsPath = "/sms";
                     if (isSectorAgent || user?.type === "secteur" || user?.role === "sub-agent") {
                       smsPath = "/sector-sms";

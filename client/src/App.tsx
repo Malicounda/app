@@ -1112,9 +1112,8 @@ function applyTheme(cfg: any, user: any, location: string) {
       lowerLoc.startsWith('/permit-request') || lowerLoc.startsWith('/gestion-permis') || lowerLoc.startsWith('/taxes') ||
       lowerLoc.startsWith('/guides') || lowerLoc.startsWith('/agents') || lowerLoc.startsWith('/hunters') ||
       lowerLoc.startsWith('/chasse') || lowerLoc.startsWith('/especes') || lowerLoc.startsWith('/infractions') ||
-      lowerLoc.startsWith('/history') || lowerLoc.startsWith('/sms') || lowerLoc.startsWith('/alerts') ||
-      lowerLoc.startsWith('/map') || lowerLoc.startsWith('/statistics') || lowerLoc.startsWith('/hunting') ||
-      lowerLoc.startsWith('/profile') || lowerLoc.startsWith('/changeprofil') || lowerLoc.startsWith('/regions-zones') ||
+      lowerLoc.startsWith('/history') || lowerLoc.startsWith('/statistics') || lowerLoc.startsWith('/hunting') ||
+      lowerLoc.startsWith('/regions-zones') ||
       lowerLoc.startsWith('/accounts') || lowerLoc.startsWith('/settings') || lowerLoc.startsWith('/subaccounts')
     ) {
       pathDomain = 'CHASSE';

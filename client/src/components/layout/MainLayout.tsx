@@ -462,40 +462,42 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         </div>
       </div>
 
-      {/* Navigation mobile unifiée pour agents (chromeless) */}
+      {/* Navigation basse unifiée pour agents Alerte (téléphone, tablette et ordinateur) */}
       {chromeless && !isHunterOrGuide && !smsChatOpen && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] flex items-center justify-around py-2 z-[250] md:hidden">
-          <button
-            onClick={() => setLocation((user as any)?.isSupervisorRole ? "/supervisor" : "/default-home")}
-            className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform"
-          >
-            <Home className={`h-5 w-5 ${location === '/supervisor' || location === '/default-home' ? 'text-green-700' : 'text-gray-500'}`} />
-            <span className={`text-[9px] font-medium ${location === '/supervisor' || location === '/default-home' ? 'text-green-700' : 'text-gray-500'}`}>Accueil</span>
-          </button>
-          
-          {!(user as any)?.isSupervisorRole && (
-            <button onClick={() => setLocation("/sms")} className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
-              <div className="relative">
-                <MessageSquare className={`h-5 w-5 ${location === '/sms' ? 'text-green-700' : 'text-gray-500'}`} />
-                {unreadMsg > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-blue-100/80 text-blue-700 border border-blue-200/50 text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
-                )}
-              </div>
-              <span className={`text-[9px] font-medium ${location === '/sms' ? 'text-green-700' : 'text-gray-500'}`}>Messages</span>
+        <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] flex items-center justify-center px-2 pb-safe z-[250]">
+          <div className="w-full max-w-xl h-full flex items-center justify-around">
+            <button
+              onClick={() => setLocation((user as any)?.isSupervisorRole ? "/supervisor" : "/default-home")}
+              className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 active:scale-95 transition-transform"
+            >
+              <Home className={`h-5 w-5 ${location === '/supervisor' || location === '/default-home' ? 'text-green-700' : 'text-gray-500'}`} />
+              <span className={`text-[10px] font-medium ${location === '/supervisor' || location === '/default-home' ? 'text-green-700 font-bold' : 'text-gray-500'}`}>Accueil</span>
             </button>
-          )}
+            
+            {!(user as any)?.isSupervisorRole && (
+              <button onClick={() => setLocation("/sms")} className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
+                <div className="relative">
+                  <MessageSquare className={`h-5 w-5 ${location === '/sms' ? 'text-green-700' : 'text-gray-500'}`} />
+                  {unreadMsg > 0 && (
+                    <span className="absolute -top-1 -right-2 bg-blue-100/80 text-blue-700 border border-blue-200/50 text-[7px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center">{unreadMsg}</span>
+                  )}
+                </div>
+                <span className={`text-[10px] font-medium ${location === '/sms' ? 'text-green-700 font-bold' : 'text-gray-500'}`}>Messages</span>
+              </button>
+            )}
 
-          {(user as any)?.isSupervisorRole && (
-            <button onClick={() => setLocation("/map")} className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
-              <Map className={`h-5 w-5 ${location === '/map' ? 'text-green-700' : 'text-gray-500'}`} />
-              <span className={`text-[9px] font-medium ${location === '/map' ? 'text-green-700' : 'text-gray-500'}`}>Carte</span>
+            {(user as any)?.isSupervisorRole && (
+              <button onClick={() => setLocation("/map")} className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
+                <Map className={`h-5 w-5 ${location === '/map' ? 'text-green-700' : 'text-gray-500'}`} />
+                <span className={`text-[10px] font-medium ${location === '/map' ? 'text-green-700 font-bold' : 'text-gray-500'}`}>Carte</span>
+              </button>
+            )}
+
+            <button onClick={() => setLocation("/profile")} className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
+              <User className={`h-5 w-5 ${location === '/profile' ? 'text-green-700' : 'text-gray-500'}`} />
+              <span className={`text-[10px] font-medium ${location === '/profile' ? 'text-green-700 font-bold' : 'text-gray-500'}`}>Profil</span>
             </button>
-          )}
-
-          <button onClick={() => setLocation("/profile")} className="flex flex-col items-center gap-0.5 px-3 py-1 active:scale-95 transition-transform">
-            <User className={`h-5 w-5 ${location === '/profile' ? 'text-green-700' : 'text-gray-500'}`} />
-            <span className={`text-[9px] font-medium ${location === '/profile' ? 'text-green-700' : 'text-gray-500'}`}>Profil</span>
-          </button>
+          </div>
         </div>
       )}
 
