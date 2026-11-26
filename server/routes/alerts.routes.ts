@@ -63,7 +63,7 @@ router.patch('/read-all', isAuthenticated, markAllAsRead); // Simplifié: s'appl
 router.patch('/user/:userId/read-all', isAuthenticated, markAllAsRead); // Route spécifique pour un utilisateur
 router.delete('/:alertId', isAuthenticated, deleteAlert);
 
-// Route pour télécharger/consommer les pièces jointes
+// Route pour télécharger/consommer les pièces jointes (avec support Range pour lecture audio/vidéo)
 router.get('/attachment/:key', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const key = req.params.key;
@@ -72,9 +72,29 @@ router.get('/attachment/:key', isAuthenticated, async (req: Request, res: Respon
       return res.status(404).json({ message: 'Pièce jointe introuvable' });
     }
     const mime = guessMimeFromFilename(key);
+    const totalLength = fileData.buffer.length;
     res.setHeader('Content-Type', mime);
+    res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'private, max-age=3600');
-    res.send(fileData.buffer);
+
+    const range = req.headers.range;
+    if (range) {
+      const match = /bytes=(\d*)-(\d*)/.exec(range);
+      if (match) {
+        const start = match[1] ? parseInt(match[1], 10) : 0;
+        const end = match[2] ? Math.min(parseInt(match[2], 10), totalLength - 1) : totalLength - 1;
+        if (start <= end && start < totalLength) {
+          const chunk = fileData.buffer.subarray(start, end + 1);
+          res.status(206);
+          res.setHeader('Content-Range', `bytes ${start}-${end}/${totalLength}`);
+          res.setHeader('Content-Length', chunk.length);
+          return res.send(chunk);
+        }
+      }
+    }
+
+    res.setHeader('Content-Length', totalLength);
+    return res.send(fileData.buffer);
   } catch (error) {
     console.error('Erreur lors du téléchargement de la pièce jointe de l\'alerte:', error);
     res.status(500).json({ message: 'Erreur serveur' });

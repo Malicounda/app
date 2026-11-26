@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Save, Edit, Check, X, Briefcase, Target, LogOut,
-  UserRound, Calendar, BadgeCheck, Mail, Phone, MapPin, Clock, Eye, EyeOff, Pencil
+  UserRound, Calendar, BadgeCheck, Mail, Phone, MapPin, Clock, Eye, EyeOff, Pencil,
+  Camera, Upload, Loader2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { apiRequestBlob } from "@/lib/api";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import CameraCaptureModal from "@/components/messaging/CameraCaptureModal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 // import { regionEnum } from "@/lib/constants";
 
@@ -70,6 +73,11 @@ export default function HunterProfilePage() {
 
   // URL de l'avatar (blob sécurisé)
   const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoVersion, setPhotoVersion] = useState(0);
+  const photoFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Statut des pièces jointes pour déterminer l'avatar (Photo du Chasseur)
   const hunterId = (user as any)?.hunterId ?? (hunterData as any)?.id;
@@ -82,15 +90,69 @@ export default function HunterProfilePage() {
     enabled: Boolean(hunterId),
   });
 
+  // Écouter les mises à jour de photo depuis Documents ou Profil
+  useEffect(() => {
+    const onPhotoUpdated = () => {
+      setPhotoVersion((v) => v + 1);
+      if (hunterId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/attachments', hunterId] });
+      }
+    };
+    window.addEventListener('hunter:photo-updated', onPhotoUpdated);
+    return () => window.removeEventListener('hunter:photo-updated', onPhotoUpdated);
+  }, [hunterId, queryClient]);
+
+  // Téléverser directement la Photo du Chasseur depuis le profil (caméra ou fichier)
+  const handleUploadHunterPhoto = async (file: File) => {
+    if (!hunterId) {
+      toast({ title: "Profil incomplet", description: "Veuillez d'abord compléter votre profil chasseur.", variant: "destructive" });
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Fichier invalide", description: "Veuillez sélectionner une image (JPG ou PNG).", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Image trop volumineuse", description: "La taille maximale est de 5 Mo.", variant: "destructive" });
+      return;
+    }
+    setUploadingPhoto(true);
+    setPhotoMenuOpen(false);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("documentType", "hunterPhoto");
+      const res = await authenticatedFetch(`/api/attachments/${hunterId}`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.message || "Échec de l'enregistrement de la photo.");
+      }
+      const localPreview = URL.createObjectURL(file);
+      setAvatarUrl(localPreview);
+      await queryClient.invalidateQueries({ queryKey: ['/api/attachments', hunterId] });
+      await queryClient.invalidateQueries({ queryKey: ['hunter-documents'] });
+      window.dispatchEvent(new CustomEvent('hunter:photo-updated'));
+      toast({ title: "Photo mise à jour", description: "Votre photo de profil a été enregistrée avec succès." });
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e?.message || "Impossible d'enregistrer la photo.", variant: "destructive" });
+    } finally {
+      setUploadingPhoto(false);
+      if (photoFileInputRef.current) photoFileInputRef.current.value = "";
+    }
+  };
+
   // Charger la photo du chasseur de manière authentifiée et générer un blob URL
   useEffect(() => {
     let prevUrl: string | null = null;
     const hasPhoto = attachmentsStatus?.items?.some(i => i.type === 'hunterPhoto' && i.present);
-    if (hunterId && hasPhoto) {
+    if (hunterId && (hasPhoto || photoVersion > 0)) {
       (async () => {
         try {
           const res = await apiRequestBlob(`/attachments/${hunterId}/hunterPhoto?inline=1`, 'GET');
-          if (res.ok && res.blob) {
+          if (res.ok && res.blob && res.blob.size > 0) {
             const url = URL.createObjectURL(res.blob);
             prevUrl = url;
             setAvatarUrl(url);
@@ -107,7 +169,7 @@ export default function HunterProfilePage() {
     return () => {
       if (prevUrl) URL.revokeObjectURL(prevUrl);
     };
-  }, [hunterId, attachmentsStatus?.updatedAt]);
+  }, [hunterId, attachmentsStatus?.updatedAt, photoVersion]);
 
   // État du formulaire
   const [formData, setFormData] = useState({
@@ -352,20 +414,78 @@ export default function HunterProfilePage() {
             <CardContent>
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="md:w-1/4 flex flex-col items-center">
-                  <Avatar className="h-32 w-32 mb-4">
-                    <AvatarImage src={avatarUrl} alt="Photo de profil" />
-                    <AvatarFallback className="text-4xl">
-                      {user?.firstName?.charAt(0) || user?.lastName?.charAt(0) || "P"}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative mb-4">
+                    <Avatar className="h-32 w-32 border-2 border-slate-200 shadow-sm">
+                      <AvatarImage src={avatarUrl} alt="Photo de profil" className="object-cover" />
+                      <AvatarFallback className="text-4xl">
+                        {user?.firstName?.charAt(0) || user?.lastName?.charAt(0) || "P"}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <button
+                      type="button"
+                      disabled={uploadingPhoto}
+                      onClick={() => setPhotoMenuOpen((o) => !o)}
+                      className="absolute bottom-1 right-1 h-9 w-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-md border-2 border-white flex items-center justify-center transition-all active:scale-95 disabled:opacity-60"
+                      title="Prendre ou importer une photo de profil"
+                    >
+                      {uploadingPhoto ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Camera className="h-4 w-4" />
+                      )}
+                    </button>
+
+                    {photoMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setPhotoMenuOpen(false)} />
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhotoMenuOpen(false);
+                              setShowCameraModal(true);
+                            }}
+                            className="w-full text-left px-3.5 py-2.5 text-sm font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors"
+                          >
+                            <Camera className="h-4 w-4 text-emerald-600" />
+                            <span>Prendre une photo</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhotoMenuOpen(false);
+                              photoFileInputRef.current?.click();
+                            }}
+                            className="w-full text-left px-3.5 py-2.5 text-sm font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors"
+                          >
+                            <Upload className="h-4 w-4 text-emerald-600" />
+                            <span>Choisir un fichier</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    <input
+                      ref={photoFileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/jpg,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleUploadHunterPhoto(f);
+                      }}
+                    />
+
+                    <CameraCaptureModal
+                      open={showCameraModal}
+                      onClose={() => setShowCameraModal(false)}
+                      onCapture={(capturedFile) => handleUploadHunterPhoto(capturedFile)}
+                    />
+                  </div>
                   <div className="text-center">
                     <h3 className="font-medium text-lg">{user?.firstName} {user?.lastName}</h3>
                     <p className="text-sm text-muted-foreground">Chasseur</p>
-                    {editMode && (
-                      <Button variant="outline" size="sm" className="mt-2">
-                        Changer la photo
-                      </Button>
-                    )}
                   </div>
                 </div>
 

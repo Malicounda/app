@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Camera, Check, RefreshCw, RotateCcw, Upload, X, AlertCircle, Loader2 } from "lucide-react";
 
 interface CameraCaptureModalProps {
@@ -200,8 +201,8 @@ export default function CameraCaptureModal({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[1000] bg-black/90 flex flex-col items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150">
+  const modalContent = (
+    <div className="fixed inset-0 z-[20000] bg-black/90 flex flex-col items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150">
       <div className="relative w-full h-full sm:h-auto sm:max-w-lg sm:rounded-2xl overflow-hidden bg-slate-950 flex flex-col shadow-2xl border border-white/10">
         {/* Barre supérieure */}
         <div className="flex items-center justify-between px-4 py-3 bg-black/60 text-white shrink-0">
@@ -343,4 +344,8 @@ export default function CameraCaptureModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 }

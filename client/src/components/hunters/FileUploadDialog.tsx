@@ -5,6 +5,7 @@ import { useToast } from '../../hooks/use-toast';
 import { Alert, AlertDescription } from '../ui/alert';
 import { AlertCircle, FileText, Upload as UploadIcon, X, Camera } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import CameraCaptureModal from '../messaging/CameraCaptureModal';
 
 interface FileUploadDialogProps {
   open: boolean;
@@ -25,6 +26,7 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload, provi
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [expiryDate, setExpiryDate] = useState<string>("");
+  const [showCameraModal, setShowCameraModal] = useState(false);
 
   const ALLOWED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -58,6 +60,9 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload, provi
   };
 
   const [selectedType, setSelectedType] = useState<string>("");
+  const effectiveDocType = document?.id || selectedType;
+  const isHunterPhoto = effectiveDocType === 'hunterPhoto';
+  const hideExpiryDate = effectiveDocType === 'hunterPhoto' || effectiveDocType === 'moralCertificate';
 
   const handleUpload = async () => {
     if (!file) {
@@ -73,10 +78,14 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload, provi
     try {
       setIsUploading(true);
       const meta: { expiryDate?: string; type?: string } = {};
-      if (expiryDate) meta.expiryDate = expiryDate; // format attendu: YYYY-MM-DD
+      if (!hideExpiryDate && expiryDate) meta.expiryDate = expiryDate; // format attendu: YYYY-MM-DD
       if (!document) meta.type = selectedType; // If no document, pass the selected type
       
       await onUpload(file, meta);
+
+      if (isHunterPhoto) {
+        window.dispatchEvent(new CustomEvent('hunter:photo-updated'));
+      }
       
       // Reset form
       setFile(null);
@@ -104,7 +113,10 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload, provi
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open && !showCameraModal} onOpenChange={(nextOpen) => {
+      if (!showCameraModal) onOpenChange(nextOpen);
+    }}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{document ? `Mettre à jour ${document.title}` : 'Téléverser un document'}</DialogTitle>
@@ -152,21 +164,18 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload, provi
 
           {!file ? (
             <div className="relative flex items-center justify-center w-full">
-              <label 
-                htmlFor="camera-upload" 
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowCameraModal(true);
+                }}
                 className="absolute top-3 right-3 p-2.5 bg-white rounded-full shadow-md text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 z-10 cursor-pointer transition-all hover:scale-105"
-                title="Prendre une photo"
+                title="Prendre une photo avec la caméra"
               >
                 <Camera className="w-5 h-5" />
-              </label>
-              <input
-                id="camera-upload"
-                type="file"
-                className="hidden"
-                onChange={handleFileChange}
-                accept="image/*"
-                capture="environment"
-              />
+              </button>
               <label
                 htmlFor="file-upload"
                 className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors"
@@ -216,18 +225,20 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload, provi
             </div>
           )}
 
-          {/* Date d'expiration optionnelle */}
-          <div className="grid gap-2">
-            <label className="text-sm font-medium" htmlFor="expiry-date">Date d'expiration (optionnel)</label>
-            <input
-              id="expiry-date"
-              type="date"
-              className="border rounded-md px-3 py-2 text-sm"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">Laissez vide pour laisser le système calculer automatiquement si applicable (ex: Timbre Impôt).</p>
-          </div>
+          {/* Date d'expiration optionnelle (masquée pour Photo du Chasseur et Certificat de Bonne Vie et Mœurs) */}
+          {!hideExpiryDate && (
+            <div className="grid gap-2">
+              <label className="text-sm font-medium" htmlFor="expiry-date">Date d'expiration (optionnel)</label>
+              <input
+                id="expiry-date"
+                type="date"
+                className="border rounded-md px-3 py-2 text-sm"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Laissez vide pour laisser le système calculer automatiquement si applicable (ex: Timbre Impôt).</p>
+            </div>
+          )}
 
           <div className="text-xs text-muted-foreground mt-2">
             <p>Types de fichiers acceptés : .pdf, .jpg, .jpeg, .png</p>
@@ -254,5 +265,14 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload, provi
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <CameraCaptureModal
+      open={showCameraModal}
+      onClose={() => setShowCameraModal(false)}
+      onCapture={(capturedFile) => {
+        setFile(capturedFile);
+        setError(null);
+      }}
+    />
+    </>
   );
 }

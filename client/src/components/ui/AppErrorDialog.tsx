@@ -135,7 +135,7 @@ export default function AppErrorDialog() {
   if (accessDenied || sessionExpired) {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
+        <DialogContent hideClose className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
           <div className="flex flex-col items-center text-center pt-1">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100">
               <Info className="h-5 w-5 text-gray-500" strokeWidth={2.5} />
@@ -159,7 +159,7 @@ export default function AppErrorDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
+      <DialogContent hideClose className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
         <div className="flex flex-col items-center text-center pt-1">
           <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-red-100">
             <Info className="h-5 w-5 text-red-500" strokeWidth={2.5} />

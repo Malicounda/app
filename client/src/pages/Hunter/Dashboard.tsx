@@ -1291,16 +1291,16 @@ export default function HunterDashboard() {
       {showCompletionModal && (
         <Dialog open={showCompletionModal} onOpenChange={setShowCompletionModal}>
           <DialogContent 
-            className="max-w-3xl max-h-[90vh] flex flex-col p-4 sm:p-6" 
+            className="max-w-4xl w-[95vw] h-[88vh] max-h-[88vh] flex flex-col p-0 overflow-hidden rounded-2xl gap-0" 
             hideClose
             onPointerDownOutside={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
           >
-            <DialogHeader className="shrink-0 mb-2">
+            <DialogHeader className="shrink-0 px-5 sm:px-6 py-4 border-b border-slate-100 bg-white">
               <div className="flex items-start sm:items-center justify-between gap-4">
                 <div>
-                  <DialogTitle>Compléter votre profil chasseur</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-lg font-bold text-slate-900">Compléter votre profil chasseur</DialogTitle>
+                  <DialogDescription className="text-xs sm:text-sm text-slate-500 mt-0.5">
                     Veuillez renseigner toutes les informations requises afin d'accéder à votre espace chasseur.
                   </DialogDescription>
                 </div>
@@ -1313,7 +1313,7 @@ export default function HunterDashboard() {
                 </button>
               </div>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="flex-1 min-h-0 flex overflow-hidden">
               <RegisterForm
                 userType="hunter"
                 embedded

@@ -423,6 +423,22 @@ export const register = async (req: Request, res: Response) => {
             role,
         });
 
+        // Associer automatiquement le domaine CHASSE aux chasseurs inscrits afin qu'ils puissent se connecter et compléter leur profil
+        if (role === 'hunter') {
+            try {
+                await storage.createUserDomain({
+                    userId: newUser.id,
+                    domain: 'CHASSE',
+                    domaineId: 1,
+                    role: 'hunter',
+                    active: true,
+                } as any);
+                console.log('[REGISTER] Domaine CHASSE associé automatiquement au chasseur:', newUser.username);
+            } catch (domainErr) {
+                console.warn('[REGISTER] Impossible d\'associer automatiquement le domaine CHASSE:', domainErr);
+            }
+        }
+
         console.log('[REGISTER] Utilisateur créé avec succès:', newUser.username);
         const { password: _p, ...safeUser } = newUser as any;
         return res.status(201).json({ message: "Inscription réussie", user: safeUser });

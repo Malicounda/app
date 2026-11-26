@@ -1256,6 +1256,25 @@ function AppContent() {
 
   useDisableContextMenu(isAdmin);
 
+  // Désactiver globalement le correcteur orthographique et Microsoft Edge Editor sur tous les champs de saisie
+  useEffect(() => {
+    const disableSpellcheck = (el: HTMLElement | null) => {
+      if (!el) return;
+      const tag = el.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable) {
+        el.setAttribute('spellcheck', 'false');
+        el.setAttribute('autocorrect', 'off');
+        el.setAttribute('data-ms-editor', 'false');
+        el.setAttribute('data-gramm', 'false');
+        el.setAttribute('data-gramm_editor', 'false');
+        el.setAttribute('data-enable-grammarly', 'false');
+      }
+    };
+    const onFocusIn = (e: FocusEvent) => disableSpellcheck(e.target as HTMLElement | null);
+    document.addEventListener('focusin', onFocusIn, true);
+    return () => document.removeEventListener('focusin', onFocusIn, true);
+  }, []);
+
   // Masquer le splashscreen HTML une fois que React est chargé
   useEffect(() => {
     // Si on est sur l'APK Alerte, on force le domaine ALERTE dans le localStorage

@@ -77,6 +77,45 @@ type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.
   overlayClassName?: string;
 }
 
+function extractNodeText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(extractNodeText).join(" ");
+  if (React.isValidElement(node) && (node.props as any)?.children) {
+    return extractNodeText((node.props as any).children);
+  }
+  return "";
+}
+
+function hasExplicitCloseButton(nodes: React.ReactNode): boolean {
+  let found = false;
+  React.Children.forEach(nodes, (child) => {
+    if (found || !React.isValidElement(child)) return;
+    const props = child.props as any;
+    const typeName =
+      typeof child.type === "string"
+        ? child.type.toLowerCase()
+        : (child.type as any)?.displayName || (child.type as any)?.name || "";
+
+    const isButtonLike =
+      typeName === "button" ||
+      typeName === "Button" ||
+      child.type === DialogPrimitive.Close;
+
+    if (isButtonLike && props?.children !== undefined) {
+      const text = extractNodeText(props.children).trim().toLowerCase();
+      if (text === "fermer" || text === "close") {
+        found = true;
+        return;
+      }
+    }
+
+    if (props?.children && hasExplicitCloseButton(props.children)) {
+      found = true;
+    }
+  });
+  return found;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
@@ -84,6 +123,7 @@ const DialogContent = React.forwardRef<
   const { ["aria-describedby"]: ariaDescribedBy, ...restProps } = props as React.ComponentPropsWithoutRef<
     typeof DialogPrimitive.Content
   > & { ["aria-describedby"]?: string }
+  const shouldHideClose = hideClose ?? hasExplicitCloseButton(children);
 
   return (
     <DialogPortal>
@@ -111,7 +151,7 @@ const DialogContent = React.forwardRef<
         {...restProps}
       >
         {children}
-        {!hideClose && (
+        {!shouldHideClose && (
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>

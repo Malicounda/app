@@ -21,6 +21,17 @@ export default function AgentTopHeader() {
     avatarCacheKey ? avatarMemoryCache.get(avatarCacheKey) || null : null
   );
   const [avatarError, setAvatarError] = useState(false);
+  const [photoRefreshTick, setPhotoRefreshTick] = useState(0);
+
+  // Rafraîchir immédiatement la photo quand le chasseur met à jour sa Photo du Chasseur
+  useEffect(() => {
+    const onPhotoUpdated = () => {
+      if (avatarCacheKey) avatarMemoryCache.delete(avatarCacheKey);
+      setPhotoRefreshTick((t) => t + 1);
+    };
+    window.addEventListener("hunter:photo-updated", onPhotoUpdated);
+    return () => window.removeEventListener("hunter:photo-updated", onPhotoUpdated);
+  }, [avatarCacheKey]);
 
   // Charger la photo de profil une seule fois par session et la garder en cache
   useEffect(() => {
@@ -84,14 +95,20 @@ export default function AgentTopHeader() {
       if (user.role === "hunter") {
         const ownerId = user.hunterId || user.id;
         if (ownerId) {
-          try {
-            const res = await apiRequestBlob(`/api/hunters/${ownerId}/photo`, "GET");
-            if (res.ok && res.blob && res.blob.size > 0) {
-              saveAndSet(URL.createObjectURL(res.blob));
-              return;
+          const hunterEndpoints = [
+            `/attachments/${ownerId}/hunterPhoto?inline=1`,
+            `/api/hunters/${ownerId}/photo`,
+          ];
+          for (const ep of hunterEndpoints) {
+            try {
+              const res = await apiRequestBlob(ep, "GET");
+              if (res.ok && res.blob && res.blob.size > 0) {
+                saveAndSet(URL.createObjectURL(res.blob));
+                return;
+              }
+            } catch {
+              // Essayer le suivant
             }
-          } catch {
-            // Ignorer
           }
         }
       }
@@ -101,7 +118,7 @@ export default function AgentTopHeader() {
     return () => {
       active = false;
     };
-  }, [avatarCacheKey, user]);
+  }, [avatarCacheKey, user, photoRefreshTick]);
 
   useEffect(() => {
     const handleEditState = (e: Event) => {

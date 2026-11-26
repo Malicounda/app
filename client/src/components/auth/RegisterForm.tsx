@@ -748,51 +748,49 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
   }, [hunterForm]);
 
   return (
-    <div className={cn(embedded ? "w-full" : "flex flex-col items-center justify-center p-4 bg-white overflow-hidden h-screen")}>
-      <div className={cn("w-full flex flex-col", embedded ? "" : "bg-white rounded-xl overflow-hidden shadow-xl max-w-5xl h-[90vh]")}>
-        <div className={cn("md:flex", embedded ? "" : "h-full")}>
-          {/* Panneau d'information sur la gauche (caché en mode embarqué) */}
-          <div className={cn("relative md:w-7/12 bg-green-700 text-white hidden md:block overflow-hidden", embedded ? "hidden" : "hidden md:block")}>
-            {/* Sticker/Stripe décoratif à gauche */}
-            <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-b from-emerald-400 to-green-600 shadow-[inset_-4px_0_8px_rgba(0,0,0,0.08)]" />
-            <div className="p-8 pl-10">
-              <h1 className="text-3xl font-bold mb-4 text-center">Permis de Chasse</h1>
-              <p className="mb-6">Bienvenue sur la plateforme officielle de demande de permis de chasse au Sénégal.</p>
+    <div className={cn(embedded ? "w-full h-full flex flex-col min-h-0" : "flex flex-col items-center justify-center p-4 bg-white overflow-hidden h-screen")}>
+      <div className={cn("w-full flex flex-col min-h-0", embedded ? "flex-1 h-full" : "bg-white rounded-xl overflow-hidden shadow-xl max-w-5xl h-[90vh]")}>
+        <div className={cn("md:flex flex-1 min-h-0", embedded ? "h-full" : "h-full")}>
+          {/* Panneau d'information sur la gauche, étiré bord à bord */}
+          <div className="relative md:w-[40%] shrink-0 bg-gradient-to-br from-[#0f3d26] via-[#155a36] to-[#0c311e] text-white hidden md:flex flex-col justify-center overflow-y-auto">
+            <div className="px-7 py-6">
+              <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tight mb-3 text-center text-white">Permis de Chasse</h1>
+              <p className="mb-6 text-sm text-emerald-100/90 leading-relaxed text-center">Bienvenue sur la plateforme de demande de permis de chasse au Sénégal.</p>
 
               <div className="space-y-4">
-                <div className="flex items-start">
-                  <div className="bg-white p-2 rounded-full text-green-700 mr-3 mt-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <div className="flex items-start gap-3">
+                  <div className="bg-white/15 border border-white/20 p-2 rounded-full text-emerald-200 shrink-0 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-semibold">Processus simplifié</h3>
-                    <p className="text-sm">Création rapide de compte et demande de permis en quelques étapes.</p>
+                    <h3 className="font-semibold text-sm text-white">Processus simplifié</h3>
+                    <p className="text-xs text-emerald-100/80 leading-relaxed mt-0.5">Création rapide de compte et demande de permis en quelques étapes.</p>
                   </div>
                 </div>
 
-                <div className="flex items-start">
-                  <div className="bg-white p-2 rounded-full text-green-700 mr-3 mt-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <div className="flex items-start gap-3">
+                  <div className="bg-white/15 border border-white/20 p-2 rounded-full text-emerald-200 shrink-0 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-semibold">Suivi en temps réel</h3>
-                    <p className="text-sm">Suivez l'état de vos demandes de permis à tout moment.</p>
+                    <h3 className="font-semibold text-sm text-white">Suivi en temps réel</h3>
+                    <p className="text-xs text-emerald-100/80 leading-relaxed mt-0.5">Suivez l'état de vos demandes de permis à tout moment.</p>
                   </div>
                 </div>
 
-                <div className="flex items-start">
-                  <div className="bg-white p-2 rounded-full text-green-700 mr-3 mt-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <div className="flex items-start gap-3">
+                  <div className="bg-white/15 border border-white/20 p-2 rounded-full text-emerald-200 shrink-0 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-semibold">Déclarations d'abattage et captures</h3>
-                    <p className="text-sm">Déclarez vos abattages ou captures pour une meilleure gestion de la faune sauvage.</p>
+                    <h3 className="font-semibold text-sm text-white">Déclarations d'abattage et captures</h3>
+                    <p className="text-xs text-emerald-100/80 leading-relaxed mt-0.5">Déclarez vos abattages ou captures pour une meilleure gestion de la faune sauvage.</p>
                   </div>
                 </div>
               </div>
@@ -800,7 +798,13 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
           </div>
 
           {/* Formulaire d'inscription sur la droite */}
-          <div className={cn(isSuccess ? "overflow-hidden" : "overflow-y-auto", embedded ? "w-full p-1" : "p-8 md:w-1/2 h-full")}>
+          <div
+            className={cn(
+              isSuccess ? "overflow-hidden" : "overflow-y-scroll",
+              embedded ? "flex-1 min-w-0 min-h-0 h-full p-5 sm:p-6" : "p-8 md:w-[60%] min-h-0 h-full"
+            )}
+            style={{ WebkitOverflowScrolling: 'touch', scrollbarGutter: 'stable' }}
+          >
             <div className="relative mb-6">
               {/* Bouton de retour vers login (masqué en mode embarqué et en cas de succès) */}
               {!embedded && step === 1 && !isSuccess && (

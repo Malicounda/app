@@ -1,5 +1,6 @@
 import { NatureIcon } from "@/components/icons/AlertNatureIcons";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
+import CameraCaptureModal from "@/components/messaging/CameraCaptureModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +21,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ArrowLeft, ArrowUpDown, Bell, Camera, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Filter, Info, MapPin, MessageSquare, Mic, Phone, Plus, RefreshCw, Search, Trash2, User, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Bell, Camera, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Filter, Info, MapPin, MessageSquare, Mic, Paperclip, Phone, Plus, RefreshCw, Search, Trash2, User, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation as useWouterLocation } from "wouter";
 
@@ -68,6 +69,8 @@ interface Alert {
   readByDetails?: { name: string; role: string }[];
   isDeletionRequest?: boolean;
   concernedHunters?: { id: number; name: string }[];
+  imagePath?: string | null;
+  audioPath?: string | null;
   sender: {
     username: string;
     firstName: string;
@@ -638,9 +641,12 @@ function AlertsPage() {
   const [messageText, setMessageText] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"inbox" | "outbox">("inbox");
   const [expandedAlerts, setExpandedAlerts] = useState<(number | string)[]>([]);
+  const [showHunterSentAlerts, setShowHunterSentAlerts] = useState(false);
+  const [agentListView, setAgentListView] = useState<"inbox" | "outbox" | null>(null);
 
   // === SPOTREP Modal states ===
   const [showSpotrepModal, setShowSpotrepModal] = useState(false);
+  const [showSpotrepCamera, setShowSpotrepCamera] = useState(false);
   const [spotrepPhoto, setSpotrepPhoto] = useState<File | null>(null);
   const [spotrepPhotoPreview, setSpotrepPhotoPreview] = useState<string | null>(null);
   const [spotrepAudio, setSpotrepAudio] = useState<File | null>(null);
@@ -979,6 +985,8 @@ function AlertsPage() {
               arrondissement: a.arrondissement || undefined,
               commune: a.commune || undefined,
               localite: a.localite || undefined,
+              imagePath: a.imagePath || a.image_path || null,
+              audioPath: a.audioPath || a.audio_path || null,
               sender: {
                 username: s.username || 'inconnu',
                 firstName: s.first_name || '',
@@ -1048,6 +1056,8 @@ function AlertsPage() {
             localite: a.localite || undefined,
             readByRoles: Array.isArray(a.read_by_roles) ? a.read_by_roles : undefined,
             readByDetails: Array.isArray(a.read_by_details) ? a.read_by_details : undefined,
+            imagePath: a.imagePath || a.image_path || null,
+            audioPath: a.audioPath || a.audio_path || null,
             sender: {
               username: s.username || user.username || 'moi',
               firstName: s.first_name || user.firstName || '',
@@ -1665,19 +1675,15 @@ function AlertsPage() {
     return result;
   };
 
-  // Déterminer si l'utilisateur peut envoyer des alertes
-  const canSendAlerts = (isSectorAgent || isRegionalAgent || isHunter || isGuide || isDefaultRole || isSupervisorRole) && !isAdmin && isAlerteDomain;
+  // Déterminer si l'utilisateur peut envoyer des alertes (Chasseurs et Guides toujours autorisés sur leur espace)
+  const canSendAlerts = !isAdmin && (isHunter || isGuide || ((isSectorAgent || isRegionalAgent || isDefaultRole || isSupervisorRole) && isAlerteDomain));
 
   // Effet pour gérer la configuration initiale en fonction du type d'utilisateur
   useEffect(() => {
-    // Pour les chasseurs et guides, forcer le type d'alerte à 'autre' (Informations) et afficher la zone de texte
+    // Initialiser sans type d'alerte sélectionné (l'utilisateur choisit Braconnage, Coupe de bois ou Feux de brousse)
+    setSelectedAlertType(null);
     if (isHunter || isGuide) {
-      setSelectedAlertType('autre');
-      setAlertNature('autre');
-      setShowAlertForm(true); // Activer automatiquement le formulaire pour les chasseurs
-    } else {
-      // Pour les non-chasseurs, initialiser sans type d'alerte sélectionné
-      setSelectedAlertType(null);
+      setShowAlertForm(true);
     }
 
     // Auto-capture de la localisation au chargement — UNE SEULE FOIS
@@ -1718,15 +1724,6 @@ function AlertsPage() {
       setShowSpotrepModal(true);
       return;
     }
-    // Pour chasseurs/guides: exiger une description
-    if ((isHunter || isGuide) && (!messageText || !messageText.trim())) {
-      toast({
-        variant: "destructive",
-        title: "Description requise",
-        description: "Veuillez décrire l'information avant l'envoi.",
-      });
-      return;
-    }
 
     try {
       setIsSendingAlert(true);
@@ -1757,11 +1754,14 @@ function AlertsPage() {
         console.warn('[AlertsPage] Coordonnées inversées détectées, application du swap lat/lon.', { before: { rawLat, rawLon }, after: { lat, lon } });
       }
 
+      const trimmedMsg = messageText.trim();
       const alertData = {
-        title: (isHunter || isGuide) ? 'Informations' : `Alerte ${selectedAlertType}`,
-        message: (isHunter || isGuide) ? messageText.trim() : `Nouvelle alerte de type ${selectedAlertType} détectée`,
-        type: (isHunter || isGuide) ? 'info' : 'warning',
-        nature: (isHunter || isGuide) ? 'autre' : selectedAlertType,
+        title: `Alerte ${selectedAlertType}`,
+        message: (selectedAlertType === 'spotrep' && trimmedMsg)
+          ? trimmedMsg
+          : `Nouvelle alerte de type ${selectedAlertType} détectée`,
+        type: 'warning',
+        nature: selectedAlertType,
         zone: `${lat},${lon}`,  // Format attendu: "lat,lon"
         latitude: lat,
         longitude: lon,
@@ -1838,6 +1838,9 @@ function AlertsPage() {
       // Réinitialiser le formulaire
       resetForm();
       setMessageText("");
+      setShowSpotrepModal(false);
+      clearSpotrepPhoto();
+      clearSpotrepAudio();
 
       // Relancer la géolocalisation automatiquement pour la prochaine alerte
       handleGetLocation();
@@ -1955,35 +1958,77 @@ function AlertsPage() {
   const mobileAlertLayout = isAlertMobileChromeless && canSendAlerts;
   const mobileSupervisorLayout = isAlertMobileChromeless && !canSendAlerts;
 
-  const showLeftColumn = canSendAlerts && !((isHunter || isGuide) && activeTab === 'outbox') && !(activeTab === 'inbox' && (isRegionalAgent || isSectorAgent));
+  const isAgentDedicatedListPage = mobileAlertLayout && agentListView !== null;
+  const isAgentSummaryHome = mobileAlertLayout && agentListView === null;
+  const showLeftColumn = canSendAlerts && !isAgentDedicatedListPage;
 
   return (
     <div className={isHunter || isGuide || isAlertMobileChromeless ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50" : `flex flex-col overflow-hidden bg-transparent h-full`}>
       {(isHunter || isGuide || isAlertMobileChromeless) && <AgentTopHeader />}
-      <div className={isHunter || isGuide ? "flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain pb-24" : isAlertMobileChromeless ? "flex-1 flex flex-col min-h-0 overflow-hidden pb-16" : `w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 py-2 sm:py-3 lg:py-4`}>
-        <div className={isHunter || isGuide ? "w-full max-w-3xl flex flex-col flex-1 min-h-0 mx-auto px-2 sm:px-4 py-4" : `w-full flex flex-col flex-1 min-h-0 mx-auto`}>
+      <div className={
+        isHunter || isGuide
+          ? (showHunterSentAlerts
+            ? "flex-1 flex flex-col min-h-0 overflow-hidden pb-16"
+            : "flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain pb-24")
+          : isAlertMobileChromeless
+            ? "flex-1 flex flex-col min-h-0 overflow-hidden pb-16"
+            : `w-full flex-1 flex flex-col min-h-0 justify-center px-2 sm:px-4 py-2 sm:py-3 lg:py-4`
+      }>
+        <div className={isHunter || isGuide ? `w-full max-w-3xl flex flex-col flex-1 min-h-0 mx-auto px-2 sm:px-4 ${showHunterSentAlerts ? 'py-2 sm:py-3' : 'py-4'}` : `w-full flex flex-col flex-1 min-h-0 mx-auto`}>
           {/* Bouton Retour + Actions - Barre supérieure */}
           <div className="shrink-0 bg-white rounded-t-lg shadow-sm border border-b-0 border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 justify-between">
-            {/* Bouton Retour — visible pour tous, redirige vers l'accueil du domaine */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-600 hover:text-gray-900 flex items-center gap-2 transition-all hover:bg-gray-100"
-              onClick={() => {
-                const _alertDomain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
-                const isAlerte = _alertDomain === 'ALERTE' ||
-                  ((_alertDomain !== 'CHASSE' && _alertDomain !== 'REBOISEMENT') &&
-                    ((user as any)?.isSupervisorRole || (user as any)?.isDefaultRole));
-                if (isAlerte) {
-                  navigate((user as any)?.isSupervisorRole ? '/supervisor' : '/default-home');
-                } else {
-                  window.history.back();
-                }
-              }}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="font-medium">Retour</span>
-            </Button>
+            {/* Fil d'Ariane lorsque Chasseur/Guide ou Agent consulte les alertes envoyées, sinon Bouton Retour */}
+            {(isHunter || isGuide) && showHunterSentAlerts ? (
+              <div className="flex items-center gap-1.5 text-sm min-w-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 flex items-center gap-1.5 px-2 h-8 font-semibold"
+                  onClick={() => setShowHunterSentAlerts(false)}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Alertes</span>
+                </Button>
+                <span className="text-slate-400 select-none">/</span>
+                <span className="font-bold text-slate-800 truncate">Mes alertes envoyées</span>
+              </div>
+            ) : isAgentDedicatedListPage ? (
+              <div className="flex items-center gap-1.5 text-sm min-w-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 flex items-center gap-1.5 px-2 h-8 font-semibold"
+                  onClick={() => setAgentListView(null)}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Alertes</span>
+                </Button>
+                <span className="text-slate-400 select-none">/</span>
+                <span className="font-bold text-slate-800 truncate">
+                  {agentListView === 'outbox' ? 'Alertes envoyées' : 'Alertes reçues'}
+                </span>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-gray-900 flex items-center gap-2 transition-all hover:bg-gray-100"
+                onClick={() => {
+                  const _alertDomain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase();
+                  const isAlerte = _alertDomain === 'ALERTE' ||
+                    ((_alertDomain !== 'CHASSE' && _alertDomain !== 'REBOISEMENT') &&
+                      ((user as any)?.isSupervisorRole || (user as any)?.isDefaultRole));
+                  if (isAlerte) {
+                    navigate((user as any)?.isSupervisorRole ? '/supervisor' : '/default-home');
+                  } else {
+                    window.history.back();
+                  }
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="font-medium">Retour</span>
+              </Button>
+            )}
             <div className="flex flex-wrap gap-2">
               {(isDefaultRole || isSupervisorRole) && (
                 <Button
@@ -2029,30 +2074,36 @@ function AlertsPage() {
           {/* Mobile Alerte : formulaire compact puis liste ; desktop : 2 colonnes */}
           <div
             className={
-              mobileAlertLayout
-                ? (showLeftColumn
-                  ? `flex flex-1 min-h-0 flex-col gap-2 ${!(isHunter || isGuide) ? "lg:grid lg:grid-cols-[minmax(340px,420px)_1fr]" : "max-w-2xl mx-auto w-full"} lg:gap-4`
-                  : "flex flex-1 min-h-0 flex-col")
-                : mobileSupervisorLayout
-                  ? "flex flex-1 min-h-0 flex-col"
-                  : (showLeftColumn
-                    ? `flex flex-1 min-h-0 flex-col ${!(isHunter || isGuide) ? "lg:grid lg:grid-cols-[minmax(340px,420px)_1fr]" : "max-w-2xl mx-auto w-full"} gap-0 lg:gap-4`
-                    : "flex flex-1 min-h-0 flex-col")
+              isAgentSummaryHome
+                ? "flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto px-2 sm:px-4 py-3 max-w-3xl mx-auto w-full"
+                : mobileAlertLayout
+                  ? "flex flex-1 min-h-0 flex-col gap-2"
+                  : mobileSupervisorLayout
+                    ? "flex flex-1 min-h-0 flex-col"
+                    : (showLeftColumn
+                      ? `flex flex-1 min-h-0 flex-col ${!(isHunter || isGuide) ? "lg:grid lg:grid-cols-[minmax(340px,420px)_1fr] lg:gap-4" : "w-full"} gap-0`
+                      : "flex flex-1 min-h-0 flex-col")
             }
           >
 
             {/* === COLONNE GAUCHE : Formulaire d'envoi === */}
-            {showLeftColumn && (
+            {showLeftColumn && !((isHunter || isGuide) && showHunterSentAlerts) && (
               <div
                 className={
-                  mobileAlertLayout
-                    ? "shrink-0 max-h-[38vh] overflow-y-auto no-scrollbar rounded-lg border border-gray-200 bg-white p-3 shadow-md lg:max-h-none lg:overflow-visible lg:p-4 lg:sticky lg:top-4 lg:self-start"
-                    : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 p-4 lg:sticky lg:top-4 lg:self-start"
+                  isAgentSummaryHome
+                    ? "shrink-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm w-full"
+                    : mobileAlertLayout
+                      ? "shrink-0 max-h-[38vh] overflow-y-auto no-scrollbar rounded-lg border border-gray-200 bg-white p-3 shadow-md lg:max-h-none lg:overflow-visible lg:p-4 lg:sticky lg:top-4 lg:self-start"
+                      : (isHunter || isGuide)
+                        ? "w-full bg-white rounded-b-lg shadow-md border border-gray-200 p-4 sm:p-6"
+                        : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 p-4 lg:sticky lg:top-4 lg:self-start"
                 }
               >
-                <h3 className={`font-semibold text-gray-800 ${mobileAlertLayout ? "mb-2 text-base" : "mb-3 text-lg"}`}>
-                  {(isHunter || isGuide) ? 'Envoyer une information' : 'Envoyer une alerte rapide'}
-                </h3>
+                {!mobileAlertLayout && (
+                  <h3 className="mb-3 text-lg font-semibold text-gray-800">
+                    {(isHunter || isGuide) ? 'Signaler une alerte' : 'Envoyer une alerte rapide'}
+                  </h3>
+                )}
 
                 {/* Géolocalisation status */}
                 {!location ? (
@@ -2096,6 +2147,43 @@ function AlertsPage() {
                   </div>
                 )}
 
+                {/* Type d'alerte pour Chasseurs et Guides : Braconnage, Coupe de bois, Feux de brousse */}
+                {(isHunter || isGuide) && location && (
+                  <div className="mt-3 mb-4">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
+                      Type d'alerte
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { id: 'braconnage' as const, label: 'Braconnage', activeBg: 'bg-red-50', activeBorder: 'border-red-400', activeText: 'text-red-600', activeRing: 'ring-red-100', hoverBg: 'hover:bg-red-50', hoverBorder: 'hover:border-red-300', dotColor: 'bg-red-500' },
+                        { id: 'trafic-bois' as const, label: 'Coupe de bois', activeBg: 'bg-amber-50', activeBorder: 'border-amber-400', activeText: 'text-amber-700', activeRing: 'ring-amber-100', hoverBg: 'hover:bg-amber-50', hoverBorder: 'hover:border-amber-300', dotColor: 'bg-amber-500' },
+                        { id: 'feux_de_brousse' as const, label: 'Feux de brousse', activeBg: 'bg-orange-50', activeBorder: 'border-orange-400', activeText: 'text-orange-600', activeRing: 'ring-orange-100', hoverBg: 'hover:bg-orange-50', hoverBorder: 'hover:border-orange-300', dotColor: 'bg-orange-500' },
+                      ]).map((type) => {
+                        const isActive = selectedAlertType === type.id;
+                        return (
+                          <Button
+                            key={type.id}
+                            type="button"
+                            variant="outline"
+                            onClick={() => setSelectedAlertType(isActive ? null : type.id)}
+                            className={`relative flex flex-col items-center justify-center gap-1.5 py-3 px-2 h-auto border-2 rounded-xl transition-all ${
+                              isActive
+                                ? `${type.activeBg} ${type.activeBorder} ${type.activeText} ring-2 ${type.activeRing}`
+                                : `${type.hoverBg} ${type.hoverBorder} border-gray-200`
+                            }`}
+                          >
+                            <NatureIcon nature={type.id} size={24} />
+                            <span className="text-[11px] sm:text-xs font-semibold text-center leading-tight">{type.label}</span>
+                            {isActive && (
+                              <span className={`absolute top-1.5 right-1.5 w-2 h-2 ${type.dotColor} rounded-full`}></span>
+                            )}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Type d'alerte buttons — 3 visibles + scroll horizontal */}
                 {!isHunter && !isGuide && location && (
                   <div className="relative mt-3">
@@ -2134,79 +2222,57 @@ function AlertsPage() {
                         );
                       })}
                     </div>
-                    {/* Flèche indicateur de défilement horizontal GAUCHE */}
+                    {/* Bouton cliquable de défilement horizontal GAUCHE (souris + tactile) */}
                     {canScrollLeft && (
-                      <div className="absolute left-0 top-0 bottom-1 w-8 flex items-center justify-start pl-1 pointer-events-none bg-gradient-to-r from-white via-white/80 to-transparent">
-                        <ChevronLeft className="h-5 w-5 text-gray-400 animate-pulse" />
+                      <div className="absolute left-0 top-0 bottom-1 w-10 flex items-center justify-start pl-0.5 pointer-events-none bg-gradient-to-r from-white via-white/85 to-transparent">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            scrollContainerRef.current?.scrollBy({ left: -240, behavior: 'smooth' });
+                          }}
+                          className="pointer-events-auto h-7 w-7 rounded-full bg-white hover:bg-emerald-50 border border-emerald-400 text-emerald-700 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+                          title="Voir les types précédents"
+                          aria-label="Défiler vers la gauche"
+                        >
+                          <ChevronLeft className="h-4 w-4 stroke-[2.5]" />
+                        </button>
                       </div>
                     )}
-                    {/* Flèche indicateur de défilement horizontal DROITE */}
+                    {/* Bouton cliquable de défilement horizontal DROITE (souris + tactile) */}
                     {canScrollRight && (
-                      <div className="absolute right-0 top-0 bottom-1 w-8 flex items-center justify-end pr-1 pointer-events-none bg-gradient-to-l from-white via-white/80 to-transparent">
-                        <ChevronRight className="h-5 w-5 text-gray-400 animate-pulse" />
+                      <div className="absolute right-0 top-0 bottom-1 w-10 flex items-center justify-end pr-0.5 pointer-events-none bg-gradient-to-l from-white via-white/85 to-transparent">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            scrollContainerRef.current?.scrollBy({ left: 240, behavior: 'smooth' });
+                          }}
+                          className="pointer-events-auto h-7 w-7 rounded-full bg-emerald-600 hover:bg-emerald-700 border border-emerald-700 text-white shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+                          title="Voir plus de types d'alerte (Défrichement, Empiètement, Spot Rep)"
+                          aria-label="Défiler vers la droite"
+                        >
+                          <ChevronRight className="h-4 w-4 stroke-[2.5]" />
+                        </button>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Étiquette d'aide — toujours visible juste après les boutons d'alerte */}
+                {/* Action Area (Send Button — toujours visible mais désactivé tant qu'aucune alerte n'est choisie) */}
                 {location && (
-                  <>
-                    {!alertTypeHintDismissed && (
-                      <div
-                        className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200/90 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 shadow-sm"
-                        role="status"
-                      >
-                        <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" aria-hidden />
-                        <p className="flex-1 leading-snug">
-                          <span className="font-semibold">Type d&apos;alerte requis.</span>{' '}
-                          Choisissez Braconnage, Trafic ou Feux ci-dessus.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={dismissAlertTypeHint}
-                          className="shrink-0 rounded-md p-0.5 text-amber-700 hover:bg-amber-100/80"
-                          aria-label="Fermer l'info"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
-                    {alertTypeHintDismissed && (
-                      <button
-                        type="button"
-                        onClick={() => setAlertTypeHintDismissed(false)}
-                        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-800 hover:text-amber-950"
-                      >
-                        <Info className="h-3.5 w-3.5" />
-                        Aide : choisir un type d&apos;alerte
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {/* Action Area (Textarea + Send Button) */}
-                {location && (selectedAlertType || isHunter || isGuide) && (
                   <div className="mt-1">
-                    {(isHunter || isGuide) && (
-                      <div className="mb-4">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Décrivez l'information</label>
-                        <Textarea
-                          value={messageText}
-                          onChange={(e) => setMessageText(e.target.value)}
-                          placeholder="Ex: Observation d'activité suspecte, détails utiles, etc."
-                          className="bg-white text-gray-800"
-                          rows={4}
-                        />
-                        <p className="text-[11px] text-gray-500 mt-1">Une description est obligatoire pour envoyer une information.</p>
-                      </div>
-                    )}
-
                     <div className="pt-2">
                       <Button
-                        className="w-full bg-green-600 hover:bg-green-700 h-11 text-base font-bold transition-all"
+                        className={`w-full h-11 text-base font-bold transition-all ${
+                          !selectedAlertType
+                            ? "bg-slate-300 text-slate-500 cursor-not-allowed hover:bg-slate-300"
+                            : "bg-green-600 hover:bg-green-700 text-white"
+                        }`}
                         onClick={handleSendAlert}
-                        disabled={isSendingAlert}
+                        disabled={isSendingAlert || !selectedAlertType}
                       >
                         {isSendingAlert ? (
                           <>
@@ -2216,15 +2282,15 @@ function AlertsPage() {
                             </svg>
                             Envoi en cours...
                           </>
+                        ) : !selectedAlertType ? (
+                          "Sélectionnez un type d'alerte"
                         ) : (
-                          (isHunter || isGuide
-                            ? 'Envoyer une information'
-                            : `Envoyer l'alerte ${selectedAlertType === 'braconnage' ? 'de braconnage' :
-                              selectedAlertType === 'trafic-bois' ? 'de coupe de bois' :
-                                selectedAlertType === 'feux_de_brousse' ? 'de feux de brousse' :
-                                  selectedAlertType === 'defrichement' ? 'de défrichement' :
-                                    selectedAlertType === 'empietement' ? 'd\'empiètement' :
-                                      selectedAlertType === 'spotrep' ? 'SPOTREP' : 'd\'informations'}`)
+                          `Envoyer l'alerte ${selectedAlertType === 'braconnage' ? 'de braconnage' :
+                            selectedAlertType === 'trafic-bois' ? 'de coupe de bois' :
+                              selectedAlertType === 'feux_de_brousse' ? 'de feux de brousse' :
+                                selectedAlertType === 'defrichement' ? 'de défrichement' :
+                                  selectedAlertType === 'empietement' ? 'd\'empiètement' :
+                                    selectedAlertType === 'spotrep' ? 'SPOTREP' : 'd\'informations'}`
                         )}
                       </Button>
                     </div>
@@ -2233,46 +2299,225 @@ function AlertsPage() {
               </div>
             )}
 
-            {/* === COLONNE DROITE : Liste des alertes === */}
+            {/* === CHASSEURS & GUIDES : Bouton d'accès OU Page complète Mes alertes envoyées === */}
+            {(isHunter || isGuide) && (() => {
+              const resolveHunterAlertNature = (a: Alert): 'braconnage' | 'trafic-bois' | 'feux_de_brousse' | 'autre' => {
+                const rawNature = String(a.nature || '').toLowerCase();
+                const rawTitle = String(a.title || '').toLowerCase();
+                if (rawNature === 'braconnage' || rawTitle.includes('braconnage')) return 'braconnage';
+                if (rawNature === 'trafic-bois' || rawNature === 'trafic_bois' || rawTitle.includes('trafic') || rawTitle.includes('bois')) return 'trafic-bois';
+                if (rawNature === 'feux_de_brousse' || rawNature === 'feux-de-brousse' || rawTitle.includes('feu') || rawTitle.includes('brousse')) return 'feux_de_brousse';
+                return 'autre';
+              };
+
+              if (!showHunterSentAlerts) {
+                return (
+                  <div className="mt-3 w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowHunterSentAlerts(true)}
+                      className="w-full px-4 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+                          <Bell className="h-4 w-4" />
+                        </div>
+                        <div className="text-left">
+                          <span className="text-sm font-bold text-slate-800 block leading-tight">
+                            Mes alertes envoyées
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            Total effectué : {sentAlertsData.length} alerte{sentAlertsData.length > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-slate-400 shrink-0" />
+                    </button>
+                  </div>
+                );
+              }
+
+              const counts = sentAlertsData.reduce(
+                (acc: Record<string, number>, a: Alert) => {
+                  const key = resolveHunterAlertNature(a);
+                  acc[key] = (acc[key] || 0) + 1;
+                  return acc;
+                },
+                {}
+              );
+              const chips = [
+                { key: 'braconnage', label: 'Braconnage', cls: 'bg-red-50 text-red-700 border-red-200' },
+                { key: 'trafic-bois', label: 'Coupe de bois', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
+                { key: 'feux_de_brousse', label: 'Feux de brousse', cls: 'bg-orange-50 text-orange-700 border-orange-200' },
+                { key: 'autre', label: 'Information', cls: 'bg-slate-100 text-slate-700 border-slate-200' },
+              ].filter((c) => (counts[c.key] || 0) > 0);
+
+              return (
+                <div className="flex-1 min-h-0 flex flex-col w-full bg-white rounded-b-lg border border-gray-200 shadow-md overflow-hidden">
+                  {/* En-tête récapitulatif fixe */}
+                  <div className="shrink-0 px-4 py-3 bg-white border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs sm:text-sm font-semibold text-slate-700">
+                      Total effectué : <span className="font-bold text-slate-900">{sentAlertsData.length}</span> alerte{sentAlertsData.length > 1 ? 's' : ''}
+                    </div>
+                    {chips.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {chips.map((c) => (
+                          <span
+                            key={c.key}
+                            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${c.cls}`}
+                          >
+                            {c.label} : {counts[c.key]}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Liste défilante style messagerie téléphone avec barre de défilement visible sur ordinateur */}
+                  <div
+                    className="flex-1 min-h-0 overflow-y-scroll px-3 sm:px-4 py-3 bg-slate-50/80 space-y-2.5"
+                    style={{ WebkitOverflowScrolling: 'touch', scrollbarGutter: 'stable' }}
+                  >
+                    {isLoadingSent && sentAlertsData.length === 0 ? (
+                      <div className="py-12 text-center text-sm text-slate-500">Chargement de vos alertes...</div>
+                    ) : sentAlertsData.length === 0 ? (
+                      <div className="py-12 text-center text-sm text-slate-500">
+                        Aucune alerte envoyée pour le moment.
+                      </div>
+                    ) : (
+                      sentAlertsData.map((alert: Alert) => {
+                        const natureKey = resolveHunterAlertNature(alert);
+                        const label =
+                          natureKey === 'braconnage'
+                            ? 'Alerte Braconnage'
+                            : natureKey === 'trafic-bois'
+                              ? 'Alerte Coupe de bois'
+                              : natureKey === 'feux_de_brousse'
+                                ? 'Alerte Feux de brousse'
+                                : alert.title || 'Information';
+                        const created = alert.createdAt ? new Date(alert.createdAt) : null;
+                        const dateStr =
+                          created && !isNaN(created.getTime())
+                            ? format(created, "dd/MM/yyyy à HH:mm", { locale: fr })
+                            : 'Date inconnue';
+                        const locLabel = formatAlertLocation(alert);
+                        const gpsText = alert.location
+                          ? `${alert.location.latitude.toFixed(4)}, ${alert.location.longitude.toFixed(4)}`
+                          : null;
+
+                        const readers = Array.isArray(alert.readByDetails) && alert.readByDetails.length > 0
+                          ? alert.readByDetails.map((r) => (r.role ? `${r.name} (${r.role})` : r.name))
+                          : Array.isArray(alert.readByRoles) && alert.readByRoles.length > 0
+                            ? alert.readByRoles
+                            : [];
+                        const hasBeenRead = readers.length > 0;
+
+                        return (
+                          <div
+                            key={alert.id}
+                            className="bg-white rounded-2xl border border-slate-200/90 px-4 py-3 flex items-start justify-between gap-3 shadow-xs hover:border-emerald-300 transition-colors"
+                          >
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="h-10 w-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 mt-0.5">
+                                <NatureIcon nature={natureKey} size={22} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-900 truncate">{label}</p>
+                                <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                                  <span>{dateStr}</span>
+                                </p>
+                                <p className="text-xs text-slate-600 flex items-center gap-1.5 mt-1 truncate">
+                                  <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                                  <span className="truncate">
+                                    {locLabel !== 'NON DÉFINI' ? locLabel : gpsText || 'Position enregistrée'}
+                                  </span>
+                                </p>
+                                {hasBeenRead && (
+                                  <p className="text-xs text-emerald-700 font-medium flex items-center gap-1.5 mt-1.5">
+                                    <CheckCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                                    <span className="truncate">Lu par : {readers.join(', ')}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {hasBeenRead ? (
+                              <Badge
+                                variant="outline"
+                                className="shrink-0 text-[11px] bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1"
+                              >
+                                <CheckCheck className="h-3 w-3" />
+                                Lu
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="shrink-0 text-[11px] bg-amber-50 text-amber-700 border-amber-200"
+                              >
+                                Non lu
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* === COLONNE DROITE : Liste des alertes (ou Résumé compact sur l'accueil Alerte) === */}
             {!(isHunter || isGuide) && (
               <div
                 className={
-                  mobileAlertLayout
-                    ? "flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow-md"
-                    : mobileSupervisorLayout
+                  isAgentSummaryHome
+                    ? "shrink-0 flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden"
+                    : mobileAlertLayout
                       ? "flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow-md"
-                      : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 flex flex-col min-h-0 flex-1"
+                      : mobileSupervisorLayout
+                        ? "flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow-md"
+                        : "bg-white rounded-b-lg lg:rounded-lg shadow-md border border-gray-200 flex flex-col min-h-0 flex-1"
                 }
               >
                 {!isAdmin && (
                   <div className="shrink-0 px-4 py-3 border-b flex items-center justify-between bg-slate-50">
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setActiveTab('inbox')}
-                        className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'inbox'
+                        onClick={() => {
+                          setActiveTab('inbox');
+                          if (mobileAlertLayout) setAgentListView('inbox');
+                        }}
+                        className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${!isAgentSummaryHome && activeTab === 'inbox'
                           ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700'
                           }`}
                       >
                         Alertes reçues
                       </button>
                       <button
-                        onClick={() => setActiveTab('outbox')}
-                        className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${activeTab === 'outbox'
+                        onClick={() => {
+                          setActiveTab('outbox');
+                          if (mobileAlertLayout) setAgentListView('outbox');
+                        }}
+                        className={`text-xs font-semibold rounded-full px-4 py-1.5 border transition-all ${!isAgentSummaryHome && activeTab === 'outbox'
                           ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700'
                           }`}
                       >
                         Alertes envoyées
                       </button>
                     </div>
                     <div className="text-xs text-gray-500 font-medium">
-                      {activeTab === 'inbox' ? `${alerts.length} reçue(s)` : `${sentAlertsData.length} envoyée(s)`}
+                      {isAgentSummaryHome
+                        ? `${alerts.length} reçue(s)`
+                        : activeTab === 'inbox'
+                          ? `${alerts.length} reçue(s)`
+                          : `${sentAlertsData.length} envoyée(s)`}
                     </div>
                   </div>
                 )}
-                {/* === Barre de filtrage compacte mobile (icônes + compteurs) === */}
-                {activeTab === 'inbox' && (isAlertMobileChromeless || isDefaultRole || isSupervisorRole) && (() => {
+                {/* === Barre de filtrage / résumé compact (icônes + compteurs) === */}
+                {(isAgentSummaryHome || activeTab === 'inbox') && (isAlertMobileChromeless || isDefaultRole || isSupervisorRole) && (() => {
                   const base = Array.isArray(alerts) ? alerts : [];
                   const counts = {
                     feux_de_brousse: base.filter(a => { const n = (a.nature || '').toLowerCase(); return n.includes('feu') || n.includes('brousse'); }).length,
@@ -2281,29 +2526,37 @@ function AlertsPage() {
                     autre: base.filter(a => { const n = (a.nature || '').toLowerCase(); return !n.includes('feu') && !n.includes('brousse') && !n.includes('trafic') && !n.includes('bois') && !n.includes('braconn'); }).length,
                   };
                   const categories = [
-                    { key: 'all', icon: '📋', label: 'Tout', color: '#059669', count: base.length },
+                    ...(!mobileAlertLayout ? [{ key: 'all', icon: '📋', label: 'Tout', color: '#059669', count: base.length }] : []),
                     { key: 'feux_de_brousse', icon: '🔥', label: 'Feux', color: '#ea580c', count: counts.feux_de_brousse },
                     { key: 'trafic-bois', icon: '🪵', label: 'Bois', color: '#8B5A2B', count: counts['trafic-bois'] },
                     { key: 'braconnage', icon: '🎯', label: 'Braconn.', color: '#dc2626', count: counts.braconnage },
                     { key: 'autre', icon: 'ℹ️', label: 'Info', color: '#6b7280', count: counts.autre },
                   ];
                   return (
-                    <div className="shrink-0 border-b border-gray-200 bg-white md:hidden">
+                    <div className={`shrink-0 border-b border-gray-200 bg-white ${isAgentSummaryHome ? '' : 'md:hidden'}`}>
                       <div className="flex items-stretch overflow-x-auto no-scrollbar">
                         {categories.map(({ key, icon, label, color, count }) => {
-                          const isActive = typeFilter === key;
+                          const isActive = !isAgentSummaryHome && typeFilter === key;
                           return (
                             <button
                               key={key}
-                              onClick={() => setTypeFilter(key)}
-                              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-2 px-1 text-center transition-all border-b-2 ${isActive ? 'border-current bg-gray-50' : 'border-transparent'}`}
-                              style={{ color: isActive ? color : '#9ca3af' }}
+                              onClick={() => {
+                                if (isAgentSummaryHome) {
+                                  setTypeFilter(key);
+                                  setActiveTab('inbox');
+                                  setAgentListView('inbox');
+                                } else {
+                                  setTypeFilter(typeFilter === key ? 'all' : key);
+                                }
+                              }}
+                              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-2.5 px-1 text-center transition-all border-b-2 hover:bg-gray-50 ${isActive ? 'border-current bg-gray-50' : 'border-transparent'}`}
+                              style={{ color: isActive ? color : '#64748b' }}
                             >
                               <span className="text-base leading-none">{icon}</span>
-                              <span className="text-[9px] font-bold leading-tight truncate w-full">{label}</span>
+                              <span className="text-[10px] font-bold leading-tight truncate w-full">{label}</span>
                               <span
-                                className="text-[10px] font-extrabold rounded-full min-w-[18px] h-[16px] px-1 flex items-center justify-center leading-none"
-                                style={{ background: isActive ? color : '#e5e7eb', color: isActive ? '#fff' : '#6b7280' }}
+                                className="text-[10px] font-extrabold rounded-full min-w-[20px] h-[18px] px-1.5 flex items-center justify-center leading-none"
+                                style={{ background: isActive ? color : (count > 0 ? color : '#e5e7eb'), color: (isActive || count > 0) ? '#fff' : '#6b7280' }}
                               >
                                 {count}
                               </span>
@@ -2314,6 +2567,13 @@ function AlertsPage() {
                     </div>
                   );
                 })()}
+                {isAgentSummaryHome && (
+                  <div className="shrink-0 border-t border-gray-200 bg-white py-2.5 px-3 text-center text-sm text-muted-foreground">
+                    Total d&apos;alertes reçues : {alerts.length}
+                  </div>
+                )}
+                {!isAgentSummaryHome && (
+                <>
                 {/* Barre d'actions inbox (recherche/filtre/tri) — fixe */}
                 {activeTab === 'inbox' && (
                   <div className="shrink-0 px-4 py-3 border-b hidden md:flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-white">
@@ -2541,7 +2801,7 @@ function AlertsPage() {
                   )}
                 </div>
 
-                {showInboxTotalFooter && (
+                {showInboxTotalFooter && !isAgentDedicatedListPage && (
                   <div className={alertsTotalFooterClass}>
                     Total d&apos;alertes reçues : {alerts.length}
                   </div>
@@ -2550,6 +2810,8 @@ function AlertsPage() {
                   <div className={alertsTotalFooterClass}>
                     Total d&apos;alertes envoyées : {sentAlertsData.length}
                   </div>
+                )}
+                </>
                 )}
               </div>
             )}
@@ -2758,108 +3020,144 @@ function AlertsPage() {
 
       {/* Modal d'information en cas de doublon d'alerte */}
       <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
-        <DialogContent className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
-          <div className="flex flex-col items-center text-center pt-1">
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-blue-100">
-              <Info className="h-5 w-5 text-blue-500" strokeWidth={2.5} />
+        <DialogContent
+          hideClose
+          className="w-[92vw] max-w-md max-h-[88vh] flex flex-col p-0 overflow-hidden rounded-2xl border-0 shadow-2xl gap-0"
+        >
+          {/* En-tête stylisé */}
+          <div className="shrink-0 bg-gradient-to-r from-amber-50 via-orange-50/70 to-amber-50 border-b border-amber-200/70 px-5 py-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600 border border-amber-200/80 shadow-xs">
+              <Info className="h-5 w-5" strokeWidth={2.5} />
             </div>
-            <DialogTitle className="text-lg font-semibold text-gray-900 text-center w-full block">
-              Zone d'alerte déjà identifiée
-            </DialogTitle>
-            <div className="mt-3 text-sm leading-relaxed text-gray-800 space-y-3 w-full">
-              <p>
-                <span className="font-semibold block mb-0.5">Information</span>
+            <div className="min-w-0 text-left">
+              <DialogTitle className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                Zone d'alerte déjà identifiée
+              </DialogTitle>
+              <p className="text-xs text-slate-600 mt-0.5 leading-snug">
                 Une alerte similaire a déjà été enregistrée à proximité.
               </p>
+            </div>
+          </div>
+
+          {/* Contenu compact & scrollable pour tous les écrans */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-2.5">
               {duplicateModalInfo?.nature ? (
-                <p>
-                  <span className="font-semibold block mb-0.5">Nature</span>
-                  {duplicateModalInfo.nature}
+                <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Nature
+                  </span>
+                  <span className="text-xs sm:text-sm font-bold text-slate-800 block mt-0.5 capitalize">
+                    {(() => {
+                      const n = String(duplicateModalInfo.nature || '').toLowerCase();
+                      if (n === 'braconnage') return 'Braconnage';
+                      if (n === 'trafic-bois' || n === 'trafic_bois') return 'Coupe de bois';
+                      if (n === 'feux_de_brousse') return 'Feux de brousse';
+                      if (n === 'defrichement') return 'Défrichement';
+                      if (n === 'empietement') return 'Empiètement';
+                      if (n === 'spotrep') return 'SPOTREP';
+                      return 'Information';
+                    })()}
+                  </span>
                   {(() => {
                     const c = duplicateModalInfo?.createdAt ? new Date(duplicateModalInfo.createdAt) : null;
                     if (!c || isNaN(c.getTime())) return null;
                     const two = (n: number) => n.toString().padStart(2, '0');
                     const hhmm = `${two(c.getHours())}:${two(c.getMinutes())}`;
                     const ddmmyyyy = `${two(c.getDate())}/${two(c.getMonth() + 1)}/${c.getFullYear()}`;
-                    return <span className="block text-xs text-gray-500 mt-0.5">{hhmm} le {ddmmyyyy}</span>;
+                    return <span className="block text-[11px] text-slate-500 mt-0.5">{hhmm} · {ddmmyyyy}</span>;
                   })()}
-                </p>
-              ) : null}
-              {duplicateModalInfo?.lat != null && duplicateModalInfo?.lon != null && (
-                <div className="space-y-1">
-                  <p>
-                    <span className="font-semibold block mb-0.5">Coordonnées (WGS84)</span>
-                    {duplicateModalInfo.lat?.toFixed(4)}, {duplicateModalInfo.lon?.toFixed(4)}
-                  </p>
-                  <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded-md border border-gray-100 mx-auto w-fit">
-                    <span className="font-medium text-gray-700">Lieux :</span><br />
-                    {[
-                      duplicateModalInfo.alertRegion,
-                      duplicateModalInfo.alertDepartement,
-                      duplicateModalInfo.alertArrondissement,
-                      duplicateModalInfo.alertCommune
-                    ].filter(Boolean).join(' / ') || 'Non spécifié'}
-                  </p>
                 </div>
-              )}
-              <p>
-                <span className="font-semibold block mb-0.5">Signataire</span>
-                {(() => {
-                  if (duplicateModalInfo?.self) {
-                    return <span className="font-medium">par vous</span>;
-                  }
-                  const s = duplicateModalInfo?.sender || {} as any;
-                  const first = (s.first_name || '').toString().trim();
-                  const last = (s.last_name || '').toString().trim();
-                  const username = (s.username || '').toString().trim();
-                  const hasName = !!(first || last || username);
-                  const displayName = hasName ? `${first} ${last}`.trim() || username || 'Agent' : 'Agent';
-                  const sRole = (s.role || '').toString().toLowerCase().replace(/[_\s-]+/g, '-');
-                  const isSect = sRole === 'sub-agent' || sRole.includes('agent-secteur') || sRole.includes('sector');
-                  const org = isSect ? 'Secteur' : 'IREF';
-                  const dep = (((s?.departement || duplicateModalInfo?.alertDepartement) || '') as string).toUpperCase().trim();
-                  const region = (((s?.region || duplicateModalInfo?.alertRegion) || '') as string).toUpperCase().trim();
-                  let loc = '';
-                  if (isSect && (dep || region)) {
-                    loc = dep && region ? `${dep} / ${region}` : (dep || region);
-                  } else if (!isSect && region) {
-                    loc = region;
-                  }
-                  return (
-                    <span className="font-medium">
-                      {displayName}
-                      <span className="block text-xs text-gray-500 mt-0.5">Agent/{org}{loc ? ` (${loc})` : ''}</span>
-                    </span>
-                  );
-                })()}
-              </p>
-              <div className="inline-flex items-center justify-center text-xs text-green-800 bg-green-50 border border-green-200 rounded-full px-3 py-1">
-                <span className="font-semibold mr-1">Rayon :</span> <span className="font-bold">{duplicateModalInfo?.radiusMeters ?? 20} mètres</span>
+              ) : null}
+
+              <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Signataire
+                </span>
+                <div className="text-xs sm:text-sm font-semibold text-slate-800 mt-0.5">
+                  {(() => {
+                    if (duplicateModalInfo?.self) {
+                      return <span>Par vous</span>;
+                    }
+                    const s = duplicateModalInfo?.sender || {} as any;
+                    const first = (s.first_name || '').toString().trim();
+                    const last = (s.last_name || '').toString().trim();
+                    const username = (s.username || '').toString().trim();
+                    const hasName = !!(first || last || username);
+                    const displayName = hasName ? `${first} ${last}`.trim() || username || 'Agent' : 'Agent';
+                    const sRole = (s.role || '').toString().toLowerCase().replace(/[_\s-]+/g, '-');
+                    const isSect = sRole === 'sub-agent' || sRole.includes('agent-secteur') || sRole.includes('sector');
+                    const org = isSect ? 'Secteur' : 'IREF';
+                    const dep = (((s?.departement || duplicateModalInfo?.alertDepartement) || '') as string).toUpperCase().trim();
+                    const region = (((s?.region || duplicateModalInfo?.alertRegion) || '') as string).toUpperCase().trim();
+                    let loc = '';
+                    if (isSect && (dep || region)) {
+                      loc = dep && region ? `${dep} / ${region}` : (dep || region);
+                    } else if (!isSect && region) {
+                      loc = region;
+                    }
+                    return (
+                      <span>
+                        {displayName}
+                        <span className="block text-[11px] font-normal text-slate-500 mt-0.5">
+                          Agent/{org}{loc ? ` (${loc})` : ''}
+                        </span>
+                      </span>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
+
+            {duplicateModalInfo?.lat != null && duplicateModalInfo?.lon != null && (
+              <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Localisation (WGS84)
+                  </span>
+                  <span className="inline-flex items-center text-[11px] font-bold text-emerald-800 bg-white border border-emerald-200 rounded-full px-2.5 py-0.5">
+                    Rayon : {duplicateModalInfo?.radiusMeters ?? 20} m
+                  </span>
+                </div>
+                <p className="text-xs font-mono font-semibold text-slate-800">
+                  {duplicateModalInfo.lat?.toFixed(4)}, {duplicateModalInfo.lon?.toFixed(4)}
+                </p>
+                <p className="text-xs text-slate-600 leading-snug">
+                  {[
+                    duplicateModalInfo.alertRegion,
+                    duplicateModalInfo.alertDepartement,
+                    duplicateModalInfo.alertArrondissement,
+                    duplicateModalInfo.alertCommune
+                  ].filter(Boolean).join(' · ') || 'Localité non spécifiée'}
+                </p>
+              </div>
+            )}
           </div>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center w-full">
-            <Button
-              type="button"
-              onClick={handleForceSendAlert}
-              className="w-full sm:w-auto rounded-xl bg-red-600 px-6 py-2.5 text-white font-medium hover:bg-red-700 active:scale-95 transition-all"
-            >
-              Signaler quand même
-            </Button>
+
+          {/* Pied de page fixe */}
+          <div className="shrink-0 px-5 py-3.5 bg-slate-50 border-t border-slate-200/70 flex flex-col-reverse sm:flex-row gap-2.5">
             <Button
               type="button"
               onClick={() => setDuplicateModalOpen(false)}
-              className="w-full sm:w-auto rounded-xl bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-800 active:scale-95 transition-all"
+              className="w-full sm:flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm text-white font-semibold hover:bg-slate-800 active:scale-95 transition-all"
             >
               Compris
+            </Button>
+            <Button
+              type="button"
+              onClick={handleForceSendAlert}
+              className="w-full sm:flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm text-white font-semibold hover:bg-red-700 active:scale-95 transition-all"
+            >
+              Signaler quand même
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* === Modal SPOTREP === */}
-      <Dialog open={showSpotrepModal} onOpenChange={(open) => { if (!open) setShowSpotrepModal(false); }}>
-        <DialogContent className="max-w-md mx-auto rounded-2xl p-5 gap-0">
+      <Dialog open={showSpotrepModal && !showSpotrepCamera} onOpenChange={(open) => { if (!open && !showSpotrepCamera) setShowSpotrepModal(false); }}>
+        <DialogContent hideClose className="w-[92vw] max-w-md mx-auto rounded-2xl p-5 gap-0">
           <DialogHeader className="flex flex-row items-center gap-2 pb-3 border-b border-gray-100">
             <span className="flex-shrink-0 w-3 h-3 bg-cyan-500 rounded-full animate-pulse"></span>
             <DialogTitle className="text-lg font-bold text-gray-900">Nouveau Rapport SPOTREP</DialogTitle>
@@ -2904,70 +3202,108 @@ function AlertsPage() {
                 </div>
               )}
 
-              {/* Input Area with Add Button */}
-              <div className="relative border border-gray-300 rounded-xl bg-white shadow-sm focus-within:border-cyan-500 focus-within:ring-1 focus-within:ring-cyan-500 transition-all overflow-visible">
+              {/* Zone de saisie style WhatsApp avec icônes directes (Fichier, Caméra, Micro) */}
+              <div className="relative border border-gray-300 rounded-2xl bg-white shadow-sm focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all overflow-hidden">
                 <Textarea 
                   value={messageText} 
                   onChange={(e) => setMessageText(e.target.value)} 
                   placeholder="Saisissez votre rapport détaillé..." 
-                  className="border-0 focus-visible:ring-0 resize-none rounded-xl bg-transparent min-h-[120px] pb-12" 
+                  className="border-0 focus-visible:ring-0 resize-none rounded-t-2xl bg-transparent min-h-[100px] pb-2" 
                   rows={4} 
                 />
-                
-                <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                  <span className="text-[11px] text-slate-400 font-medium select-none hidden sm:inline mr-1">Ajouter un média</span>
-                  <div className="relative flex items-center gap-2">
-                    <Button 
-                      type="button" 
-                      variant="secondary" 
-                      size="icon" 
-                      onClick={() => setShowMediaMenu(!showMediaMenu)}
-                      className="h-8 w-8 rounded-full bg-cyan-100 text-cyan-700 hover:bg-cyan-200 shadow-sm relative z-10"
+
+                <input
+                  id="spotrep-photo-file-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setSpotrepPhoto(f);
+                      setSpotrepPhotoPreview(URL.createObjectURL(f));
+                    }
+                    e.target.value = "";
+                  }}
+                />
+
+                {/* Barre d'outils média façon WhatsApp */}
+                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50/80 border-t border-slate-100">
+                  <span className="text-[11px] text-slate-400 font-medium select-none">
+                    Texte, photo ou audio requis
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('spotrep-photo-file-input')?.click()}
+                      disabled={!!spotrepPhotoPreview}
+                      className="h-9 w-9 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-emerald-700 flex items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                      title="Importer une image"
                     >
-                      <Plus className={`h-4 w-4 transition-transform ${showMediaMenu ? 'rotate-45' : ''}`} />
-                    </Button>
-                    
-                    {showMediaMenu && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setShowMediaMenu(false)} />
-                        <div className="absolute bottom-[calc(100%+8px)] right-0 w-56 bg-white border border-gray-200 rounded-xl shadow-xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 z-50">
-                          <input id="spotrep-photo-file-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setSpotrepPhoto(f); setSpotrepPhotoPreview(URL.createObjectURL(f)); setShowMediaMenu(false); } }} />
-                          <button 
-                            type="button" 
-                            onClick={() => { document.getElementById('spotrep-photo-file-input')?.click(); }} 
-                            disabled={!!spotrepPhotoPreview}
-                            className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-left transition-colors"
-                          >
-                            <Camera className="h-4 w-4 mr-3 text-blue-500" />
-                            <span className="font-medium">Prendre une photo</span>
-                          </button>
-                          <div className="h-px bg-gray-100 w-full" />
-                          <button 
-                            type="button" 
-                            onClick={() => { startAudioRecording(); setShowMediaMenu(false); }} 
-                            disabled={isRecording || !!spotrepAudioPreview}
-                            className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-left transition-colors"
-                          >
-                            <Mic className="h-4 w-4 mr-3 text-cyan-500" />
-                            <span className="font-medium">Enregistrer un audio</span>
-                          </button>
-                        </div>
-                      </>
-                    )}
+                      <Paperclip className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSpotrepCamera(true)}
+                      disabled={!!spotrepPhotoPreview}
+                      className="h-9 w-9 rounded-full bg-white hover:bg-emerald-50 border border-slate-200 text-slate-600 hover:text-emerald-700 flex items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                      title="Prendre une photo (caméra)"
+                    >
+                      <Camera className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => (isRecording ? stopAudioRecording() : startAudioRecording())}
+                      disabled={!isRecording && !!spotrepAudioPreview}
+                      className={`h-9 w-9 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm ${
+                        isRecording
+                          ? "bg-red-600 hover:bg-red-700 text-white animate-pulse"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      }`}
+                      title={isRecording ? "Arrêter l'enregistrement vocal" : "Enregistrer un message vocal"}
+                    >
+                      <Mic className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               </div>
-              <p className="text-[10px] text-slate-500 text-right pr-1">Texte, photo ou audio requis.</p>
             </div>
           </div>
           <div className="mt-5 pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => { setShowSpotrepModal(false); setSelectedAlertType(null); clearSpotrepPhoto(); clearSpotrepAudio(); setMessageText(''); }} className="px-4 py-2 border-gray-200 text-gray-600 hover:bg-slate-50 rounded-xl">Annuler</Button>
-            <Button type="button" onClick={() => { if (!messageText.trim() && !spotrepPhoto && !spotrepAudio) { toast({ variant: 'destructive', title: 'Contenu requis', description: 'Ajoutez au moins un texte, une photo ou un audio.' }); return; } handleSendAlert(); }} disabled={isSendingAlert} className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold flex items-center gap-1.5">
-              {isSendingAlert ? (<><svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Envoi...</>) : 'Envoyer le SPOTREP'}
-            </Button>
+            {(() => {
+              const hasSpotrepContent = Boolean(messageText.trim() || spotrepPhoto || spotrepAudio);
+              const isSpotrepDisabled = isSendingAlert || isRecording || !hasSpotrepContent;
+              return (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (!hasSpotrepContent) return;
+                    handleSendAlert();
+                  }}
+                  disabled={isSpotrepDisabled}
+                  className={`px-5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
+                    isSpotrepDisabled
+                      ? "bg-slate-300 text-slate-500 cursor-not-allowed hover:bg-slate-300"
+                      : "bg-cyan-600 hover:bg-cyan-700 text-white"
+                  }`}
+                >
+                  {isSendingAlert ? (<><svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Envoi...</>) : 'Envoyer le SPOTREP'}
+                </Button>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
+
+      <CameraCaptureModal
+        open={showSpotrepCamera}
+        onClose={() => setShowSpotrepCamera(false)}
+        onCapture={(capturedFile) => {
+          setSpotrepPhoto(capturedFile);
+          setSpotrepPhotoPreview(URL.createObjectURL(capturedFile));
+        }}
+      />
     </div>
   );
 }
