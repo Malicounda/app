@@ -1238,6 +1238,23 @@ function AppContent() {
     }
   }, [user, isAdmin]);
 
+  // Précharger silencieusement les pages SuperAdmin en arrière-plan dès la connexion
+  // (aucun impact sur le chargement initial des autres utilisateurs)
+  useEffect(() => {
+    if (!(user as any)?.isSuperAdmin) return;
+    const timer = setTimeout(() => {
+      import("@/pages/SuperAdmin/AgentsPage").catch(() => {});
+      import("@/pages/SuperAdmin/AffectationsPage").catch(() => {});
+      import("@/pages/SuperAdmin/DomainesPage").catch(() => {});
+      import("@/pages/SuperAdmin/RolesMetierPage").catch(() => {});
+      import("@/pages/SuperAdmin/ThemePage").catch(() => {});
+      import("@/pages/SuperAdmin/ApkHistoryPage").catch(() => {});
+      import("@/pages/ConfigSysteme/Accounts").catch(() => {});
+      import("@/pages/ConfigSysteme/Settings").catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [(user as any)?.isSuperAdmin]);
+
   useDisableContextMenu(isAdmin);
 
   // Masquer le splashscreen HTML une fois que React est chargé

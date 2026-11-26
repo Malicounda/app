@@ -299,60 +299,24 @@ export function InternalMessageComposer({
         </div>
       </div>
 
-      <div className="space-y-1">
-        <Label className="text-sm font-medium text-gray-700">Pièce jointe (optionnelle)</Label>
-        
-        <div className="grid grid-cols-2 gap-2">
-          {/* File Browser */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                setAttachment(file);
-              }
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 px-2 py-3 hover:bg-gray-100 transition-colors"
-          >
-            <div className="text-sm font-medium text-green-700">Joindre un fichier</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Parcourir la galerie</div>
-          </button>
-
-          {/* Camera Capture */}
-          <input
-            id="composer-camera-input"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                setAttachment(file);
-              }
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => document.getElementById('composer-camera-input')?.click()}
-            className="w-full flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 px-2 py-3 hover:bg-gray-100 transition-colors"
-          >
-            <div className="text-sm font-medium text-green-700">Prendre une photo</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Appareil photo</div>
-          </button>
-        </div>
+      <div className="space-y-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) {
+              setAttachment(file);
+            }
+          }}
+        />
 
         {attachment && (
-          <div className="mt-2 flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-700 truncate font-medium">{attachment.name}</div>
             <span
-              className="text-xs text-red-600 hover:underline cursor-pointer"
+              className="text-xs text-red-600 hover:underline cursor-pointer shrink-0"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -360,29 +324,36 @@ export function InternalMessageComposer({
                 if (fileInputRef.current) {
                   fileInputRef.current.value = "";
                 }
-                const camInput = document.getElementById('composer-camera-input') as HTMLInputElement;
-                if (camInput) camInput.value = "";
               }}
             >
               Retirer
             </span>
           </div>
         )}
-        
-        <p className="text-xs text-gray-500 mt-1">Formats acceptés selon configuration du serveur. Taille maximale 5 Mo.</p>
-      </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
 
-      <div className="flex justify-end -mt-1">
-        <Button
-          type="button"
-          onClick={handleSubmit}
-          disabled={loading}
-          className="bg-green-700 hover:bg-green-800"
-        >
-          {loading ? "Envoi..." : "Envoyer"}
-        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div className="flex flex-col">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3.5 py-2 text-xs sm:text-sm font-medium text-green-700 hover:bg-gray-100 transition-colors"
+            >
+              <span>📎 Joindre une pièce jointe</span>
+            </button>
+            <span className="text-[11px] text-gray-500 mt-1">Taille maximale 5 Mo (fichier ou photo)</span>
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-green-700 hover:bg-green-800 px-6"
+          >
+            {loading ? "Envoi..." : "Envoyer"}
+          </Button>
+        </div>
       </div>
     </div>
   );

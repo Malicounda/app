@@ -811,7 +811,19 @@ export default function NationalStatistics() {
 
   // Répartition dynamique (Permis, Taxes d'abattage, Infractions) selon la région sélectionnée
   const selectedRegionRevenueBreakdown = useMemo(() => {
-    if (revenueRegion === 'toutes') {
+    const targetKey = revenueRegion === 'toutes' ? null : canonicalRegionKey(revenueRegion);
+
+    // Recettes issues des Licences & Taxes d'amodiation (depuis revenueChasseMatrix)
+    let licenceAmodiation = 0;
+    for (const item of revenueChasseMatrix || []) {
+      if (item.section !== 'licence_taxe') continue;
+      const lbl = removeDiacritics(String(item.rowLabel || '')).toLowerCase();
+      if (!(lbl === 'licence' || lbl.includes('amodiation'))) continue;
+      if (targetKey && canonicalRegionKey(item.regionKey || item.regionLabel) !== targetKey) continue;
+      licenceAmodiation += Number(item.amount || 0);
+    }
+
+    if (!targetKey) {
       let totalPermits = 0;
       let totalTaxes = 0;
       for (const r of byRegion || []) {
@@ -829,12 +841,12 @@ export default function NationalStatistics() {
         permits: totalPermits,
         taxes: totalTaxes,
         permitTax,
+        licenceAmodiation,
         infractions,
-        total: permitTax + infractions,
+        total: permitTax + licenceAmodiation + infractions,
       };
     }
 
-    const targetKey = canonicalRegionKey(revenueRegion);
     let permits = 0;
     let taxes = 0;
     let infractions = 0;
@@ -863,15 +875,17 @@ export default function NationalStatistics() {
       permits,
       taxes,
       permitTax,
+      licenceAmodiation,
       infractions,
-      total: permitTax + infractions,
+      total: permitTax + licenceAmodiation + infractions,
     };
-  }, [revenueRegion, byRegion, aggregates, infraStats, infractionsData]);
+  }, [revenueRegion, byRegion, aggregates, infraStats, infractionsData, revenueChasseMatrix]);
 
   const selectedRegionPieData = useMemo(() => {
     return [
       { name: 'Permis', value: selectedRegionRevenueBreakdown.permits, color: '#2563eb' },
       { name: "Taxes d'abattage", value: selectedRegionRevenueBreakdown.taxes, color: '#10b981' },
+      { name: "Licence + Taxe d'amodiation", value: selectedRegionRevenueBreakdown.licenceAmodiation, color: '#8b5cf6' },
       { name: 'Infractions', value: selectedRegionRevenueBreakdown.infractions, color: '#f97316' },
     ].filter((item) => item.value > 0);
   }, [selectedRegionRevenueBreakdown]);
@@ -1264,7 +1278,7 @@ export default function NationalStatistics() {
 
   // Export Excel Recettes (Onglet 1 : Recettes par région/département + Onglet 2 : Recette chasse)
   // Dans les fichiers exportés, DEFCCS ('national'/'defccs') est comptabilisé dans Dakar ('dakar').
-  const exportRevenueCsv = () => {
+  const exportRevenueCsv = async () => {
     const firstSheetName = revenueGroupBy === 'departement' ? 'Recettes par département' : 'Recettes par région';
     const firstSheetHeader =
       revenueGroupBy === 'departement'
@@ -1452,6 +1466,156 @@ export default function NationalStatistics() {
       domanialGrandTotal + contentieuxGrandTotal,
     ]);
 
+    // 3. Onglet "Licences et amodiations" (zones amodiées au niveau national, filtrées si une région est choisie)
+    const zonesRes = await apiRequest<any>('GET', '/api/zones?lite=1').catch(() => ({ ok: false, data: [] }));
+    const zonesRaw: any = zonesRes?.data;
+    const allZonesArr: any[] = Array.isArray(zonesRaw?.features)
+      ? zonesRaw.features.map((f: any) => f?.properties || f)
+      : Array.isArray(zonesRaw)
+        ? zonesRaw
+        : Array.isArray(zonesRaw?.data)
+          ? zonesRaw.data
+          : Array.isArray(zonesRaw?.zones)
+            ? zonesRaw.zones
+            : [];
+
+    const filteredAmodiees = allZonesArr
+      .filter((z) => {
+        const zt = removeDiacritics(String(z?.type || '')).toLowerCase().trim();
+        if (!(zt === 'amodiee' || zt.includes('amodi')) || !z?.name) return false;
+        if (activeFilterKey) {
+          return exportRegionKey(z?.region) === exportRegionKey(activeFilterKey);
+        }
+        return true;
+      })
+      .sort((a, b) =>
+        prettyRegion(a?.region || '').localeCompare(prettyRegion(b?.region || '')) ||
+        String(a?.name || '').localeCompare(String(b?.name || ''))
+      );
+
+    const licMerges: string[] = ['A1:A2', 'B1:B2', 'C1:C2', 'D1:E1', 'F1:G1'];
+    const licRows: (string | number)[][] = [
+      ['', '', '', 'Montant', 'N° quittance et date', 'Montant', 'N° Quittance et date'],
+    ];
+    let totalLicAmt = 0;
+    let totalAmoAmt = 0;
+    for (const z of filteredAmodiees) {
+      const licAmt = Number(z?.licence_amount ?? z?.licenceAmount ?? 0);
+      const amoAmt = Number(z?.amodiation_amount ?? z?.amodiationAmount ?? 0);
+      if (licAmt > 0) totalLicAmt += licAmt;
+      if (amoAmt > 0) totalAmoAmt += amoAmt;
+      licRows.push([
+        prettyRegion(z?.region || ''),
+        String(z?.name || ''),
+        String(z?.responsible_name || z?.responsibleName || ''),
+        licAmt > 0 ? licAmt : '',
+        String(z?.licence_receipt || z?.licenceReceipt || ''),
+        amoAmt > 0 ? amoAmt : '',
+        String(z?.amodiation_receipt || z?.amodiationReceipt || ''),
+      ]);
+    }
+    const licTotalRow = licRows.length + 2;
+    licRows.push(['Total', '', '', totalLicAmt, '', totalAmoAmt, '']);
+    licMerges.push(`A${licTotalRow}:C${licTotalRow}`);
+
+    // 4. Onglet "Transactions" (Recettes des infractions au niveau national, modèle Contentieux)
+    const filteredInfractionsForRev = (infractionsData || []).filter((inf) => {
+      if (!activeFilterKey) return true;
+      return exportRegionKey(inf.region || 'non défini') === exportRegionKey(activeFilterKey);
+    });
+
+    const txByRegion = new Map<
+      string,
+      {
+        regionLabel: string;
+        byNature: Map<
+          string,
+          { natureLabel: string; nbrPv: number; transiges: number; montant: number; instance: number; tribunal: number }
+        >;
+      }
+    >();
+
+    for (const row of filteredInfractionsForRev) {
+      const rk = exportRegionKey(row.region || 'non défini');
+      const regionLabel = REGION_LABELS[rk] || prettyRegion(row.region || 'Non défini');
+      const rawNature = String((row as any).nature_infraction || (row as any).infraction_type || 'Non spécifiée').trim();
+      const natureKey = removeDiacritics(rawNature).toLowerCase() || 'non-specifiee';
+
+      const regEntry = txByRegion.get(rk) || { regionLabel, byNature: new Map() };
+      const natEntry = regEntry.byNature.get(natureKey) || {
+        natureLabel: rawNature || 'Non spécifiée',
+        nbrPv: 0,
+        transiges: 0,
+        montant: 0,
+        instance: 0,
+        tribunal: 0,
+      };
+      natEntry.nbrPv += 1;
+
+      const montant = Number(row.montant_chiffre || 0);
+      const hasQuittance = Boolean((row as any).numero_quittance && String((row as any).numero_quittance).trim());
+      const obsNorm = removeDiacritics(String((row as any).observations || '').trim().toLowerCase());
+      const isTribunal =
+        obsNorm.includes('tribunal') ||
+        obsNorm.includes('justice') ||
+        obsNorm.includes('defere') ||
+        obsNorm.includes('parquet');
+
+      if (isTribunal) {
+        natEntry.tribunal += 1;
+      } else if (montant > 0 || hasQuittance) {
+        natEntry.transiges += 1;
+        natEntry.montant += montant;
+      } else {
+        natEntry.instance += 1;
+      }
+
+      regEntry.byNature.set(natureKey, natEntry);
+      txByRegion.set(rk, regEntry);
+    }
+
+    const txMerges: string[] = ['A1:A2', 'B1:B2', 'C1:C2', 'D1:F1', 'G1:G2'];
+    const txRows: (string | number)[][] = [['', '', '', 'Transigés', 'Montant', 'Instance', '']];
+    let txTotalPv = 0;
+    let txTotalTransiges = 0;
+    let txTotalMontant = 0;
+    let txTotalInstance = 0;
+    let txTotalTribunal = 0;
+    let txRowNum = 3;
+
+    const sortedTxRegions = Array.from(txByRegion.values()).sort((a, b) =>
+      a.regionLabel.localeCompare(b.regionLabel)
+    );
+    for (const reg of sortedTxRegions) {
+      const natures = Array.from(reg.byNature.values()).sort((a, b) =>
+        a.natureLabel.localeCompare(b.natureLabel)
+      );
+      const startRow = txRowNum;
+      natures.forEach((nat, idx) => {
+        txTotalPv += nat.nbrPv;
+        txTotalTransiges += nat.transiges;
+        txTotalMontant += nat.montant;
+        txTotalInstance += nat.instance;
+        txTotalTribunal += nat.tribunal;
+        txRows.push([
+          idx === 0 ? reg.regionLabel : '',
+          nat.natureLabel,
+          nat.nbrPv,
+          nat.transiges,
+          nat.montant > 0 ? nat.montant : '',
+          nat.instance,
+          nat.tribunal,
+        ]);
+        txRowNum += 1;
+      });
+      const endRow = txRowNum - 1;
+      if (endRow > startRow) {
+        txMerges.push(`A${startRow}:A${endRow}`);
+      }
+    }
+    txRows.push([`Total ${curYear}`, '', txTotalPv, txTotalTransiges, txTotalMontant, txTotalInstance, txTotalTribunal]);
+    txMerges.push(`A${txRowNum}:B${txRowNum}`);
+
     exportMultiSheetXlsx('recettes_gestion_faune.xlsx', [
       {
         name: firstSheetName,
@@ -1462,6 +1626,18 @@ export default function NationalStatistics() {
         name: 'Recette chasse',
         headers: recetteChasseHeader,
         rows: recetteChasseRows,
+      },
+      {
+        name: 'Licences et amodiations',
+        headers: ['Région', 'Zone amodiée', 'Amodiataire', 'Licence', '', "Taxe d'amodiation", ''],
+        rows: licRows,
+        merges: licMerges,
+      },
+      {
+        name: 'Transactions',
+        headers: ['Régions', 'Nature infraction', 'Nbr P.V', 'Transactions', '', '', 'Tribunal'],
+        rows: txRows,
+        merges: txMerges,
       },
     ]);
   };
@@ -1766,7 +1942,7 @@ export default function NationalStatistics() {
   };
 
   // Export unifié pour l'onglet actif (dans les exports, DEFCCS est comptabilisé dans Dakar)
-  const handleExportActiveTab = () => {
+  const handleExportActiveTab = async () => {
     switch (activeTab) {
       case 'overview': {
         const header = ['Région (Top 5)', 'Permis actifs', 'Prélèvements', 'Recette (FCFA)'];
@@ -1916,6 +2092,296 @@ export default function NationalStatistics() {
           ],
         ];
 
+        // Charger permis, chasseurs et zones amodiées pour construire les onglets "Résident" et "Touriste"
+        const [allPermitsRes, allHuntersRes, allZonesRes] = await Promise.all([
+          apiRequest<any>('GET', '/api/permits').catch(() => ({ ok: false, data: [] })),
+          apiRequest<any>('GET', '/api/hunters').catch(() => ({ ok: false, data: [] })),
+          apiRequest<any>('GET', '/api/zones?lite=1').catch(() => ({ ok: false, data: [] })),
+        ]);
+        const allPermitsRaw: any = allPermitsRes?.data;
+        const allHuntersRaw: any = allHuntersRes?.data;
+        const allZonesRaw: any = allZonesRes?.data;
+        const allPermitsList: any[] = Array.isArray(allPermitsRaw)
+          ? allPermitsRaw
+          : Array.isArray(allPermitsRaw?.data)
+            ? allPermitsRaw.data
+            : [];
+        const allHuntersList: any[] = Array.isArray(allHuntersRaw)
+          ? allHuntersRaw
+          : Array.isArray(allHuntersRaw?.data)
+            ? allHuntersRaw.data
+            : [];
+        const allZonesList: any[] = Array.isArray(allZonesRaw?.features)
+          ? allZonesRaw.features.map((f: any) => f?.properties || f)
+          : Array.isArray(allZonesRaw)
+            ? allZonesRaw
+            : Array.isArray(allZonesRaw?.data)
+              ? allZonesRaw.data
+              : Array.isArray(allZonesRaw?.zones)
+                ? allZonesRaw.zones
+                : [];
+
+        const normTxt = (s?: string | null) =>
+          String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        const normSlug = (s?: string | null) =>
+          normTxt(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+        const activeCatRegionKey =
+          categoriesRegionFilter !== 'toutes' ? exportRegionKey(categoriesRegionFilter) : null;
+
+        const hunterInfoById = new Map<number, { category: string; region: string }>();
+        for (const h of allHuntersList) {
+          if (h?.id != null) {
+            hunterInfoById.set(Number(h.id), {
+              category: normTxt(h?.category || ''),
+              region: String(h?.region || ''),
+            });
+          }
+        }
+
+        // Onglet 3 : "Résident" (Nature permis x Régions + Total)
+        const baseResidentRegionCols: Array<{ key: string; label: string }> = [
+          { key: 'saint-louis', label: 'Saint-Louis' },
+          { key: 'louga', label: 'Louga' },
+          { key: 'thies', label: 'Thiès' },
+          { key: 'fatick', label: 'Fatick' },
+          { key: 'kaolack', label: 'Kaolack' },
+          { key: 'kaffrine', label: 'Kaffrine' },
+          { key: 'tambacounda', label: 'Tambacounda' },
+          { key: 'kedougou', label: 'Kédougou' },
+          { key: 'kolda', label: 'Kolda' },
+          { key: 'sedhiou', label: 'Sédhiou' },
+          { key: 'dakar', label: 'Dakar' },
+        ];
+        const resRegionCols = activeCatRegionKey
+          ? baseResidentRegionCols.filter((c) => c.key === activeCatRegionKey)
+          : [...baseResidentRegionCols];
+        const knownResRegKeys = new Set(resRegionCols.map((c) => c.key));
+        if (activeCatRegionKey && !knownResRegKeys.has(activeCatRegionKey)) {
+          knownResRegKeys.add(activeCatRegionKey);
+          resRegionCols.push({
+            key: activeCatRegionKey,
+            label: REGION_LABELS[activeCatRegionKey] || prettyRegion(categoriesRegionFilter),
+          });
+        }
+
+        const residentLabels = [
+          'Permis petite chasse résident',
+          'Permis de grande chasse résident',
+          'Permis coutumier',
+          "Permis spécial de chasse au gibier d'eau",
+        ] as const;
+        const residentCounts = new Map<string, number>();
+
+        for (const p of allPermitsList) {
+          const rawType = normTxt(p?.type || p?.category || p?.permitType || '');
+          const hInfo = hunterInfoById.get(Number(p?.hunterId));
+          const hunterCat = normTxt(p?.hunterCategory || p?.hunter?.category || hInfo?.category || '');
+          const combined = `${rawType} ${hunterCat}`;
+          if (combined.includes('touriste')) continue;
+
+          const rk = exportRegionKey(
+            p?.region || p?.issuerRegion || p?.hunter?.region || hInfo?.region || 'dakar'
+          );
+          if (activeCatRegionKey && rk !== activeCatRegionKey) continue;
+
+          if (!knownResRegKeys.has(rk)) {
+            knownResRegKeys.add(rk);
+            resRegionCols.push({ key: rk, label: REGION_LABELS[rk] || prettyRegion(rk) });
+          }
+
+          let rowLabel: (typeof residentLabels)[number] = 'Permis petite chasse résident';
+          if (combined.includes('coutumier')) {
+            rowLabel = 'Permis coutumier';
+          } else if (combined.includes('gibier') || combined.includes('eau')) {
+            rowLabel = "Permis spécial de chasse au gibier d'eau";
+          } else if (combined.includes('grande')) {
+            rowLabel = 'Permis de grande chasse résident';
+          }
+
+          const k = `${rowLabel}|${rk}`;
+          residentCounts.set(k, (residentCounts.get(k) || 0) + 1);
+        }
+
+        const resColTotals = new Map<string, number>();
+        let resGrandTotal = 0;
+        const residentSheetRows: (string | number)[][] = residentLabels.map((label) => {
+          let rowSum = 0;
+          const cells = resRegionCols.map((c) => {
+            const val = residentCounts.get(`${label}|${c.key}`) || 0;
+            rowSum += val;
+            resColTotals.set(c.key, (resColTotals.get(c.key) || 0) + val);
+            return val > 0 ? val : '';
+          });
+          resGrandTotal += rowSum;
+          return [label, ...cells, rowSum];
+        });
+        residentSheetRows.push([
+          'Total',
+          ...resRegionCols.map((c) => resColTotals.get(c.key) || 0),
+          resGrandTotal,
+        ]);
+
+        // Onglet 4 : "Touriste" (colonnes = noms réels des zones amodiées + Total)
+        const nationalAmodiees = allZonesList
+          .filter((z) => {
+            const zType = normTxt(z?.type);
+            if (!(zType === 'amodiee' || zType.includes('amodi')) || !z?.name) return false;
+            if (activeCatRegionKey) {
+              return exportRegionKey(z?.region) === activeCatRegionKey;
+            }
+            return true;
+          })
+          .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+        const touristZoneCols: Array<{ key: string; label: string }> = nationalAmodiees.map((z) => ({
+          key: normSlug(z.name),
+          label: String(z.name).trim(),
+        }));
+        const knownTouristZones = new Set(touristZoneCols.map((c) => c.key));
+        if (touristZoneCols.length === 0) {
+          touristZoneCols.push({ key: 'non-precisee', label: 'Zone non précisée' });
+          knownTouristZones.add('non-precisee');
+        }
+
+        const resolveNationalZoneKey = (rawZone?: string | null): string => {
+          const k = normSlug(rawZone);
+          if (!k) return touristZoneCols[0].key;
+          if (knownTouristZones.has(k)) return k;
+          for (const col of touristZoneCols) {
+            if (k.includes(col.key) || col.key.includes(k)) return col.key;
+          }
+          const extraKey = 'autres-zones';
+          if (!knownTouristZones.has(extraKey)) {
+            knownTouristZones.add(extraKey);
+            touristZoneCols.push({ key: extraKey, label: 'Autres / Non précisée' });
+          }
+          return extraKey;
+        };
+
+        const detectNatTouristDur = (p: any): '1w' | '2w' | '1m' => {
+          const text = normTxt(`${p?.duration || ''} ${p?.type || ''} ${p?.category || ''} ${p?.permitType || ''}`);
+          if (text.includes('1 mois') || text.includes('01 mois') || text.includes('mensuel') || text.includes('30')) return '1m';
+          if (text.includes('2 semaine') || text.includes('02 semaine') || text.includes('14') || text.includes('15')) return '2w';
+          if (text.includes('1 semaine') || text.includes('01 semaine') || text.includes('7')) return '1w';
+          if (p?.issueDate && p?.expiryDate) {
+            const d1 = new Date(p.issueDate).getTime();
+            const d2 = new Date(p.expiryDate).getTime();
+            if (!isNaN(d1) && !isNaN(d2) && d2 > d1) {
+              const days = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+              if (days <= 10) return '1w';
+              if (days <= 20) return '2w';
+              return '1m';
+            }
+          }
+          return '1w';
+        };
+
+        const touristCountsMap = new Map<string, number>();
+        for (const p of allPermitsList) {
+          const rawType = normTxt(p?.type || p?.category || p?.permitType || '');
+          const hInfo = hunterInfoById.get(Number(p?.hunterId));
+          const hunterCat = normTxt(p?.hunterCategory || p?.hunter?.category || hInfo?.category || '');
+          const combined = `${rawType} ${hunterCat}`;
+          if (!combined.includes('touriste')) continue;
+
+          if (activeCatRegionKey) {
+            const rk = exportRegionKey(p?.region || p?.issuerRegion || p?.hunter?.region || hInfo?.region || '');
+            if (rk !== activeCatRegionKey) continue;
+          }
+
+          const dur = detectNatTouristDur(p);
+          const zk = resolveNationalZoneKey(p?.amodieeZone || p?.huntingZone || p?.zone || p?.area);
+          let label = '';
+          if (combined.includes('gibier') || combined.includes('eau')) {
+            label =
+              dur === '1w'
+                ? "Permis spécial de chasse au gibier d'eau 01 semaine"
+                : dur === '2w'
+                  ? "Permis spécial de chasse au gibier d'eau 02 semaines"
+                  : "Permis spécial de chasse au gibier d'eau 01 mois";
+          } else if (combined.includes('grande')) {
+            label =
+              dur === '1w'
+                ? 'Permis de grande chasse touriste 01 semaine'
+                : dur === '2w'
+                  ? 'Permis de grande chasse touriste 02 semaines'
+                  : 'Permis de grande chasse touriste 01 mois';
+          } else {
+            label =
+              dur === '1w'
+                ? 'Permis petite chasse touriste 01 semaine'
+                : dur === '2w'
+                  ? 'Permis petite chasse touriste 02 semaines'
+                  : 'Permis petite chasse touriste 01 mois';
+          }
+          const k = `${label}|${zk}`;
+          touristCountsMap.set(k, (touristCountsMap.get(k) || 0) + 1);
+        }
+
+        const natTouristSections = [
+          {
+            title: 'Petite chasse',
+            rows: [
+              'Permis petite chasse touriste 01 semaine',
+              'Permis petite chasse touriste 02 semaines',
+              'Permis petite chasse touriste 01 mois',
+            ],
+            subTotalLabel: 'Sous total 1',
+          },
+          {
+            title: "Chasse au gibier d'eau",
+            rows: [
+              "Permis spécial de chasse au gibier d'eau 01 semaine",
+              "Permis spécial de chasse au gibier d'eau 02 semaines",
+              "Permis spécial de chasse au gibier d'eau 01 mois",
+            ],
+            subTotalLabel: 'Sous total 2',
+          },
+          {
+            title: 'Grande chasse',
+            rows: [
+              'Permis de grande chasse touriste 01 semaine',
+              'Permis de grande chasse touriste 02 semaines',
+              'Permis de grande chasse touriste 01 mois',
+            ],
+            subTotalLabel: 'Sous total 3',
+          },
+        ];
+
+        const touristSheetRows: (string | number)[][] = [];
+        const touristGrandByZone = new Map<string, number>();
+        let touristGrandTotal = 0;
+
+        for (const sec of natTouristSections) {
+          touristSheetRows.push([sec.title, ...touristZoneCols.map(() => ''), '']);
+          const secByZone = new Map<string, number>();
+          let secTotal = 0;
+          for (const rLabel of sec.rows) {
+            let rowSum = 0;
+            const cells = touristZoneCols.map((c) => {
+              const val = touristCountsMap.get(`${rLabel}|${c.key}`) || 0;
+              rowSum += val;
+              secByZone.set(c.key, (secByZone.get(c.key) || 0) + val);
+              touristGrandByZone.set(c.key, (touristGrandByZone.get(c.key) || 0) + val);
+              return val > 0 ? val : '';
+            });
+            secTotal += rowSum;
+            touristGrandTotal += rowSum;
+            touristSheetRows.push([rLabel, ...cells, rowSum > 0 ? rowSum : '']);
+          }
+          touristSheetRows.push([
+            sec.subTotalLabel,
+            ...touristZoneCols.map((c) => secByZone.get(c.key) || 0),
+            secTotal,
+          ]);
+        }
+        touristSheetRows.push([
+          'Total',
+          ...touristZoneCols.map((c) => touristGrandByZone.get(c.key) || 0),
+          touristGrandTotal,
+        ]);
+
         exportMultiSheetXlsx('categories_chasseurs_et_permis.xlsx', [
           {
             name: 'Tableau 1 - Chasseurs',
@@ -1926,6 +2392,16 @@ export default function NationalStatistics() {
             name: 'Tableau 2 - Permis délivrés',
             headers: permitsHeaders,
             rows: permitsRows,
+          },
+          {
+            name: 'Résident',
+            headers: ['Nature permis', ...resRegionCols.map((c) => c.label), 'Total'],
+            rows: residentSheetRows,
+          },
+          {
+            name: 'Touriste',
+            headers: ['Nom des zones amodiées', ...touristZoneCols.map((c) => c.label), 'Total'],
+            rows: touristSheetRows,
           },
         ]);
         break;
@@ -2983,10 +3459,10 @@ export default function NationalStatistics() {
                     ))
                   ) : (
                     <>
-                      <div className="grid gap-4 md:grid-cols-3">
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <div className="bg-white p-4 rounded-lg border">
                           <p className="text-sm text-muted-foreground">
-                            Total (Permis + Taxes + Infractions){revenueRegion !== 'toutes' ? ` — ${revenueRegion}` : ''}
+                            Total (Permis + Taxes + Licences + Infractions){revenueRegion !== 'toutes' ? ` — ${revenueRegion}` : ''}
                           </p>
                           <div className="text-2xl font-bold">
                             {selectedRegionRevenueBreakdown.total.toLocaleString('fr-FR')} FCFA
@@ -2994,10 +3470,18 @@ export default function NationalStatistics() {
                         </div>
                         <div className="bg-white p-4 rounded-lg border">
                           <p className="text-sm text-muted-foreground">
-                            Permis + Taxes{revenueRegion !== 'toutes' ? ` — ${revenueRegion}` : ''}
+                            Permis + Taxe d'abattage{revenueRegion !== 'toutes' ? ` — ${revenueRegion}` : ''}
                           </p>
                           <div className="text-2xl font-bold">
                             {selectedRegionRevenueBreakdown.permitTax.toLocaleString('fr-FR')} FCFA
+                          </div>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg border">
+                          <p className="text-sm text-muted-foreground">
+                            Licence + Taxe d'amodiation{revenueRegion !== 'toutes' ? ` — ${revenueRegion}` : ''}
+                          </p>
+                          <div className="text-2xl font-bold">
+                            {selectedRegionRevenueBreakdown.licenceAmodiation.toLocaleString('fr-FR')} FCFA
                           </div>
                         </div>
                         <div className="bg-white p-4 rounded-lg border">
@@ -3012,7 +3496,7 @@ export default function NationalStatistics() {
                       <div className="bg-white rounded-lg border p-4 h-[380px]">
                         <h4 className="text-sm font-semibold mb-2">
                           {revenueGroupBy === 'region' && revenueRegion !== 'toutes'
-                            ? `Répartition des recettes pour ${revenueRegion} (Permis, Taxes d'abattage et Infractions)`
+                            ? `Répartition des recettes pour ${revenueRegion} (Permis, Taxes, Licences/Amodiations et Infractions)`
                             : revenueGroupBy === 'region'
                             ? 'Répartition des recettes par région'
                             : `Répartition des recettes par département${revenueRegion !== 'toutes' ? ` (${revenueRegion})` : ''}`}

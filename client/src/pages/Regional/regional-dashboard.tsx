@@ -120,36 +120,37 @@ export default function RegionalDashboard() {
             </CardContent>
           </Card>
 
-        {/* Recette permis */}
+        {/* Permis actifs */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recette permis</CardTitle>
+            <CardTitle className="text-sm font-medium">Permis actifs</CardTitle>
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="text-center">
-            <div className="text-2xl font-bold">{formatMoney(permitRevenue)}</div>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Actifs</p>
+                <div className="text-2xl font-bold">{Number(rs?.activePermitCount || 0)}</div>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Suspendus</p>
+                <div className="text-2xl font-bold">{Number(rs?.suspendedPermitCount || 0)}</div>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Expirés</p>
+                <div className="text-2xl font-bold">{Number(rs?.expiredPermitCount || 0)}</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Taxes d'abattage */}
+        {/* Taxes enregistrées */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxes d'abattage</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <rect width="20" height="14" x="2" y="5" rx="2" />
-              <path d="M2 10h20" />
-            </svg>
+            <CardTitle className="text-sm font-medium">Taxes enregistrées</CardTitle>
           </CardHeader>
           <CardContent className="text-center">
-            <div className="text-2xl font-bold">{formatMoney(taxesAmount)}</div>
+            <div className="text-2xl font-bold">{Number(rs?.taxCount || 0)}</div>
           </CardContent>
         </Card>
       </div>
@@ -177,35 +178,36 @@ export default function RegionalDashboard() {
             </CardContent>
           </Card>
 
+          {/* Recette permis */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Permis actifs</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Recette permis</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground">Actifs</p>
-                  <div className="text-2xl font-bold">{Number(rs?.activePermitCount || 0)}</div>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground">Suspendus</p>
-                  <div className="text-2xl font-bold">{Number(rs?.suspendedPermitCount || 0)}</div>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground">Expirés</p>
-                  <div className="text-2xl font-bold">{Number(rs?.expiredPermitCount || 0)}</div>
-                </div>
-              </div>
+            <CardContent className="text-center">
+              <div className="text-2xl font-bold">{formatMoney(permitRevenue)}</div>
             </CardContent>
           </Card>
 
+          {/* Taxes d'abattage */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Taxes enregistrées</CardTitle>
+              <CardTitle className="text-sm font-medium">Taxes d'abattage</CardTitle>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                className="h-4 w-4 text-muted-foreground"
+              >
+                <rect width="20" height="14" x="2" y="5" rx="2" />
+                <path d="M2 10h20" />
+              </svg>
             </CardHeader>
             <CardContent className="text-center">
-              <div className="text-2xl font-bold">{Number(rs?.taxCount || 0)}</div>
+              <div className="text-2xl font-bold">{formatMoney(taxesAmount)}</div>
             </CardContent>
           </Card>
 

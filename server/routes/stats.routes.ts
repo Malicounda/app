@@ -234,6 +234,7 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
   try {
     const rows: Array<{
       region: string;
+      departement: string | null;
       species_id: string;
       nom_espece: string | null;
       nom_scientifique: string | null;
@@ -246,6 +247,7 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
     }> = await db.execute(
       sql`SELECT
             COALESCE(LOWER(TRIM(x.region)), 'nondefini') AS region,
+            NULLIF(TRIM(x.departement), '') AS departement,
             x.species_id,
             COALESCE(x.nom_espece, '') AS nom_espece,
             COALESCE(x.nom_scientifique, '') AS nom_scientifique,
@@ -269,6 +271,11 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
                 NULLIF(TRIM(h_d.region), ''),
                 NULLIF(TRIM(d.location), '')
               ) AS region,
+              COALESCE(
+                NULLIF(TRIM(u.departement), ''),
+                NULLIF(TRIM(h_d.departement), ''),
+                NULLIF(TRIM(d.location), '')
+              ) AS departement,
               d.espece_id AS species_id,
               d.nom_espece,
               d.nom_scientifique,
@@ -297,6 +304,11 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
                 NULLIF(TRIM(h_ha.region), ''),
                 NULLIF(TRIM(ha.location), '')
               ) AS region,
+              COALESCE(
+                NULLIF(TRIM(u_src.departement), ''),
+                NULLIF(TRIM(h_ha.departement), ''),
+                NULLIF(TRIM(ha.location), '')
+              ) AS departement,
               ha.species_id,
               ha.species_name AS nom_espece,
               ha.scientific_name AS nom_scientifique,
@@ -323,6 +335,7 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
 
     const data = (rows || []).map(r => ({
       region: canonicalRegionName(r.region),
+      departement: r.departement ? String(r.departement).trim() : null,
       speciesId: r.species_id,
       speciesName: r.nom_espece || undefined,
       scientificName: r.nom_scientifique || undefined,

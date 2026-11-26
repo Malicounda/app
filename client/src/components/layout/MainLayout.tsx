@@ -342,7 +342,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
           type="button"
           aria-label={isSidebarCollapsed ? 'Agrandir le menu' : 'Réduire le menu'}
           className={
-            'hidden md:flex items-center justify-center fixed z-[190] \
+            'hidden md:flex items-center justify-center fixed z-[80] \
              bg-gradient-to-b from-teal-500 to-teal-600 text-white \
              shadow-lg shadow-teal-200/70 \
              hover:from-teal-600 hover:to-teal-700 transition-all duration-300 ease-in-out'

@@ -1418,7 +1418,13 @@ const MapPage: React.FC = () => {
           onPointerDown={onToolbarPointerDown}
           onPointerMove={onToolbarPointerMove}
           onPointerUp={onToolbarPointerUp}
-          style={toolbarPos ? { position: 'fixed', right: 0, top: toolbarPos.y, left: 'auto', zIndex: 1000 } : undefined}
+          style={{
+            position: 'fixed',
+            right: 12,
+            left: 'auto',
+            top: toolbarPos ? toolbarPos.y : 'calc(var(--fixed-top, 60px) + 12px)',
+            zIndex: 1000,
+          }}
         >
           {/* Poignée de déplacement */}
           <div
