@@ -215,7 +215,7 @@ export default function GuideDashboard() {
                   className="group relative flex flex-col items-center gap-2.5 rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50 p-4 text-center transition-all duration-200 hover:shadow-md hover:shadow-amber-500/10 hover:border-amber-200 active:bg-amber-100"
                 >
                   <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25 group-hover:shadow-amber-500/40 transition-shadow">
-                    <Target className="h-6 w-6 text-white" strokeWidth={2} />
+                    <Crosshair className="h-6 w-6 text-white" strokeWidth={2} />
                   </div>
                   <div>
                     <span className="block text-xs font-bold text-slate-800 leading-tight">Prélèvement</span>

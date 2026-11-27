@@ -367,6 +367,24 @@ router.post('/request', isAuthenticated, async (req, res) => {
       return res.status(400).json({ success: false, message: "Profil chasseur introuvable pour cet utilisateur." });
     }
 
+    // Condition obligatoire : le dossier du chasseur doit être validé par l'administration
+    const { getHunterDossierVerification } = await import('../services/hunterDossierVerification.js');
+    const dossierVerification = await getHunterDossierVerification(Number(hunterId));
+    if (dossierVerification.status !== 'validated') {
+      const msg =
+        dossierVerification.status === 'rejected'
+          ? 'Votre dossier contient des pièces invalidées. Veuillez corriger et renvoyer les documents concernés avant de soumettre une demande de permis.'
+          : "Votre dossier est en attente de vérification et de validation par l'administration avant toute demande de permis.";
+      return res.status(403).json({
+        success: false,
+        code: 'DOSSIER_NOT_VALIDATED',
+        verificationStatus: dossierVerification.status,
+        invalidatedDocs: dossierVerification.invalidatedDocs,
+        reason: dossierVerification.reason,
+        message: msg,
+      });
+    }
+
     const { id, status, permitType, requestedType, requestedCategory } = req.body;
 
     // Récupérer le domaine 'chasse'

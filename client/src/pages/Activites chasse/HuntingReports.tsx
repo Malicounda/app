@@ -17,6 +17,7 @@ import { fr } from 'date-fns/locale';
 import {
   ArrowLeft,
   Camera,
+  Crosshair,
   FileText,
   Loader,
   Navigation
@@ -509,32 +510,50 @@ export default function HuntingReports() {
   }, [isGuide, selectedHunterId, permitsByHunter]);
 
   const getCategoriesForPermitCategory = useCallback((categoryKey: string): Array<'water' | 'small' | 'large'> => {
-    console.log('[getCategoriesForPermitCategory] Recherche pour categoryKey:', categoryKey);
+    const rawKey = String(categoryKey || '').trim();
+    if (!rawKey) return [];
+
+    const norm = (s: string) =>
+      s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const keyNorm = norm(rawKey);
 
     // Rechercher la catégorie dans la table permit_categories
-    const category = permitCategories.find(c => c.key === categoryKey);
+    const category = permitCategories.find(
+      (c) =>
+        c.key === rawKey ||
+        norm(c.key || '') === keyNorm ||
+        norm((c as any).labelFr || '') === keyNorm
+    );
 
-    if (category) {
-      console.log('[getCategoriesForPermitCategory] Catégorie trouvée:', category);
-      const groupe = category.groupe.toLowerCase();
-
-      // Logique basée sur le groupe de la catégorie
-      if (groupe.includes('gibier') && groupe.includes('eau')) {
-        console.log('[getCategoriesForPermitCategory] → Gibier d\'eau uniquement');
+    const resolveFromText = (text: string): Array<'water' | 'small' | 'large'> | null => {
+      const t = norm(text);
+      if (!t) return null;
+      if ((t.includes('gibier') && t.includes('eau')) || t.includes('water')) {
         return ['water'];
       }
-      if (groupe.includes('grande') && groupe.includes('chasse')) {
-        console.log('[getCategoriesForPermitCategory] → Grande chasse (inclut petite chasse)');
+      if (t.includes('grande')) {
         return ['large', 'small'];
       }
-      if (groupe.includes('petite') && groupe.includes('chasse')) {
-        console.log('[getCategoriesForPermitCategory] → Petite chasse uniquement');
+      if (t.includes('petite') || t.includes('coutum')) {
         return ['small'];
       }
+      return null;
+    };
+
+    if (category) {
+      const byGroup = resolveFromText(category.groupe || '');
+      if (byGroup) return byGroup;
+      const byLabel = resolveFromText(`${category.key || ''} ${(category as any).labelFr || ''}`);
+      if (byLabel) return byLabel;
     }
 
-    // Si la catégorie n'est pas trouvée ou le groupe n'est pas reconnu
-    console.warn('[getCategoriesForPermitCategory] ⚠️ Catégorie non trouvée ou groupe non reconnu pour:', categoryKey);
+    // Fallback direct sur la clé / le type du permis (ex: 'coutumier', 'petite-chasse', etc.)
+    const byKey = resolveFromText(rawKey);
+    if (byKey) return byKey;
+
+    if (permitCategories.length > 0) {
+      console.warn('[getCategoriesForPermitCategory] ⚠️ Catégorie non trouvée ou groupe non reconnu pour:', categoryKey);
+    }
     return [];
   }, [permitCategories]);
 
@@ -988,7 +1007,7 @@ export default function HuntingReports() {
     <div className="h-[calc(100dvh-75px)] sm:h-screen bg-stone-100 flex flex-col overflow-hidden pb-safe">
       <div className="flex-1 flex flex-col min-h-0">
         <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col min-h-0 overflow-y-auto no-scrollbar">
-        <div className="mb-4 shrink-0">
+        <div className="mb-2 shrink-0">
           <Tabs value="carnet" onValueChange={(v) => { if (v === 'activites') setLocation('/hunting-activities'); }} className="w-full">
             <TabsList className="grid grid-cols-2 bg-[#0b3d2e] border border-emerald-700/50 rounded-lg w-full p-1 shadow-md">
               <TabsTrigger value="carnet" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">
@@ -1004,52 +1023,63 @@ export default function HuntingReports() {
 
         {!showForm ? (
           <div className="relative flex-1 flex flex-col min-h-0 overflow-y-auto subtle-scrollbar pr-1 pb-4">
-            <div className="w-full max-w-4xl mx-auto bg-gradient-to-br from-[#0b3d2e] to-[#14532d] rounded-lg shadow-2xl p-3 sm:p-6 relative overflow-hidden flex flex-col justify-center items-center font-serif text-white shrink-0">
-              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px), repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px)` }}></div>
-              <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner">
-                <div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div>
-              </div>
-              <div className="ml-6 sm:ml-12 relative z-10 text-center w-full px-2">
-                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-emerald-100 mb-2 font-serif" style={{ textShadow: '2px 2px 4px rgba(1, 124, 57, 0.36)' }}>CARNET DE CHASSE</h1>
-                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mx-auto mb-3 sm:mb-6 bg-emerald-100 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
-                  <img src="/images/logo_carnet.jpg" alt="Logo carnet" className="max-w-full h-auto object-contain" />
+            {/* Carnet unifié en un seul bloc continu avec reliure dorée */}
+            <div className="w-full max-w-4xl mx-auto rounded-xl shadow-2xl overflow-hidden flex flex-col flex-1 min-h-0 bg-emerald-50/70">
+              {/* Couverture */}
+              <div className="bg-gradient-to-br from-[#0b3d2e] to-[#14532d] p-3 sm:p-6 relative overflow-hidden flex flex-col justify-center items-center font-serif text-white shrink-0">
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px), repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px)` }}></div>
+                <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner">
+                  <div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div>
                 </div>
-                <div className="text-emerald-200 text-sm sm:text-base md:text-lg font-serif mb-3 sm:mb-6">
-                  <p>{isGuide ? 'Guide de Chasse' : 'Chasseur'}: <span className="font-bold text-emerald-100">{user ? `${user.firstName} ${user.lastName}` : 'Non identifié'}</span></p>
+                <div className="ml-6 sm:ml-12 relative z-10 text-center w-full px-2">
+                  <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-emerald-100 mb-2 font-serif" style={{ textShadow: '2px 2px 4px rgba(1, 124, 57, 0.36)' }}>CARNET DE CHASSE</h1>
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mx-auto mb-3 sm:mb-6 bg-emerald-100 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
+                    <img src="/images/logo_carnet.jpg" alt="Logo carnet" className="max-w-full h-auto object-contain" />
+                  </div>
+                  <div className="text-emerald-200 text-sm sm:text-base md:text-lg font-serif mb-3 sm:mb-6">
+                    <p>{isGuide ? 'Guide de Chasse' : 'Chasseur'}: <span className="font-bold text-emerald-100">{user ? `${user.firstName} ${user.lastName}` : 'Non identifié'}</span></p>
+                  </div>
+                  {(hasActivePermits || user?.role === 'hunting-guide') && (
+                    <Button onClick={() => setShowForm(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 sm:py-3 sm:px-8 md:py-4 md:px-10 text-sm sm:text-base md:text-lg rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105 inline-flex items-center gap-2">
+                      <Crosshair className="h-4 w-4 sm:h-5 sm:w-5" />
+                      Nouveau prélèvement
+                    </Button>
+                  )}
                 </div>
-                {(hasActivePermits || user?.role === 'hunting-guide') && (
-                  <Button onClick={() => setShowForm(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 sm:py-3 sm:px-8 md:py-4 md:px-10 text-sm sm:text-base md:text-lg rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105">📝 Nouveau prélèvement</Button>
-                )}
               </div>
-            </div>
-            <div className="bg-emerald-50/70 rounded-lg shadow-xl p-2 sm:p-4 md:p-6 relative mt-2 flex-1 min-h-[260px] flex flex-col">
-              <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-6 md:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner rounded-l-lg"><div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1 h-1 sm:w-1.5 sm:h-1.5 md:w-2 md:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div></div>
-              <div className="ml-5 sm:ml-8 md:ml-12 pb-2 flex-1 min-h-0 overflow-y-auto subtle-scrollbar pr-1">
-                <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg shadow-md">
-                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-amber-900 mb-3 sm:mb-4">Informations importantes</h2>
-                  <div className="space-y-3 sm:space-y-4">
-                    <div className="p-2 sm:p-3 md:p-4 bg-amber-50 border-l-4 border-amber-500 rounded">
-                      <h3 className="text-sm sm:text-base font-semibold text-amber-800">Règles de chasse</h3>
-                      <p className="text-xs sm:text-sm text-amber-700 mt-1">
-                        Consultez les réglementations en vigueur dans votre région avant toute activité de chasse.
-                        Les périodes d'ouverture et les quotas sont stricts.
-                      </p>
-                    </div>
 
-                    <div className="p-2 sm:p-3 md:p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
-                      <h3 className="text-sm sm:text-base font-semibold text-blue-800">Sécurité</h3>
-                      <ul className="list-disc pl-4 sm:pl-5 text-xs sm:text-sm text-blue-700 space-y-1 mt-1">
-                        <li>Portez un gilet de chasse haute visibilité</li>
-                        <li>Vérifiez toujours votre matériel</li>
-                        <li>Respectez les zones d'exclusion</li>
-                      </ul>
-                    </div>
+              {/* Page intérieure collée en continuité */}
+              <div className="bg-emerald-50/70 p-2 sm:p-4 md:p-6 relative flex-1 min-h-[260px] flex flex-col border-t border-emerald-900/15">
+                <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-8 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner">
+                  <div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">{[...Array(8)].map((_, i) => (<div key={i} className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto"></div>))}</div>
+                </div>
+                <div className="ml-5 sm:ml-10 md:ml-12 pb-2 flex-1 min-h-0 overflow-y-auto subtle-scrollbar pr-1">
+                  <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg shadow-md">
+                    <h2 className="text-base sm:text-lg md:text-xl font-bold text-amber-900 mb-3 sm:mb-4">Informations importantes</h2>
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="p-2 sm:p-3 md:p-4 bg-amber-50 border-l-4 border-amber-500 rounded">
+                        <h3 className="text-sm sm:text-base font-semibold text-amber-800">Règles de chasse</h3>
+                        <p className="text-xs sm:text-sm text-amber-700 mt-1">
+                          Consultez les réglementations en vigueur dans votre région avant toute activité de chasse.
+                          Les périodes d'ouverture et les quotas sont stricts.
+                        </p>
+                      </div>
 
-                    <div className="p-2 sm:p-3 md:p-4 bg-green-50 border-l-4 border-green-500 rounded">
-                      <h3 className="text-sm sm:text-base font-semibold text-green-800">Contacts utiles</h3>
-                      <div className="text-xs sm:text-sm text-green-700 mt-1 space-y-2">
-                        <p className="break-words">Service des Eaux et Forêts : <span className="font-medium">+221 33 831 01 01</span> / BP: 1831 Dakar-Hann</p>
-                        <p className="break-words">Urgences : <span className="font-medium">18</span> (Sapeurs-Pompiers)</p>
+                      <div className="p-2 sm:p-3 md:p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+                        <h3 className="text-sm sm:text-base font-semibold text-blue-800">Sécurité</h3>
+                        <ul className="list-disc pl-4 sm:pl-5 text-xs sm:text-sm text-blue-700 space-y-1 mt-1">
+                          <li>Portez un gilet de chasse haute visibilité</li>
+                          <li>Vérifiez toujours votre matériel</li>
+                          <li>Respectez les zones d'exclusion</li>
+                        </ul>
+                      </div>
+
+                      <div className="p-2 sm:p-3 md:p-4 bg-green-50 border-l-4 border-green-500 rounded">
+                        <h3 className="text-sm sm:text-base font-semibold text-green-800">Contacts utiles</h3>
+                        <div className="text-xs sm:text-sm text-green-700 mt-1 space-y-2">
+                          <p className="break-words">Service des Eaux et Forêts : <span className="font-medium">+221 33 831 01 01</span> / BP: 1831 Dakar-Hann</p>
+                          <p className="break-words">Urgences : <span className="font-medium">18</span> (Sapeurs-Pompiers)</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1217,7 +1247,6 @@ export default function HuntingReports() {
                   </div>
                 </CardContent>
               </Card>
-              <div className="flex justify-end gap-4"><Button type="button" variant="outline" onClick={() => setShowForm(false)}>Annuler</Button></div>
             </form>
           </div>
         )}

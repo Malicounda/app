@@ -111,107 +111,142 @@ export default function HunterCarnetModal({ hunterId, hunterName, open, onClose 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[596px] h-[85vh] overflow-hidden p-0">
+      <DialogContent className="max-w-[620px] h-[86vh] overflow-hidden p-0 flex flex-col gap-0 bg-emerald-50/70 border-emerald-900/30 [&>button]:text-emerald-100 [&>button]:hover:text-white">
         <DialogTitle className="sr-only">Carnet de chasse</DialogTitle>
-        {/* En-tête du carnet - Style couverture */}
-        <div className="bg-gradient-to-br from-emerald-500 via-emerald-400 to-emerald-600 text-white p-8 relative overflow-hidden">
+        {/* En-tête du carnet - Style couverture harmonisé */}
+        <div className="bg-gradient-to-br from-[#0b3d2e] to-[#14532d] text-white p-5 sm:p-6 relative overflow-hidden font-serif shrink-0 shadow-lg">
+          {/* Texture subtile de couverture */}
+          <div
+            className="absolute inset-0 opacity-20 pointer-events-none"
+            style={{
+              backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px), repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(34,139,34,0.15) 2px, rgba(34,139,34,0.15) 4px)`,
+            }}
+          />
+
+          {/* Reliure latérale gauche avec points dorés */}
+          <div className="absolute left-0 top-0 bottom-0 w-5 sm:w-7 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner">
+            <div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto" />
+              ))}
+            </div>
+          </div>
 
           {/* Contenu de la couverture */}
-          <div className="relative z-10 text-center">
-            <h1 className="text-4xl font-bold mb-6 tracking-wider">CARNET DE CHASSE</h1>
+          <div className="ml-5 sm:ml-7 relative z-10 text-center">
+            <h1
+              className="text-2xl sm:text-3xl font-bold text-emerald-100 mb-4 font-serif tracking-wide"
+              style={{ textShadow: '2px 2px 4px rgba(1, 124, 57, 0.36)' }}
+            >
+              CARNET DE CHASSE
+            </h1>
 
             {/* Photo du chasseur (fallback icône) */}
-            <div className="flex justify-center mb-6">
-              <div className="w-32 h-32 rounded-full bg-white/90 flex items-center justify-center shadow-lg overflow-hidden">
+            <div className="flex justify-center mb-4">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-emerald-100 ring-2 ring-white/80 flex items-center justify-center shadow-lg overflow-hidden">
                 {!hunterPhotoError ? (
                   <img
                     src={`/api/attachments/${hunterId}/hunter_photo`}
                     alt={`Photo du chasseur ${hunterName}`}
-                    className="w-32 h-32 object-cover"
+                    className="w-full h-full object-cover"
                     onError={() => setHunterPhotoError(true)}
                   />
                 ) : (
-                  <svg className="w-20 h-20 text-green-800" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-16 h-16 text-emerald-900" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/>
                   </svg>
                 )}
               </div>
             </div>
 
-            <div className="mt-2 flex items-baseline justify-center gap-2">
-              <span className="text-xl">Chasseur:</span>
-              <span className="text-2xl md:text-3xl font-bold">{displayName || "—"}</span>
+            <div className="text-emerald-200 text-base sm:text-lg font-serif">
+              <p>
+                Chasseur:{' '}
+                <span className="font-bold text-emerald-100 text-lg sm:text-xl">
+                  {displayName || "—"}
+                </span>
+              </p>
             </div>
           </div>
 
           {/* Catégorie du permis (badge bas-droite) */}
           {computedPermitCategory && (
             <div className="absolute bottom-3 right-3 z-10">
-              <span className="inline-block px-3 py-1 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm shadow-sm">
+              <span className="inline-block px-3 py-1 rounded-md border border-emerald-200/40 bg-emerald-950/60 text-emerald-100 text-xs sm:text-sm font-sans font-medium shadow-sm">
                 {computedPermitCategory}
               </span>
             </div>
           )}
         </div>
 
-        {/* Section des activités de chasse */}
-        <div className={`relative z-0 p-6 pr-2 overflow-y-auto h-[calc(85vh-300px)] bg-amber-50 ${activities && activities.length > 0 && totalPages > 1 ? 'pb-16' : 'pb-6'}`}>
-          {/* En-tête avec titre et pagination */}
-          <div className="flex items-center justify-between mb-4 pb-2 border-b-2 border-green-600">
-            <h2 className="text-2xl font-bold text-green-800 flex items-center gap-2">
-              <FileText className="h-6 w-6" />
-              Activités de Chasse
-              {Array.isArray(activities) && (
-                <span className="ml-2 text-sm font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">
-                  {activities.length} au total
-                </span>
-              )}
-            </h2>
-
-            {/* Pagination compacte */}
-            {activities && activities.length > 0 && totalPages > 1 && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600">
-                  {currentPage}/{totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="h-7 w-7 p-0"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="h-7 w-7 p-0"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+        {/* Section des activités de chasse - Page intérieure harmonisée */}
+        <div className="relative flex-1 min-h-0 bg-emerald-50/70 flex flex-col overflow-hidden">
+          {/* Reliure latérale gauche sur la page intérieure */}
+          <div className="absolute left-0 top-0 bottom-0 w-5 sm:w-7 bg-gradient-to-r from-emerald-900 to-emerald-800 shadow-inner z-10">
+            <div className="flex flex-col justify-evenly h-full px-0.5 sm:px-1">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-600 rounded-full shadow-inner mx-auto" />
+              ))}
+            </div>
           </div>
 
-          {activitiesLoading ? (
-            <div className="text-center py-12 text-gray-500">
-              <div className="animate-spin mx-auto mb-3 h-10 w-10 border-4 border-green-600 border-t-transparent rounded-full"></div>
-              <p className="text-lg">Chargement des activités...</p>
-            </div>
-          ) : !activities || activities.length === 0 ? (
-            <div className="text-center py-16 text-gray-500 bg-white rounded-lg border-2 border-dashed border-gray-300">
-              <Calendar className="h-20 w-20 mx-auto mb-4 text-gray-300" />
-              <p className="text-xl font-medium text-gray-700">Aucune activité de chasse enregistrée</p>
-              <p className="text-sm mt-2 text-gray-500">Ce chasseur n'a pas encore d'activités dans son carnet</p>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-4">
-                {paginatedActivities.map((activity: any, index: number) => (
-                <div key={activity.id || index} className="bg-white border-l-4 border-green-600 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className={`ml-5 sm:ml-7 flex-1 min-h-0 overflow-y-auto subtle-scrollbar p-3 sm:p-5 ${activities && activities.length > 0 && totalPages > 1 ? 'pb-12' : 'pb-6'}`}>
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-5">
+              {/* En-tête avec titre et pagination */}
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-2.5 border-b border-emerald-100">
+                <h2 className="text-lg sm:text-xl font-bold text-amber-900 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-emerald-800" />
+                  Activités de Chasse
+                  {Array.isArray(activities) && (
+                    <span className="ml-1 text-xs sm:text-sm font-medium px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      {activities.length} au total
+                    </span>
+                  )}
+                </h2>
+
+                {/* Pagination compacte */}
+                {activities && activities.length > 0 && totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600">
+                      {currentPage}/{totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="h-7 w-7 p-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="h-7 w-7 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {activitiesLoading ? (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="animate-spin mx-auto mb-3 h-10 w-10 border-4 border-emerald-700 border-t-transparent rounded-full"></div>
+                  <p className="text-base">Chargement des activités...</p>
+                </div>
+              ) : !activities || activities.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 bg-emerald-50/40 rounded-lg border-2 border-dashed border-emerald-200">
+                  <Calendar className="h-16 w-16 mx-auto mb-3 text-emerald-300" />
+                  <p className="text-lg font-medium text-gray-700">Aucune activité de chasse enregistrée</p>
+                  <p className="text-sm mt-1 text-gray-500">Ce chasseur n&apos;a pas encore d&apos;activités dans son carnet</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {paginatedActivities.map((activity: any, index: number) => (
+                    <div key={activity.id || index} className="bg-emerald-50/30 border border-emerald-100 border-l-4 border-l-emerald-700 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
                   {/* En-tête de l'activité */}
                   <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-200">
                     <div>
@@ -341,10 +376,11 @@ export default function HunterCarnetModal({ hunterId, hunterName, open, onClose 
 
 
                 </div>
-              ))}
-              </div>
-            </>
-          )}
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </DialogContent>
 

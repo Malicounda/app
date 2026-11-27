@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { db } from '../db.js';
 import { sql } from 'drizzle-orm';
+import { markDocumentResubmitted } from '../services/hunterDossierVerification.js';
 
 type DocBaseName =
   | 'id_card'
@@ -143,6 +144,9 @@ export const uploadAttachment = async (req: Request, res: Response) => {
     const result = await db.execute(query as any);
     const attachment = Array.isArray(result) ? result[0] : (result as any)[0];
     console.debug('[attachments] uploadAttachment upsert result keys', attachment ? Object.keys(attachment) : null);
+
+    // Si cette pièce avait été invalidée par l'administration, la marquer comme renvoyée
+    await markDocumentResubmitted(hunterIdNum, base);
 
     return res.status(201).json({ message: 'Pièce jointe enregistrée', attachment });
   } catch (error) {

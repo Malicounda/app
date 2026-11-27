@@ -392,7 +392,7 @@ export default function HuntingActivities() {
     <div className="h-[calc(100dvh-75px)] sm:h-screen bg-stone-100 flex flex-col overflow-hidden pb-safe">
       <div className="flex-1 flex flex-col min-h-0">
         <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col min-h-0">
-          <div className="mb-4 shrink-0">
+          <div className="mb-2 shrink-0">
             <Tabs value="activites" onValueChange={(v) => { if (v === 'carnet') setLocation('/hunting-reports'); }} className="w-full">
               <TabsList className="grid grid-cols-2 bg-[#0b3d2e] border border-emerald-700/50 rounded-lg w-full p-1 shadow-md">
                 <TabsTrigger value="carnet" className="flex items-center justify-center gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-amber-950 text-emerald-100 font-serif transition-all">

@@ -4,8 +4,31 @@ import { users } from '../../shared/schema.js';
 import { db } from '../db.js';
 import { isAdminAgentOrSubAgent } from '../src/middleware/roles.js';
 import { storage } from '../storage.js';
+import crypto from 'crypto';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 import { checkDomain } from './middlewares/domain.middleware.js';
+import {
+  addTerritoryAutoValidationRule,
+  AutoValidationMode,
+  defaultVerification,
+  deleteAutoValidationRule,
+  getAllHunterDossierVerifications,
+  getAutoValidationConfig,
+  HUNTER_DOC_LABELS,
+  invalidateHunterDossier,
+  sendDossierNotificationMessage,
+  setAgentAutoValidationRule,
+  setAutoValidationMode,
+  toggleAutoValidationRule,
+  validateHunterDossier,
+} from '../services/hunterDossierVerification.js';
+
+function isStrictSuperAdmin(req: any): boolean {
+  const u = req?.user;
+  if (!u) return false;
+  const role = String(u.role || '').toLowerCase();
+  return Boolean(u.isSuperAdmin === true || role === 'superadmin' || role === 'super_admin');
+}
 
 const router = Router();
 
@@ -75,13 +98,17 @@ router.get('/hunter-profiles', async (req, res) => {
       if (r?.hunter_id != null) attByHunterId.set(Number(r.hunter_id), r);
     }
 
+    const verifByHunterId = await getAllHunterDossierVerifications();
+
     const result = await Promise.all(filtered.map(async (h: any) => {
       const linkedUser: any = await storage.getUserByHunterId(h.id);
       const att = attByHunterId.get(Number(h.id));
+      const verification = verifByHunterId.get(Number(h.id)) ?? defaultVerification(Number(h.id));
 
       const documents = HUNTER_DOC_DEFS.map((def) => {
         const present = Boolean(att?.[def.dataCol]);
         const expiryDate = def.expiryCol ? (att?.[def.expiryCol] ?? null) : null;
+        const invalidated = verification.invalidatedDocs.includes(def.code);
         return {
           code: def.code,
           label: def.label,
@@ -89,6 +116,7 @@ router.get('/hunter-profiles', async (req, res) => {
           name: present ? (att?.[def.nameCol] ?? null) : null,
           expiryDate,
           status: computeDocStatus(present, expiryDate),
+          invalidated,
         };
       });
 
@@ -130,6 +158,7 @@ router.get('/hunter-profiles', async (req, res) => {
         documentsTotal,
         documentsPercent,
         documentsUpdatedAt: att?.updated_at ?? null,
+        verification,
       };
     }));
 
@@ -252,6 +281,336 @@ router.post('/unlink-hunter-profile', async (req, res) => {
     });
   } catch (err: any) {
     console.error('[admin] POST /unlink-hunter-profile error:', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'Erreur serveur' });
+  }
+});
+
+// Valider le dossier d'un chasseur (débloque la demande de permis + envoie un message au chasseur)
+router.post('/hunter-profiles/:hunterId/validate', async (req, res) => {
+  try {
+    const hunterIdNum = Number(req.params.hunterId);
+    if (!Number.isInteger(hunterIdNum) || hunterIdNum <= 0) {
+      return res.status(400).json({ ok: false, error: 'Identifiant chasseur invalide' });
+    }
+    const reviewerId = Number((req.user as any)?.id || 0);
+    const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
+
+    const verification = await validateHunterDossier(hunterIdNum, reviewerId, note || null);
+
+    const messageBody = [
+      'Bonjour,',
+      '',
+      "Votre dossier et vos pièces justificatives ont été vérifiés et validés par l'administration.",
+      'Vous pouvez désormais effectuer votre demande de permis de chasse depuis votre espace chasseur.',
+      ...(note ? ['', `Note de l'administration : ${note}`] : []),
+    ].join('\n');
+
+    const notif = await sendDossierNotificationMessage(
+      reviewerId,
+      hunterIdNum,
+      'Dossier validé — Demande de permis disponible',
+      messageBody
+    );
+
+    return res.json({
+      ok: true,
+      data: verification,
+      messageSent: notif.sent,
+      recipientUsername: notif.recipientUsername ?? null,
+    });
+  } catch (err: any) {
+    console.error('[admin] POST /hunter-profiles/:hunterId/validate error:', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'Erreur lors de la validation du dossier' });
+  }
+});
+
+// Invalider une, plusieurs ou l'intégralité des pièces d'un dossier chasseur avec message explicatif
+router.post('/hunter-profiles/:hunterId/invalidate', async (req, res) => {
+  try {
+    const hunterIdNum = Number(req.params.hunterId);
+    if (!Number.isInteger(hunterIdNum) || hunterIdNum <= 0) {
+      return res.status(400).json({ ok: false, error: 'Identifiant chasseur invalide' });
+    }
+    const reviewerId = Number((req.user as any)?.id || 0);
+    const documentCodes = Array.isArray(req.body?.documentCodes) ? req.body.documentCodes : [];
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+
+    if (documentCodes.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Veuillez sélectionner au moins une pièce à invalider.' });
+    }
+    if (!reason) {
+      return res.status(400).json({ ok: false, error: 'Veuillez saisir le motif / message à envoyer au chasseur.' });
+    }
+
+    const verification = await invalidateHunterDossier(hunterIdNum, reviewerId, documentCodes, reason);
+
+    const docLabels = verification.invalidatedDocs.map((code) => `• ${HUNTER_DOC_LABELS[code] || code}`);
+    const messageBody = [
+      'Bonjour,',
+      '',
+      `Lors de la vérification de votre dossier, ${verification.invalidatedDocs.length > 1 ? 'les pièces suivantes ont été invalidées' : 'la pièce suivante a été invalidée'} :`,
+      ...docLabels,
+      '',
+      "Motif indiqué par l'administration :",
+      reason,
+      '',
+      'Veuillez corriger et téléverser à nouveau ces pièces dans votre espace « Documents » afin de permettre la validation de votre dossier et l\'accès à la demande de permis.',
+    ].join('\n');
+
+    const notif = await sendDossierNotificationMessage(
+      reviewerId,
+      hunterIdNum,
+      'Pièce(s) à corriger dans votre dossier chasseur',
+      messageBody
+    );
+
+    return res.json({
+      ok: true,
+      data: verification,
+      messageSent: notif.sent,
+      recipientUsername: notif.recipientUsername ?? null,
+    });
+  } catch (err: any) {
+    console.error('[admin] POST /hunter-profiles/:hunterId/invalidate error:', err);
+    return res.status(400).json({ ok: false, error: err?.message || "Erreur lors de l'invalidation du dossier" });
+  }
+});
+
+// Couper ou rétablir l'accès au compte utilisateur d'un chasseur (sans jamais associer un autre compte)
+router.post('/hunter-profiles/:hunterId/toggle-access', async (req, res) => {
+  try {
+    const hunterIdNum = Number(req.params.hunterId);
+    const active = Boolean(req.body?.active);
+    if (!Number.isInteger(hunterIdNum) || hunterIdNum <= 0) {
+      return res.status(400).json({ ok: false, error: 'Identifiant chasseur invalide' });
+    }
+
+    const linkedUser: any = await storage.getUserByHunterId(hunterIdNum);
+    if (!linkedUser?.id) {
+      return res.status(404).json({ ok: false, error: 'Aucun compte utilisateur trouvé pour ce chasseur' });
+    }
+
+    const [updated] = await db
+      .update(users)
+      .set({
+        isActive: active,
+        isSuspended: !active,
+      } as any)
+      .where(eq(users.id, Number(linkedUser.id)))
+      .returning();
+
+    try {
+      await db.execute(sql`
+        UPDATE user_domains SET active = ${active} WHERE user_id = ${Number(linkedUser.id)} AND domain = 'CHASSE'
+      ` as any);
+    } catch (e) {
+      console.warn('[admin] toggle-access domain update warning:', e);
+    }
+
+    return res.json({
+      ok: true,
+      data: {
+        userId: updated?.id ?? linkedUser.id,
+        username: updated?.username ?? linkedUser.username,
+        accessActive: active,
+      },
+    });
+  } catch (err: any) {
+    console.error('[admin] POST /hunter-profiles/:hunterId/toggle-access error:', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'Erreur serveur' });
+  }
+});
+
+// Créer un accès dédié (username + chasse000) pour un ancien profil chasseur sans compte utilisateur
+router.post('/hunter-profiles/:hunterId/create-access', async (req, res) => {
+  try {
+    const hunterIdNum = Number(req.params.hunterId);
+    if (!Number.isInteger(hunterIdNum) || hunterIdNum <= 0) {
+      return res.status(400).json({ ok: false, error: 'Identifiant chasseur invalide' });
+    }
+
+    const alreadyLinked = await storage.getUserByHunterId(hunterIdNum);
+    if (alreadyLinked) {
+      return res.status(400).json({ ok: false, error: 'Ce chasseur possède déjà un compte utilisateur.' });
+    }
+
+    const hunter = await storage.getHunter(hunterIdNum);
+    if (!hunter) {
+      return res.status(404).json({ ok: false, error: 'Profil chasseur introuvable' });
+    }
+
+    const rawUsername = typeof req.body?.username === 'string' ? req.body.username.trim().replace(/\s+/g, '') : '';
+    const phoneDigits = String((hunter as any).phone || '').replace(/[^0-9]/g, '');
+    const idDigits = String((hunter as any).idNumber || '').replace(/\s+/g, '');
+    const chosenUsername = rawUsername || (phoneDigits.length >= 6 ? phoneDigits : idDigits);
+
+    if (!chosenUsername || chosenUsername.length < 3) {
+      return res.status(400).json({ ok: false, error: "Veuillez renseigner un nom d'utilisateur (au moins 3 caractères)." });
+    }
+
+    const existing = await storage.getUserByUsername(chosenUsername);
+    if (existing) {
+      return res.status(409).json({
+        ok: false,
+        error: `Le nom d'utilisateur « ${chosenUsername} » est déjà utilisé. Choisissez-en un autre.`,
+      });
+    }
+
+    const generatedPassword = 'chasse000';
+    const generatedEmail = `${chosenUsername.toLowerCase()}@scodi.sn`;
+
+    const newUser = await storage.createUser({
+      publicId: crypto.randomUUID(),
+      username: chosenUsername,
+      password: generatedPassword,
+      email: generatedEmail,
+      firstName: String((hunter as any).firstName || ''),
+      lastName: String((hunter as any).lastName || ''),
+      phone: String((hunter as any).phone || ''),
+      role: 'hunter',
+      hunterId: hunterIdNum,
+    } as any);
+
+    await storage.assignHunterToUser(newUser.id, hunterIdNum);
+
+    return res.status(201).json({
+      ok: true,
+      credentials: {
+        username: chosenUsername,
+        password: generatedPassword,
+      },
+      data: {
+        userId: newUser.id,
+        username: newUser.username,
+      },
+    });
+  } catch (err: any) {
+    console.error('[admin] POST /hunter-profiles/:hunterId/create-access error:', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'Erreur lors de la création du compte' });
+  }
+});
+
+// ── Règles de délégation d'auto-validation (compétence exclusive SuperAdmin) ──
+router.get('/autovalidation-rules', async (req, res) => {
+  try {
+    if (!isStrictSuperAdmin(req)) {
+      return res.status(403).json({ ok: false, error: 'Réservé exclusivement au SuperAdmin' });
+    }
+    const config = await getAutoValidationConfig();
+    const allUsers = await storage.getAllUsers();
+    const eligibleRoles = new Set(['admin', 'agent', 'sub-agent', 'agent-regional', 'agent-departemental']);
+    const agents = (allUsers || [])
+      .filter((u: any) => eligibleRoles.has(String(u.role || '').toLowerCase()) && u.isActive !== false && !u.isSuspended)
+      .map((u: any) => ({
+        id: u.id,
+        username: u.username,
+        firstName: u.firstName || '',
+        lastName: u.lastName || '',
+        role: u.role,
+        region: u.region || null,
+        departement: u.departement || null,
+        zone: u.zone || null,
+        autoValidateEnabled: config.agentRules.some((r) => r.userId === Number(u.id) && r.enabled),
+      }))
+      .sort((a: any, b: any) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+
+    return res.json({
+      ok: true,
+      data: {
+        mode: config.mode,
+        territoryRules: config.territoryRules,
+        agentRules: config.agentRules,
+        agents,
+      },
+    });
+  } catch (err: any) {
+    console.error('[admin] GET /autovalidation-rules error:', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'Erreur serveur' });
+  }
+});
+
+router.put('/autovalidation-rules/mode', async (req, res) => {
+  try {
+    if (!isStrictSuperAdmin(req)) {
+      return res.status(403).json({ ok: false, error: 'Réservé exclusivement au SuperAdmin' });
+    }
+    const rawMode = String(req.body?.mode || '');
+    if (!['manual', 'rules', 'all'].includes(rawMode)) {
+      return res.status(400).json({ ok: false, error: 'Mode invalide' });
+    }
+    const mode = await setAutoValidationMode(rawMode as AutoValidationMode, Number((req.user as any)?.id || 0));
+    return res.json({ ok: true, data: { mode } });
+  } catch (err: any) {
+    console.error('[admin] PUT /autovalidation-rules/mode error:', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'Erreur serveur' });
+  }
+});
+
+router.post('/autovalidation-rules/territory', async (req, res) => {
+  try {
+    if (!isStrictSuperAdmin(req)) {
+      return res.status(403).json({ ok: false, error: 'Réservé exclusivement au SuperAdmin' });
+    }
+    const { region, departement, commune } = req.body || {};
+    const rule = await addTerritoryAutoValidationRule(
+      { region, departement, commune },
+      Number((req.user as any)?.id || 0)
+    );
+    return res.status(201).json({ ok: true, data: rule });
+  } catch (err: any) {
+    console.error('[admin] POST /autovalidation-rules/territory error:', err);
+    return res.status(400).json({ ok: false, error: err?.message || 'Erreur serveur' });
+  }
+});
+
+router.post('/autovalidation-rules/agent', async (req, res) => {
+  try {
+    if (!isStrictSuperAdmin(req)) {
+      return res.status(403).json({ ok: false, error: 'Réservé exclusivement au SuperAdmin' });
+    }
+    const userId = Number(req.body?.userId);
+    const enabled = Boolean(req.body?.enabled);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ ok: false, error: 'Agent invalide' });
+    }
+    const rule = await setAgentAutoValidationRule(userId, enabled, Number((req.user as any)?.id || 0));
+    return res.json({ ok: true, data: rule });
+  } catch (err: any) {
+    console.error('[admin] POST /autovalidation-rules/agent error:', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'Erreur serveur' });
+  }
+});
+
+router.patch('/autovalidation-rules/:id', async (req, res) => {
+  try {
+    if (!isStrictSuperAdmin(req)) {
+      return res.status(403).json({ ok: false, error: 'Réservé exclusivement au SuperAdmin' });
+    }
+    const ruleId = Number(req.params.id);
+    if (!Number.isInteger(ruleId) || ruleId <= 0) {
+      return res.status(400).json({ ok: false, error: 'Règle invalide' });
+    }
+    await toggleAutoValidationRule(ruleId, Boolean(req.body?.enabled));
+    return res.json({ ok: true });
+  } catch (err: any) {
+    console.error('[admin] PATCH /autovalidation-rules/:id error:', err);
+    return res.status(500).json({ ok: false, error: err?.message || 'Erreur serveur' });
+  }
+});
+
+router.delete('/autovalidation-rules/:id', async (req, res) => {
+  try {
+    if (!isStrictSuperAdmin(req)) {
+      return res.status(403).json({ ok: false, error: 'Réservé exclusivement au SuperAdmin' });
+    }
+    const ruleId = Number(req.params.id);
+    if (!Number.isInteger(ruleId) || ruleId <= 0) {
+      return res.status(400).json({ ok: false, error: 'Règle invalide' });
+    }
+    await deleteAutoValidationRule(ruleId);
+    return res.json({ ok: true });
+  } catch (err: any) {
+    console.error('[admin] DELETE /autovalidation-rules/:id error:', err);
     return res.status(500).json({ ok: false, error: err?.message || 'Erreur serveur' });
   }
 });

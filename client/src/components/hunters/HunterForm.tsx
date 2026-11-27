@@ -163,6 +163,7 @@ const hunterFormSchema = z.object({
   nationality: z.string().min(1, { message: "La nationalité est requise" }),
   // Téléphone et adresse: optionnels si catégorie = 'touristique' (touriste)
   phone: z.string().optional(),
+  username: z.string().optional(),
   address: z.string().optional(),
   experience: z.coerce.number().min(0, { message: "L'expérience ne peut pas être négative" }),
   profession: z.string().min(2, { message: "La profession est requise" }),
@@ -316,6 +317,7 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
       nationality: "sénégalaise",
       idNumber: "",
       phone: "",
+      username: "",
       address: "",
       experience: 0,
       profession: "",
@@ -1119,6 +1121,9 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
                               formatted += raw[i];
                             }
                             field.onChange(formatted);
+                            if (!isEditing && !form.getFieldState('username').isDirty) {
+                              form.setValue('username', raw, { shouldDirty: false });
+                            }
                           }}
                         />
                       </div>
@@ -1128,6 +1133,32 @@ export default function HunterForm({ hunterId, open, onClose }: HunterFormProps)
                 );
               }}
             />
+
+            {!isEditing && (
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nom d&apos;utilisateur (accès plateforme chasseur)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ex. : 771234567 ou identifiant personnalisé"
+                        {...field}
+                        onChange={(e) => {
+                          const cleaned = e.target.value.replace(/\s+/g, '');
+                          field.onChange(cleaned);
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      Pré-rempli automatiquement avec le numéro de téléphone. Le chasseur se connectera avec cet identifiant et le mot de passe par défaut <strong>chasse000</strong>.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

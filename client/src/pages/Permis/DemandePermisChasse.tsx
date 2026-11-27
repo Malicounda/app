@@ -46,6 +46,12 @@ export default function DemandePermisChasse() {
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [dossierStatus, setDossierStatus] = useState<{
+    status: 'pending' | 'validated' | 'rejected';
+    invalidatedDocs: string[];
+    reason: string | null;
+  } | null>(null);
+  const [loadingDossierStatus, setLoadingDossierStatus] = useState(true);
   
   // Dates d'expiration temporaires saisies par le chasseur avant l'upload
   const [expiryDates, setExpiryDates] = useState<Record<string, string>>({});
@@ -111,12 +117,23 @@ export default function DemandePermisChasse() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const profile = await apiRequest<any>({ url: '/api/hunters/me', method: 'GET' });
+        const [profile, dossierResp] = await Promise.all([
+          apiRequest<any>({ url: '/api/hunters/me', method: 'GET' }),
+          apiRequest<any>({ url: '/api/hunters/me/dossier-status', method: 'GET' }).catch(() => null),
+        ]);
         setHunterProfile(profile);
+        const verif = dossierResp?.data || dossierResp;
+        if (verif?.status) {
+          setDossierStatus(verif);
+        } else {
+          setDossierStatus({ status: 'pending', invalidatedDocs: [], reason: null });
+        }
       } catch (err: any) {
         if (err?.status !== 404) {
           console.warn("Network error loading profile", err);
         }
+      } finally {
+        setLoadingDossierStatus(false);
       }
     };
     if (user) {
@@ -347,6 +364,48 @@ export default function DemandePermisChasse() {
             </div>
 
             <TabsContent value="create" className="m-0 focus-visible:outline-none focus-visible:ring-0">
+              {!loadingDossierStatus && dossierStatus && dossierStatus.status !== 'validated' ? (
+                <Card className="border-amber-200 bg-white shadow-md">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg text-slate-800">
+                      <AlertCircle className={`h-5 w-5 ${dossierStatus.status === 'rejected' ? 'text-red-600' : 'text-amber-600'}`} />
+                      {dossierStatus.status === 'rejected'
+                        ? 'Pièces invalidées — Correction nécessaire'
+                        : 'Dossier en attente de validation'}
+                    </CardTitle>
+                    <CardDescription>
+                      {dossierStatus.status === 'rejected'
+                        ? "L'administration a invalidé une ou plusieurs pièces de votre dossier. Veuillez les remplacer avant de soumettre une demande de permis."
+                        : "Vos documents déposés doivent d'abord être inspectés et validés par l'administration avant que vous puissiez soumettre une demande de permis."}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {dossierStatus.status === 'rejected' && dossierStatus.invalidatedDocs?.length > 0 && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900 space-y-1">
+                        <div className="font-semibold">Pièce(s) à corriger :</div>
+                        <ul className="list-disc pl-5 text-xs space-y-0.5">
+                          {dossierStatus.invalidatedDocs.map((code) => (
+                            <li key={code}>{DOC_METADATA[code]?.label || code}</li>
+                          ))}
+                        </ul>
+                        {dossierStatus.reason && (
+                          <div className="pt-1 text-xs">
+                            <strong>Motif :</strong> {dossierStatus.reason}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" onClick={() => navigate('/hunter/documents')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                        Gérer mes documents
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => navigate('/dashboard-chasseur')}>
+                        Retour au tableau de bord
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
               <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -681,6 +740,7 @@ export default function DemandePermisChasse() {
             </div>
           </form>
         </motion.div>
+              )}
         </TabsContent>
 
         <TabsContent value="list" className="m-0 focus-visible:outline-none focus-visible:ring-0">

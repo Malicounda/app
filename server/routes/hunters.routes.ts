@@ -178,6 +178,30 @@ router.get('/me/active-guide', isAuthenticated, async (req: Request, res: Respon
   }
 });
 
+// Statut de vérification / validation du dossier du chasseur connecté
+router.get('/me/dossier-status', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const currentUserId = (req.user as any)?.id as number | undefined;
+    if (!currentUserId) {
+      return res.status(401).json({ ok: false, message: 'Non authentifié' });
+    }
+
+    const user = await storage.getUser(currentUserId);
+    const hunterId = (user as any)?.hunterId || (user as any)?.hunter_id as number | undefined;
+
+    const { defaultVerification, getHunterDossierVerification } = await import('../services/hunterDossierVerification.js');
+    if (!hunterId) {
+      return res.json({ ok: true, data: defaultVerification(0) });
+    }
+
+    const verification = await getHunterDossierVerification(Number(hunterId));
+    return res.json({ ok: true, data: verification });
+  } catch (error) {
+    console.error('Erreur lors de la récupération du statut du dossier:', error);
+    return res.status(500).json({ ok: false, message: 'Erreur serveur' });
+  }
+});
+
 // Endpoint pour récupérer tous les documents téléversés d'un chasseur depuis hunter_attachments
 router.get('/my-documents', isAuthenticated, async (req: Request, res: Response) => {
   try {
@@ -710,16 +734,22 @@ router.post('/', isAuthenticated, async (req: Request, res: Response) => {
     } else {
       // Auto-generate user account for the hunter
       try {
-        const idNumberStr = String((scopedHunterData as any).idNumber).trim();
-        const generatedUsername = idNumberStr.replace(/\s/g, ''); // Preserve exact case for login
+        const requestedUsername =
+          typeof (req.body as any)?.username === 'string'
+            ? (req.body as any).username.trim().replace(/\s+/g, '')
+            : '';
+        const phoneDigits = String((scopedHunterData as any).phone || '').replace(/[^0-9]/g, '');
+        const idNumberStr = String((scopedHunterData as any).idNumber || '').trim().replace(/\s+/g, '');
+        const generatedUsername =
+          requestedUsername || (phoneDigits.length >= 6 ? phoneDigits : idNumberStr);
         const generatedPassword = "chasse000"; // Default password requested
         
         // Generate a random email or clean it up
         const generatedEmail = `${generatedUsername.toLowerCase()}@scodi.sn`;
 
         // Check if username already exists just to be safe
-        const existingUser = await storage.getUserByUsername(generatedUsername);
-        if (!existingUser) {
+        const existingUser = generatedUsername ? await storage.getUserByUsername(generatedUsername) : null;
+        if (generatedUsername && !existingUser) {
            const newUser = await storage.createUser({
             publicId: crypto.randomUUID(),
             username: generatedUsername,
@@ -740,11 +770,44 @@ router.post('/', isAuthenticated, async (req: Request, res: Response) => {
             password: generatedPassword
           };
         } else {
-          console.warn(`[Auto-create User] Username ${generatedUsername} already exists. Skipping auto-creation.`);
+          console.warn(`[Auto-create User] Username ${generatedUsername} already exists or invalid. Skipping auto-creation.`);
         }
       } catch (err) {
         console.error("Erreur lors de l'auto-génération du compte utilisateur pour le chasseur:", err);
       }
+    }
+
+    // Vérifier les règles de délégation d'auto-validation définies par le SuperAdmin
+    let autoValidated = false;
+    try {
+      const { shouldAutoValidateForCreator, validateHunterDossier } = await import('../services/hunterDossierVerification.js');
+      const creatorUser: any = req.user || {};
+      const shouldValidate = await shouldAutoValidateForCreator(
+        {
+          id: creatorUser.id ?? null,
+          role: creatorUser.role ?? null,
+          isSuperAdmin: Boolean(creatorUser.isSuperAdmin),
+          region: creatorUser.region ?? null,
+          departement: creatorUser.departement ?? null,
+          zone: creatorUser.zone ?? null,
+        },
+        {
+          region: (scopedHunterData as any).region ?? null,
+          departement: (scopedHunterData as any).departement ?? null,
+          zone: (scopedHunterData as any).zone ?? null,
+          address: (scopedHunterData as any).address ?? null,
+        }
+      );
+      if (shouldValidate) {
+        await validateHunterDossier(
+          created.id,
+          Number(creatorUser.id || 0),
+          'Dossier validé automatiquement selon la délégation SuperAdmin'
+        );
+        autoValidated = true;
+      }
+    } catch (autoValErr) {
+      console.warn('[POST /api/hunters] Auto-validation check warning:', autoValErr);
     }
 
     // Ajouter une entrée d'historique

@@ -17,6 +17,9 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import {
   AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
   Download,
   Eye,
   FileText,
@@ -27,7 +30,7 @@ import {
   User,
   Plus,
   X,
-  Target,
+  Crosshair,
   BookOpen,
   Users,
   ChevronRight
@@ -156,102 +159,155 @@ const PermitCard = ({ item, onViewDetails, user }: { item: HunterPermit, onViewD
     return categoryId || type || 'Non défini';
   };
 
-  // Classes CSS conditionnelles pour les permis épuisés (responsive, sans largeur fixe)
+  // Classes CSS conditionnelles pour les permis épuisés (format carte moyenne adaptable à tout écran)
   const cardClasses = isExhausted
-    ? "rounded-lg border border-slate-300 bg-slate-100 p-4 opacity-60 cursor-not-allowed transition-shadow w-full"
-    : "rounded-lg border border-green-200 bg-green-50 p-4 hover:shadow-sm transition-shadow cursor-pointer w-full";
+    ? "w-full sm:max-w-[380px] rounded-2xl border border-slate-300 bg-slate-100 overflow-hidden opacity-65 cursor-not-allowed transition-all"
+    : "w-full sm:max-w-[380px] rounded-2xl border border-emerald-200 bg-gradient-to-br from-white via-emerald-50/40 to-emerald-50 overflow-hidden shadow-sm hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer";
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
+      onClick={isExhausted ? undefined : () => onViewDetails(item)}
       className={cardClasses}
     >
-      {/* Ligne du haut : Numéro de permis et badge statut */}
-      <div className="flex items-center justify-between mb-2">
-        <div className={`font-semibold text-sm ${isExhausted ? 'text-slate-500' : 'text-slate-900'}`}>
-          N° {item.permitNumber}
-        </div>
-        {getStatusBadge(item.status)}
-      </div>
+      {/* Barre d'accentuation supérieure */}
+      <div className={`h-1.5 w-full ${isExhausted ? 'bg-slate-400' : 'bg-gradient-to-r from-[#0b3d2e] via-emerald-600 to-emerald-500'}`} />
 
-      {/* Numéro de quittance avec fond jaune */}
-      {item.receiptNumber && (
-        <div className="mb-2">
-          <span className="inline-block px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200 rounded">
-            Quittance: {item.receiptNumber}
-          </span>
+      <div className="p-4 flex flex-col gap-3">
+        {/* Ligne du haut : Numéro de permis et badge statut */}
+        <div className="flex items-center justify-between gap-2">
+          <div className={`font-bold text-sm tracking-tight ${isExhausted ? 'text-slate-500' : 'text-slate-900'}`}>
+            N° {item.permitNumber}
+          </div>
+          {getStatusBadge(item.status)}
         </div>
-      )}
 
-      {/* Catégorie */}
-      <div className={`text-sm mb-3 ${isExhausted ? 'text-slate-400' : 'text-slate-600'}`}>
-        Catégorie: {getCategoryLabel(item.categoryId, item.type)}
-      </div>
+        {/* Numéro de quittance avec fond jaune */}
+        {item.receiptNumber && (
+          <div>
+            <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 rounded-lg">
+              Quittance : {item.receiptNumber}
+            </span>
+          </div>
+        )}
 
-      {/* Messages d'état du permis */}
-      {isExhausted && (
-        <div className="mb-2">
-          <span className="inline-block px-2 py-1 text-xs font-medium bg-red-100 text-red-700 border border-red-200 rounded">
-            ⚠️ Permis épuisé - Limite de renouvellement atteinte et expiré
-          </span>
+        {/* Catégorie */}
+        <div className={`text-xs sm:text-sm ${isExhausted ? 'text-slate-400' : 'text-slate-600'}`}>
+          <span className="text-slate-400">Catégorie :</span>{' '}
+          <span className="font-medium capitalize text-slate-700">{getCategoryLabel(item.categoryId, item.type)}</span>
         </div>
-      )}
-      {hasReachedRenewalLimit && !isExpired && (
-        <div className="mb-2">
-          <span className="inline-block px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200 rounded">
-            ⚠️ Limite de renouvellement atteinte - Sera épuisé à l'expiration
-          </span>
-        </div>
-      )}
 
-      {/* Ligne du bas : Nom du chasseur et bouton Voir */}
-      <div className="flex items-center justify-between">
-        <div className={`text-sm font-medium ${isExhausted ? 'text-slate-400' : 'text-slate-700'}`}>
-          {user?.firstName} {user?.lastName}
+        {/* Messages d'état du permis */}
+        {isExhausted && (
+          <div>
+            <span className="inline-block px-2 py-1 text-xs font-medium bg-red-100 text-red-700 border border-red-200 rounded-lg">
+              ⚠️ Permis épuisé - Limite de renouvellement atteinte et expiré
+            </span>
+          </div>
+        )}
+        {hasReachedRenewalLimit && !isExpired && (
+          <div>
+            <span className="inline-block px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200 rounded-lg">
+              ⚠️ Limite de renouvellement atteinte - Sera épuisé à l&apos;expiration
+            </span>
+          </div>
+        )}
+
+        {/* Ligne du bas : Nom du chasseur et bouton Voir */}
+        <div className="pt-2.5 border-t border-emerald-100 flex items-center justify-between gap-2">
+          <div className={`text-sm font-semibold truncate ${isExhausted ? 'text-slate-400' : 'text-slate-800'}`}>
+            {user?.firstName} {user?.lastName}
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isExhausted) onViewDetails(item);
+            }}
+            disabled={isExhausted}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
+              isExhausted
+                ? 'text-slate-400 bg-slate-200/70 cursor-not-allowed'
+                : 'text-emerald-800 bg-emerald-100/80 hover:bg-emerald-700 hover:text-white'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            Voir
+          </button>
         </div>
-        <button
-          onClick={isExhausted ? undefined : () => onViewDetails(item)}
-          disabled={isExhausted}
-          className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md transition-colors ${
-            isExhausted
-              ? 'text-slate-400 cursor-not-allowed'
-              : 'text-slate-700 hover:text-slate-900 hover:bg-white/50'
-          }`}
-        >
-          <Eye className="w-4 h-4" />
-          Voir
-        </button>
       </div>
     </motion.div>
   );
 };
 
-const DocumentCard = ({ doc, onView }: { doc: HunterDocument, onView: (doc: HunterDocument) => void }) => (
+const DocumentCard = ({
+  doc,
+  onView,
+  isInvalidated,
+}: {
+  doc: HunterDocument;
+  onView: (doc: HunterDocument) => void;
+  isInvalidated?: boolean;
+}) => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.35 }}
-    className="rounded-2xl border bg-white shadow-sm p-4 flex flex-col gap-3 hover:shadow-md"
+    onClick={() => onView(doc)}
+    className={`w-full sm:max-w-[380px] rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${
+      isInvalidated
+        ? 'border-red-300 bg-gradient-to-br from-white via-red-50/40 to-red-50'
+        : 'border-slate-200 bg-white hover:border-emerald-300'
+    }`}
   >
-    <div className="flex items-center gap-3">
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 flex items-center justify-center">
-        <FileText className="w-6 h-6" />
+    <div
+      className={`h-1.5 w-full ${
+        isInvalidated
+          ? 'bg-gradient-to-r from-red-600 to-red-400'
+          : 'bg-gradient-to-r from-[#0b3d2e] via-emerald-600 to-emerald-500'
+      }`}
+    />
+    <div className="p-4 flex flex-col gap-3 flex-1">
+      <div className="flex items-center gap-3">
+        <div
+          className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 ${
+            isInvalidated
+              ? 'bg-red-100 border-red-200 text-red-700'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <FileText className="w-5 h-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold text-sm text-slate-800 flex items-center gap-1.5 flex-wrap">
+            <span className="truncate">{getDocumentLabel(doc.documentType)}</span>
+            {isInvalidated && (
+              <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-700 border border-red-200">
+                Invalidée — à corriger
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-500 truncate">{doc.fileName}</div>
+        </div>
       </div>
-      <div>
-        <div className="font-medium text-slate-800">{getDocumentLabel(doc.documentType)}</div>
-        <div className="text-xs text-slate-500">{doc.fileName}</div>
+
+      <div className="pt-2.5 mt-auto border-t border-slate-100 flex items-center justify-between gap-2">
+        <div className="text-[11px] text-slate-500 truncate">
+          {formatFileSize(doc.fileSize)} • {formatDate(doc.uploadedAt)}
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onView(doc);
+          }}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-emerald-800 bg-emerald-100/80 hover:bg-emerald-700 hover:text-white transition-colors shrink-0"
+        >
+          <Eye className="w-3.5 h-3.5" /> Voir
+        </button>
       </div>
-    </div>
-    <div className="text-xs text-slate-500">{formatFileSize(doc.fileSize)} • Téléversé le {formatDate(doc.uploadedAt)}</div>
-    <div className="flex gap-2 mt-auto">
-      <button
-        onClick={() => onView(doc)}
-        className="px-3 py-2 text-sm rounded-xl border bg-slate-50 hover:bg-slate-100 flex items-center gap-2"
-      >
-        <Eye className="w-4 h-4"/> Voir
-      </button>
     </div>
   </motion.div>
 );
@@ -325,6 +381,7 @@ export default function HunterDashboard() {
       // We don't check res.ok if the API wrapper throws on error or returns data directly.
       // Usually apiRequest from '@/lib/api' throws on non-ok status if used correctly, or we check if there's an error.
       await queryClient.invalidateQueries({ queryKey: ['hunter-documents'] });
+      await queryClient.invalidateQueries({ queryKey: ['hunter-dossier-status'] });
       
       toast({ title: 'Succès', description: 'Le document a été téléversé avec succès' });
       setIsUploadDialogOpen(false);
@@ -487,6 +544,24 @@ export default function HunterDashboard() {
     },
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+  });
+
+  // Statut de vérification / validation du dossier par l'administration
+  const { data: dossierStatus } = useQuery({
+    queryKey: ['hunter-dossier-status'],
+    queryFn: async () => {
+      try {
+        const response: any = await apiRequest('GET', '/api/hunters/me/dossier-status');
+        if (response?.data) return response.data as { status: 'pending' | 'validated' | 'rejected'; invalidatedDocs: string[]; reason: string | null };
+        if (response?.status) return response as { status: 'pending' | 'validated' | 'rejected'; invalidatedDocs: string[]; reason: string | null };
+      } catch {
+        // Fallback sécurisé : en attente
+      }
+      return { status: 'pending' as const, invalidatedDocs: [] as string[], reason: null as string | null };
+    },
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    staleTime: 5_000,
   });
 
   // Filtrage des permis par statut (utilisant les statuts calculés côté serveur)
@@ -712,12 +787,61 @@ export default function HunterDashboard() {
               </p>
             </div>
 
+            {/* Bandeau statut de validation du dossier */}
+            {isProfileComplete && (
+              <div className="mx-auto w-full max-w-md">
+                {dossierStatus?.status === 'rejected' ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-900 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                      Pièce(s) invalidée(s) — Correction requise
+                    </div>
+                    {dossierStatus.invalidatedDocs?.length > 0 && (
+                      <p className="text-[11px]">
+                        <strong>Pièces concernées :</strong>{' '}
+                        {dossierStatus.invalidatedDocs.map((c) => getDocumentLabel(c)).join(', ')}
+                      </p>
+                    )}
+                    {dossierStatus.reason && (
+                      <p className="text-[11px]">
+                        <strong>Motif :</strong> {dossierStatus.reason}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('documents');
+                        setLocation('/hunter/documents');
+                      }}
+                      className="mt-1 inline-flex items-center text-[11px] font-semibold text-red-700 underline"
+                    >
+                      Corriger mes documents
+                    </button>
+                  </div>
+                ) : dossierStatus?.status === 'validated' ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Dossier validé — Vous pouvez effectuer votre demande de permis.</span>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 flex items-start gap-2">
+                    <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>
+                      {documentsArr.length === 0
+                        ? "Déposez vos pièces dans « Documents » pour qu'elles soient vérifiées par l'administration avant toute demande de permis."
+                        : "Vos documents sont en attente de vérification. La demande de permis sera débloquée dès validation de votre dossier."}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Action Cards Grid */}
             <div className="relative z-10 mx-auto w-full max-w-md pt-2">
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {(() => {
-                  const hasIdCard = documentsArr.some((d: HunterDocument) => d.documentType === 'idCardDocument');
-                  const canAccessDemande = isProfileComplete && hasIdCard;
+                  const isDossierValidated = dossierStatus?.status === 'validated';
+                  const canAccessDemande = isProfileComplete && isDossierValidated;
                   const canAccessReports = isProfileComplete && permitsArr.some((p: HunterPermit) => p.status === 'active' || p.status === 'expired');
 
                   return (
@@ -726,7 +850,20 @@ export default function HunterDashboard() {
                       <motion.button
                         whileTap={canAccessDemande ? { scale: 0.96 } : {}}
                         onClick={() => {
-                          if (canAccessDemande) setLocation('/permit-request');
+                          if (canAccessDemande) {
+                            setLocation('/permit-request');
+                          } else if (!isProfileComplete) {
+                            setShowCompletionModal(true);
+                          } else {
+                            toast({
+                              title: dossierStatus?.status === 'rejected' ? 'Pièces à corriger' : 'Dossier en attente de validation',
+                              description:
+                                dossierStatus?.status === 'rejected'
+                                  ? 'Certaines pièces ont été invalidées. Consultez vos Documents ou votre Messagerie pour les remplacer.'
+                                  : "Vos documents doivent d'abord être vérifiés et validés par l'administration avant d'effectuer une demande de permis.",
+                              variant: dossierStatus?.status === 'rejected' ? 'destructive' : 'default',
+                            });
+                          }
                         }}
                         className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200 
                           ${canAccessDemande 
@@ -762,7 +899,7 @@ export default function HunterDashboard() {
                             ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/25 group-hover:shadow-amber-500/40'
                             : 'bg-slate-400 shadow-slate-500/20'}`}
                         >
-                          <Target className="h-6 w-6 text-white" strokeWidth={2} />
+                          <Crosshair className="h-6 w-6 text-white" strokeWidth={2} />
                         </div>
                         <div>
                           <span className="block text-xs font-bold text-slate-800 leading-tight">Prélèvement</span>
@@ -911,7 +1048,7 @@ export default function HunterDashboard() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl">
             {permitsArr.map((permit: HunterPermit) => (
               <PermitCard key={permit.id} item={permit} onViewDetails={handleViewPermitDetails} user={user} />
             ))}
@@ -926,6 +1063,29 @@ export default function HunterDashboard() {
               <FolderOpen className="w-5 h-5 text-green-600" /> Mes Documents
             </h2>
 
+            {dossierStatus?.status === 'rejected' && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-900 space-y-1">
+                <div className="font-semibold flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                  Pièce(s) invalidée(s) par l&apos;administration
+                </div>
+                {dossierStatus.invalidatedDocs?.length > 0 && (
+                  <p className="text-xs">
+                    <strong>À remplacer :</strong>{' '}
+                    {dossierStatus.invalidatedDocs.map((c) => getDocumentLabel(c)).join(', ')}
+                  </p>
+                )}
+                {dossierStatus.reason && (
+                  <p className="text-xs">
+                    <strong>Motif :</strong> {dossierStatus.reason}
+                  </p>
+                )}
+                <p className="text-xs text-red-700">
+                  Téléversez à nouveau les pièces concernées via le bouton <strong>+</strong> ci-dessous pour soumettre votre dossier à une nouvelle vérification.
+                </p>
+              </div>
+            )}
+
         {documentsError ? (
           <ErrorState
             title="Erreur de chargement"
@@ -938,9 +1098,14 @@ export default function HunterDashboard() {
             description="Vos documents téléversés apparaîtront ici"
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl">
             {documentsArr.map((doc: HunterDocument) => (
-              <DocumentCard key={doc.id} doc={doc} onView={handleViewDocument} />
+              <DocumentCard
+                key={doc.id}
+                doc={doc}
+                onView={handleViewDocument}
+                isInvalidated={Boolean(dossierStatus?.invalidatedDocs?.includes(doc.documentType))}
+              />
             ))}
           </div>
         )}
@@ -1023,25 +1188,33 @@ export default function HunterDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de détails du permis - Modifié en Bottom Sheet style (plein écran ou drawer) */}
+      {/* Modal de détails du permis - Adaptatif mobile & desktop */}
       <Dialog open={!!selectedPermit} onOpenChange={() => setSelectedPermit(null)}>
-        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] p-0 overflow-hidden flex flex-col rounded-2xl">
-          <div className="bg-slate-50 flex-1 overflow-y-auto no-scrollbar">
-            <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-slate-800">Quitus du Permis</h2>
-                <p className="text-xs text-slate-500">Détails officiels</p>
-              </div>
-              <button onClick={() => setSelectedPermit(null)} className="p-2 rounded-full bg-slate-100 hover:bg-slate-200">
-                <X className="w-5 h-5 text-slate-600" />
-              </button>
+        <DialogContent hideClose className="w-[95vw] max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col rounded-2xl border-emerald-900/20">
+          {/* En-tête harmonisé */}
+          <div className="sticky top-0 z-20 bg-gradient-to-r from-[#0b3d2e] to-[#14532d] text-white px-4 sm:px-6 py-3.5 flex items-center justify-between shrink-0">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight truncate">Quitus du Permis</h2>
+              <p className="text-xs text-emerald-200 truncate">
+                {selectedPermit ? `N° ${selectedPermit.permitNumber} · Détails officiels` : 'Détails officiels'}
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setSelectedPermit(null)}
+              className="p-2 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors shrink-0"
+              aria-label="Fermer"
+            >
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          </div>
 
+          <div className="bg-slate-50 flex-1 overflow-y-auto subtle-scrollbar">
           {selectedPermit && (
-            <div className="p-4 pb-24 flex flex-col space-y-8">
+            <div className="p-4 sm:p-6 pb-10 grid grid-cols-1 lg:grid-cols-[296px_1fr] gap-5 items-start">
 
-              {/* SECTION EN HAUT : Carte de permis téléchargeable (centrée, petit bouton) */}
-              <div className="flex flex-col items-center w-full mt-2">
+              {/* COLONNE GAUCHE (ou haut sur mobile) : Carte de permis téléchargeable intacte */}
+              <div className="flex flex-col items-center w-full lg:sticky lg:top-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
                 <div id="permit-card" className="w-64 p-4 bg-white border-2 border-dashed border-black text-left font-sans text-black bg-gray-50 rounded-lg border border-gray-200">
                   <h2 className="text-sm font-bold mb-1 text-center">Direction Eaux et Forêts</h2>
                   <p className="text-xs mb-3 text-center">Chasse et Conservation des Sols</p>
@@ -1097,145 +1270,142 @@ export default function HunterDashboard() {
                 <Button
                   onClick={handleDownloadPermit}
                   size="sm"
-                  className="mt-4 px-8 bg-green-600 hover:bg-green-700 text-xs h-9"
+                  className="mt-4 w-full max-w-[256px] bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold h-9 rounded-xl shadow-sm"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Télécharger le Permis
                 </Button>
               </div>
 
-              {/* AUTRES INFORMATIONS */}
-              <div className="space-y-6 bg-green-50 p-6 rounded-lg border border-green-100 w-full max-w-3xl mx-auto">
-                
+              {/* COLONNE DROITE : Fiches d'informations structurées */}
+              <div className="space-y-4 w-full min-w-0">
+
                 {/* Informations du chasseur */}
                 {hunterInfo && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Informations du Chasseur</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Nom Complet</h4>
-                        <p className="text-base">{hunterInfo.firstName} {hunterInfo.lastName}</p>
+                  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-100 shadow-sm">
+                    <h3 className="text-sm sm:text-base font-bold text-emerald-900 pb-2.5 mb-3.5 border-b border-emerald-100">
+                      Informations du Chasseur
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Nom Complet</div>
+                        <div className="font-semibold text-slate-800 truncate">{hunterInfo.firstName} {hunterInfo.lastName}</div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Numéro Pièce d'Identité</h4>
-                        <p className="text-base">{hunterInfo.idNumber}</p>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Numéro Pièce d&apos;Identité</div>
+                        <div className="font-semibold text-slate-800 truncate">{hunterInfo.idNumber}</div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Téléphone</h4>
-                        <p className="text-base">{hunterInfo.phone || 'Non renseigné'}</p>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Téléphone</div>
+                        <div className="font-medium text-slate-800">{hunterInfo.phone || 'Non renseigné'}</div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Adresse</h4>
-                        <p className="text-base">{hunterInfo.address || 'Non renseignée'}</p>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Région</div>
+                        <div className="font-medium text-slate-800">{hunterInfo.region || 'Non renseignée'}</div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Région</h4>
-                        <p className="text-base">{hunterInfo.region || 'Non renseignée'}</p>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Catégorie</div>
+                        <div className="font-medium text-slate-800 capitalize">{hunterInfo.category || 'Non renseignée'}</div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Catégorie</h4>
-                        <p className="text-base">{hunterInfo.category || 'Non renseignée'}</p>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Adresse</div>
+                        <div className="font-medium text-slate-800 break-words">{hunterInfo.address || 'Non renseignée'}</div>
                       </div>
                     </div>
                   </div>
                 )}
 
-
                 {/* Informations sur les armes */}
                 {hunterInfo && (
-                  <div className="border-t pt-6 border-green-200/60">
-                    <h3 className="text-lg font-semibold mb-4">Informations sur les Armes</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Type d'Arme</h4>
-                        <p className="text-base">{(hunterInfo.weaponType && hunterInfo.weaponType !== 'nan') ? hunterInfo.weaponType : 'Non renseigné'}</p>
+                  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-100 shadow-sm">
+                    <h3 className="text-sm sm:text-base font-bold text-emerald-900 pb-2.5 mb-3.5 border-b border-emerald-100">
+                      Informations sur les Armes
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Type d&apos;Arme</div>
+                        <div className="font-medium text-slate-800">{(hunterInfo.weaponType && hunterInfo.weaponType !== 'nan') ? hunterInfo.weaponType : 'Non renseigné'}</div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Marque</h4>
-                        <p className="text-base">{(hunterInfo.weaponBrand && hunterInfo.weaponBrand !== 'nan') ? hunterInfo.weaponBrand : 'Non renseigné'}</p>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Marque</div>
+                        <div className="font-medium text-slate-800">{(hunterInfo.weaponBrand && hunterInfo.weaponBrand !== 'nan') ? hunterInfo.weaponBrand : 'Non renseigné'}</div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Calibre</h4>
-                        <p className="text-base">{(hunterInfo.weaponCaliber && hunterInfo.weaponCaliber !== 'nan') ? hunterInfo.weaponCaliber : 'Non renseigné'}</p>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Calibre</div>
+                        <div className="font-medium text-slate-800">{(hunterInfo.weaponCaliber && hunterInfo.weaponCaliber !== 'nan') ? hunterInfo.weaponCaliber : 'Non renseigné'}</div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-500 mb-1">Référence</h4>
-                        <p className="text-base">{(hunterInfo.weaponReference && hunterInfo.weaponReference !== 'nan') ? hunterInfo.weaponReference : 'Non renseigné'}</p>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-medium text-slate-500">Référence</div>
+                        <div className="font-medium text-slate-800">{(hunterInfo.weaponReference && hunterInfo.weaponReference !== 'nan') ? hunterInfo.weaponReference : 'Non renseigné'}</div>
                       </div>
                       {hunterInfo.weaponOtherDetails && hunterInfo.weaponOtherDetails !== 'nan' && (
-                        <div className="md:col-span-2">
-                          <h4 className="text-sm font-medium text-slate-500 mb-1">Autres Détails</h4>
-                          <p className="text-base">{hunterInfo.weaponOtherDetails}</p>
+                        <div className="sm:col-span-2 rounded-lg bg-slate-50 px-3 py-2">
+                          <div className="text-[11px] font-medium text-slate-500">Autres Détails</div>
+                          <div className="font-medium text-slate-800">{hunterInfo.weaponOtherDetails}</div>
                         </div>
                       )}
                     </div>
                     {(!hunterInfo.weaponType || hunterInfo.weaponType === 'nan') &&
                      (!hunterInfo.weaponBrand || hunterInfo.weaponBrand === 'nan') &&
                      (!hunterInfo.weaponCaliber || hunterInfo.weaponCaliber === 'nan') && (
-                      <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-sm text-amber-700">
-                          Aucune information sur les armes n'est disponible pour ce chasseur.
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-xs text-amber-700">
+                          Aucune information sur les armes n&apos;est disponible pour ce chasseur.
                         </p>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Informations administratives */}
-                <div className="border-t pt-6 border-green-200/60">
-                  <h3 className="text-lg font-semibold mb-4">Informations Administratives</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-slate-500 mb-1">Numéro de Quittance</h4>
-                      <p className="text-base">{selectedPermit.receiptNumber || 'Non disponible'}</p>
+                {/* Détails du Quitus & Administratif */}
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-100 shadow-sm">
+                  <h3 className="text-sm sm:text-base font-bold text-emerald-900 pb-2.5 mb-3.5 border-b border-emerald-100">
+                    Détails du Quitus &amp; Administration
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-lg bg-emerald-50/60 px-3 py-2">
+                      <div className="text-[11px] font-medium text-emerald-700">Numéro de Permis</div>
+                      <div className="font-bold text-slate-900">{selectedPermit.permitNumber}</div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-slate-500 mb-1">Émetteur</h4>
-                      <p className="text-base">
-                        {selectedPermit.metadata?.createdByUser ?
-                          `${selectedPermit.metadata.createdByUser.firstName} ${selectedPermit.metadata.createdByUser.lastName}` :
-                          'Service des Eaux et Forêts'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* SECTION EN BAS : Informations principales du permis (Désormais à la fin) */}
-                <div className="border-t pt-6 border-green-200/60">
-                  <h3 className="text-lg font-semibold mb-4">Détails du Quitus</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-slate-500 mb-1">Numéro de Permis</h3>
-                      <p className="text-lg font-semibold">{selectedPermit.permitNumber}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-slate-500 mb-1">Type de Permis</h3>
-                      <p className="text-lg font-semibold">
+                    <div className="rounded-lg bg-emerald-50/60 px-3 py-2">
+                      <div className="text-[11px] font-medium text-emerald-700">Type de Permis</div>
+                      <div className="font-bold text-slate-900 capitalize">
                         {selectedPermit.categoryId ||
                          (selectedPermit.type === 'petite-chasse' ? 'Petite Chasse' :
                           selectedPermit.type === 'grande-chasse' ? 'Grande Chasse' :
                           selectedPermit.type === 'gibier-eau' ? "Gibier d'Eau" :
                           selectedPermit.type)}
-                      </p>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-slate-500 mb-1">Date d'Émission</h3>
-                      <p className="text-base">{formatDate(selectedPermit.issueDate)}</p>
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <div className="text-[11px] font-medium text-slate-500">Numéro de Quittance</div>
+                      <div className="font-semibold text-slate-800">{selectedPermit.receiptNumber || 'Non disponible'}</div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-slate-500 mb-1">Date d'Expiration</h3>
-                      <p className="text-base">{formatDate(selectedPermit.expiryDate)}</p>
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <div className="text-[11px] font-medium text-slate-500">Émetteur</div>
+                      <div className="font-medium text-slate-800">
+                        {selectedPermit.metadata?.createdByUser ?
+                          `${selectedPermit.metadata.createdByUser.firstName} ${selectedPermit.metadata.createdByUser.lastName}` :
+                          'Service des Eaux et Forêts'
+                        }
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <div className="text-[11px] font-medium text-slate-500">Date d&apos;Émission</div>
+                      <div className="font-medium text-slate-800">{formatDate(selectedPermit.issueDate)}</div>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <div className="text-[11px] font-medium text-slate-500">Date d&apos;Expiration</div>
+                      <div className="font-medium text-slate-800">{formatDate(selectedPermit.expiryDate)}</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Informations de renouvellement (Désormais en toute dernière position) */}
-                <div className="border-t pt-6 border-green-200/60">
-                  <h3 className="text-lg font-semibold mb-4">Historique des Renouvellements</h3>
+                {/* Informations de renouvellement */}
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-100 shadow-sm">
+                  <h3 className="text-sm sm:text-base font-bold text-emerald-900 pb-2.5 mb-3.5 border-b border-emerald-100">
+                    Historique des Renouvellements
+                  </h3>
                   {(() => {
                     const renewalCount = selectedPermit.renewalCount ||
                                        selectedPermit.metadata?.renewalCount ||
