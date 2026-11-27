@@ -27,6 +27,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Legend,
   Line, LineChart,
   Pie,
@@ -112,7 +113,44 @@ type RevenueGroupingRow = {
 
 type RevenueChartRow = RevenueGroupingRow & { label: string };
 
-export default function NationalStatistics() {
+export interface TerritorialSubZoneRow {
+  zone: string;
+  hunters: number;
+  guides: number;
+  activePermits: number;
+  pendingRequests: number;
+  permitsRevenue: number;
+  taxesRevenue: number;
+  infractions: number;
+  piecesAbattues?: number;
+}
+
+export interface TerritorialStatsScope {
+  level: "national" | "regional" | "departemental" | "arrondissement";
+  region?: string | null;
+  departement?: string | null;
+  arrondissement?: string | null;
+  commune?: string | null;
+  territoryDisplay?: string;
+  subZoneHeading?: string;
+  subZoneBreakdown?: TerritorialSubZoneRow[];
+}
+
+export interface NationalStatisticsProps {
+  embedded?: boolean;
+  territorialScope?: TerritorialStatsScope;
+  controlledTab?: string;
+  hideEmbeddedTabs?: boolean;
+  onRegisterExport?: (fn: (() => Promise<void> | void) | null) => void;
+}
+
+export default function NationalStatistics({
+  embedded = false,
+  territorialScope,
+  controlledTab,
+  hideEmbeddedTabs = false,
+  onRegisterExport,
+}: NationalStatisticsProps = {}) {
   const handlePrint = () => {
     const style = document.createElement('style');
     style.id = 'print-style-national';
@@ -177,7 +215,13 @@ export default function NationalStatistics() {
     exportArrayToCsv(`alertes_destinataires_${alertPeriod}.csv`, header, rows);
   };
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(controlledTab || (embedded ? "regions" : "overview"));
+
+  useEffect(() => {
+    if (controlledTab && controlledTab !== activeTab) {
+      setActiveTab(controlledTab);
+    }
+  }, [controlledTab]);
   const [selectedRegion, setSelectedRegion] = useState("toutes");
   // Filtres Recettes
   const [revenueGroupBy, setRevenueGroupBy] = useState<'region'|'departement'>('region');
@@ -196,10 +240,14 @@ export default function NationalStatistics() {
 
   // Filtres Région pour les onglets Par région, Catégories de permis, Infractions et Alertes
   const [statsRegionFilter, setStatsRegionFilter] = useState<string>('toutes');
+  const [subZoneStatsFilter, setSubZoneStatsFilter] = useState<string>('toutes');
+  const [speciesSubZoneFilter, setSpeciesSubZoneFilter] = useState<string>('toutes');
   const [categoriesRegionFilter, setCategoriesRegionFilter] = useState<string>('toutes');
   const [showCategoriesAnalysis, setShowCategoriesAnalysis] = useState<boolean>(false);
   const [infractionsRegionFilter, setInfractionsRegionFilter] = useState<string>('toutes');
+  const [infractionsSubZoneFilter, setInfractionsSubZoneFilter] = useState<string>('toutes');
   const [alertRegionFilter, setAlertRegionFilter] = useState<string>('toutes');
+  const [alertSubZoneFilter, setAlertSubZoneFilter] = useState<string>('toutes');
   // Normalisation/affichage des régions - Chargées dynamiquement depuis l'API
   // Les libellés et l'ordre sont maintenant récupérés depuis la base de données
   const REGION_LABELS: Record<string, string> = {
@@ -247,9 +295,64 @@ export default function NationalStatistics() {
       .map((w) => (w[0] ? w[0].toUpperCase() + w.slice(1) : w))
       .join(' ');
   };
-  const prettyDepartment = (raw?: string) => {
-    const value = String(raw || 'non défini').trim();
+
+  // Verrouillage territorial optionnel (quand embarqué dans /pilotage pour un cadre Régional / Départemental / Arrondissement)
+  const isRegionLocked = Boolean(
+    territorialScope && territorialScope.level !== "national" && territorialScope.region
+  );
+  const lockedRegionKey = isRegionLocked ? canonicalRegionKey(territorialScope?.region || "") : null;
+  const lockedRegionLabel = isRegionLocked ? prettyRegion(territorialScope?.region || "") : null;
+  const lockedDeptNorm =
+    territorialScope &&
+    (territorialScope.level === "departemental" || territorialScope.level === "arrondissement") &&
+    territorialScope.departement
+      ? removeDiacritics(String(territorialScope.departement).trim().toLowerCase())
+      : null;
+  const matchesLockedDept = (raw?: string | null): boolean => {
+    if (!lockedDeptNorm) return true;
+    const v = removeDiacritics(String(raw || "").trim().toLowerCase());
+    if (!v) return false;
+    return v === lockedDeptNorm || v.includes(lockedDeptNorm) || lockedDeptNorm.includes(v);
+  };
+  const isSubZoneMode = Boolean(territorialScope && territorialScope.level !== "national");
+  const geoUnitLabel =
+    territorialScope?.level === "regional"
+      ? "Département"
+      : territorialScope?.level === "departemental"
+        ? "Arrondissement"
+        : territorialScope?.level === "arrondissement"
+          ? "Commune"
+          : "Région";
+  const geoUnitLower = geoUnitLabel.toLowerCase();
+  const geoUnitPlural =
+    territorialScope?.level === "regional"
+      ? "Tous les départements"
+      : territorialScope?.level === "departemental"
+        ? "Tous les arrondissements"
+        : territorialScope?.level === "arrondissement"
+          ? "Toutes les communes"
+          : "Toutes les régions";
+  const regionsTabLabel = `Par ${geoUnitLower}`;
+
+  const subZoneStatsRows = useMemo(() => {
+    const raw = territorialScope?.subZoneBreakdown || [];
+    if (subZoneStatsFilter === "toutes") return raw;
+    return raw.filter((r) => r.zone === subZoneStatsFilter);
+  }, [territorialScope?.subZoneBreakdown, subZoneStatsFilter]);
+
+  const subZoneFilterOptions = useMemo(() => {
+    return (territorialScope?.subZoneBreakdown || [])
+      .map((r) => r.zone)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, "fr"));
+  }, [territorialScope?.subZoneBreakdown]);
+  const prettyDepartment = (raw?: string | null) => {
+    const value = String(raw || '').trim();
     if (!value) return 'Non défini';
+    // Ne jamais afficher des coordonnées GPS brutes à la place d'un nom de département
+    if (/^gps\s*:/i.test(value) || /^-?\d+(\.\d+)?\s*[,;]\s*-?\d+(\.\d+)?$/.test(value)) {
+      return 'Non renseigné';
+    }
     return value
       .split(/\s+/)
       .map((w) => (w[0] ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
@@ -569,11 +672,14 @@ export default function NationalStatistics() {
     if (speciesRegionFilter !== 'toutes') {
       rows = rows.filter((r) => canonicalRegionKey(r.region) === speciesRegionFilter);
     }
+    if (lockedDeptNorm) {
+      rows = rows.filter((r) => matchesLockedDept(r.departement));
+    }
     if (speciesCategoryFilter !== 'toutes') {
       rows = rows.filter((r) => getRowCategoryKey(r) === speciesCategoryFilter);
     }
     return rows;
-  }, [speciesByRegion, speciesRegionFilter, speciesCategoryFilter, allSpeciesCatalog]);
+  }, [speciesByRegion, speciesRegionFilter, speciesCategoryFilter, allSpeciesCatalog, lockedDeptNorm]);
 
   const isLoading = aggregatesLoading || byRegionLoading;
 
@@ -676,15 +782,48 @@ export default function NationalStatistics() {
   }, [infractionsData]);
 
   const filteredInfractionsData = useMemo(() => {
-    const rows = infractionsData || [];
-    if (infractionsRegionFilter === 'toutes') return rows;
-    return rows.filter((inf) => canonicalRegionKey(inf.region || 'non défini') === infractionsRegionFilter);
-  }, [infractionsData, infractionsRegionFilter]);
+    let rows = infractionsData || [];
+    if (infractionsRegionFilter !== 'toutes') {
+      rows = rows.filter((inf) => canonicalRegionKey(inf.region || 'non défini') === infractionsRegionFilter);
+    }
+    if (lockedDeptNorm) {
+      rows = rows.filter((inf) => matchesLockedDept(inf.departement));
+    }
+    return rows;
+  }, [infractionsData, infractionsRegionFilter, lockedDeptNorm]);
+
+  const infractionsSubZoneOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    // Inclure d'abord les sous-zones officielles du territoire (ex: départements de la région)
+    for (const z of subZoneFilterOptions) {
+      const label = prettyDepartment(z);
+      const norm = removeDiacritics(label.toLowerCase());
+      if (norm && !map.has(norm)) map.set(norm, label);
+    }
+    // Puis les départements présents dans les infractions chargées
+    for (const inf of filteredInfractionsData || []) {
+      const label = prettyDepartment(inf.departement || 'Non renseigné');
+      const norm = removeDiacritics(label.toLowerCase());
+      if (norm && !map.has(norm)) map.set(norm, label);
+    }
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [subZoneFilterOptions, filteredInfractionsData]);
+
+  const displayedInfractionsData = useMemo(() => {
+    if (!isSubZoneMode || infractionsSubZoneFilter === 'toutes') {
+      return filteredInfractionsData;
+    }
+    const targetNorm = removeDiacritics(infractionsSubZoneFilter.trim().toLowerCase());
+    return (filteredInfractionsData || []).filter((inf) => {
+      const deptNorm = removeDiacritics(prettyDepartment(inf.departement || 'Non renseigné').trim().toLowerCase());
+      return deptNorm === targetNorm;
+    });
+  }, [filteredInfractionsData, isSubZoneMode, infractionsSubZoneFilter]);
 
   const infraGrouped = useMemo(() => {
     const key = infraGroupBy;
     const map = new Map<string, { label: string; count: number; amount: number }>();
-    for (const inf of (filteredInfractionsData || [])) {
+    for (const inf of (displayedInfractionsData || [])) {
       const label = prettyRegion(key === 'region' ? (inf.region || 'non défini') : (inf.departement || 'non défini'));
       const cur = map.get(label) || { label, count: 0, amount: 0 };
       cur.count += 1;
@@ -692,11 +831,33 @@ export default function NationalStatistics() {
       map.set(label, cur);
     }
     return Array.from(map.values()).sort((a,b)=> b.count - a.count || b.amount - a.amount);
-  }, [filteredInfractionsData, infraGroupBy]);
+  }, [displayedInfractionsData, infraGroupBy]);
 
-  const infractionsMonthlyData = useMemo(() => {
+  const INFRACTION_ZONE_COLORS = [
+    '#f97316', // orange
+    '#2563eb', // bleu
+    '#7c3aed', // violet
+    '#0891b2', // cyan
+    '#e11d48', // rose-rouge
+    '#d97706', // ambre
+    '#0d9488', // sarcelle
+    '#4f46e5', // indigo
+    '#db2777', // magenta
+    '#65a30d', // vert olive
+  ];
+
+  const { infractionsMonthlyData, infractionChartZones } = useMemo(() => {
     const monthFormatter = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' });
-    const monthlyMap = new Map<string, { label: string; infractions: number; contrevenants: number }>();
+    const monthlyMap = new Map<
+      string,
+      {
+        label: string;
+        totalInfractions: number;
+        montant: number;
+        countsByZone: Record<string, number>;
+        amountsByZone: Record<string, number>;
+      }
+    >();
 
     // Pré-remplir les 12 mois de l'année en cours pour avoir un axe temporel complet et cohérent
     const currentYear = new Date().getFullYear();
@@ -705,31 +866,62 @@ export default function NationalStatistics() {
       const mk = `${currentYear}-${String(m + 1).padStart(2, '0')}`;
       monthlyMap.set(mk, {
         label: monthFormatter.format(d),
-        infractions: 0,
-        contrevenants: 0,
+        totalInfractions: 0,
+        montant: 0,
+        countsByZone: {},
+        amountsByZone: {},
       });
     }
 
-    for (const row of filteredInfractionsData || []) {
+    const zoneTotals = new Map<string, number>();
+
+    for (const row of displayedInfractionsData || []) {
       if (!row?.date_infraction) continue;
       const date = new Date(row.date_infraction);
       if (Number.isNaN(date.getTime())) continue;
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const existing = monthlyMap.get(monthKey) || {
         label: monthFormatter.format(date),
-        infractions: 0,
-        contrevenants: 0,
+        totalInfractions: 0,
+        montant: 0,
+        countsByZone: {},
+        amountsByZone: {},
       };
-      existing.infractions += 1;
-      const contrevenants = Array.isArray((row as any)?.contrevenants) ? (row as any).contrevenants.length : 0;
-      existing.contrevenants += contrevenants;
+      const zoneLabel = isSubZoneMode
+        ? prettyDepartment(row.departement || 'Non renseigné')
+        : prettyRegion(row.region || 'non défini');
+      const amount = Number(row.montant_chiffre || 0);
+
+      existing.totalInfractions += 1;
+      existing.montant += amount;
+      existing.countsByZone[zoneLabel] = (existing.countsByZone[zoneLabel] || 0) + 1;
+      existing.amountsByZone[zoneLabel] = (existing.amountsByZone[zoneLabel] || 0) + amount;
+      zoneTotals.set(zoneLabel, (zoneTotals.get(zoneLabel) || 0) + 1);
       monthlyMap.set(monthKey, existing);
     }
 
-    return Array.from(monthlyMap.entries())
+    const zones = Array.from(zoneTotals.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr'))
+      .map(([z]) => z);
+
+    const rows = Array.from(monthlyMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([monthKey, value]) => ({ monthKey, ...value }));
-  }, [filteredInfractionsData]);
+      .map(([monthKey, value]) => {
+        const entry: Record<string, any> = {
+          monthKey,
+          label: value.label,
+          totalInfractions: value.totalInfractions,
+          montant: value.montant,
+          amountsByZone: value.amountsByZone,
+        };
+        for (const z of zones) {
+          entry[z] = value.countsByZone[z] || 0;
+        }
+        return entry;
+      });
+
+    return { infractionsMonthlyData: rows, infractionChartZones: zones };
+  }, [displayedInfractionsData, isSubZoneMode]);
 
   const revenueMonthlyData = useMemo(() => {
     const monthFormatter = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' });
@@ -905,9 +1097,15 @@ export default function NationalStatistics() {
       if (revenueRegion === 'toutes') return revenueRegionRows;
       return revenueRegionRows.filter((row) => row.region === revenueRegion);
     }
-    if (revenueRegion === 'toutes') return revenueDepartmentRows;
-    return revenueDepartmentRows.filter((row) => row.region === revenueRegion);
-  }, [revenueGroupBy, revenueRegion, revenueRegionRows, revenueDepartmentRows]);
+    let rows = revenueDepartmentRows;
+    if (revenueRegion !== 'toutes') {
+      rows = rows.filter((row) => row.region === revenueRegion);
+    }
+    if (lockedDeptNorm) {
+      rows = rows.filter((row) => matchesLockedDept(row.departement));
+    }
+    return rows;
+  }, [revenueGroupBy, revenueRegion, revenueRegionRows, revenueDepartmentRows, lockedDeptNorm]);
 
   const revenueChartData = useMemo<RevenueChartRow[]>(() => {
     return filteredRevenueRows.map((row) => ({
@@ -1220,6 +1418,8 @@ export default function NationalStatistics() {
       first_name: string | null;
       last_name: string | null;
       role: string | null;
+      grade?: string | null;
+      roleMetier?: string | null;
       region: string | null;
       departement: string | null;
     } | null;
@@ -1685,24 +1885,59 @@ export default function NationalStatistics() {
   }, [mapAlerts]);
 
   const filteredMapAlerts = useMemo(() => {
-    const rows = mapAlerts || [];
-    if (alertRegionFilter === 'toutes') return rows;
-    return rows.filter((a) => canonicalRegionKey(a.region || 'non défini') === alertRegionFilter);
-  }, [mapAlerts, alertRegionFilter]);
+    let rows = mapAlerts || [];
+    if (alertRegionFilter !== 'toutes') {
+      rows = rows.filter((a) => canonicalRegionKey(a.region || 'non défini') === alertRegionFilter);
+    }
+    if (lockedDeptNorm) {
+      rows = rows.filter((a) => matchesLockedDept(a.departement));
+    }
+    return rows;
+  }, [mapAlerts, alertRegionFilter, lockedDeptNorm]);
+
+  const alertSubZoneOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const z of subZoneFilterOptions) {
+      const label = prettyDepartment(z);
+      const norm = removeDiacritics(label.toLowerCase());
+      if (norm && !map.has(norm)) map.set(norm, label);
+    }
+    for (const a of filteredMapAlerts || []) {
+      const label = prettyDepartment(a.departement || 'Non renseigné');
+      const norm = removeDiacritics(label.toLowerCase());
+      if (norm && !map.has(norm)) map.set(norm, label);
+    }
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [subZoneFilterOptions, filteredMapAlerts]);
+
+  const displayedMapAlerts = useMemo(() => {
+    if (!isSubZoneMode || alertSubZoneFilter === 'toutes') {
+      return filteredMapAlerts;
+    }
+    const targetNorm = removeDiacritics(alertSubZoneFilter.trim().toLowerCase());
+    return (filteredMapAlerts || []).filter((a) => {
+      const deptNorm = removeDiacritics(prettyDepartment(a.departement || 'Non renseigné').trim().toLowerCase());
+      return deptNorm === targetNorm;
+    });
+  }, [filteredMapAlerts, isSubZoneMode, alertSubZoneFilter]);
 
   const groupedAlerts = useMemo(() => {
-    // nature -> regionLabel -> count
+    // nature -> subZoneOrRegionLabel -> count
     const byNature = new Map<string, Map<string, number>>();
     const regionsSet = new Set<string>();
-    (filteredMapAlerts || []).forEach(a => {
+    (displayedMapAlerts || []).forEach(a => {
       const nat = (a.nature || 'non défini').toString();
-      const reg = prettyRegion(a.region || 'non défini');
+      const reg = isSubZoneMode
+        ? prettyDepartment(a.departement || 'Non renseigné')
+        : prettyRegion(a.region || 'non défini');
       regionsSet.add(reg);
       const inner = byNature.get(nat) || new Map<string, number>();
       inner.set(reg, (inner.get(reg) || 0) + 1);
       byNature.set(nat, inner);
     });
-    const regions = sortRegions(Array.from(regionsSet));
+    const regions = isSubZoneMode
+      ? Array.from(regionsSet).sort((a, b) => a.localeCompare(b, 'fr'))
+      : sortRegions(Array.from(regionsSet));
     const rows = Array.from(byNature.entries()).map(([nature, map]) => {
       const obj: Record<string, any> = { nature };
       let total = 0;
@@ -1711,7 +1946,7 @@ export default function NationalStatistics() {
       return obj;
     }).sort((a,b)=> a.nature.localeCompare(b.nature));
     return { regions, rows } as { regions: string[]; rows: Array<Record<string, any>> };
-  }, [filteredMapAlerts]);
+  }, [displayedMapAlerts, isSubZoneMode]);
 
   // Données filtrées pour les armes
   const filteredWeaponsByRegion = useMemo(() => {
@@ -1755,12 +1990,16 @@ export default function NationalStatistics() {
       categories.add(w.weaponType || 'Non spécifié');
     });
 
+    if (lockedRegionLabel) {
+      regions.add(lockedRegionLabel);
+    }
+
     return {
       regions: ['toutes', ...Array.from(regions).sort()],
       brands: ['toutes', ...Array.from(brands).sort()],
       categories: ['toutes', ...Array.from(categories).sort()]
     };
-  }, [weaponStats, weaponsByRegion]);
+  }, [weaponStats, weaponsByRegion, lockedRegionLabel]);
 
   // Données pour les graphiques d'expiration des permis
   const expirationData = useMemo(() => {
@@ -1776,10 +2015,10 @@ export default function NationalStatistics() {
   const exportAlertsCsv = () => {
     const header = [
       'Date', 'Nature', 'Région', 'Département', 'Titre', 'Message',
-      'Expéditeur', 'Rôle expéditeur', 'Région expéditeur', 'Département expéditeur',
+      'Expéditeur', 'Grade', 'Région expéditeur', 'Département expéditeur',
       'Latitude', 'Longitude'
     ];
-    const rows = (filteredMapAlerts || []).map(a => {
+    const rows = (displayedMapAlerts || []).map(a => {
       const senderName = [a.sender?.first_name || '', a.sender?.last_name || ''].filter(Boolean).join(' ').trim();
       return [
         a.created_at ? new Date(a.created_at as any).toLocaleString('fr-FR') : '',
@@ -1789,7 +2028,7 @@ export default function NationalStatistics() {
         a.title || '',
         (a.message || '').replace(/\s+/g, ' ').trim(),
         senderName,
-        a.sender?.role || '',
+        a.sender?.grade || '',
         a.sender?.region || '',
         a.sender?.departement || '',
         String(a.lat ?? ''),
@@ -2536,6 +2775,19 @@ export default function NationalStatistics() {
         break;
       }
       case 'regions': {
+        if (isSubZoneMode) {
+          const header = [geoUnitLabel, 'Permis actifs', 'Prélèvements', "Taxe d'abattage (FCFA)", 'Recette (FCFA)'];
+          const rows = (subZoneStatsRows || []).map((z) => [
+            (z.zone || '').toUpperCase(),
+            Number(z.activePermits ?? 0),
+            Number(z.piecesAbattues ?? 0),
+            Number(z.taxesRevenue ?? 0),
+            Number((z.permitsRevenue ?? 0) + (z.taxesRevenue ?? 0)),
+          ]);
+          const slug = removeDiacritics(geoUnitLower);
+          exportArrayToCsv(`statistiques_par_${slug}.csv`, header, rows);
+          break;
+        }
         const header = ['Région', 'Permis actifs', 'Prélèvements', "Taxe d'abattage (FCFA)", 'Recette (FCFA)'];
         const byExpReg = new Map<
           string,
@@ -3428,46 +3680,79 @@ export default function NationalStatistics() {
     }
   };
 
+  // Synchroniser automatiquement les filtres territoriaux en mode pilotage embarqué
+  useEffect(() => {
+    if (!territorialScope) return;
+    if (lockedRegionKey && lockedRegionLabel) {
+      setStatsRegionFilter(lockedRegionKey);
+      setCategoriesRegionFilter(lockedRegionKey);
+      setSpeciesRegionFilter(lockedRegionKey);
+      setInfractionsRegionFilter(lockedRegionKey);
+      setAlertRegionFilter(lockedRegionKey);
+      setRevenueRegion(lockedRegionLabel);
+      setWeaponRegionFilter(lockedRegionLabel);
+      setRevenueGroupBy("departement");
+      setInfraGroupBy("departement");
+    }
+  }, [territorialScope, lockedRegionKey, lockedRegionLabel]);
+
+  // Exposer handleExportActiveTab au parent (/pilotage) pour un bouton unique "Exporter Excel"
+  const exportRef = useRef(handleExportActiveTab);
+  exportRef.current = handleExportActiveTab;
+  useEffect(() => {
+    if (!onRegisterExport) return;
+    onRegisterExport(() => exportRef.current());
+    return () => {
+      onRegisterExport(null);
+    };
+  }, [onRegisterExport]);
+
   // Élargir le conteneur parent (page-frame-inner) pour ce tableau de bord
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (embedded) return;
     const el = rootRef.current?.closest('.page-frame-inner');
     if (el) el.classList.add('page-frame-wide');
     return () => { if (el) el.classList.remove('page-frame-wide'); };
-  }, []);
+  }, [embedded]);
 
   return (
-    <div ref={rootRef} className="w-full py-6" id="national-print">
-        <div className="flex flex-col space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold">Tableau de Bord National de la Chasse</h1>
-              <p className="text-sm text-muted-foreground">
-                Vue d'ensemble des activités de chasse au niveau national
-              </p>
+    <div ref={rootRef} className={embedded ? "w-full" : "w-full py-6"} id={embedded ? "pilotage-chasse-stats" : "national-print"}>
+        <div className="flex flex-col space-y-4">
+          {!embedded && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-2xl font-bold">Tableau de Bord National de la Chasse</h1>
+                <p className="text-sm text-muted-foreground">
+                  Vue d'ensemble des activités de chasse au niveau national
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 justify-end print:hidden">
+                <Button variant="outline" className="flex items-center gap-2 px-3 py-2 text-sm" onClick={handleExportActiveTab}>
+                  <FileDown className="w-4 h-4" />
+                  Exporter
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 justify-end print:hidden">
-              <Button variant="outline" className="flex items-center gap-2 px-3 py-2 text-sm" onClick={handleExportActiveTab}>
-                <FileDown className="w-4 h-4" />
-                Exporter
-              </Button>
-            </div>
-          </div>
+          )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            {!hideEmbeddedTabs && (
             <div className="overflow-x-auto">
             <TabsList className="border rounded-lg bg-white shadow-sm p-1 inline-grid grid-flow-col auto-cols-max min-w-[640px]">
-              <TabsTrigger
-                value="overview"
-                className="text-slate-600 data-[state=active]:bg-slate-50 data-[state=active]:text-slate-700"
-              >
-                Vue d'ensemble
-              </TabsTrigger>
+              {!embedded && (
+                <TabsTrigger
+                  value="overview"
+                  className="text-slate-600 data-[state=active]:bg-slate-50 data-[state=active]:text-slate-700"
+                >
+                  Vue d'ensemble
+                </TabsTrigger>
+              )}
               <TabsTrigger
                 value="regions"
                 className="text-emerald-600 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700"
               >
-                Par région
+                {regionsTabLabel}
               </TabsTrigger>
               <TabsTrigger
                 value="categories"
@@ -3507,6 +3792,7 @@ export default function NationalStatistics() {
               </TabsTrigger>
             </TabsList>
             </div>
+            )}
 
             <TabsContent value="overview" className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
@@ -3642,89 +3928,229 @@ export default function NationalStatistics() {
                     <Target className="h-5 w-5" /> Liste des infractions
                   </CardTitle>
                   <div className="flex flex-wrap items-center gap-3 print:hidden">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
-                      <Select value={infractionsRegionFilter} onValueChange={setInfractionsRegionFilter}>
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="Toutes les régions" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="toutes">Toutes les régions</SelectItem>
-                          {infractionsRegionOptions.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="self-start sm:self-auto"
-                      onClick={() => setInfractionsView((prev) => (prev === 'table' ? 'chart' : 'table'))}
-                    >
-                      {infractionsView === 'table' ? 'Voir évolution mensuelle' : 'Voir la liste détaillée'}
-                    </Button>
+                    {isSubZoneMode ? (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium whitespace-nowrap">{geoUnitLabel} :</Label>
+                        <Select value={infractionsSubZoneFilter} onValueChange={setInfractionsSubZoneFilter}>
+                          <SelectTrigger className="w-[210px]">
+                            <SelectValue placeholder={geoUnitPlural} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="toutes">{geoUnitPlural}</SelectItem>
+                            {infractionsSubZoneOptions.map((zone) => (
+                              <SelectItem key={zone} value={zone}>
+                                {zone}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                        <Select value={infractionsRegionFilter} onValueChange={setInfractionsRegionFilter} disabled={isRegionLocked}>
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Toutes les régions" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="toutes">Toutes les régions</SelectItem>
+                            {infractionsRegionOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-6">
                   {infractionsLoading ? (
                     <div>Chargement...</div>
-                  ) : infractionsView === 'chart' ? (
-                    infractionsMonthlyData.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">Aucune donnée mensuelle disponible.</div>
-                    ) : (
-                      <div className="h-[340px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={infractionsMonthlyData} margin={{ top: 16, right: 24, left: 8, bottom: 16 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                            <Tooltip formatter={(value: number) => value.toLocaleString('fr-FR')} />
-                            <Legend />
-                            <Bar dataKey="infractions" name="Infractions" fill="#f97316" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="contrevenants" name="Contrevenants" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )
-                  ) : (filteredInfractionsData.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">Aucune infraction trouvée.</div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nature</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code visé</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Article</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent verbalisateur</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Département</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {(filteredInfractionsData || []).map((row: any) => (
-                            <tr key={row.id}>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{row.date_infraction ? new Date(row.date_infraction).toLocaleDateString('fr-FR') : ''}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{row.nature || ''}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{row.code || ''}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{row.article_code || ''}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{[row.agent_prenom, row.agent_nom].filter(Boolean).join(' ')}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{row.region || ''}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">{row.departement || ''}</td>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm">
-                                <Button size="sm" variant="outline" onClick={()=> setViewInfraction(row)}>Voir</Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ))}
+                    <>
+                      {infractionsMonthlyData.length === 0 ? (
+                        <div className="text-sm text-muted-foreground">Aucune donnée mensuelle disponible.</div>
+                      ) : (
+                        <div className="h-[380px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={infractionsMonthlyData} margin={{ top: 16, right: 28, left: 12, bottom: 16 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                              <YAxis
+                                yAxisId="left"
+                                allowDecimals={false}
+                                tick={{ fontSize: 12 }}
+                                label={{
+                                  value: "Infractions",
+                                  angle: -90,
+                                  position: "insideLeft",
+                                  offset: 0,
+                                  style: { fontSize: 11, fill: "#64748b", textAnchor: "middle" },
+                                }}
+                              />
+                              <YAxis
+                                yAxisId="right"
+                                orientation="right"
+                                tick={{ fontSize: 11, fill: "#059669" }}
+                                tickFormatter={(v: number) =>
+                                  v >= 1_000_000
+                                    ? `${(v / 1_000_000).toFixed(1)}M`
+                                    : v >= 1_000
+                                      ? `${Math.round(v / 1_000)}k`
+                                      : `${v}`
+                                }
+                                label={{
+                                  value: "Montant (FCFA)",
+                                  angle: 90,
+                                  position: "insideRight",
+                                  offset: 0,
+                                  style: { fontSize: 11, fill: "#059669", textAnchor: "middle" },
+                                }}
+                              />
+                              <Tooltip
+                                content={({ active, payload, label }) => {
+                                  if (!active || !payload || payload.length === 0) return null;
+                                  const row = payload[0]?.payload;
+                                  if (!row) return null;
+                                  const amountsByZone: Record<string, number> = row.amountsByZone || {};
+                                  const activeZones = infractionChartZones.filter((z) => Number(row[z] || 0) > 0);
+                                  return (
+                                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-md text-xs space-y-1.5 min-w-[210px]">
+                                      <div className="font-semibold text-slate-900 border-b border-slate-100 pb-1 capitalize">
+                                        {label}
+                                      </div>
+                                      {activeZones.length > 0 ? (
+                                        <div className="space-y-1">
+                                          {activeZones.map((zone) => {
+                                            const colorIdx = infractionChartZones.indexOf(zone);
+                                            const color = INFRACTION_ZONE_COLORS[colorIdx % INFRACTION_ZONE_COLORS.length];
+                                            const count = Number(row[zone] || 0);
+                                            const amt = Number(amountsByZone[zone] || 0);
+                                            return (
+                                              <div key={zone} className="flex items-center justify-between gap-4">
+                                                <span className="flex items-center gap-1.5 text-slate-700">
+                                                  <span className="inline-block h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+                                                  <span className="font-medium">{zone}</span>
+                                                </span>
+                                                <span className="text-slate-900 tabular-nums">
+                                                  <strong>{count}</strong>
+                                                  {amt > 0 && (
+                                                    <span className="text-emerald-700 ml-1.5">
+                                                      ({amt.toLocaleString('fr-FR')} FCFA)
+                                                    </span>
+                                                  )}
+                                                </span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : (
+                                        <div className="text-slate-500">Aucune infraction sur ce mois</div>
+                                      )}
+                                      <div className="border-t border-slate-100 pt-1.5 flex items-center justify-between gap-4 font-semibold text-slate-900">
+                                        <span>Total ({Number(row.totalInfractions || 0)} infr.)</span>
+                                        <span className="text-emerald-700 tabular-nums">
+                                          {Number(row.montant || 0).toLocaleString('fr-FR')} FCFA
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                }}
+                              />
+                              <Legend />
+                              {infractionChartZones.length > 0 ? (
+                                infractionChartZones.map((zone, idx) => (
+                                  <Bar
+                                    key={zone}
+                                    yAxisId="left"
+                                    dataKey={zone}
+                                    name={zone}
+                                    stackId="infractions"
+                                    fill={INFRACTION_ZONE_COLORS[idx % INFRACTION_ZONE_COLORS.length]}
+                                    radius={idx === infractionChartZones.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                                    maxBarSize={42}
+                                  />
+                                ))
+                              ) : (
+                                <Bar
+                                  yAxisId="left"
+                                  dataKey="totalInfractions"
+                                  name={`Infractions (par ${geoUnitLower})`}
+                                  fill="#f97316"
+                                  radius={[4, 4, 0, 0]}
+                                  maxBarSize={42}
+                                />
+                              )}
+                              <Line
+                                yAxisId="right"
+                                type="monotone"
+                                dataKey="montant"
+                                name="Montant (FCFA)"
+                                stroke="#059669"
+                                strokeWidth={2.5}
+                                dot={{ r: 4, fill: "#059669" }}
+                                activeDot={{ r: 6 }}
+                              />
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+
+                      <div className="border-t border-slate-200 pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-semibold text-slate-800">
+                            Détail des infractions ({displayedInfractionsData.length})
+                          </h4>
+                        </div>
+                        {displayedInfractionsData.length === 0 ? (
+                          <div className="text-sm text-muted-foreground">Aucune infraction trouvée.</div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nature</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code visé</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Article</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent verbalisateur</th>
+                                  {!isSubZoneMode && (
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
+                                  )}
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{geoUnitLabel}</th>
+                                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {(displayedInfractionsData || []).map((row: any) => (
+                                  <tr key={row.id}>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{row.date_infraction ? new Date(row.date_infraction).toLocaleDateString('fr-FR') : ''}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{row.nature || ''}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{row.code || ''}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{row.article_code || ''}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{[row.agent_prenom, row.agent_nom].filter(Boolean).join(' ')}</td>
+                                    {!isSubZoneMode && (
+                                      <td className="px-4 py-2 whitespace-nowrap text-sm">{row.region || ''}</td>
+                                    )}
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{prettyDepartment(row.departement)}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-right font-medium text-emerald-700">
+                                      {Number(row.montant_chiffre || 0).toLocaleString('fr-FR')} FCFA
+                                    </td>
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm">
+                                      <Button size="sm" variant="outline" onClick={()=> setViewInfraction(row)}>Voir</Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               {/* Dialog de détails d'infraction */}
@@ -3893,66 +4319,68 @@ export default function NationalStatistics() {
             </TabsContent>
             <TabsContent value="recette" className="space-y-4">
               <Card>
-                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Wallet className="h-5 w-5" /> Recettes
-                  </CardTitle>
+                <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between pb-3">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <CardTitle className="flex items-center gap-2 shrink-0">
+                      <Wallet className="h-5 w-5" /> Recettes
+                    </CardTitle>
+                    {revenueView === 'table' && (
+                      <div className="flex flex-wrap items-center gap-3 print:hidden">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm font-medium whitespace-nowrap">Grouper par :</Label>
+                          <Select value={revenueGroupBy} onValueChange={(v)=> setRevenueGroupBy(v as any)}>
+                            <SelectTrigger className="h-9 w-[165px]"><SelectValue placeholder="Groupe" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="region">Région</SelectItem>
+                              <SelectItem value="departement">Département</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                          <Select value={revenueRegion} onValueChange={setRevenueRegion} disabled={isRegionLocked}>
+                            <SelectTrigger className="h-9 w-[185px]"><SelectValue placeholder="Toutes" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="toutes">Toutes</SelectItem>
+                              {Array.from(
+                                new Set([
+                                  ...(byRegion || []).map((r) => prettyRegion(r.region)),
+                                  ...(infractionsData || [])
+                                    .filter((inf) => Number(inf.montant_chiffre || 0) > 0 && inf.region)
+                                    .map((inf) => prettyRegion(inf.region || '')),
+                                ].filter(Boolean))
+                              )
+                                .sort((a, b) => a.localeCompare(b))
+                                .map((r) => (
+                                  <SelectItem key={r} value={r}>
+                                    {r}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="self-start sm:self-auto"
+                    className="self-start lg:self-auto shrink-0"
                     onClick={() => setRevenueView((prev) => (prev === 'table' ? 'chart' : 'table'))}
                   >
                     {revenueView === 'table' ? 'Voir évolution mensuelle' : 'Voir la vue détaillée'}
                   </Button>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  {revenueView === 'table' && (
-                    <div className="flex flex-wrap items-end gap-3 print:hidden">
-                      <div className="flex flex-col">
-                        <Label>Grouper par</Label>
-                        <Select value={revenueGroupBy} onValueChange={(v)=> setRevenueGroupBy(v as any)}>
-                          <SelectTrigger className="w-[220px]"><SelectValue placeholder="Groupe" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="region">Région</SelectItem>
-                            <SelectItem value="departement">Département</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex flex-col">
-                        <Label>Région</Label>
-                        <Select value={revenueRegion} onValueChange={setRevenueRegion}>
-                          <SelectTrigger className="w-[240px]"><SelectValue placeholder="Toutes" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="toutes">Toutes</SelectItem>
-                            {Array.from(
-                              new Set([
-                                ...(byRegion || []).map((r) => prettyRegion(r.region)),
-                                ...(infractionsData || [])
-                                  .filter((inf) => Number(inf.montant_chiffre || 0) > 0 && inf.region)
-                                  .map((inf) => prettyRegion(inf.region || '')),
-                              ].filter(Boolean))
-                            )
-                              .sort((a, b) => a.localeCompare(b))
-                              .map((r) => (
-                                <SelectItem key={r} value={r}>
-                                  {r}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  )}
+                <CardContent className="space-y-4">
                   {revenueView === 'chart' ? (
                     revenueByMonthLoading ? (
                       <div>Chargement des données mensuelles...</div>
                     ) : (revenueMonthlyData.length === 0 ? (
                       <div className="text-sm text-muted-foreground">Aucune donnée mensuelle disponible pour les recettes.</div>
                     ) : (
-                      <div className="bg-white rounded-lg border p-4 h-[380px]">
+                      <div className="bg-white rounded-lg border p-4 h-[460px]">
                         <h4 className="text-sm font-semibold mb-3">Évolution mensuelle des recettes (FCFA)</h4>
-                        <ResponsiveContainer width="100%" height="90%">
+                        <ResponsiveContainer width="100%" height="92%">
                           <BarChart data={revenueMonthlyData} margin={{ top: 12, right: 24, left: 12, bottom: 16 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="label" tick={{ fontSize: 12 }} />
@@ -4057,7 +4485,7 @@ export default function NationalStatistics() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-white rounded-lg border p-4 h-[380px]">
+                      <div className="bg-white rounded-lg border p-4 h-[460px]">
                         <h4 className="text-sm font-semibold mb-2">
                           {revenueGroupBy === 'region' && revenueRegion !== 'toutes'
                             ? `Répartition des recettes pour ${revenueRegion} (Permis, Taxes, Licences/Amodiations et Infractions)`
@@ -4073,14 +4501,14 @@ export default function NationalStatistics() {
                               Aucune recette enregistrée pour {revenueRegion}.
                             </div>
                           ) : (
-                            <ResponsiveContainer width="100%" height="90%">
+                            <ResponsiveContainer width="100%" height="92%">
                               <PieChart>
                                 <Pie
                                   data={selectedRegionPieData}
                                   cx="50%"
                                   cy="50%"
                                   labelLine={true}
-                                  outerRadius={115}
+                                  outerRadius={148}
                                   dataKey="value"
                                   nameKey="name"
                                   label={({ name, value, percent }) =>
@@ -4103,14 +4531,14 @@ export default function NationalStatistics() {
                         ) : filteredRevenueRows.filter((r) => Number(r.revenue || 0) > 0).length === 0 ? (
                           <div className="text-sm text-muted-foreground">Aucune donnée disponible.</div>
                         ) : (
-                          <ResponsiveContainer width="100%" height="90%">
+                          <ResponsiveContainer width="100%" height="92%">
                             <PieChart>
                               <Pie
                                 data={revenueChartData.filter((r) => Number(r.revenue || 0) > 0)}
                                 cx="50%"
                                 cy="50%"
                                 labelLine={true}
-                                outerRadius={115}
+                                outerRadius={148}
                                 fill="#7c3aed"
                                 dataKey="revenue"
                                 nameKey="label"
@@ -4141,17 +4569,15 @@ export default function NationalStatistics() {
             </TabsContent>
             <TabsContent value="alertes" className="space-y-4">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between pb-3">
+                  <CardTitle className="flex items-center gap-2 shrink-0">
                     <AlertTriangle className="h-5 w-5" /> Alertes
                   </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap items-end gap-3 print:hidden">
-                    <div className="flex flex-col">
-                      <Label>Période</Label>
+                  <div className="flex flex-wrap items-center gap-3 print:hidden">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium whitespace-nowrap">Période :</Label>
                       <Select value={alertPeriod} onValueChange={(v)=> setAlertPeriod(v as any)}>
-                        <SelectTrigger className="w-[180px]"><SelectValue placeholder="Période" /></SelectTrigger>
+                        <SelectTrigger className="h-9 w-[165px]"><SelectValue placeholder="Période" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="week">Semaine en cours</SelectItem>
                           <SelectItem value="month">Mois en cours</SelectItem>
@@ -4159,10 +4585,10 @@ export default function NationalStatistics() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex flex-col">
-                      <Label>Nature</Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium whitespace-nowrap">Nature :</Label>
                       <Select value={alertNature} onValueChange={setAlertNature}>
-                        <SelectTrigger className="w-[220px]"><SelectValue placeholder="Nature" /></SelectTrigger>
+                        <SelectTrigger className="h-9 w-[190px]"><SelectValue placeholder="Nature" /></SelectTrigger>
                         <SelectContent>
                           {alertNatures.map(n => (
                             <SelectItem key={n} value={n}>{n.toUpperCase()}</SelectItem>
@@ -4170,23 +4596,40 @@ export default function NationalStatistics() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex flex-col">
-                      <Label>Région</Label>
-                      <Select value={alertRegionFilter} onValueChange={setAlertRegionFilter}>
-                        <SelectTrigger className="w-[200px]"><SelectValue placeholder="Toutes les régions" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="toutes">Toutes les régions</SelectItem>
-                          {alertRegionOptions.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {isSubZoneMode ? (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium whitespace-nowrap">{geoUnitLabel} :</Label>
+                        <Select value={alertSubZoneFilter} onValueChange={setAlertSubZoneFilter}>
+                          <SelectTrigger className="h-9 w-[195px]"><SelectValue placeholder={geoUnitPlural} /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="toutes">{geoUnitPlural}</SelectItem>
+                            {alertSubZoneOptions.map((zone) => (
+                              <SelectItem key={zone} value={zone}>{zone}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                        <Select value={alertRegionFilter} onValueChange={setAlertRegionFilter} disabled={isRegionLocked}>
+                          <SelectTrigger className="h-9 w-[185px]"><SelectValue placeholder="Toutes les régions" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="toutes">Toutes les régions</SelectItem>
+                            {alertRegionOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
 
                   {alertsLoading ? (
                     <div>Chargement...</div>
-                  ) : (filteredMapAlerts.length === 0 ? (
+                  ) : (displayedMapAlerts.length === 0 ? (
                     <div className="text-sm text-muted-foreground">
                       Aucune alerte trouvée pour la période sélectionnée.
                       Essayez de passer la période sur « Année en cours » ou retirez le filtre de nature.
@@ -4224,15 +4667,17 @@ export default function NationalStatistics() {
                             <tr>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date/Heure</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nature</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Département</th>
+                              {!isSubZoneMode && (
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
+                              )}
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{geoUnitLabel}</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expéditeur</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rôle</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lieu de service</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {(filteredMapAlerts || []).map((a) => {
+                            {(displayedMapAlerts || []).map((a) => {
                               const senderName = [a.sender?.first_name || '', a.sender?.last_name || ''].filter(Boolean).join(' ').trim();
                               const service = a.sender?.role === 'agent' || a.sender?.role === 'sub-agent'
                                 ? [a.sender?.region, a.sender?.departement].filter(Boolean).join(' / ')
@@ -4241,10 +4686,12 @@ export default function NationalStatistics() {
                                 <tr key={a.id}>
                                   <td className="px-4 py-2 whitespace-nowrap text-sm">{a.created_at ? new Date(a.created_at as any).toLocaleString('fr-FR') : ''}</td>
                                   <td className="px-4 py-2 whitespace-nowrap text-sm">{(a.nature || '').toUpperCase()}</td>
-                                  <td className="px-4 py-2 whitespace-nowrap text-sm">{prettyRegion(a.region || '')}</td>
-                                  <td className="px-4 py-2 whitespace-nowrap text-sm">{a.departement || ''}</td>
+                                  {!isSubZoneMode && (
+                                    <td className="px-4 py-2 whitespace-nowrap text-sm">{prettyRegion(a.region || '')}</td>
+                                  )}
+                                  <td className="px-4 py-2 whitespace-nowrap text-sm">{prettyDepartment(a.departement)}</td>
                                   <td className="px-4 py-2 whitespace-nowrap text-sm">{senderName}</td>
-                                  <td className="px-4 py-2 whitespace-nowrap text-sm">{a.sender?.role || ''}</td>
+                                  <td className="px-4 py-2 whitespace-nowrap text-sm">{a.sender?.grade || '—'}</td>
                                   <td className="px-4 py-2 whitespace-nowrap text-sm">{service}</td>
                                 </tr>
                               );
@@ -4258,94 +4705,124 @@ export default function NationalStatistics() {
               </Card>
             </TabsContent>
             <TabsContent value="categories" className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-                <Button
-                  variant={showCategoriesAnalysis ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setShowCategoriesAnalysis((v) => !v)}
-                >
-                  {showCategoriesAnalysis ? 'Retour aux répartitions' : 'Permis délivrés par région (%)'}
-                </Button>
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
-                  <Select value={categoriesRegionFilter} onValueChange={setCategoriesRegionFilter}>
-                    <SelectTrigger className="w-[220px] bg-white">
-                      <SelectValue placeholder="Toutes les régions" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="toutes">Toutes les régions</SelectItem>
-                      {categoriesRegionOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
               {showCategoriesAnalysis ? (
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Permis délivrés par région (%)</CardTitle>
+                  <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <CardTitle>Permis délivrés par {geoUnitLower} (%)</CardTitle>
+                    <div className="flex flex-wrap items-center gap-2 print:hidden">
+                      {!isRegionLocked && (
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                          <Select value={categoriesRegionFilter} onValueChange={setCategoriesRegionFilter}>
+                            <SelectTrigger className="w-[200px] bg-white">
+                              <SelectValue placeholder="Toutes les régions" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="toutes">Toutes les régions</SelectItem>
+                              {categoriesRegionOptions.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setShowCategoriesAnalysis(false)}
+                      >
+                        Retour aux répartitions
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {pcbrLoading ? (
-                      <div className="flex items-center justify-center h-80 text-sm text-muted-foreground">Chargement...</div>
-                    ) : permitsPivotTable.rows.filter((r) => r.total > 0).length === 0 ? (
-                      <div className="flex items-center justify-center h-80 text-sm text-muted-foreground">Aucun permis délivré.</div>
-                    ) : (
-                      <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={permitsPivotTable.rows
-                                .filter((r) => r.total > 0)
-                                .map((r) => ({ name: r.regionLabel, value: r.total }))}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={110}
-                              paddingAngle={3}
-                              dataKey="value"
-                              nameKey="name"
-                              label={({ name, value, percent }) => `${name} : ${value} (${(percent * 100).toFixed(0)}%)`}
-                            >
-                              {permitsPivotTable.rows
-                                .filter((r) => r.total > 0)
-                                .map((entry, idx) => (
-                                  <Cell key={`perm-reg-${entry.regionKey}`} fill={COLORS[idx % COLORS.length]} />
+                      <div className="flex items-center justify-center h-[420px] text-sm text-muted-foreground">Chargement...</div>
+                    ) : (() => {
+                      const pieEntries = isSubZoneMode
+                        ? subZoneStatsRows
+                            .filter((z) => z.activePermits > 0)
+                            .map((z) => ({ key: z.zone, name: z.zone, value: z.activePermits }))
+                        : permitsPivotTable.rows
+                            .filter((r) => r.total > 0)
+                            .map((r) => ({ key: r.regionKey, name: r.regionLabel, value: r.total }));
+                      const pieTotal = pieEntries.reduce((s, e) => s + e.value, 0) || 1;
+                      if (pieEntries.length === 0) {
+                        return (
+                          <div className="flex items-center justify-center h-[420px] text-sm text-muted-foreground">
+                            Aucun permis délivré.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="h-[420px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={pieEntries}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={75}
+                                outerRadius={145}
+                                paddingAngle={3}
+                                dataKey="value"
+                                nameKey="name"
+                                label={({ name, value, percent }) => `${name} : ${value} (${(percent * 100).toFixed(0)}%)`}
+                              >
+                                {pieEntries.map((entry, idx) => (
+                                  <Cell key={`perm-reg-${entry.key}`} fill={COLORS[idx % COLORS.length]} />
                                 ))}
-                            </Pie>
-                            <Tooltip
-                              formatter={(v: any, name: any) => {
-                                const total = permitsPivotTable.totals.total || 1;
-                                const pct = ((Number(v) / total) * 100).toFixed(1);
-                                return [`${Number(v).toLocaleString('fr-FR')} permis (${pct}%)`, String(name)];
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
+                              </Pie>
+                              <Tooltip
+                                formatter={(v: any, name: any) => {
+                                  const pct = ((Number(v) / pieTotal) * 100).toFixed(1);
+                                  return [`${Number(v).toLocaleString('fr-FR')} permis (${pct}%)`, String(name)];
+                                }}
+                              />
+                              <Legend />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               ) : (
-              /* Deux diagrammes circulaires (Donuts) côte à côte */
+              /* Deux diagrammes circulaires (Donuts) côte à côte, agrandis et rapprochés */
               <div className="grid gap-4 md:grid-cols-2">
                 <Card className="col-span-1">
-                  <CardHeader>
+                  <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <CardTitle>
                       Total chasseurs enregistrés : {huntersPivotTable.totals.total.toLocaleString('fr-FR')}
                     </CardTitle>
+                    {!isRegionLocked && (
+                      <div className="flex items-center gap-2 print:hidden">
+                        <Label className="text-xs font-medium whitespace-nowrap">Région :</Label>
+                        <Select value={categoriesRegionFilter} onValueChange={setCategoriesRegionFilter}>
+                          <SelectTrigger className="h-8 w-[180px] bg-white text-xs">
+                            <SelectValue placeholder="Toutes les régions" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="toutes">Toutes les régions</SelectItem>
+                            {categoriesRegionOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </CardHeader>
                   <CardContent>
                     {hbcLoading ? (
-                      <div className="flex items-center justify-center h-72 text-sm text-muted-foreground">Chargement...</div>
+                      <div className="flex items-center justify-center h-96 text-sm text-muted-foreground">Chargement...</div>
                     ) : huntersPivotTable.totals.total === 0 ? (
-                      <div className="flex items-center justify-center h-72 text-sm text-muted-foreground">Aucun chasseur enregistré pour cette sélection.</div>
+                      <div className="flex items-center justify-center h-96 text-sm text-muted-foreground">Aucun chasseur enregistré pour cette sélection.</div>
                     ) : (
-                      <div className="h-72">
+                      <div className="h-96">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
@@ -4356,8 +4833,8 @@ export default function NationalStatistics() {
                               ].filter((d) => d.value > 0)}
                               cx="50%"
                               cy="50%"
-                              innerRadius={55}
-                              outerRadius={95}
+                              innerRadius={70}
+                              outerRadius={125}
                               paddingAngle={3}
                               dataKey="value"
                               nameKey="name"
@@ -4383,18 +4860,26 @@ export default function NationalStatistics() {
                 </Card>
 
                 <Card className="col-span-1">
-                  <CardHeader>
+                  <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <CardTitle>
                       Total permis délivrés : {permitsPivotTable.totals.total.toLocaleString('fr-FR')}
                     </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="print:hidden border-emerald-300 text-emerald-900 hover:bg-emerald-50 font-semibold"
+                      onClick={() => setShowCategoriesAnalysis(true)}
+                    >
+                      Permis délivrés par {geoUnitLower} (%)
+                    </Button>
                   </CardHeader>
                   <CardContent>
                     {pcbrLoading ? (
-                      <div className="flex items-center justify-center h-72 text-sm text-muted-foreground">Chargement...</div>
+                      <div className="flex items-center justify-center h-96 text-sm text-muted-foreground">Chargement...</div>
                     ) : permitsPivotTable.totals.total === 0 ? (
-                      <div className="flex items-center justify-center h-72 text-sm text-muted-foreground">Aucun permis délivré pour cette sélection.</div>
+                      <div className="flex items-center justify-center h-96 text-sm text-muted-foreground">Aucun permis délivré pour cette sélection.</div>
                     ) : (
-                      <div className="h-72">
+                      <div className="h-96">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
@@ -4405,8 +4890,8 @@ export default function NationalStatistics() {
                               ].filter((d) => d.value > 0)}
                               cx="50%"
                               cy="50%"
-                              innerRadius={55}
-                              outerRadius={95}
+                              innerRadius={70}
+                              outerRadius={125}
                               paddingAngle={3}
                               dataKey="value"
                               nameKey="name"
@@ -4436,22 +4921,43 @@ export default function NationalStatistics() {
             <TabsContent value="regions">
               <Card>
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <CardTitle>Statistiques par région</CardTitle>
+                  <CardTitle>Statistiques par {geoUnitLower}</CardTitle>
                   <div className="flex items-center gap-2 print:hidden">
-                    <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
-                    <Select value={statsRegionFilter} onValueChange={setStatsRegionFilter}>
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Toutes les régions" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="toutes">Toutes les régions</SelectItem>
-                        {statsRegionOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {isSubZoneMode ? (
+                      <>
+                        <Label className="text-sm font-medium whitespace-nowrap">{geoUnitLabel} :</Label>
+                        <Select value={subZoneStatsFilter} onValueChange={setSubZoneStatsFilter}>
+                          <SelectTrigger className="w-[220px]">
+                            <SelectValue placeholder={geoUnitPlural} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="toutes">{geoUnitPlural}</SelectItem>
+                            {subZoneFilterOptions.map((z) => (
+                              <SelectItem key={z} value={z}>
+                                {z}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    ) : (
+                      <>
+                        <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                        <Select value={statsRegionFilter} onValueChange={setStatsRegionFilter} disabled={isRegionLocked}>
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Toutes les régions" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="toutes">Toutes les régions</SelectItem>
+                            {statsRegionOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -4459,7 +4965,7 @@ export default function NationalStatistics() {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{geoUnitLabel}</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permis actifs</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prélèvements</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxe d'abattage</th>
@@ -4467,15 +4973,35 @@ export default function NationalStatistics() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {(filteredByRegion || []).map((r) => (
-                          <tr key={r.region}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(r.region || '').toUpperCase()}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.activePermits ?? 0}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.piecesAbattues ?? 0}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{Number((r as any).taxAmount || 0).toLocaleString('fr-FR')} FCFA</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(r.revenue ?? 0).toLocaleString('fr-FR')} FCFA</td>
-                          </tr>
-                        ))}
+                        {isSubZoneMode ? (
+                          subZoneStatsRows.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-6 py-8 text-center text-sm text-muted-foreground">
+                                Aucune donnée enregistrée par {geoUnitLower} sur ce périmètre.
+                              </td>
+                            </tr>
+                          ) : (
+                            subZoneStatsRows.map((z) => (
+                              <tr key={z.zone}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(z.zone || '').toUpperCase()}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{z.activePermits ?? 0}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{z.piecesAbattues ?? 0}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{Number(z.taxesRevenue || 0).toLocaleString('fr-FR')} FCFA</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{Number((z.permitsRevenue || 0) + (z.taxesRevenue || 0)).toLocaleString('fr-FR')} FCFA</td>
+                              </tr>
+                            ))
+                          )
+                        ) : (
+                          (filteredByRegion || []).map((r) => (
+                            <tr key={r.region}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(r.region || '').toUpperCase()}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.activePermits ?? 0}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.piecesAbattues ?? 0}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{Number((r as any).taxAmount || 0).toLocaleString('fr-FR')} FCFA</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(r.revenue ?? 0).toLocaleString('fr-FR')} FCFA</td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -4486,23 +5012,52 @@ export default function NationalStatistics() {
             <TabsContent value="especes">
               <Card>
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <CardTitle>Prélèvements par espèce et par région</CardTitle>
+                  <CardTitle>Prélèvements par espèce et par {geoUnitLower}</CardTitle>
                   <div className="flex flex-wrap items-center gap-3 print:hidden">
                     <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
-                      <Select value={speciesRegionFilter} onValueChange={setSpeciesRegionFilter}>
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="Toutes les régions" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="toutes">Toutes les régions</SelectItem>
-                          {speciesRegionOptions.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {isSubZoneMode ? (
+                        <>
+                          <Label className="text-sm font-medium whitespace-nowrap">{geoUnitLabel} :</Label>
+                          <Select value={speciesSubZoneFilter} onValueChange={setSpeciesSubZoneFilter}>
+                            <SelectTrigger className="w-[220px]">
+                              <SelectValue placeholder={geoUnitPlural} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="toutes">{geoUnitPlural}</SelectItem>
+                              {Array.from(
+                                new Set(
+                                  (filteredSpeciesByRegion || [])
+                                    .map((r) => prettyDepartment(r.departement || 'Non renseigné'))
+                                    .filter(Boolean)
+                                )
+                              )
+                                .sort((a, b) => a.localeCompare(b, 'fr'))
+                                .map((dept) => (
+                                  <SelectItem key={dept} value={dept}>
+                                    {dept}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </>
+                      ) : (
+                        <>
+                          <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                          <Select value={speciesRegionFilter} onValueChange={setSpeciesRegionFilter} disabled={isRegionLocked}>
+                            <SelectTrigger className="w-[200px]">
+                              <SelectValue placeholder="Toutes les régions" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="toutes">Toutes les régions</SelectItem>
+                              {speciesRegionOptions.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Label className="text-sm font-medium whitespace-nowrap">Catégorie :</Label>
@@ -4527,7 +5082,10 @@ export default function NationalStatistics() {
                     <div>Chargement...</div>
                   ) : (
                     (() => {
-                      const rows = filteredSpeciesByRegion || [];
+                      const rows = (filteredSpeciesByRegion || []).filter((r) => {
+                        if (!isSubZoneMode || speciesSubZoneFilter === 'toutes') return true;
+                        return prettyDepartment(r.departement || 'Non renseigné') === speciesSubZoneFilter;
+                      });
                       const bySpeciesRegion = new Map<
                         string,
                         {
@@ -4545,8 +5103,12 @@ export default function NationalStatistics() {
                       >();
                       for (const r of rows) {
                         const id = r.speciesId || 'unknown';
-                        const regKey = canonicalRegionKey(r.region);
-                        const regLabel = REGION_LABELS[regKey] || prettyRegion(r.region);
+                        const regKey = isSubZoneMode
+                          ? removeDiacritics(String(r.departement || 'non renseigne').trim().toLowerCase())
+                          : canonicalRegionKey(r.region);
+                        const regLabel = isSubZoneMode
+                          ? prettyDepartment(r.departement || 'Non renseigné')
+                          : (REGION_LABELS[regKey] || prettyRegion(r.region));
                         const groupKey = `${id}::${regKey}`;
                         const entry = bySpeciesRegion.get(groupKey) || {
                           key: groupKey,
@@ -4591,7 +5153,7 @@ export default function NationalStatistics() {
                               <tr>
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Espèce</th>
                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
-                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Région</th>
+                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{geoUnitLabel}</th>
                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Coordonnées UTM (X / Y)</th>
                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Permis</th>
                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Déclarant</th>
@@ -4640,18 +5202,16 @@ export default function NationalStatistics() {
 
             <TabsContent value="armes" className="space-y-4">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between pb-3">
+                  <CardTitle className="flex items-center gap-2 shrink-0">
                     <Shield className="h-5 w-5" /> Statistiques des Armes
                   </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Filtres et actions */}
-                  <div className="flex flex-wrap items-end gap-3 print:hidden">
-                    <div className="flex flex-col">
-                      <Label>Région</Label>
-                      <Select value={weaponRegionFilter} onValueChange={setWeaponRegionFilter}>
-                        <SelectTrigger className="w-[200px]"><SelectValue placeholder="Toutes" /></SelectTrigger>
+                  {/* Filtres alignés sur la ligne de titre */}
+                  <div className="flex flex-wrap items-center gap-3 print:hidden">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium whitespace-nowrap">Région :</Label>
+                      <Select value={weaponRegionFilter} onValueChange={setWeaponRegionFilter} disabled={isRegionLocked}>
+                        <SelectTrigger className="h-9 w-[170px]"><SelectValue placeholder="Toutes" /></SelectTrigger>
                         <SelectContent>
                           {weaponFilterOptions.regions.map(r => (
                             <SelectItem key={r} value={r}>{r === 'toutes' ? 'Toutes les régions' : r}</SelectItem>
@@ -4659,10 +5219,10 @@ export default function NationalStatistics() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex flex-col">
-                      <Label>Marque</Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium whitespace-nowrap">Marque :</Label>
                       <Select value={weaponBrandFilter} onValueChange={setWeaponBrandFilter}>
-                        <SelectTrigger className="w-[200px]"><SelectValue placeholder="Toutes" /></SelectTrigger>
+                        <SelectTrigger className="h-9 w-[175px]"><SelectValue placeholder="Toutes" /></SelectTrigger>
                         <SelectContent>
                           {weaponFilterOptions.brands.map(b => (
                             <SelectItem key={b} value={b}>{b === 'toutes' ? 'Toutes les marques' : b}</SelectItem>
@@ -4670,10 +5230,10 @@ export default function NationalStatistics() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex flex-col">
-                      <Label>Catégorie</Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium whitespace-nowrap">Catégorie :</Label>
                       <Select value={weaponCategoryFilter} onValueChange={setWeaponCategoryFilter}>
-                        <SelectTrigger className="w-[200px]"><SelectValue placeholder="Toutes" /></SelectTrigger>
+                        <SelectTrigger className="h-9 w-[185px]"><SelectValue placeholder="Toutes" /></SelectTrigger>
                         <SelectContent>
                           {weaponFilterOptions.categories.map(c => (
                             <SelectItem key={c} value={c}>{c === 'toutes' ? 'Toutes les catégories' : c}</SelectItem>
@@ -4682,7 +5242,8 @@ export default function NationalStatistics() {
                       </Select>
                     </div>
                   </div>
-
+                </CardHeader>
+                <CardContent className="space-y-4">
                   {weaponsLoading ? (
                     <div>Chargement des données d'armes...</div>
                   ) : (
@@ -4710,10 +5271,10 @@ export default function NationalStatistics() {
                       {/* Expiration des permis de port d'arme */}
                       <div className="grid gap-4 md:grid-cols-2">
                         <Card>
-                          <CardHeader>
+                          <CardHeader className="pb-2">
                             <CardTitle className="text-lg">Expiration des permis de port d'arme</CardTitle>
                           </CardHeader>
-                          <CardContent className="h-[300px]">
+                          <CardContent className="h-[340px]">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                 <Pie
@@ -4721,7 +5282,7 @@ export default function NationalStatistics() {
                                   cx="50%"
                                   cy="50%"
                                   labelLine={false}
-                                  outerRadius={80}
+                                  outerRadius={105}
                                   fill="#8884d8"
                                   dataKey="value"
                                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
@@ -4738,7 +5299,7 @@ export default function NationalStatistics() {
                         </Card>
 
                         <Card>
-                          <CardHeader>
+                          <CardHeader className="pb-2">
                             <CardTitle className="text-lg">Détails des expirations</CardTitle>
                           </CardHeader>
                           <CardContent>
@@ -4767,10 +5328,10 @@ export default function NationalStatistics() {
                       {/* Armes par marque */}
                       <div className="grid gap-4 md:grid-cols-2">
                         <Card>
-                          <CardHeader>
+                          <CardHeader className="pb-2">
                             <CardTitle className="text-lg">Répartition par marque</CardTitle>
                           </CardHeader>
-                          <CardContent className="h-[300px]">
+                          <CardContent className="h-[340px]">
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart
                                 data={(weaponStats?.weaponsByBrand || []).slice(0, 5)}

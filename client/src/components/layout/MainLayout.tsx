@@ -208,12 +208,12 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
   // Expose sidebar width as a CSS variable for pages needing layout offsets (e.g., MapPage)
   useEffect(() => {
-    const width = isSidebarCollapsed ? '4rem' : '16rem'; // 64px or 256px
+    const width = hideSidebarAndNav ? '0px' : (isSidebarCollapsed ? '4rem' : '16rem'); // 0px, 64px or 256px
     document.documentElement.style.setProperty('--sidebar-width', width);
     return () => {
       document.documentElement.style.removeProperty('--sidebar-width');
     };
-  }, [isSidebarCollapsed]);
+  }, [isSidebarCollapsed, hideSidebarAndNav]);
 
   // Scroll containment is now handled by the layout structure:
   // - Root div: h-screen overflow-hidden (prevents body scroll)

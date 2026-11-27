@@ -12,6 +12,7 @@ import {
     users
 } from '../../shared/schema.js';
 import { db } from '../db.js';
+import { resolveAdministrativeAreas } from '../lib/resolveAdminAreas.js';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 
 const router = Router();
@@ -235,6 +236,8 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
     const rows: Array<{
       region: string;
       departement: string | null;
+      arrondissement: string | null;
+      commune: string | null;
       species_id: string;
       nom_espece: string | null;
       nom_scientifique: string | null;
@@ -248,6 +251,8 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
       sql`SELECT
             COALESCE(LOWER(TRIM(x.region)), 'nondefini') AS region,
             NULLIF(TRIM(x.departement), '') AS departement,
+            NULLIF(TRIM(x.arrondissement), '') AS arrondissement,
+            NULLIF(TRIM(x.commune), '') AS commune,
             x.species_id,
             COALESCE(x.nom_espece, '') AS nom_espece,
             COALESCE(x.nom_scientifique, '') AS nom_scientifique,
@@ -268,14 +273,22 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
               COALESCE(
                 NULLIF(TRIM(d.region), ''),
                 NULLIF(TRIM(u.region), ''),
-                NULLIF(TRIM(h_d.region), ''),
-                NULLIF(TRIM(d.location), '')
+                NULLIF(TRIM(h_d.region), '')
               ) AS region,
               COALESCE(
+                NULLIF(TRIM(d.departement), ''),
                 NULLIF(TRIM(u.departement), ''),
                 NULLIF(TRIM(h_d.departement), ''),
-                NULLIF(TRIM(d.location), '')
+                CASE
+                  WHEN d.location IS NOT NULL
+                    AND d.location !~* '^\\s*gps\\s*:'
+                    AND d.location !~ '^\\s*-?\\d+(\\.\\d+)?\\s*[,;]\\s*-?\\d+(\\.\\d+)?\\s*$'
+                  THEN NULLIF(TRIM(d.location), '')
+                  ELSE NULL
+                END
               ) AS departement,
+              COALESCE(NULLIF(TRIM(d.arrondissement), ''), NULLIF(TRIM(u.arrondissement), '')) AS arrondissement,
+              COALESCE(NULLIF(TRIM(d.commune), ''), NULLIF(TRIM(u.commune), '')) AS commune,
               d.espece_id AS species_id,
               d.nom_espece,
               d.nom_scientifique,
@@ -301,14 +314,22 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
                 NULLIF(TRIM(ha.region), ''),
                 NULLIF(TRIM(d_src.region), ''),
                 NULLIF(TRIM(u_src.region), ''),
-                NULLIF(TRIM(h_ha.region), ''),
-                NULLIF(TRIM(ha.location), '')
+                NULLIF(TRIM(h_ha.region), '')
               ) AS region,
               COALESCE(
+                NULLIF(TRIM(d_src.departement), ''),
                 NULLIF(TRIM(u_src.departement), ''),
                 NULLIF(TRIM(h_ha.departement), ''),
-                NULLIF(TRIM(ha.location), '')
+                CASE
+                  WHEN ha.location IS NOT NULL
+                    AND ha.location !~* '^\\s*gps\\s*:'
+                    AND ha.location !~ '^\\s*-?\\d+(\\.\\d+)?\\s*[,;]\\s*-?\\d+(\\.\\d+)?\\s*$'
+                  THEN NULLIF(TRIM(ha.location), '')
+                  ELSE NULL
+                END
               ) AS departement,
+              COALESCE(NULLIF(TRIM(d_src.arrondissement), ''), NULLIF(TRIM(u_src.arrondissement), '')) AS arrondissement,
+              COALESCE(NULLIF(TRIM(d_src.commune), ''), NULLIF(TRIM(u_src.commune), '')) AS commune,
               ha.species_id,
               ha.species_name AS nom_espece,
               ha.scientific_name AS nom_scientifique,
@@ -333,19 +354,63 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
           ORDER BY region ASC, species_id ASC` as any
     ) as any;
 
-    const data = (rows || []).map(r => ({
-      region: canonicalRegionName(r.region),
-      departement: r.departement ? String(r.departement).trim() : null,
-      speciesId: r.species_id,
-      speciesName: r.nom_espece || undefined,
-      scientificName: r.nom_scientifique || undefined,
-      quantity: Number(r.quantity || 0),
-      lat: r.lat != null && r.lat !== '' ? Number(r.lat) : null,
-      lon: r.lon != null && r.lon !== '' ? Number(r.lon) : null,
-      permitNumber: r.permit_number ? String(r.permit_number).trim() : null,
-      declaredBy: r.declared_by || 'Chasseur',
-      category: r.category ? String(r.category).trim() : null,
-    }));
+    const isGpsText = (val?: string | null) => {
+      if (!val) return false;
+      const s = val.trim();
+      return /^gps\s*:/i.test(s) || /^-?\d+(\.\d+)?\s*[,;]\s*-?\d+(\.\d+)?$/.test(s);
+    };
+
+    const geoCache = new Map<string, { region: string | null; departement: string | null; arrondissement: string | null; commune: string | null }>();
+    const rawRows = Array.isArray(rows) ? rows : ((rows as any)?.rows || []);
+    const data = await Promise.all(
+      rawRows.map(async (r: any) => {
+        const lat = r.lat != null && r.lat !== '' ? Number(r.lat) : null;
+        const lon = r.lon != null && r.lon !== '' ? Number(r.lon) : null;
+        let dept = r.departement && !isGpsText(String(r.departement)) ? String(r.departement).trim() : null;
+        let arr = r.arrondissement ? String(r.arrondissement).trim() : null;
+        let com = r.commune ? String(r.commune).trim() : null;
+        let reg = r.region && !isGpsText(String(r.region)) ? String(r.region).trim() : null;
+
+        if ((!dept || !arr || !reg || reg === 'nondefini') && lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)) {
+          const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+          let resolved = geoCache.get(cacheKey);
+          if (!resolved) {
+            try {
+              const areas = await resolveAdministrativeAreas(lat, lon);
+              resolved = {
+                region: areas.region || null,
+                departement: areas.departement || null,
+                arrondissement: areas.arrondissement || null,
+                commune: areas.commune || null,
+              };
+            } catch {
+              resolved = { region: null, departement: null, arrondissement: null, commune: null };
+            }
+            geoCache.set(cacheKey, resolved);
+          }
+          if (!dept && resolved.departement) dept = resolved.departement;
+          if (!arr && resolved.arrondissement) arr = resolved.arrondissement;
+          if (!com && resolved.commune) com = resolved.commune;
+          if ((!reg || reg === 'nondefini') && resolved.region) reg = resolved.region;
+        }
+
+        return {
+          region: canonicalRegionName(reg),
+          departement: dept,
+          arrondissement: arr,
+          commune: com,
+          speciesId: r.species_id,
+          speciesName: r.nom_espece || undefined,
+          scientificName: r.nom_scientifique || undefined,
+          quantity: Number(r.quantity || 0),
+          lat,
+          lon,
+          permitNumber: r.permit_number ? String(r.permit_number).trim() : null,
+          declaredBy: r.declared_by || 'Chasseur',
+          category: r.category ? String(r.category).trim() : null,
+        };
+      })
+    );
 
     return res.json(data);
   } catch (error) {

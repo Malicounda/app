@@ -252,10 +252,24 @@ router.get('/overview', async (req: Request, res: Response) => {
     // ── 1. KPI CHASSE ──────────────────────────────────────────────────────────
     let chasseKpi: any = null;
     if (showChasse) {
-      const [huntersRes, permitsRes, requestsRes, guidesRes, taxesRes, infractionsRes] = await Promise.all([
+      const [
+        huntersRes,
+        permitsRes,
+        requestsRes,
+        guidesRes,
+        taxesRes,
+        infractionsRes,
+        zonesRes,
+        speciesRes,
+      ] = await Promise.all([
         db.execute(sql`
           SELECT
             h.id,
+            h.category,
+            h.weapon_type AS "weaponType",
+            h.weapon_brand AS "weaponBrand",
+            h.weapon_caliber AS "weaponCaliber",
+            h.weapon_reference AS "weaponReference",
             COALESCE(NULLIF(TRIM(h.region), ''), NULLIF(TRIM(u_h.region), ''), NULLIF(TRIM(u_c.region), '')) AS region,
             COALESCE(NULLIF(TRIM(h.departement), ''), NULLIF(TRIM(u_h.departement), ''), NULLIF(TRIM(u_c.departement), '')) AS departement,
             COALESCE(NULLIF(TRIM(u_h.arrondissement), ''), NULLIF(TRIM(u_c.arrondissement), '')) AS arrondissement,
@@ -273,11 +287,15 @@ router.get('/overview', async (req: Request, res: Response) => {
             p.type,
             p.category_id AS "categoryId",
             p.expiry_date AS "expiryDate",
-            COALESCE(NULLIF(TRIM(h.region), ''), NULLIF(TRIM(u_h.region), ''), NULLIF(TRIM(u_c.region), '')) AS region,
-            COALESCE(NULLIF(TRIM(h.departement), ''), NULLIF(TRIM(u_h.departement), ''), NULLIF(TRIM(u_c.departement), '')) AS departement,
-            COALESCE(NULLIF(TRIM(u_h.arrondissement), ''), NULLIF(TRIM(u_c.arrondissement), '')) AS arrondissement,
-            COALESCE(NULLIF(TRIM(u_h.commune), ''), NULLIF(TRIM(u_c.commune), '')) AS commune
+            pc.label_fr AS "categoryLabel",
+            pc.groupe AS "categoryGroupe",
+            pc.genre AS "categoryGenre",
+            COALESCE(NULLIF(TRIM(u_c.region), ''), NULLIF(TRIM(h.region), ''), NULLIF(TRIM(u_h.region), '')) AS region,
+            COALESCE(NULLIF(TRIM(u_c.departement), ''), NULLIF(TRIM(h.departement), ''), NULLIF(TRIM(u_h.departement), '')) AS departement,
+            COALESCE(NULLIF(TRIM(u_c.arrondissement), ''), NULLIF(TRIM(u_h.arrondissement), '')) AS arrondissement,
+            COALESCE(NULLIF(TRIM(u_c.commune), ''), NULLIF(TRIM(u_h.commune), '')) AS commune
           FROM permits p
+          LEFT JOIN permit_categories pc ON pc.key = p.category_id
           LEFT JOIN hunters h ON h.id = p.hunter_id
           LEFT JOIN users u_h ON u_h.hunter_id = h.id
           LEFT JOIN users u_c ON u_c.id = p.created_by
@@ -297,6 +315,7 @@ router.get('/overview', async (req: Request, res: Response) => {
         db.execute(sql`
           SELECT
             g.id,
+            g.zone_id AS "zoneId",
             COALESCE(NULLIF(TRIM(g.region), ''), NULLIF(TRIM(u.region), '')) AS region,
             COALESCE(NULLIF(TRIM(g.departement), ''), NULLIF(TRIM(u.departement), '')) AS departement,
             NULLIF(TRIM(u.arrondissement), '') AS arrondissement,
@@ -310,8 +329,9 @@ router.get('/overview', async (req: Request, res: Response) => {
             t.id,
             t.amount,
             t.quantity,
-            COALESCE(NULLIF(TRIM(t.external_hunter_region), ''), NULLIF(TRIM(h.region), ''), NULLIF(TRIM(u_c.region), '')) AS region,
-            COALESCE(NULLIF(TRIM(h.departement), ''), NULLIF(TRIM(u_c.departement), '')) AS departement,
+            t.animal_type AS "animalType",
+            COALESCE(NULLIF(TRIM(u_c.region), ''), NULLIF(TRIM(t.external_hunter_region), ''), NULLIF(TRIM(h.region), '')) AS region,
+            COALESCE(NULLIF(TRIM(u_c.departement), ''), NULLIF(TRIM(h.departement), '')) AS departement,
             NULLIF(TRIM(u_c.arrondissement), '') AS arrondissement,
             NULLIF(TRIM(u_c.commune), '') AS commune
           FROM taxes t
@@ -322,13 +342,114 @@ router.get('/overview', async (req: Request, res: Response) => {
           SELECT
             i.id,
             i.montant_chiffre AS "montantChiffre",
-            NULLIF(TRIM(u.region), '') AS region,
-            NULLIF(TRIM(u.departement), '') AS departement,
-            NULLIF(TRIM(u.arrondissement), '') AS arrondissement,
-            NULLIF(TRIM(u.commune), '') AS commune
+            COALESCE(NULLIF(TRIM(l.region), ''), NULLIF(TRIM(u.region), '')) AS region,
+            COALESCE(NULLIF(TRIM(l.departement), ''), NULLIF(TRIM(u.departement), '')) AS departement,
+            COALESCE(NULLIF(TRIM(l.arrondissement), ''), NULLIF(TRIM(u.arrondissement), '')) AS arrondissement,
+            COALESCE(NULLIF(TRIM(l.commune), ''), NULLIF(TRIM(u.commune), '')) AS commune
           FROM infractions i
+          LEFT JOIN lieux l ON l.id = i.lieu_id
           LEFT JOIN users u ON u.id = COALESCE(i.agent_id, i.created_by)
-        `),
+        `).catch(() =>
+          db.execute(sql`
+            SELECT
+              i.id,
+              i.montant_chiffre AS "montantChiffre",
+              NULLIF(TRIM(u.region), '') AS region,
+              NULLIF(TRIM(u.departement), '') AS departement,
+              NULLIF(TRIM(u.arrondissement), '') AS arrondissement,
+              NULLIF(TRIM(u.commune), '') AS commune
+            FROM infractions i
+            LEFT JOIN users u ON u.id = COALESCE(i.agent_id, i.created_by)
+          `)
+        ),
+        db.execute(sql`
+          SELECT
+            z.id,
+            z.name,
+            z.type,
+            z.status,
+            z.responsible_name AS "responsibleName",
+            z.responsible_phone AS "responsiblePhone",
+            COALESCE(z.guides_count, 0) AS "guidesCount",
+            COALESCE(z.trackers_count, 0) AS "trackersCount",
+            COALESCE(zg.linked_guides, 0) AS "linkedGuides",
+            z.region,
+            z.departement,
+            z.arrondissement,
+            z.commune,
+            COALESCE(
+              CASE WHEN z.geometry IS NOT NULL THEN ST_Area(Geography(z.geometry)) / 10000.0 ELSE NULL END,
+              z.area_sq_km * 100.0,
+              0
+            ) AS "surfaceHa"
+          FROM zones z
+          LEFT JOIN (
+            SELECT zone_id, COUNT(DISTINCT guide_id) AS linked_guides
+            FROM zone_guides
+            GROUP BY zone_id
+          ) zg ON zg.zone_id = z.id
+          ORDER BY z.name ASC
+        `).catch(() =>
+          db.execute(sql`
+            SELECT
+              id, name, type, status,
+              responsible_name AS "responsibleName",
+              responsible_phone AS "responsiblePhone",
+              COALESCE(guides_count, 0) AS "guidesCount",
+              COALESCE(trackers_count, 0) AS "trackersCount",
+              0 AS "linkedGuides",
+              region, departement, arrondissement, commune,
+              COALESCE(area_sq_km * 100.0, 0) AS "surfaceHa"
+            FROM zones
+            ORDER BY name ASC
+          `).catch(() => [])
+        ),
+        db.execute(sql`
+          SELECT
+            COALESCE(NULLIF(TRIM(e.nom), ''), NULLIF(TRIM(x.nom_espece), ''), NULLIF(TRIM(x.species_id), ''), 'Autre espèce') AS "speciesName",
+            COALESCE(NULLIF(TRIM(e.nom_scientifique), ''), NULLIF(TRIM(x.nom_scientifique), ''), '') AS "scientificName",
+            COALESCE(NULLIF(TRIM(e.groupe), ''), NULLIF(TRIM(x.category), ''), 'Autre') AS category,
+            COALESCE(x.quantity, 0) AS quantity,
+            x.region,
+            x.departement,
+            x.arrondissement,
+            x.commune
+          FROM (
+            SELECT
+              COALESCE(NULLIF(TRIM(d.region), ''), NULLIF(TRIM(u.region), ''), NULLIF(TRIM(h_d.region), '')) AS region,
+              COALESCE(NULLIF(TRIM(d.departement), ''), NULLIF(TRIM(u.departement), ''), NULLIF(TRIM(h_d.departement), '')) AS departement,
+              COALESCE(NULLIF(TRIM(d.arrondissement), ''), NULLIF(TRIM(u.arrondissement), '')) AS arrondissement,
+              COALESCE(NULLIF(TRIM(d.commune), ''), NULLIF(TRIM(u.commune), '')) AS commune,
+              d.espece_id AS species_id,
+              d.nom_espece,
+              d.nom_scientifique,
+              d.quantity,
+              d.category
+            FROM declaration_especes d
+            LEFT JOIN users u ON u.id = d.user_id
+            LEFT JOIN hunters h_d ON h_d.id = d.hunter_id
+            WHERE (d.status IS NULL OR d.status = 'pending')
+
+            UNION ALL
+
+            SELECT
+              COALESCE(NULLIF(TRIM(ha.region), ''), NULLIF(TRIM(d_src.region), ''), NULLIF(TRIM(u_src.region), ''), NULLIF(TRIM(h_ha.region), '')) AS region,
+              COALESCE(NULLIF(TRIM(d_src.departement), ''), NULLIF(TRIM(u_src.departement), ''), NULLIF(TRIM(h_ha.departement), '')) AS departement,
+              COALESCE(NULLIF(TRIM(d_src.arrondissement), ''), NULLIF(TRIM(u_src.arrondissement), '')) AS arrondissement,
+              COALESCE(NULLIF(TRIM(d_src.commune), ''), NULLIF(TRIM(u_src.commune), '')) AS commune,
+              ha.species_id,
+              ha.species_name AS nom_espece,
+              ha.scientific_name AS nom_scientifique,
+              ha.quantity,
+              d_src.category
+            FROM hunting_activities ha
+            LEFT JOIN declaration_especes d_src ON ha.source_id = d_src.id
+            LEFT JOIN users u_src ON u_src.id = d_src.user_id
+            LEFT JOIN hunters h_ha ON h_ha.id = ha.hunter_id
+          ) x
+          LEFT JOIN especes e ON (e.id::text = x.species_id::text OR LOWER(TRIM(e.nom)) = LOWER(TRIM(x.nom_espece)))
+          WHERE COALESCE(x.quantity, 0) > 0
+        `).catch(() => []),
       ]);
 
       const hunterRows = asRows(huntersRes);
@@ -337,12 +458,12 @@ router.get('/overview', async (req: Request, res: Response) => {
       const guideRows = asRows(guidesRes);
       const taxRows = asRows(taxesRes);
       const infractionRows = asRows(infractionsRes);
+      const zoneRows = asRows(zonesRes);
+      const speciesRows = asRows(speciesRes);
 
       // Collecter toutes les sous-zones disponibles dans le périmètre (avant subFilter)
       const collectZones = (rows: any[]) => {
         for (const r of rows) {
-          const prevSub = subFilter;
-          // check parent scope without subFilter
           const inParent =
             posture.level === 'national'
               ? true
@@ -351,7 +472,6 @@ router.get('/overview', async (req: Request, res: Response) => {
                 : posture.level === 'departemental'
                   ? (posture.departement ? matchesText(r.departement, posture.departement) : matchesText(r.region, posture.region))
                   : (posture.arrondissement ? matchesText(r.arrondissement, posture.arrondissement) : matchesText(r.departement, posture.departement));
-          void prevSub;
           if (inParent) {
             const z = getSubZoneKey(r);
             if (z && z !== 'Non renseignée' && z !== 'Non renseigné') subZonesSet.add(z);
@@ -360,6 +480,7 @@ router.get('/overview', async (req: Request, res: Response) => {
       };
       collectZones(hunterRows);
       collectZones(permitRows);
+      collectZones(zoneRows);
 
       const scopedHunters = hunterRows.filter(inTerritorialScope);
       const scopedPermits = permitRows.filter(inTerritorialScope);
@@ -367,12 +488,26 @@ router.get('/overview', async (req: Request, res: Response) => {
       const scopedGuides = guideRows.filter(inTerritorialScope);
       const scopedTaxes = taxRows.filter(inTerritorialScope);
       const scopedInfractions = infractionRows.filter(inTerritorialScope);
+      const scopedZones = zoneRows.filter(inTerritorialScope);
+      const scopedSpecies = speciesRows.filter(inTerritorialScope);
 
       const now = new Date();
       let activePermits = 0;
       let expiredPermits = 0;
       let permitsRevenue = 0;
       const categoryMap = new Map<string, { category: string; count: number; revenue: number }>();
+
+      const revenuesBreakdown = {
+        petiteChasse: 0,
+        gibierEau: 0,
+        grandeChasse: 0,
+        taxeAmodiation: 0,
+        licencesGuides: 0,
+        attestationsPisteurs: 0,
+        taxeReservePrivee: 0,
+        taxesAbattage: 0,
+        contentieux: 0,
+      };
 
       const breakdownMap = new Map<
         string,
@@ -385,6 +520,8 @@ router.get('/overview', async (req: Request, res: Response) => {
           permitsRevenue: number;
           taxesRevenue: number;
           infractions: number;
+          piecesAbattues: number;
+          weaponsCount: number;
         }
       >();
       const ensureZone = (z: string) => {
@@ -399,18 +536,49 @@ router.get('/overview', async (req: Request, res: Response) => {
             permitsRevenue: 0,
             taxesRevenue: 0,
             infractions: 0,
+            piecesAbattues: 0,
+            weaponsCount: 0,
           };
           breakdownMap.set(z, entry);
         }
         return entry;
       };
 
+      // Armes à feu enregistrées & catégories de chasseurs
+      let totalWeapons = 0;
+      const weaponTypeMap = new Map<string, number>();
+      const weaponCaliberMap = new Map<string, number>();
+      const weaponBrandMap = new Map<string, number>();
+      const weaponDetailMap = new Map<string, { weaponType: string; brand: string; caliber: string; count: number }>();
+      const hunterCatMap = new Map<string, number>();
+
       for (const h of scopedHunters) {
-        ensureZone(getSubZoneKey(h)).hunters++;
+        const zEntry = ensureZone(getSubZoneKey(h));
+        zEntry.hunters++;
+
+        const hCat = String(h.category || 'Non défini').trim() || 'Non défini';
+        hunterCatMap.set(hCat, (hunterCatMap.get(hCat) || 0) + 1);
+
+        const wType = String(h.weaponType || '').trim();
+        if (wType) {
+          totalWeapons++;
+          zEntry.weaponsCount++;
+          const wBrand = String(h.weaponBrand || 'Non spécifiée').trim() || 'Non spécifiée';
+          const wCal = String(h.weaponCaliber || 'Non spécifié').trim() || 'Non spécifié';
+          weaponTypeMap.set(wType, (weaponTypeMap.get(wType) || 0) + 1);
+          weaponCaliberMap.set(wCal, (weaponCaliberMap.get(wCal) || 0) + 1);
+          weaponBrandMap.set(wBrand, (weaponBrandMap.get(wBrand) || 0) + 1);
+          const dk = `${norm(wType)}::${norm(wBrand)}::${norm(wCal)}`;
+          const prev = weaponDetailMap.get(dk) || { weaponType: wType, brand: wBrand, caliber: wCal, count: 0 };
+          prev.count++;
+          weaponDetailMap.set(dk, prev);
+        }
       }
+
       for (const g of scopedGuides) {
         ensureZone(getSubZoneKey(g)).guides++;
       }
+
       for (const p of scopedPermits) {
         const price = Number(p.price) || 0;
         permitsRevenue += price;
@@ -420,11 +588,29 @@ router.get('/overview', async (req: Request, res: Response) => {
         if (isActive) activePermits++;
         else if (isExpired) expiredPermits++;
 
-        const catLabel = String(p.type || p.categoryId || 'Autre').trim() || 'Autre';
+        const catLabel = String(p.categoryLabel || p.type || p.categoryId || 'Autre').trim() || 'Autre';
         const cat = categoryMap.get(catLabel) || { category: catLabel, count: 0, revenue: 0 };
         cat.count++;
         cat.revenue += price;
         categoryMap.set(catLabel, cat);
+
+        // Ventilation financière (Petite chasse / Gibier d'eau / Grande chasse / Amodiation & Licences)
+        const combined = norm(`${p.categoryId || ''} ${p.type || ''} ${p.categoryGroupe || ''} ${p.categoryLabel || ''}`);
+        if (combined.includes('amodiation')) {
+          revenuesBreakdown.taxeAmodiation += price;
+        } else if (combined.includes('pisteur')) {
+          revenuesBreakdown.attestationsPisteurs += price;
+        } else if (combined.includes('reserve')) {
+          revenuesBreakdown.taxeReservePrivee += price;
+        } else if (combined.includes('licence') || combined.includes('guide')) {
+          revenuesBreakdown.licencesGuides += price;
+        } else if (combined.includes('eau') || combined.includes('waterfowl')) {
+          revenuesBreakdown.gibierEau += price;
+        } else if (combined.includes('grande')) {
+          revenuesBreakdown.grandeChasse += price;
+        } else {
+          revenuesBreakdown.petiteChasse += price;
+        }
 
         const zEntry = ensureZone(getSubZoneKey(p));
         if (isActive) zEntry.activePermits++;
@@ -448,17 +634,108 @@ router.get('/overview', async (req: Request, res: Response) => {
         const amt = Number(t.amount) || 0;
         taxesRevenue += amt;
         ensureZone(getSubZoneKey(t)).taxesRevenue += amt;
+
+        const animalNorm = norm(t.animalType || '');
+        if (animalNorm.includes('amodiation')) {
+          revenuesBreakdown.taxeAmodiation += amt;
+        } else if (animalNorm.includes('licence')) {
+          revenuesBreakdown.licencesGuides += amt;
+        } else if (animalNorm.includes('pisteur')) {
+          revenuesBreakdown.attestationsPisteurs += amt;
+        } else if (animalNorm.includes('reserve')) {
+          revenuesBreakdown.taxeReservePrivee += amt;
+        } else {
+          revenuesBreakdown.taxesAbattage += amt;
+        }
       }
 
       let infractionsAmount = 0;
       for (const inf of scopedInfractions) {
-        infractionsAmount += Number(inf.montantChiffre) || 0;
+        const amt = Number(inf.montantChiffre) || 0;
+        infractionsAmount += amt;
+        revenuesBreakdown.contentieux += amt;
         ensureZone(getSubZoneKey(inf)).infractions++;
       }
 
+      // Zones amodiées & ZIC (superficie, guides, pisteurs par établissement)
+      const zonesAmodiees: Array<{
+        id: number;
+        name: string;
+        status: string;
+        region: string;
+        departement: string;
+        arrondissement: string;
+        commune: string;
+        responsibleName: string;
+        responsiblePhone: string;
+        surfaceHa: number;
+        guidesCount: number;
+        trackersCount: number;
+      }> = [];
+      let amodieesSurfaceHa = 0;
+      let zicsCount = 0;
+      let totalPisteurs = 0;
+      let totalZoneGuides = 0;
+
+      for (const z of scopedZones) {
+        const zType = norm(z.type || '');
+        const surfaceHa = Math.round((Number(z.surfaceHa) || 0) * 100) / 100;
+        if (zType.includes('zic')) {
+          zicsCount++;
+        }
+        if (zType.includes('amodi')) {
+          const gCount = Math.max(Number(z.guidesCount) || 0, Number(z.linkedGuides) || 0);
+          const tCount = Number(z.trackersCount) || 0;
+          amodieesSurfaceHa += surfaceHa;
+          totalZoneGuides += gCount;
+          totalPisteurs += tCount;
+          zonesAmodiees.push({
+            id: Number(z.id),
+            name: String(z.name || 'Zone amodiée').trim(),
+            status: String(z.status || 'active').trim(),
+            region: String(z.region || '').trim(),
+            departement: String(z.departement || '').trim(),
+            arrondissement: String(z.arrondissement || '').trim(),
+            commune: String(z.commune || '').trim(),
+            responsibleName: String(z.responsibleName || '').trim(),
+            responsiblePhone: String(z.responsiblePhone || '').trim(),
+            surfaceHa,
+            guidesCount: gCount,
+            trackersCount: tCount,
+          });
+        }
+      }
+
+      // Espèces abattues (prélèvements)
+      let totalPiecesAbattues = 0;
+      const speciesMap = new Map<string, { speciesName: string; scientificName: string; category: string; quantity: number }>();
+      for (const sp of scopedSpecies) {
+        const qty = Number(sp.quantity) || 0;
+        if (qty <= 0) continue;
+        totalPiecesAbattues += qty;
+        ensureZone(getSubZoneKey(sp)).piecesAbattues += qty;
+        const sName = String(sp.speciesName || 'Autre espèce').trim();
+        const key = norm(sName);
+        const prev = speciesMap.get(key) || {
+          speciesName: sName,
+          scientificName: String(sp.scientificName || '').trim(),
+          category: String(sp.category || 'Autre').trim(),
+          quantity: 0,
+        };
+        prev.quantity += qty;
+        speciesMap.set(key, prev);
+      }
+
+      const totalAmodieesRevenue =
+        revenuesBreakdown.taxeAmodiation +
+        revenuesBreakdown.licencesGuides +
+        revenuesBreakdown.attestationsPisteurs +
+        revenuesBreakdown.taxeReservePrivee;
+
       chasseKpi = {
         totalHunters: scopedHunters.length,
-        totalGuides: scopedGuides.length,
+        totalGuides: Math.max(scopedGuides.length, totalZoneGuides),
+        totalPisteurs,
         totalPermits: scopedPermits.length,
         activePermits,
         expiredPermits,
@@ -471,6 +748,36 @@ router.get('/overview', async (req: Request, res: Response) => {
         totalRevenue: permitsRevenue + taxesRevenue,
         infractionsCount: scopedInfractions.length,
         infractionsAmount,
+        amodieesCount: zonesAmodiees.length,
+        amodieesSurfaceHa: Math.round(amodieesSurfaceHa),
+        zicsCount,
+        zonesAmodiees,
+        amodieesFinance: {
+          taxeAmodiation: revenuesBreakdown.taxeAmodiation,
+          licencesGuides: revenuesBreakdown.licencesGuides,
+          attestationsPisteurs: revenuesBreakdown.attestationsPisteurs,
+          taxeReservePrivee: revenuesBreakdown.taxeReservePrivee,
+          totalAmodieesRevenue,
+        },
+        revenuesBreakdown,
+        totalPiecesAbattues,
+        speciesBreakdown: Array.from(speciesMap.values()).sort((a, b) => b.quantity - a.quantity),
+        weapons: {
+          totalWeapons,
+          byType: Array.from(weaponTypeMap.entries())
+            .map(([type, count]) => ({ type, count }))
+            .sort((a, b) => b.count - a.count),
+          byCaliber: Array.from(weaponCaliberMap.entries())
+            .map(([caliber, count]) => ({ caliber, count }))
+            .sort((a, b) => b.count - a.count),
+          byBrand: Array.from(weaponBrandMap.entries())
+            .map(([brand, count]) => ({ brand, count }))
+            .sort((a, b) => b.count - a.count),
+          details: Array.from(weaponDetailMap.values()).sort((a, b) => b.count - a.count),
+        },
+        huntersByCategory: Array.from(hunterCatMap.entries())
+          .map(([category, count]) => ({ category, count }))
+          .sort((a, b) => b.count - a.count),
         permitsByCategory: Array.from(categoryMap.values()).sort((a, b) => b.count - a.count),
         breakdownBySubZone: Array.from(breakdownMap.values()).sort(
           (a, b) => b.activePermits + b.hunters - (a.activePermits + a.hunters)
