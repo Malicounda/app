@@ -132,11 +132,11 @@ const ReforestationAdminDashboard = () => {
   });
 
   return (
-    <div className="flex flex-col min-h-screen p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold mb-2 text-gray-900">Administration Reboisement</h1>
-          <p className="text-gray-600">
+    <div className="flex flex-col p-3 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-gray-900">Administration Reboisement</h1>
+          <p className="text-sm sm:text-base text-gray-600">
             Espace dédié à la Division REBOISEMENT - Bienvenue, {user?.firstName} {user?.lastName}
           </p>
         </div>

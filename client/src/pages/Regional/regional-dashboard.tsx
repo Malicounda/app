@@ -68,22 +68,22 @@ export default function RegionalDashboard() {
   const formatMoney = (n: number) => `${Number(n || 0).toLocaleString()} FCFA`;
 
   return (
-    <div className="px-6 py-8">
-        <div className="mb-8">
-          <div className="bg-green-50 border-l-4 border-green-400 rounded-xl px-6 py-4 shadow-sm flex flex-col gap-2">
-            <div className="flex flex-row items-center gap-3">
-              <h1 className="text-3xl font-bold text-green-900">Espace Agent Régional</h1>
-              <span className="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-lg ml-2">Administration</span>
+    <div className="px-3 sm:px-6 py-4 sm:py-8">
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-green-50 border-l-4 border-green-400 rounded-xl px-4 sm:px-6 py-3 sm:py-4 shadow-sm flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-xl sm:text-3xl font-bold text-green-900">Espace Agent Régional</h1>
+              <span className="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-lg">Administration</span>
             </div>
-            <div className="mt-1 text-lg">
+            <div className="mt-1 text-sm sm:text-lg flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="font-semibold text-green-900 uppercase">{user?.firstName} {user?.lastName}</span>
-              <span className="mx-2 text-green-700">|</span>
+              <span className="text-green-700">|</span>
               <span className="text-green-700">Région: <span className="font-bold lowercase text-green-800">{user?.region || "Non définie"}</span></span>
             </div>
           </div>
         </div>
 
-      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 w-full">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-4 w-full">
           {/* Chasseurs enregistrés */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

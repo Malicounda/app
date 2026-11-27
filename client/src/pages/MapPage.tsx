@@ -72,6 +72,21 @@ const MapPage: React.FC = () => {
     return () => window.removeEventListener('open-quick-sms', handleOpenQuickSms);
   }, []);
 
+  const getHeaderOffset = () => {
+    if (typeof window === 'undefined') return 52;
+    const headerEl = document.getElementById('app-header');
+    if (headerEl && headerEl.offsetHeight > 0) return headerEl.offsetHeight;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--fixed-top').trim();
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 52;
+  };
+
+  useEffect(() => {
+    const onResize = () => setToolbarPos(null);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const onToolbarPointerDown = (e: React.PointerEvent) => {
     const target = e.target as HTMLElement;
     const isDragHandle = target.closest('.map-controls-toggle') || target.closest('.toolbar-drag-handle');
@@ -79,7 +94,7 @@ const MapPage: React.FC = () => {
       e.preventDefault();
       e.stopPropagation();
       const rect = toolbarRef.current?.getBoundingClientRect();
-      const origY = toolbarPos?.y ?? (rect?.top ?? 0);
+      const origY = toolbarPos?.y ?? (rect?.top ?? getHeaderOffset() + 2);
       toolbarDragRef.current = { startY: e.clientY, origY, dragging: true };
       target.setPointerCapture(e.pointerId);
     }
@@ -87,7 +102,9 @@ const MapPage: React.FC = () => {
   const onToolbarPointerMove = (e: React.PointerEvent) => {
     if (!toolbarDragRef.current.dragging) return;
     const dy = e.clientY - toolbarDragRef.current.startY;
-    setToolbarPos({ y: toolbarDragRef.current.origY + dy });
+    const minY = getHeaderOffset() + 2;
+    const maxY = Math.max(minY, window.innerHeight - 120);
+    setToolbarPos({ y: Math.min(maxY, Math.max(minY, toolbarDragRef.current.origY + dy)) });
   };
   const onToolbarPointerUp = () => {
     toolbarDragRef.current.dragging = false;
@@ -1422,7 +1439,7 @@ const MapPage: React.FC = () => {
             position: 'fixed',
             right: 12,
             left: 'auto',
-            top: toolbarPos ? toolbarPos.y : 'calc(var(--fixed-top, 60px) + 12px)',
+            top: toolbarPos ? `${toolbarPos.y}px` : 'calc(var(--fixed-top, 52px) + 2px)',
             zIndex: 1000,
           }}
         >
@@ -1454,6 +1471,7 @@ const MapPage: React.FC = () => {
             <span style={{ fontSize: 8, lineHeight: '10px', display: 'block', marginBottom: 2 }}>⠿</span>
             {controlsCollapsed ? <FaChevronRight /> : <FaChevronLeft />}
           </button>
+          <div className="map-controls-list">
           {/* Alertes en premier (désormais visible pour tous les rôles) */}
           {true && (
             <>
@@ -2333,6 +2351,7 @@ const MapPage: React.FC = () => {
             <FaSatellite />
             <span>Satellite</span>
           </button>
+          </div>
         </div>
 
         <MapComponent

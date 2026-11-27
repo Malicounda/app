@@ -6,7 +6,7 @@ import '@/styles/darkSuperAdmin.css';
 import '@/styles/pageFrame.css';
 import '@/styles/superAdminTheme.css';
 import { getHomePage, isSectorSubRole } from "@/utils/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { MdDescription, MdGroup, MdNotificationImportant, MdReceipt, MdMessage } from 'react-icons/md';
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
@@ -109,12 +109,23 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     // Fermer automatiquement la sidebar sur mobile lors du changement de page
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
-      document.body.style.overflow = ''; // Réactiver le défilement
     }
+    // Toujours garantir que body n'est pas verrouillé en position fixed
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.width = '';
   }, [isAuthenticated, location, user, chromeless]);
 
   // État pour gérer la visibilité du menu latéral sur mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const mainScrollRef = useRef<HTMLElement | null>(null);
+
+  // Remonter en haut de la zone de contenu uniquement lors d'un changement de page
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
+  }, [location]);
   // Track when SMS chat is open to hide bottom nav (input field overlap)
   const [smsChatOpen, setSmsChatOpen] = useState(false);
   useEffect(() => {
@@ -130,40 +141,15 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return false;  }
   });
 
-  // Fonction pour gérer le toggle du sidebar
+  // Fonction pour gérer le toggle du sidebar (sans verrouiller body en position:fixed)
   const toggleSidebar = () => {
-    setIsSidebarOpen(prev => {
-      const willOpen = !prev;
-      // Empêcher le défilement de la page lorsque le menu est ouvert, mais pas la sidebar elle-même
-      if (willOpen) {
-        document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-      } else {
-        document.body.style.overflow = '';
-        document.body.style.position = '';
-        document.body.style.width = '';
-      }
-      return willOpen;
-    });
+    setIsSidebarOpen(prev => !prev);
   };
 
   // Écouter les événements personnalisés d'ouverture/fermeture de la sidebar depuis le header
   useEffect(() => {
     const handleToggleSidebar = () => {
-      setIsSidebarOpen(prev => {
-        const willOpen = !prev;
-        if (willOpen) {
-          document.body.style.overflow = 'hidden';
-          document.body.style.position = 'fixed';
-          document.body.style.width = '100%';
-        } else {
-          document.body.style.overflow = '';
-          document.body.style.position = '';
-          document.body.style.width = '';
-        }
-        return willOpen;
-      });
+      setIsSidebarOpen(prev => !prev);
     };
 
     const handleToggleSidebarCollapse = () => {
@@ -181,7 +167,9 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
     return () => {
       window.removeEventListener('toggle-sidebar', handleToggleSidebar);
       window.removeEventListener('toggle-sidebar-collapse', handleToggleSidebarCollapse);
-      document.body.style.overflow = ''; // Réactiver le défilement lors du démontage
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     };
   }, []);
 
@@ -282,7 +270,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
       {/* Spacer to compensate for fixed header with page title */}
       {!hideMinistryHeader && !chromeless && (
-        <div style={{ height: 'var(--fixed-top)' }} className="flex items-center justify-center">
+        <div style={{ height: 'var(--fixed-top)' }} className="shrink-0 flex items-center justify-center">
           {location === "/sector" && (
             <h2 className="text-responsive-2xl font-bold tracking-tight mt-3 text-green-800">Tableau de bord Agent Secteur</h2>
           )}
@@ -308,9 +296,9 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
       {/* Main Content */}
       <div
-        className={chromeless ? "flex flex-1 overflow-hidden" : "flex flex-1 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
+        className={chromeless ? "flex flex-1 min-h-0 overflow-hidden" : "flex flex-1 min-h-0 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
         style={{ 
-          ...(!chromeless ? { height: 'calc(100vh - var(--fixed-top))' } : {}),
+          ...(!chromeless ? { height: 'calc(100dvh - var(--fixed-top, 56px))' } : {}),
           paddingTop: chromeless && (location !== '/sms' || isHunterOrGuide) ? 'calc(52px + env(safe-area-inset-top, 0px))' : undefined
         }}
       >
@@ -413,36 +401,39 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         )}
 
         {/* Colonne droite (desktop): sticky nav + main */}
-        <div className="min-w-0 w-full flex-1 flex flex-col overflow-hidden">
+        <div className="min-w-0 min-h-0 w-full flex-1 flex flex-col overflow-hidden">
           {/* Desktop Navigation Bar (masquée pour Alerte, SuperAdmin et la Carte) */}
           {!chromeless && !isSuperAdmin && !location?.startsWith('/map') && <Navbar />}
 
           {/* Main Section - responsive */}
           <main
+            ref={mainScrollRef}
             className={[
-              "main-content flex-1 overflow-x-hidden transition-colors duration-200",
-              location && (location.includes('sms') || location === '/alerts') ? "overflow-hidden flex flex-col" : "overflow-y-auto",
+              "main-content flex-1 min-h-0 overflow-x-hidden transition-colors duration-200",
+              chromeless && location && (location.includes('sms') || location === '/alerts')
+                ? "overflow-hidden flex flex-col"
+                : "overflow-y-auto",
               location && location.startsWith('/map')
                 ? "bg-transparent"
                 : chromeless ? "bg-[#f8fafc]" : isSuperAdmin ? "bg-[#0b1326]" : "bg-[#e9edf3]",
             ].join(' ')}
             style={{
-              scrollBehavior: 'smooth',
               scrollbarGutter: 'stable',
-              ...(chromeless ? { WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } : {})
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehaviorY: 'contain',
+              touchAction: 'pan-x pan-y',
             }}
           >
-            {/* Retour en haut lors des changements de page */}
+            {/* Contenu principal */}
             {location && location.startsWith('/map') ? (
-              <div ref={(el) => { if (el) el && (el as HTMLElement).scrollTop === 0; }} className="container-responsive">
+              <div className="container-responsive">
                 <Suspense fallback={<PageLoader />}>
                   {showRestrictedAccess ? restrictedContent : children}
                 </Suspense>
               </div>
             ) : chromeless ? (
               <div 
-                ref={(el) => { if (el) el.scrollTop = 0; }} 
-                className={`w-full ${location && (location.includes('sms') || location === '/alerts' || (location === '/profile' && !isHunterOrGuide)) ? 'h-full overflow-hidden' : 'min-h-full'} ${location !== '/sms' && location !== '/alerts' ? 'pb-20' : ''}`}
+                className={`w-full ${location && (location.includes('sms') || location === '/alerts') ? 'h-full overflow-hidden' : 'min-h-full'} ${location !== '/sms' && location !== '/alerts' ? 'pb-20' : ''}`}
                 style={chromeless && location !== '/sms' && location !== '/alerts' && location !== '/profile' ? { paddingTop: '1.5rem' } : undefined}
               >
                 <Suspense fallback={<PageLoader />}>
@@ -451,7 +442,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
               </div>
             ) : (
               <div className="page-frame-container">
-                <div ref={(el) => { if (el) el.scrollTop = 0; }} className="page-frame-inner">
+                <div className="page-frame-inner">
                   <Suspense fallback={<PageLoader />}>
                     {children}
                   </Suspense>

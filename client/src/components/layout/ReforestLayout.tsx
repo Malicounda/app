@@ -74,10 +74,10 @@ export default function ReforestLayout({ children }: { children: React.ReactNode
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-lime-100">
-      <header className="sticky top-0 z-30 bg-green-700 text-white shadow">
-        <div className="w-full max-w-[98%] mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-3 relative">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-gradient-to-br from-emerald-50 via-green-50 to-lime-100">
+      <header className="shrink-0 z-30 bg-green-700 text-white shadow">
+        <div className="w-full max-w-[98%] mx-auto px-2 sm:px-4 py-2 sm:py-3">
+          <div className="flex items-center justify-between mb-2 sm:mb-3 relative gap-2">
             <div className="flex items-center gap-2 sm:gap-3">
               <img
                 src="/assets/Flag_of_Senegal.svg"
@@ -105,10 +105,10 @@ export default function ReforestLayout({ children }: { children: React.ReactNode
               </div>
             </div>
 
-            <div className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-1.5 sm:gap-3 text-sm shrink-0">
               <button
                 onClick={handleRefreshAll}
-                className="inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-md transition-colors"
+                className="inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 sm:px-3 py-1.5 rounded-md transition-colors"
                 title="Actualiser les données"
               >
                 <RefreshCw id="reforest-refresh-btn" className="w-4 h-4" />
@@ -117,10 +117,11 @@ export default function ReforestLayout({ children }: { children: React.ReactNode
               <button
                 onClick={() => logout()}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-md transition-colors"
+                className="inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 sm:px-3 py-1.5 rounded-md transition-colors"
+                title="Déconnexion"
               >
                 <LogOut className="w-4 h-4" />
-                Déconnexion
+                <span className="hidden sm:inline">Déconnexion</span>
               </button>
             </div>
           </div>
@@ -173,10 +174,15 @@ export default function ReforestLayout({ children }: { children: React.ReactNode
           </nav>
         </div>
       </header>
-      <main className="w-full max-w-[98%] mx-auto px-2 sm:px-4 py-6">
-        <Suspense fallback={<PageLoader />}>
-          {children}
-        </Suspense>
+      <main
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full"
+        style={{ WebkitOverflowScrolling: 'touch', scrollbarGutter: 'stable', overscrollBehavior: 'contain' }}
+      >
+        <div className="w-full max-w-[98%] mx-auto px-2 sm:px-4 py-4 sm:py-6">
+          <Suspense fallback={<PageLoader />}>
+            {children}
+          </Suspense>
+        </div>
       </main>
     </div>
   );

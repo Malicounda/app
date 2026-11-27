@@ -255,24 +255,24 @@ export default function ReforestationRegionalDashboard() {
 
       {/* Liste des Agents de Secteur */}
       <Card className="mt-8">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-6 w-6 text-emerald-700" />
-              Agents de Secteur ({regionalAgentsCount})
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col gap-1 min-w-0">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Users className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-700 shrink-0" />
+              <span className="truncate">Agents de Secteur ({regionalAgentsCount})</span>
             </CardTitle>
             <CardDescription>Gérez les agents rattachés aux secteurs de votre région</CardDescription>
           </div>
           <Button
             ref={addButtonRef}
             onClick={() => setIsAddSubAccountDialogOpen(true)}
-            className="bg-emerald-700 hover:bg-emerald-800"
+            className="bg-emerald-700 hover:bg-emerald-800 w-full sm:w-auto shrink-0"
           >
             <UserPlus className="mr-2 h-4 w-4" /> Ajouter un Agent
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

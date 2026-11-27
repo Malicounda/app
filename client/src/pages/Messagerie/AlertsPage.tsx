@@ -1963,7 +1963,7 @@ function AlertsPage() {
   const showLeftColumn = canSendAlerts && !isAgentDedicatedListPage;
 
   return (
-    <div className={isHunter || isGuide || isAlertMobileChromeless ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50" : `flex flex-col overflow-hidden bg-transparent h-full`}>
+    <div className={isHunter || isGuide || isAlertMobileChromeless ? "fixed inset-0 flex flex-col overflow-hidden bg-slate-50" : `flex flex-col bg-transparent min-h-0`}>
       {(isHunter || isGuide || isAlertMobileChromeless) && <AgentTopHeader />}
       <div className={
         isHunter || isGuide

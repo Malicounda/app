@@ -227,11 +227,11 @@ const SectorAgentDashboard = () => {
   }, [user, revenueByDepartment]);
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tableau de bord secteur</h1>
-          <p className="text-muted-foreground">
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Tableau de bord secteur</h1>
+          <p className="text-sm text-muted-foreground">
             {(() => {
               const rawRegion = (user?.region || '').trim();
               const regionKey = rawRegion
@@ -268,7 +268,7 @@ const SectorAgentDashboard = () => {
           const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
 
           return (
-            <div className={`border px-4 py-2 rounded-md shadow-sm max-w-lg text-sm font-medium text-right ${activeCampaign.isActive ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+            <div className={`border px-3 sm:px-4 py-2 rounded-lg shadow-sm w-full md:w-auto md:max-w-lg text-xs sm:text-sm font-medium text-left md:text-right leading-relaxed ${activeCampaign.isActive ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
               {parts.map((part: string, index: number) => {
                 if (part === '[ANNEE]') {
                   return <span key={index} className="text-red-600 font-bold">{year}</span>;

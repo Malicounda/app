@@ -118,9 +118,9 @@ body {
 /* Main content responsive */
 .main-content {
   grid-area: main;
-  padding: var(--spacing-lg);
+  padding: 0;
   overflow-x: hidden;
-  min-height: calc(100vh - var(--header-height));
+  min-height: 0;
 }
 
 /* Grid responsive */

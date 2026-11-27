@@ -46,54 +46,68 @@ function CategoryDrawer({ section }: CategoryDrawerProps) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
+        className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-3 px-3 sm:px-5 py-3 hover:bg-slate-50 transition-colors text-left"
       >
-        <div className="flex items-center gap-3">
-          {open ? (
-            <ChevronDown className="w-5 h-5 text-slate-500" />
-          ) : (
-            <ChevronRight className="w-5 h-5 text-slate-500" />
-          )}
-          <span className="text-lg font-semibold uppercase tracking-wide text-gray-800">
-            {section.header}
-          </span>
+        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 min-w-0 w-full sm:w-auto">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {open ? (
+              <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500 shrink-0" />
+            ) : (
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500 shrink-0" />
+            )}
+            <span className="text-sm sm:text-lg font-semibold uppercase tracking-wide text-gray-800 truncate">
+              {section.header}
+            </span>
+          </div>
+          <div className="sm:hidden text-sm font-bold text-gray-800 whitespace-nowrap shrink-0">
+            {section.totals.amount.toLocaleString('fr-FR')} XOF
+          </div>
           {!open && (
-            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 whitespace-nowrap shrink-0">
               {section.totals.hunters.toLocaleString('fr-FR')} chasseurs • {section.totals.permits.toLocaleString('fr-FR')} permis
             </span>
           )}
         </div>
-        <div className="text-base font-semibold text-gray-700">
+        {!open && (
+          <div className="sm:hidden pl-6">
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+              {section.totals.hunters.toLocaleString('fr-FR')} chasseurs • {section.totals.permits.toLocaleString('fr-FR')} permis
+            </span>
+          </div>
+        )}
+        <div className="hidden sm:block text-base font-semibold text-gray-700 whitespace-nowrap shrink-0">
           <span>{section.totals.amount.toLocaleString('fr-FR')} XOF</span>
         </div>
       </button>
 
       {/* Contenu déplié */}
       {open && (
-        <div className="border-t">
-          {/* Sous-en-tête colonnes */}
-          <div className="grid grid-cols-[1fr_100px_100px_140px] gap-2 px-5 py-2 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            <span>Catégorie</span>
-            <span className="text-right">Chasseurs</span>
-            <span className="text-right">Permis</span>
-            <span className="text-right">Montant cumulé</span>
-          </div>
-          {section.items.map((it) => (
-            <div
-              key={it.categoryKey}
-              className="grid grid-cols-[1fr_100px_100px_140px] gap-2 px-5 py-2.5 border-t hover:bg-slate-25 transition-colors"
-            >
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-gray-800">{it.labelFr}</span>
-                {it.sousCategorie && (
-                  <span className="text-xs text-muted-foreground">Sous-catégorie: {it.sousCategorie}</span>
-                )}
-              </div>
-              <span className="text-right text-sm">{Number(it.huntersCount || 0).toLocaleString('fr-FR')}</span>
-              <span className="text-right text-sm">{Number(it.permitsCount || 0).toLocaleString('fr-FR')}</span>
-              <span className="text-right text-sm">{Number(it.totalAmount || 0).toLocaleString('fr-FR')}</span>
+        <div className="border-t overflow-x-auto">
+          <div className="min-w-[460px]">
+            {/* Sous-en-tête colonnes */}
+            <div className="grid grid-cols-[1fr_80px_80px_120px] sm:grid-cols-[1fr_100px_100px_140px] gap-2 px-3 sm:px-5 py-2 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <span>Catégorie</span>
+              <span className="text-right">Chasseurs</span>
+              <span className="text-right">Permis</span>
+              <span className="text-right">Montant cumulé</span>
             </div>
-          ))}
+            {section.items.map((it) => (
+              <div
+                key={it.categoryKey}
+                className="grid grid-cols-[1fr_80px_80px_120px] sm:grid-cols-[1fr_100px_100px_140px] gap-2 px-3 sm:px-5 py-2.5 border-t hover:bg-slate-25 transition-colors"
+              >
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-gray-800">{it.labelFr}</span>
+                  {it.sousCategorie && (
+                    <span className="text-xs text-muted-foreground">Sous-catégorie: {it.sousCategorie}</span>
+                  )}
+                </div>
+                <span className="text-right text-sm whitespace-nowrap">{Number(it.huntersCount || 0).toLocaleString('fr-FR')}</span>
+                <span className="text-right text-sm whitespace-nowrap">{Number(it.permitsCount || 0).toLocaleString('fr-FR')}</span>
+                <span className="text-right text-sm whitespace-nowrap">{Number(it.totalAmount || 0).toLocaleString('fr-FR')}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -478,11 +492,11 @@ const AdminDashboard = () => {
   }, []);
 
   return (
-    <div ref={rootRef} className="flex flex-col min-h-screen p-6 space-y-6 w-full">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold mb-2 text-gray-900">Tableau de bord administrateur</h1>
-          <p className="text-gray-600">
+    <div ref={rootRef} className="flex flex-col min-h-screen p-3 sm:p-6 space-y-4 sm:space-y-6 w-full">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-gray-900">Tableau de bord administrateur</h1>
+          <p className="text-sm sm:text-base text-gray-600">
             Bienvenue, {user?.firstName} {user?.lastName}
           </p>
         </div>
@@ -500,7 +514,7 @@ const AdminDashboard = () => {
           const parts = text.split(/(\[ANNEE\]|\[COMPTEUR\])/g);
 
           return (
-            <div className={`border px-4 py-2 rounded-md shadow-sm max-w-lg text-sm font-medium text-right ${activeCampaign.isActive ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+            <div className={`border px-3 sm:px-4 py-2 rounded-lg shadow-sm w-full md:w-auto md:max-w-lg text-xs sm:text-sm font-medium text-left md:text-right leading-relaxed ${activeCampaign.isActive ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
               {parts.map((part: string, index: number) => {
                 if (part === '[ANNEE]') {
                   return <span key={index} className="text-red-600 font-bold">{year}</span>;
@@ -577,13 +591,13 @@ const AdminDashboard = () => {
 
       {/* Répartition par catégories (hiérarchie permit_categories) */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Répartition par catégories</CardTitle>
-          <div className="flex items-center gap-2">
-            <label htmlFor="region" className="text-sm text-muted-foreground">Région</label>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <CardTitle className="text-lg sm:text-xl">Répartition par catégories</CardTitle>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <label htmlFor="region" className="text-xs sm:text-sm text-muted-foreground shrink-0">Région</label>
             <select
               id="region"
-              className="border rounded-md px-2 py-1 text-sm"
+              className="border rounded-md px-2 py-1.5 text-xs sm:text-sm flex-1 sm:flex-none min-w-0 max-w-full bg-white"
               value={selectedRegion}
               onChange={(e) => setSelectedRegion(e.target.value)}
             >
@@ -595,7 +609,7 @@ const AdminDashboard = () => {
             <button
               type="button"
               onClick={handleExportExcel}
-              className="ml-2 inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium bg-white hover:bg-gray-50"
+              className="inline-flex items-center justify-center rounded-md border px-3 py-1.5 text-xs font-medium bg-white hover:bg-gray-50 whitespace-nowrap shrink-0"
               title="Télécharger en Excel (CSV)"
             >
               Export Excel
@@ -618,9 +632,9 @@ const AdminDashboard = () => {
                   <CategoryDrawer key={section.header} section={section} />
                 ))}
                 {/* Total général */}
-                <div className="flex items-center justify-between rounded-lg bg-slate-100 px-5 py-3 mt-2">
-                  <span className="text-lg font-bold">Total général</span>
-                  <div className="flex gap-6 text-base font-bold">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg bg-slate-100 px-3 sm:px-5 py-3 mt-2">
+                  <span className="text-base sm:text-lg font-bold">Total général</span>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm sm:text-base font-bold">
                     <span>{grandTotals.hunters.toLocaleString('fr-FR')} chasseurs</span>
                     <span>{grandTotals.permits.toLocaleString('fr-FR')} permis</span>
                     <span>{grandTotals.amount.toLocaleString('fr-FR')} XOF</span>

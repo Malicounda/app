@@ -17,20 +17,16 @@ html, body {
   /* Similaire au visuel de la map page mais sans fixed/fullscreen */
   box-sizing: border-box;
   margin: 0;
-  /* Réduire l'espace au-dessus du contenu pour rapprocher les titres de
-     l'entête principale tout en conservant un petit offset pour le fixed header. */
   padding-top: 0.5rem;
-  /* Laisser le contenu grandir naturellement ; le scroll est géré par le parent <main>
-     qui a overflow-y:auto et une hauteur contrainte via flex-1. */
   width: 100%;
   background-color: transparent;
   display: block;
-  overflow-y: visible; /* Le parent <main> gère le scroll */
-  overflow-x: hidden;
+  /* IMPORTANT: utiliser overflow-x: clip (et JAMAIS overflow-x: hidden + overflow-y: visible)
+     car overflow-x: hidden force overflow-y à 'auto' et crée un conteneur fantôme qui piège
+     la molette de souris et le tactile avec overscroll-behavior: contain ! */
+  overflow-x: clip;
+  overflow-y: visible;
   position: relative;
-  /* Empêcher le chaînage du défilement vers d'autres éléments (sidebar/body) */
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch; /* inertial scrolling on iOS */
 }
 
 .page-frame-inner {
@@ -62,11 +58,29 @@ html, body {
 .page-frame-inner .page-title {
   /* Style de titre global demandé (taille, graisse, espacement) */
   margin: 0 0 0.3rem 0; /* très proche du header */
-  font-size: clamp(1.8rem, 3vw, 2.25rem); /* responsive : ~28px - 36px selon écran */
-  line-height: 1.02;
+  font-size: clamp(1.3rem, 3vw, 2.15rem); /* responsive : lisible sur mobile 375px et desktop */
+  line-height: 1.15;
   font-weight: 800; /* plus lourd pour correspondre à la capture */
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   color: #0f172a; /* texte plus sombre pour contraste */
+}
+
+.main-content {
+  min-height: 0 !important;
+}
+
+@media (max-width: 767px) {
+  .main-content {
+    padding: 0 !important;
+  }
+  .page-frame-container {
+    padding-top: 0.25rem;
+    padding-bottom: 1.5rem;
+  }
+  .page-frame-inner,
+  .page-frame-inner.page-frame-wide {
+    padding: 0 0.5rem !important;
+  }
 }
 
 .page-frame-inner h2,
@@ -211,8 +225,8 @@ html, body {
 .page-frame-inner .card-header h3,
 .page-frame-inner .card-header .card-title {
   margin: 0 0 0.3rem 0 !important;
-  font-size: clamp(1.8rem, 3vw, 2.25rem) !important;
-  line-height: 1.02 !important;
+  font-size: clamp(1.3rem, 3vw, 2.15rem) !important;
+  line-height: 1.15 !important;
   font-weight: 800 !important;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial !important;
   color: #0f172a !important;
@@ -224,8 +238,8 @@ html, body {
   .page-frame-container {
     /* Mobile: garder une petite marge afin d'éviter que le contenu ne se
        retrouve sous la barre fixe sur des écrans compacts. */
-    padding-top: 0.5rem;
-    min-height: calc(100vh - var(--fixed-top, 60px));
+    padding-top: 0.25rem;
+    padding-bottom: 1.5rem;
   }
   .page-controls-container { right: 8px; top: calc(var(--fixed-top,60px) + 8px); }
 

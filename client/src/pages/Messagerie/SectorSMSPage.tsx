@@ -213,8 +213,8 @@ export default function SectorSMSPage() {
 
   return (
     <ResponsivePage>
-      <div className="mx-auto max-w-6xl overflow-hidden">
-        <div className="flex flex-col md:flex-row md:h-[78vh] overflow-hidden">
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-col md:flex-row md:h-[78vh] md:overflow-hidden">
           {/* Main */}
           <div className="flex-1 bg-white border border-gray-200 rounded-lg md:rounded-r-none md:border-r-0 overflow-hidden h-full flex flex-col">
             {/* Header */}

@@ -4491,8 +4491,8 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
         {props.showRadiusControl && !props.minimal && (
           <div style={{
             position: isMobile ? 'fixed' : 'absolute',
-            top: isMobile ? 'calc(var(--fixed-top, 60px) + 55px)' : 39,
-            left: isMobile ? '50%' : 20,
+            top: isMobile ? 'calc(var(--fixed-top, 52px) + 52px)' : 39,
+            left: isMobile ? 'calc(50% - 32px)' : 20,
             transform: isMobile ? 'translateX(-50%)' : 'none',
             zIndex: isMobile ? 1050 : 1100
           }}>
@@ -4526,20 +4526,21 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
           return isMobile ? (
             <div
               style={{
-                position: 'fixed', // FIXED pour sortir du stacking context de la carte (z-index: 0) et flotter au-dessus de l'en-tête
-                top: 'calc(var(--fixed-top, 60px) + 6px)', // Juste en dessous de l'en-tête, dynamique
-                left: 0,
-                right: 0,
-                zIndex: 1050, // Au-dessus de l'en-tête vert (z-index: 100)
+                position: 'fixed', // FIXED pour sortir du stacking context de la carte (z-index: 0) et flotter au-dessus de la carte
+                top: 'calc(var(--fixed-top, 52px) + 6px)', // Juste en dessous de l'en-tête, dynamique
+                left: 4,
+                right: 68, // Laisse un dégagement net à droite pour le panneau de contrôle de la carte
+                zIndex: 1050,
                 display: 'flex',
-                padding: '4px 8px',
+                justifyContent: 'center',
+                padding: '2px 4px',
                 overflowX: 'auto',
                 WebkitOverflowScrolling: 'touch',
                 pointerEvents: 'none' // Laisser passer les clics à travers le conteneur vide
               }}
               className="no-scrollbar"
             >
-              <div style={{ display: 'flex', width: 'max-content', gap: '8px', margin: '0 auto', padding: '0 4px', pointerEvents: 'auto' }}>
+              <div style={{ display: 'flex', width: 'max-content', gap: '6px', margin: '0 auto', padding: '0 2px', pointerEvents: 'auto' }}>
                 {[
                   { key: 'feux_de_brousse', label: 'Feux', color: '#ea580c', icon: '🔥' },
                   { key: 'trafic-bois', label: 'Bois', color: '#8B5A2B', icon: '🪵' },
@@ -4554,8 +4555,8 @@ const MapComponent = forwardRef<MapComponentHandles, MapComponentProps>(
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 12px',
+                        gap: '5px',
+                        padding: '5px 10px',
                         borderRadius: '20px',
                         border: `1.5px solid ${color}`,
                         background: 'white',

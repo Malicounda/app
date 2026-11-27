@@ -41,46 +41,46 @@ export default function Navbar() {
   };
 
   const adminNavItems = [
-    { path: "/admin", label: "Tableau de Bord", icon: <Home className="h-6 w-6 mr-1" /> },
-    { path: "/hunters", label: "Chasseurs", icon: <Users className="h-6 w-6 mr-1" /> },
-    { path: "/permits", label: "Permis", icon: <FileText className="h-6 w-6 mr-1" /> },
-    { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
-    { path: "/sms", label: "SMS", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
-    { path: "/history", label: "Historique", icon: <History className="h-6 w-6 mr-1" /> },
+    { path: "/admin", label: "Tableau de Bord", icon: <Home className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/hunters", label: "Chasseurs", icon: <Users className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/permits", label: "Permis", icon: <FileText className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/alerts", label: "Alertes", icon: <Bell className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/sms", label: "SMS", icon: <MessageSquare className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/history", label: "Historique", icon: <History className="h-5 w-5 md:mr-1 shrink-0" /> },
   ];
 
   const regionalAgentNavItems = [
-    { path: "/regional", label: "Tableau de Bord", icon: <Home className="h-6 w-6 mr-1" /> },
-    { path: "/hunters", label: "Chasseurs", icon: <Users className="h-6 w-6 mr-1" /> },
-    { path: "/permits", label: "Permis", icon: <FileText className="h-6 w-6 mr-1" /> },
-    { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
-    { path: "/taxes", label: "Taxes d'Abattage", icon: <TaxesIcon className="h-6 w-6 mr-1" /> },
-    { path: "/regional-sms", label: "SMS", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
-    { path: "/history", label: "Historique", icon: <History className="h-6 w-6 mr-1" /> },
+    { path: "/regional", label: "Tableau de Bord", icon: <Home className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/hunters", label: "Chasseurs", icon: <Users className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/permits", label: "Permis", icon: <FileText className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/alerts", label: "Alertes", icon: <Bell className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/taxes", label: "Taxes d'Abattage", icon: <TaxesIcon className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/regional-sms", label: "SMS", icon: <MessageSquare className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/history", label: "Historique", icon: <History className="h-5 w-5 md:mr-1 shrink-0" /> },
   ];
 
   const sectorAgentNavItems = [
-    { path: "/sector", label: "Tableau de Bord", icon: <Home className="h-6 w-6 mr-1" /> },
-    { path: "/sector-hunters", label: "Chasseurs", icon: <Users className="h-6 w-6 mr-1" /> },
-    { path: "/sector-permits", label: "Permis", icon: <FileText className="h-6 w-6 mr-1" /> },
-    { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
-    { path: "/taxes", label: "Taxes d'Abattage", icon: <TaxesIcon className="h-6 w-6 mr-1" /> },
-    { path: "/sector-sms", label: "SMS", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
-    { path: "/history", label: "Historique", icon: <History className="h-6 w-6 mr-1" /> },
+    { path: "/sector", label: "Tableau de Bord", icon: <Home className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/sector-hunters", label: "Chasseurs", icon: <Users className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/sector-permits", label: "Permis", icon: <FileText className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/alerts", label: "Alertes", icon: <Bell className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/taxes", label: "Taxes d'Abattage", icon: <TaxesIcon className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/sector-sms", label: "SMS", icon: <MessageSquare className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/history", label: "Historique", icon: <History className="h-5 w-5 md:mr-1 shrink-0" /> },
   ];
 
   const hunterNavItems = [
-    { path: "/profile", label: "Mon Profil", icon: <UserCircle className="h-6 w-6 mr-1" /> },
-    { path: "/permit-request", label: "Demande Permis", icon: <FilePlus2 className="h-6 w-6 mr-1" /> },
-    { path: "/sms", label: "Messagerie", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
-    { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
+    { path: "/profile", label: "Mon Profil", icon: <UserCircle className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/permit-request", label: "Demande Permis", icon: <FilePlus2 className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/sms", label: "Messagerie", icon: <MessageSquare className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/alerts", label: "Alertes", icon: <Bell className="h-5 w-5 md:mr-1 shrink-0" /> },
   ];
 
   // Guide items de navigation (similaires aux chasseurs mais sans tableau de bord)
   const guideNavItems = [
-    { path: "/profile", label: "Mon Profil", icon: <UserCircle className="h-6 w-6 mr-1" /> },
-    { path: "/sms", label: "Messagerie", icon: <MessageSquare className="h-6 w-6 mr-1" /> },
-    { path: "/alerts", label: "Alertes", icon: <Bell className="h-6 w-6 mr-1" /> },
+    { path: "/profile", label: "Mon Profil", icon: <UserCircle className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/sms", label: "Messagerie", icon: <MessageSquare className="h-5 w-5 md:mr-1 shrink-0" /> },
+    { path: "/alerts", label: "Alertes", icon: <Bell className="h-5 w-5 md:mr-1 shrink-0" /> },
   ];
 
   // Sélectionner les éléments de navigation en fonction du rôle normalisé
@@ -108,30 +108,43 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-green-600 text-white shadow-md sticky top-0 z-50">
-      <div className="container mx-auto">
+    <nav className="bg-green-600 text-white shadow-md sticky top-0 z-50 w-full">
+      <div className="w-full max-w-7xl mx-auto px-1.5 sm:px-3">
         <div className="flex justify-between items-center">
-          <div className="flex-1"></div>
-          <div className="flex-auto overflow-x-auto py-1">
-            <ul className="flex min-w-full justify-center space-x-1 md:space-x-3">
-              {navItems.map((item) => (
-                <li key={item.path}>
+          <div className="hidden md:block flex-1"></div>
+          <div className="w-full md:w-auto flex-auto overflow-x-auto no-scrollbar py-1.5">
+            <ul className="flex w-full md:w-auto justify-around md:justify-center items-center gap-1 md:gap-3">
+              {navItems.map((item) => {
+                const isAlerts = item.path === "/alerts";
+                const isSms = item.path === "/sms" || item.path === "/regional-sms" || item.path === "/sector-sms";
+                const badgeCount = isAlerts ? unreadAlerts : isSms ? unreadMessages : 0;
+                return (
+                <li key={item.path} className="shrink-0">
                   <button
-                    className={`px-4 py-2 text-xs md:text-sm font-medium rounded-full transition-all duration-300
+                    className={`relative px-2.5 sm:px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-medium rounded-full transition-all duration-200
                       ${isActive(item.path)
                         ? "bg-white bg-opacity-20 shadow-inner"
                         : "hover:bg-white hover:bg-opacity-10"}`}
                     onClick={() => navigate(item.path)}
+                    title={item.label}
+                    aria-label={item.label}
                   >
-                    <span className="flex items-center gap-1">
-                      {item.icon}
-                      <span className="hidden md:inline flex items-center gap-2">
-                        {item.path === "/alerts" && unreadAlerts > 0 && (
+                    <span className="flex items-center justify-center gap-1">
+                      <span className="relative flex items-center">
+                        {item.icon}
+                        {badgeCount > 0 && (
+                          <span className={`md:hidden absolute -top-1.5 -right-2 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold ${isAlerts ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>
+                            {badgeCount}
+                          </span>
+                        )}
+                      </span>
+                      <span className="hidden md:inline-flex items-center gap-2 whitespace-nowrap">
+                        {isAlerts && unreadAlerts > 0 && (
                           <span className="inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-100/80 text-red-700 border border-red-200/50 text-xs font-semibold">
                             {unreadAlerts}
                           </span>
                         )}
-                        {(item.path === "/sms" || item.path === "/regional-sms" || item.path === "/sector-sms") && unreadMessages > 0 && (
+                        {isSms && unreadMessages > 0 && (
                           <span className="inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-blue-100/80 text-blue-700 border border-blue-200/50 text-xs font-semibold">
                             {unreadMessages}
                           </span>
@@ -141,10 +154,11 @@ export default function Navbar() {
                     </span>
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
-          <div className="flex-1 flex justify-end items-center gap-2">
+          <div className="hidden md:flex flex-1 justify-end items-center gap-2">
             {/* Badge indiquant le rôle de l'utilisateur - version simplifiée sans icône */}
             <div className="hidden md:flex px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs items-center">
               <span>
