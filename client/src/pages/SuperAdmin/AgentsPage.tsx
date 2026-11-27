@@ -1031,17 +1031,17 @@ export default function SuperAdminAgentsPage() {
   };
 
   return (
-    <div className="space-y-4 w-full px-4 py-4">
+    <div className="space-y-4 w-full min-w-0 px-1 sm:px-4 py-3 sm:py-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Contrôle des Agents</h2>
-          <div className="text-sm text-muted-foreground">Administration centrale - Gestion des comptes (agents)</div>
+          <div className="text-sm opacity-75">Administration centrale - Gestion des comptes (agents)</div>
         </div>
 
-        <Card>
-          <CardHeader>
+        <Card className="min-w-0 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6">
             <CardTitle>Liste des agents ({filteredRows.length})</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 min-w-0">
             <div className="flex flex-col xl:flex-row gap-3 xl:items-start justify-between mb-4">
               <div className="w-full flex flex-wrap gap-2 items-center">
                 <Input
@@ -1079,7 +1079,7 @@ export default function SuperAdminAgentsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex flex-wrap items-center gap-2 justify-end w-full xl:w-auto mt-2 xl:mt-0">
+              <div className="flex flex-wrap items-center gap-2 justify-start sm:justify-end w-full xl:w-auto mt-2 xl:mt-0">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant={selectedRows.size > 0 ? "destructive" : "outline"} disabled={selectedRows.size === 0}>
@@ -1165,8 +1165,8 @@ export default function SuperAdminAgentsPage() {
             {isLoading ? (
               <div className="py-6">Chargement...</div>
             ) : (
-              <div className="border rounded-md">
-                <Table wrapperClassName="max-h-[600px] overflow-y-auto w-full">
+              <div className="border rounded-md overflow-hidden min-w-0">
+                <Table wrapperClassName="max-h-[600px] overflow-auto w-full">
                   <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                     <TableRow>
                       <TableHead className="w-[50px]">

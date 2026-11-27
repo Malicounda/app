@@ -222,7 +222,7 @@ function SessionsTab() {
               variant="outline"
               size="sm"
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 text-xs text-slate-600 bg-white"
+              className="flex items-center gap-1.5 text-xs text-slate-600 bg-background"
             >
               <Download className="h-3.5 w-3.5" />
               Exporter CSV
@@ -233,13 +233,13 @@ function SessionsTab() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input placeholder="Rechercher (Matricule, Nom...)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 bg-white" />
+            <Input placeholder="Rechercher (Matricule, Nom...)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 bg-background" />
           </div>
           <div className="w-full sm:w-48">
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="all">Tous les statuts</option>
               <option value="active">Active uniquement</option>
@@ -407,7 +407,7 @@ function AlertesTab() {
               variant="outline"
               size="sm"
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 text-xs text-slate-600 bg-white"
+              className="flex items-center gap-1.5 text-xs text-slate-600 bg-background"
             >
               <Download className="h-3.5 w-3.5" />
               Exporter CSV
@@ -418,13 +418,13 @@ function AlertesTab() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input placeholder="Rechercher (nature, agent, région...)" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-white" />
+            <Input placeholder="Rechercher (nature, agent, région...)" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-background" />
           </div>
           <div className="w-full sm:w-48">
             <select
               value={natureFilter}
               onChange={e => setNatureFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="all">Toutes natures</option>
               <option value="braconnage">Braconnage</option>
@@ -440,7 +440,7 @@ function AlertesTab() {
             <select
               value={regionFilter}
               onChange={e => setRegionFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="all">Toutes régions</option>
               {distinctRegions.map(reg => (
@@ -620,7 +620,7 @@ function MessagesTab() {
               variant="outline"
               size="sm"
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 text-xs text-slate-600 bg-white"
+              className="flex items-center gap-1.5 text-xs text-slate-600 bg-background"
             >
               <Download className="h-3.5 w-3.5" />
               Exporter CSV
@@ -631,13 +631,13 @@ function MessagesTab() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input placeholder="Rechercher (contenu, expéditeur, destinataire...)" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-white" />
+            <Input placeholder="Rechercher (contenu, expéditeur, destinataire...)" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-background" />
           </div>
           <div className="w-full sm:w-48">
             <select
               value={attachmentFilter}
               onChange={e => setAttachmentFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="all">Toutes pièces jointes</option>
               <option value="with">Avec pièce jointe</option>
@@ -648,7 +648,7 @@ function MessagesTab() {
             <select
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="all">Tous types</option>
               <option value="direct">Individuel</option>
@@ -744,28 +744,28 @@ export default function ApkHistoryPage() {
   ];
 
   return (
-    <div className="container mx-auto p-4 md:p-8 max-w-7xl flex flex-col h-[calc(100vh-80px)]">
+    <div className="w-full min-w-0 mx-auto p-2 sm:p-4 md:p-8 max-w-7xl flex flex-col min-h-[calc(100dvh-110px)] md:h-[calc(100dvh-80px)]">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
-          <Shield className="h-6 w-6" />
+      <div className="mb-4 sm:mb-6 flex items-center gap-3">
+        <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
+          <Shield className="h-5 w-5 sm:h-6 sm:w-6" />
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Audit APK & Alertes</h1>
-          <p className="text-sm text-slate-500">Suivi des sessions actives, alertes et messages du système</p>
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Audit APK & Alertes</h1>
+          <p className="text-xs sm:text-sm opacity-75">Suivi des sessions actives, alertes et messages du système</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 mb-4 bg-muted p-1 rounded-xl w-full sm:w-fit overflow-x-auto">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
               activeTab === t.key
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/60"
             }`}
           >
             {t.icon}
@@ -775,7 +775,7 @@ export default function ApkHistoryPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col">
         {activeTab === "sessions" && <SessionsTab />}
         {activeTab === "alertes" && <AlertesTab />}
         {activeTab === "messages" && <MessagesTab />}

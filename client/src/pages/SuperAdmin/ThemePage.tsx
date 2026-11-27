@@ -73,22 +73,59 @@ type ThemeConfig = {
 
 const DEFAULT_CFG: ThemeConfig = {
   superAdmin: {
-    useLegacyDark: true,
-    bg: "#0b1326",
-    text: "#dae2fd",
-    sidebarBg: "#0d1220",
-    headerBg: "#131b2e",
-    surface: "#171f33",
-    border: "#3d4947",
+    useLegacyDark: false,
+    bg: "#e0e0e0",
+    text: "#000000",
+    sidebarBg: "#19191a",
+    headerBg: "#205ff3",
+    surface: "#ffffff",
+    border: "#cbd5e1",
     accent: "#6bd8cb",
+    inputBg: "#ffffff",
   },
   domains: {
-    'CHASSE': { from: '#16a34a', to: '#15803d' },
-    'ALERTE': { from: '#f59e0b', to: '#f97316' },
+    'CHASSE': {
+      from: '#16a34a',
+      to: '#15803d',
+      headerBg: '#047104',
+      sidebarBg: '#eeecec',
+      bg: '#f5f5f5',
+      text: '#010e06',
+      surface: '#fffafa',
+      border: '#069806',
+      inputBg: '#e0e6f0',
+    },
+    'ALERTE': {
+      from: '#f59e0b',
+      to: '#f97316',
+      border: '#0aae0a',
+      inputBg: '#dbe0eb',
+      icon: 'Bell',
+    },
+    'PRODUITS FORESTIERS': {
+      inputBg: '#cfd8ec',
+    },
+    'REBOISEMENT': {
+      from: '#51c27b',
+      to: '#219bc4',
+    },
   },
 };
 
 const SUPERADMIN_PALETTES: Array<{ name: string; values: Omit<SuperAdminTheme, 'useLegacyDark'> }> = [
+  {
+    name: 'Défaut (Clair / Bleu)',
+    values: {
+      bg: '#e0e0e0',
+      text: '#000000',
+      sidebarBg: '#19191a',
+      headerBg: '#205ff3',
+      surface: '#ffffff',
+      border: '#cbd5e1',
+      accent: '#6bd8cb',
+      inputBg: '#ffffff',
+    },
+  },
   {
     name: 'Professionnel Navy/Teal',
     values: {
@@ -99,6 +136,7 @@ const SUPERADMIN_PALETTES: Array<{ name: string; values: Omit<SuperAdminTheme, '
       surface: '#171f33',
       border: '#3d4947',
       accent: '#6bd8cb',
+      inputBg: '#222a3d',
     },
   },
   {
@@ -260,13 +298,13 @@ export default function ThemePage() {
 
   useEffect(() => {
     applyPreviewToDom(draftCfg.superAdmin);
-  }, [draftCfg.superAdmin.bg, draftCfg.superAdmin.text, draftCfg.superAdmin.sidebarBg, draftCfg.superAdmin.headerBg, draftCfg.superAdmin.surface, draftCfg.superAdmin.border, draftCfg.superAdmin.accent]);
+  }, [draftCfg.superAdmin.bg, draftCfg.superAdmin.text, draftCfg.superAdmin.sidebarBg, draftCfg.superAdmin.headerBg, draftCfg.superAdmin.surface, draftCfg.superAdmin.border, draftCfg.superAdmin.accent, draftCfg.superAdmin.inputBg]);
 
   useEffect(() => {
     return () => {
       applyPreviewToDom(appliedCfg.superAdmin);
     };
-  }, [appliedCfg.superAdmin.bg, appliedCfg.superAdmin.text, appliedCfg.superAdmin.sidebarBg, appliedCfg.superAdmin.headerBg, appliedCfg.superAdmin.surface, appliedCfg.superAdmin.border, appliedCfg.superAdmin.accent]);
+  }, [appliedCfg.superAdmin.bg, appliedCfg.superAdmin.text, appliedCfg.superAdmin.sidebarBg, appliedCfg.superAdmin.headerBg, appliedCfg.superAdmin.surface, appliedCfg.superAdmin.border, appliedCfg.superAdmin.accent, appliedCfg.superAdmin.inputBg]);
 
   const saveMutation = useMutation({
     mutationFn: async (cfg: ThemeConfig) => {
@@ -444,10 +482,10 @@ export default function ThemePage() {
   };
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto py-4">
+    <div className="space-y-4 w-full min-w-0 max-w-6xl mx-auto py-3 sm:py-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Thème</h2>
-          <div className="text-sm text-muted-foreground">Personnaliser les couleurs et l'apparence</div>
+          <div className="text-sm opacity-75">Personnaliser les couleurs et l'apparence</div>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -486,32 +524,30 @@ export default function ThemePage() {
           </TabsList>
 
           <TabsContent value="superadmin" className="mt-0">
-            <Card>
-              <CardHeader>
+            <Card className="min-w-0 overflow-hidden">
+              <CardHeader className="p-4 sm:p-6">
                 <CardTitle>SuperAdmin</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2 grid gap-2">
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2 grid gap-2 min-w-0">
                   <Label>Palettes proposées</Label>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="inline-flex flex-wrap rounded-md border overflow-hidden">
-                      {SUPERADMIN_PALETTES.map((p, idx) => (
-                        <button
-                          key={p.name}
-                          type="button"
-                          onClick={() => applyPalette(p)}
-                          className={`h-9 px-3 text-sm ${idx !== 0 ? "border-l" : ""} ${
-                            appliedPaletteName === p.name
-                              ? "bg-teal-600 text-white hover:bg-teal-700"
-                              : activePaletteName === p.name
-                                ? "bg-muted font-medium hover:bg-muted"
-                                : "bg-background hover:bg-muted"
-                          }`}
-                        >
-                          {p.name}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {SUPERADMIN_PALETTES.map((p) => (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => applyPalette(p)}
+                        className={`h-9 px-3 text-sm rounded-md border ${
+                          appliedPaletteName === p.name
+                            ? "bg-teal-600 text-white border-teal-600 hover:bg-teal-700"
+                            : activePaletteName === p.name
+                              ? "bg-muted font-medium hover:bg-muted"
+                              : "bg-background hover:bg-muted"
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -593,8 +629,8 @@ export default function ThemePage() {
 
           {activeTab !== "superadmin" && (
             <TabsContent value={activeTab} className="mt-0">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+              <Card className="min-w-0 overflow-hidden">
+                <CardHeader className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <CardTitle>Configuration: {activeTab}</CardTitle>
                   <Button variant="ghost" size="sm" onClick={() => resetDomainDraft(activeTab)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
                     Réinitialiser ce domaine

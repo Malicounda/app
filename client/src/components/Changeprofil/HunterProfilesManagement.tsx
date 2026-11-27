@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { LinkHunterProfile } from './LinkHunterProfile';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { isUserSuperAdmin } from '@/utils/navigation';
 
 type HunterProfileRow = {
   user?: { username?: string; email?: string } | null;
@@ -22,15 +24,20 @@ export function HunterProfilesManagement() {
   const [selectedUser, setSelectedUser] = useState<number | undefined>();
   const [selectedHunter, setSelectedHunter] = useState<number | undefined>();
 
+  const isSuperAdmin = isUserSuperAdmin(user);
+
   const { data: profilesResp, isLoading, refetch } = useQuery({
-    queryKey: ['hunter-profiles', user?.region, user?.zone],
+    queryKey: ['hunter-profiles', isSuperAdmin ? 'all' : user?.region, isSuperAdmin ? 'all' : user?.zone],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (user?.region) params.append('region', user.region);
-      if (user?.zone) params.append('zone', user.zone);
+      if (!isSuperAdmin) {
+        if (user?.region) params.append('region', user.region);
+        if (user?.zone) params.append('zone', user.zone);
+      }
 
+      const qs = params.toString();
       return apiRequest({
-        url: `/api/admin/hunter-profiles?${params.toString()}`,
+        url: qs ? `/api/admin/hunter-profiles?${qs}` : '/api/admin/hunter-profiles',
         method: 'GET'
       });
     }
@@ -113,23 +120,29 @@ export function HunterProfilesManagement() {
   ) ?? [];
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Gestion des profils chasseurs</h1>
-        <div className="flex items-center space-x-2">
+    <div className="space-y-4 w-full min-w-0">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h1 className="text-2xl sm:text-3xl font-bold">Gestion des profils chasseurs</h1>
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
           <Input
             placeholder="Rechercher..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-64"
+            className="w-full sm:w-64"
           />
         </div>
       </div>
 
-      <DataTable
-        columns={columns as any}
-        data={filteredData as any}
-      />
+      <Card className="min-w-0 overflow-hidden">
+        <CardContent className="p-3 sm:p-6 min-w-0">
+          <div className="w-full overflow-x-auto">
+            <DataTable
+              columns={columns as any}
+              data={filteredData as any}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {showLinkDialog && (
         <LinkHunterProfile

@@ -5,20 +5,20 @@
    ============================================================ */
 
 :root {
-  /* ---- Palette de fond (Tonal Elevation) ---- */
-  --sa-bg:              #0b1326;   /* Level 0 – Page background */
-  --sa-surface:         #171f33;   /* Level 1 – Card/Container */
-  --sa-surface-high:    #222a3d;   /* Level 1.5 – Elevated surface */
-  --sa-surface-highest: #2d3449;   /* Level 2 – Popovers/Modals */
+  /* ---- Palette de fond par défaut SuperAdmin (Clair / Bleu) ---- */
+  --sa-bg:              #e0e0e0;   /* Level 0 – Page background */
+  --sa-surface:         #ffffff;   /* Level 1 – Card/Container */
+  --sa-surface-high:    #f8fafc;   /* Level 1.5 – Elevated surface */
+  --sa-surface-highest: #ffffff;   /* Level 2 – Popovers/Modals */
 
   /* ---- Sidebar & Header ---- */
-  --sa-sidebar-bg:      #0d1220;   /* Sidebar background */
-  --sa-header-bg:       #131b2e;   /* Header background */
+  --sa-sidebar-bg:      #19191a;   /* Sidebar background */
+  --sa-header-bg:       #205ff3;   /* Header background */
 
   /* ---- Texte ---- */
-  --sa-text:            #dae2fd;   /* Primary text (on-surface) */
-  --sa-text-secondary:  #bcc9c6;   /* Secondary text (on-surface-variant) */
-  --sa-text-muted:      #879391;   /* Muted text (outline) */
+  --sa-text:            #000000;   /* Primary text (on-surface) */
+  --sa-text-secondary:  #334155;   /* Secondary text (on-surface-variant) */
+  --sa-text-muted:      #64748b;   /* Muted text (outline) */
 
   /* ---- Accent : Teal (Primary) ---- */
   --sa-primary:         #6bd8cb;   /* Primary interactive */
@@ -57,6 +57,20 @@ html.superadmin-theme .page-frame-inner, html.domain-theme .page-frame-inner {
   color: var(--sa-text) !important;
 }
 
+/* Titres de page lisibles sur fond sombre SuperAdmin tout en préservant le texte sombre dans les cartes claires */
+html.superadmin-theme .page-frame-inner h1,
+html.superadmin-theme .page-frame-inner h2,
+html.superadmin-theme .page-frame-inner .page-title {
+  color: var(--sa-text, #dae2fd) !important;
+}
+
+html.superadmin-theme .page-frame-inner .bg-card h1,
+html.superadmin-theme .page-frame-inner .bg-card h2,
+html.superadmin-theme .page-frame-inner .bg-card h3,
+html.superadmin-theme .page-frame-inner .bg-card .card-title {
+  color: #0f172a !important;
+}
+
 /* ---------- Sidebar ---------- */
 html.superadmin-theme .sidebar, html.domain-theme .sidebar,
 html.superadmin-theme .sidebar-desktop, html.domain-theme .sidebar-desktop {
@@ -77,23 +91,26 @@ html.superadmin-theme nav.bg-white, html.domain-theme nav.bg-white {
   border-color: var(--sa-border) !important;
 }
 
-/* ---------- Cards & containers ---------- */
-html.superadmin-theme .bg-white, html.domain-theme .bg-white,
-html.superadmin-theme [class*="bg-white"], html.domain-theme [class*="bg-white"],
-html.superadmin-theme .card, html.domain-theme .card,
-html.superadmin-theme [class*="Card"], html.domain-theme [class*="Card"] {
-  background-color: var(--sa-surface) !important;
-  color: var(--sa-text) !important;
-  border-color: var(--sa-border) !important;
+/* ---------- Cards & containers (uniformes sur toutes les pages SuperAdmin) ---------- */
+html.superadmin-theme .bg-card,
+html.superadmin-theme .card {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
 }
 
-/* ---------- Inputs & forms ---------- */
-html.superadmin-theme input, html.domain-theme input,
-html.superadmin-theme select, html.domain-theme select,
-html.superadmin-theme textarea, html.domain-theme textarea {
-  background-color: var(--sa-input-bg, var(--sa-surface-high)) !important;
-  color: var(--sa-text) !important;
-  border-color: var(--sa-border) !important;
+html.superadmin-theme .bg-card .text-muted-foreground,
+html.superadmin-theme .card .text-muted-foreground {
+  color: #64748b !important;
+}
+
+/* ---------- Inputs & forms (lisibles sur toutes les pages et tous les thèmes) ---------- */
+html.superadmin-theme input:not([type="color"]):not([type="checkbox"]):not([type="radio"]),
+html.superadmin-theme select,
+html.superadmin-theme textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }
 
 html.superadmin-theme input:focus, html.domain-theme input:focus,

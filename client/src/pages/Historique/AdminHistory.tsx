@@ -624,14 +624,14 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
           <h1 className="text-3xl font-bold">Historique du système</h1>
         </div>
 
-      <Card className="overflow-hidden border-0 shadow-md">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b">
+      <Card className="overflow-hidden border-0 shadow-md min-w-0">
+        <CardHeader className="p-4 sm:p-6 border-b">
           <CardTitle>Activités du système</CardTitle>
           <CardDescription>
             Consultez l'historique des actions effectuées sur la plateforme
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="p-3 sm:p-6 min-w-0">
           <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -733,8 +733,8 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
             onValueChange={setCurrentTab}
             className="mb-4"
           >
-            <div className="flex items-center justify-between gap-3">
-              <TabsList className="flex-wrap">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <TabsList className="flex-wrap h-auto justify-start">
                 <TabsTrigger value="user">Utilisateurs</TabsTrigger>
                 <TabsTrigger value="agent">Agents</TabsTrigger>
                 <TabsTrigger value="hunter">Chasseurs</TabsTrigger>

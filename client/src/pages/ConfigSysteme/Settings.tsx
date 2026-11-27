@@ -2767,9 +2767,12 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 bg-white px-3 sm:px-6 pt-4 sm:pt-2 pb-2">
+    <div className="space-y-4 sm:space-y-6 py-3 sm:py-4 w-full min-w-0 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <h1 className="text-2xl sm:text-3xl font-bold text-green-800">Configuration du Système</h1>
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-bold">Configuration du Système</h1>
+            <div className="text-sm opacity-75">Administration centrale - Paramètres globaux</div>
+          </div>
           <Button onClick={saveSettings} disabled={loading} className="w-full sm:w-auto">
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             {loading ? "Sauvegarde en cours..." : "Sauvegarder les Paramètres"}
@@ -2777,8 +2780,8 @@ export default function Settings() {
         </div>
 
         {/* Filtrage régional: affiché uniquement dans l'onglet "Régions et Shp" pour éviter la redondance */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full flex overflow-x-auto whitespace-nowrap gap-2 text-xs sm:text-sm">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full min-w-0">
+          <TabsList className="w-full flex flex-wrap h-auto justify-start gap-1 text-xs sm:text-sm">
             <TabsTrigger value="hunting-season" className="px-2 sm:px-3">Campagne Cynégétique</TabsTrigger>
             <TabsTrigger value="permit-prices" className="px-2 sm:px-3">Tarifs des Permis</TabsTrigger>
             <TabsTrigger value="specific-periods" className="px-2 sm:px-3">Périodes Spécifiques</TabsTrigger>
@@ -2985,7 +2988,7 @@ export default function Settings() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Card className="bg-green-50 border-green-200">
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <CardTitle>Campagne Cynégétique de Chasse</CardTitle>
               <CardDescription>
@@ -3102,7 +3105,7 @@ export default function Settings() {
                   </div>
                   
                   {huntingSeason.isActive ? (
-                    <div className="flex flex-col space-y-1.5 mt-2 bg-slate-50 p-4 rounded-md border">
+                    <div className="flex flex-col space-y-1.5 mt-2 bg-muted/30 p-4 rounded-md border">
                       <div className="flex items-center justify-between mb-1">
                         <Label htmlFor="campaign-notes">Note affichée aux agents (Campagne Active)</Label>
                         <Button
@@ -3133,13 +3136,13 @@ export default function Settings() {
                           </p>
                         </>
                       ) : (
-                        <div className="text-sm font-medium text-gray-800 bg-white p-3 border rounded-md min-h-[4rem] whitespace-pre-wrap">
+                        <div className="text-sm font-medium text-foreground bg-background p-3 border rounded-md min-h-[4rem] whitespace-pre-wrap">
                           {huntingSeason.notes || <span className="text-muted-foreground italic">Aucune note définie</span>}
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="flex flex-col space-y-1.5 mt-2 bg-red-50 p-4 rounded-md border border-red-100">
+                    <div className="flex flex-col space-y-1.5 mt-2 bg-red-50/70 p-4 rounded-md border border-red-200">
                       <div className="flex items-center justify-between mb-1">
                         <Label htmlFor="campaign-inactive-notes" className="text-red-800">Note affichée aux agents (Campagne Terminée)</Label>
                         <Button
@@ -3170,7 +3173,7 @@ export default function Settings() {
                           </p>
                         </>
                       ) : (
-                        <div className="text-sm font-medium text-red-800 bg-white p-3 border border-red-100 rounded-md min-h-[4rem] whitespace-pre-wrap">
+                        <div className="text-sm font-medium text-red-800 bg-background p-3 border border-red-200 rounded-md min-h-[4rem] whitespace-pre-wrap">
                           {huntingSeason.inactiveNotes || <span className="text-red-800/50 italic">Aucune note définie</span>}
                         </div>
                       )}
@@ -3181,15 +3184,15 @@ export default function Settings() {
             </CardContent>
           </Card>
           {/* Section Armes: Types, Marques, Calibres */}
-          <Card className="bg-white border-green-200 mt-6">
+          <Card className="min-w-0 overflow-hidden mt-6">
             <CardHeader>
               <CardTitle>Référentiel des Armes</CardTitle>
               <CardDescription>Gérer les types d'armes et leurs marques et calibres associés.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Input placeholder="Nouveau type (libellé)" value={newTypeLabel} onChange={(e) => setNewTypeLabel(e.target.value)} />
-                <Button onClick={addWeaponType}>Ajouter</Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input placeholder="Nouveau type (libellé)" value={newTypeLabel} onChange={(e) => setNewTypeLabel(e.target.value)} className="w-full" />
+                <Button onClick={addWeaponType} className="w-full sm:w-auto shrink-0">Ajouter</Button>
               </div>
               <Accordion
                 type="multiple"
@@ -3319,7 +3322,7 @@ export default function Settings() {
 
         {/* Onglet Périodes Spécifiques */}
         <TabsContent value="specific-periods">
-          <Card className="bg-green-50 border-green-200">
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <CardTitle>Périodes Spécifiques</CardTitle>
               <CardDescription>Définir, ajouter ou supprimer des périodes spécifiques. Utilisez "dérogation" pour autoriser une période hors campagne.</CardDescription>
@@ -3344,9 +3347,9 @@ export default function Settings() {
 
               {activePeriodsSubTab === 'cynegetique' ? (
                 <div className="p-3 border rounded-md bg-white">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="font-semibold">Périodes Spécifiques de Campagne</div>
-                    <Button size="sm" onClick={() => { 
+                    <Button size="sm" className="w-full sm:w-auto shrink-0" onClick={() => { 
                       setNewCategoryPeriodType('cynegetique');
                       setNewCategoryPeriod({ categoryKey: '', startDate: huntingSeason.startDate, endDate: huntingSeason.endDate, derogationEnabled: false }); 
                       setNewCategoryPeriodOpen(true); 
@@ -3415,9 +3418,9 @@ export default function Settings() {
                 </div>
               ) : (
                 <div className="p-3 border rounded-md bg-white">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="font-semibold">Durées de validité (Autres Permis)</div>
-                    <Button size="sm" onClick={() => { 
+                    <Button size="sm" className="w-full sm:w-auto shrink-0" onClick={() => { 
                       setNewCategoryPeriodType('autre'); 
                       setNewCategoryPeriodDuration(30);
                       setNewCategoryPeriod({ categoryKey: '', startDate: new Date(), endDate: new Date(), derogationEnabled: false });
@@ -3675,7 +3678,7 @@ export default function Settings() {
 
         {/* Onglet Tarifs des Permis - Mini-CRUD dynamique */}
         <TabsContent value="permit-prices">
-          <Card className="bg-green-50 border-green-200">
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <CardTitle>Tarifs des Permis (XOF) — Saison {seasonYear || computeSeason()}</CardTitle>
               <CardDescription>Gérer dynamiquement les catégories et leurs prix par saison. Les modifications s'appliquent à la saison en cours.</CardDescription>
@@ -3701,16 +3704,16 @@ export default function Settings() {
 
               {/* Barre d'actions et filtres */}
               <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="font-semibold text-base">
                     {activeSubTab === 'cynegetique' ? 'Permis Cynégétiques' : 'Autres Permis & Certificats'} — Saison {seasonYear || computeSeason()}
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2">
                       <Switch id="edit-prices" checked={editPrices} onCheckedChange={setEditPrices} />
                       <Label htmlFor="edit-prices">Mode édition (auto-enregistrement)</Label>
                     </div>
-                    <Button onClick={() => {
+                    <Button className="w-full sm:w-auto" onClick={() => {
                       if (activeSubTab === 'cynegetique') {
                         setNewCat({ genre: "resident", groupe: "petite-chasse", isActive: true, priceXof: undefined });
                       } else {
@@ -3749,9 +3752,9 @@ export default function Settings() {
                         <SelectItem value="false">Inactifs</SelectItem>
                       </SelectContent>
                     </Select>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => { setFilterGroupe("all"); setFilterGenre("all"); setFilterActive("all"); setFilterQuery(""); }}>Réinitialiser</Button>
-                      <Button onClick={() => loadCategories(false)} variant="secondary">Rafraîchir</Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => { setFilterGroupe("all"); setFilterGenre("all"); setFilterActive("all"); setFilterQuery(""); }}>Réinitialiser</Button>
+                      <Button onClick={() => loadCategories(false)} variant="secondary" className="flex-1 sm:flex-none">Rafraîchir</Button>
                     </div>
                   </div>
                 </div>
@@ -4010,9 +4013,9 @@ export default function Settings() {
         <TabsContent value="hunting-taxes">
           <div className="space-y-6">
             {/* Section Taxes d'Abattage */}
-            <Card className="bg-green-50 border-green-200">
+            <Card className="min-w-0 overflow-hidden">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <CardTitle>Taxes d'Abattage (XOF)</CardTitle>
                     <CardDescription>
@@ -4023,7 +4026,7 @@ export default function Settings() {
                       </span>
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     <Label htmlFor="edit-taxes-toggle" className="text-sm">Activer l'édition</Label>
                     <Switch id="edit-taxes-toggle" checked={editTaxesMode} onCheckedChange={handleToggleEditTaxes} />
                   </div>
@@ -4359,7 +4362,7 @@ export default function Settings() {
 
         {/* Onglet Types de Zones */}
         <TabsContent value="zones-config">
-          <Card className="bg-green-50 border-green-200">
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <div className="flex flex-col xl:flex-row items-start justify-between gap-4">
                 <div>
@@ -4392,13 +4395,13 @@ export default function Settings() {
             </CardHeader>
             <CardContent>
               <Tabs value={zonesConfigSubTab} onValueChange={(v) => setZonesConfigSubTab(v as 'types-zones-protegees' | 'zones-chasse')}>
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="types-zones-protegees" className="flex items-center gap-2">
-                    <FaDrawPolygon className="h-4 w-4" />
+                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 h-auto mb-4">
+                  <TabsTrigger value="types-zones-protegees" className="flex items-center gap-2 whitespace-normal text-center">
+                    <FaDrawPolygon className="h-4 w-4 shrink-0" />
                     Types de Zones Protégées
                   </TabsTrigger>
-                  <TabsTrigger value="zones-chasse" className="flex items-center gap-2">
-                    <FaPaw className="h-4 w-4" />
+                  <TabsTrigger value="zones-chasse" className="flex items-center gap-2 whitespace-normal text-center">
+                    <FaPaw className="h-4 w-4 shrink-0" />
                     Paramètres des Zones de Chasse
                   </TabsTrigger>
                 </TabsList>
@@ -5252,7 +5255,7 @@ export default function Settings() {
 
         {/* Onglet Régions et Zones */}
         <TabsContent value="regions-zones">
-          <Card className="bg-green-50 border-green-200">
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <CardTitle>Gestion des Régions et Zones</CardTitle>
               <CardDescription>Ajouter, modifier ou supprimer des zones et régions de chasse.</CardDescription>
@@ -6118,7 +6121,7 @@ export default function Settings() {
 
         {/* Onglet Codes Infractions */}
         <TabsContent value="codes-infractions">
-          <Card className="border-[#cfe8dc] bg-[#eef9f3]">
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-6 w-6 text-blue-600" />
@@ -6130,7 +6133,7 @@ export default function Settings() {
               {/* Sous-onglets: Codes et Articles / Observations - Saisie */}
               <div className="mt-4">
                 <Tabs value={codesSubTab} onValueChange={(v) => setCodesSubTab(v as 'items' | 'saisie')}>
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 h-auto">
                     <TabsTrigger value="items">Codes et Articles</TabsTrigger>
                     <TabsTrigger value="saisie" onClick={() => { if (saisieItems.length === 0) void loadSaisieItems(); }}>Observations / Saisies</TabsTrigger>
                   </TabsList>
@@ -6141,8 +6144,8 @@ export default function Settings() {
               {/* Bloc ITEMS */}
               <div className={`${codesSubTab === 'items' ? '' : 'hidden'}`}>
               {/* Barre de recherche et bouton d'ajout */}
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <div className="flex-1 max-w-md">
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                <div className="w-full sm:flex-1 sm:max-w-md">
                   <Input
                     placeholder="Rechercher par code, nature ou article..."
                     value={searchCodeTerm}
@@ -6150,13 +6153,13 @@ export default function Settings() {
                     className="w-full"
                   />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <Button
                     onClick={() => {
                       setNewCode({ code: '', nature: '', article_code: '' });
                       setNewCodeOpen(true);
                     }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Nouveau Code
@@ -7066,10 +7069,10 @@ export default function Settings() {
 
         {/* Onglet Localités - Gestion des localités de référence */}
         <TabsContent value="localites">
-          <Card className="bg-green-50 border-green-200">
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <CardTitle className="text-xl font-bold text-green-800 flex items-center gap-2">
+                <CardTitle className="text-xl font-bold flex items-center gap-2">
                   <MapPin className="h-6 w-6 text-green-700" />
                   Gestion des Localités de Référence
                 </CardTitle>
@@ -7077,8 +7080,8 @@ export default function Settings() {
                   Consultez, modifiez ou importez de nouvelles localités de référence pour le Sénégal. L'attribution administrative est gérée spatialement à la volée.
                 </CardDescription>
               </div>
-              <div className="flex gap-2 w-full md:w-auto">
-                <Button variant="outline" className="w-full md:w-auto flex items-center gap-2" onClick={() => {
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto flex items-center justify-center gap-2" onClick={() => {
                   setImportShpFile(null);
                   setImportShxFile(null);
                   setImportDbfFile(null);
@@ -7086,14 +7089,14 @@ export default function Settings() {
                   setImportCsvGeojFile(null);
                   setLocalitesImportOpen(true);
                 }}>
-                  <Upload className="h-4 w-4" /> Importation de masse
+                  <Upload className="h-4 w-4 shrink-0" /> Importation de masse
                 </Button>
-                <Button className="w-full md:w-auto flex items-center gap-2 bg-green-700 hover:bg-green-800" onClick={() => {
+                <Button className="w-full sm:w-auto flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800" onClick={() => {
                   setLocaliteFormMode('create');
                   setCurrentLocalite({ nom: '', latitude: '', longitude: '' });
                   setLocaliteFormOpen(true);
                 }}>
-                  <Plus className="h-4 w-4" /> Nouvelle localité
+                  <Plus className="h-4 w-4 shrink-0" /> Nouvelle localité
                 </Button>
               </div>
             </CardHeader>
@@ -7254,7 +7257,7 @@ export default function Settings() {
 
                 {/* Pagination */}
                 {localitesTotal > localitesLimit && (
-                  <div className="bg-green-50/10 px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+                  <div className="bg-green-50/10 px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
                     <div className="text-sm text-gray-600">
                       Affichage de <span className="font-semibold">{Math.min((localitesPage - 1) * localitesLimit + 1, localitesTotal)}</span> à <span className="font-semibold">{Math.min(localitesPage * localitesLimit, localitesTotal)}</span> sur <span className="font-semibold">{localitesTotal}</span> localités
                     </div>

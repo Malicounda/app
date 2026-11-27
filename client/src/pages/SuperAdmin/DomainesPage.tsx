@@ -242,21 +242,21 @@ export default function DomainesPage() {
   });
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto py-4">
+    <div className="space-y-4 w-full min-w-0 max-w-7xl mx-auto py-3 sm:py-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Contrôle des Domaines</h2>
-          <div className="text-sm text-muted-foreground">Administration centrale - Domaines</div>
+          <div className="text-sm opacity-75">Administration centrale - Domaines</div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
           {/* Colonne gauche : Gestion des domaines (empilé verticalement) */}
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             {missingDefaultDomaines.length > 0 && (
-              <Card>
-                <CardHeader>
+              <Card className="min-w-0 overflow-hidden">
+                <CardHeader className="p-4 sm:p-6">
                   <CardTitle>Domaines par défaut manquants</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
                   <div className="flex flex-wrap gap-2">
                     {missingDefaultDomaines.map((d) => (
                       <Button
@@ -273,12 +273,12 @@ export default function DomainesPage() {
               </Card>
             )}
 
-            <Card>
-              <CardHeader>
+            <Card className="min-w-0 overflow-hidden">
+              <CardHeader className="p-4 sm:p-6">
                 <CardTitle>Créer un domaine</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 min-w-0">
                   <Label>Nom du domaine</Label>
                   <Input
                     value={nomDomaine}
@@ -292,7 +292,7 @@ export default function DomainesPage() {
                     placeholder="CHASSE"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <Label>Code slug</Label>
                   <Input
                     value={codeSlug}
@@ -311,8 +311,8 @@ export default function DomainesPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
+            <Card className="min-w-0 overflow-hidden">
+              <CardHeader className="p-4 sm:p-6">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <CardTitle>Liste des domaines ({filteredDomaines.length})</CardTitle>
                   <div className="w-full md:max-w-sm">
@@ -324,12 +324,12 @@ export default function DomainesPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 min-w-0">
                 {isLoading ? (
                   <div className="py-6">Chargement...</div>
                 ) : (
-                  <div className="w-full overflow-x-auto">
-                    <Table>
+                  <div className="w-full overflow-x-auto rounded-md border">
+                    <Table className="min-w-[520px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nom du Domaine</TableHead>
@@ -397,9 +397,9 @@ export default function DomainesPage() {
           </div>
 
           {/* Colonne droite : Reset Statistiques */}
-          <div className="space-y-4">
-            <Card className="border-red-200 dark:border-red-900">
-              <CardHeader className="pb-3">
+          <div className="space-y-4 min-w-0">
+            <Card className="min-w-0 overflow-hidden border-red-200 dark:border-red-900">
+              <CardHeader className="p-4 sm:p-6 pb-3">
                 <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
                   <RotateCcw className="h-5 w-5" />
                   Reset Statistiques

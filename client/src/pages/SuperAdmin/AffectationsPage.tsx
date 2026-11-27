@@ -248,39 +248,39 @@ export default function AffectationsPage() {
   const agentsCount = new Set(affectations.map(a => a.agentId)).size;
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <div className="max-w-[1440px] w-full min-w-0 mx-auto px-1 sm:px-6 py-4 sm:py-6 space-y-6">
         {/* Dashboard Stats Header (Bento Style) */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-card border border-border p-6 rounded-xl flex flex-col gap-2 shadow-sm">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+          <div className="bg-card border border-border p-4 sm:p-6 rounded-xl flex flex-col gap-2 shadow-sm min-w-0">
             <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Affectations Actives</span>
-            <div className="flex items-end justify-between">
-              <span className="text-4xl font-bold tracking-tight text-foreground">{activeCount}</span>
-              <span className="text-teal-400 flex items-center text-sm font-bold">
+            <div className="flex items-end justify-between gap-2">
+              <span className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">{activeCount}</span>
+              <span className="text-teal-500 flex items-center text-xs sm:text-sm font-bold shrink-0">
                 <TrendingUp className="w-4 h-4 mr-1" /> {affectations.length ? Math.round((activeCount/affectations.length)*100) : 0}%
               </span>
             </div>
           </div>
-          <div className="bg-card border border-border p-6 rounded-xl flex flex-col gap-2 shadow-sm">
+          <div className="bg-card border border-border p-4 sm:p-6 rounded-xl flex flex-col gap-2 shadow-sm min-w-0">
             <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Zones Couvertes</span>
-            <div className="flex items-end justify-between">
-              <span className="text-4xl font-bold tracking-tight text-foreground">{zonesCount}</span>
-              <span className="text-muted-foreground text-sm font-medium">National</span>
+            <div className="flex items-end justify-between gap-2">
+              <span className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">{zonesCount}</span>
+              <span className="text-muted-foreground text-xs sm:text-sm font-medium shrink-0">National</span>
             </div>
           </div>
-          <div className="bg-card border border-border p-6 rounded-xl flex flex-col gap-2 shadow-sm">
+          <div className="bg-card border border-border p-4 sm:p-6 rounded-xl flex flex-col gap-2 shadow-sm min-w-0">
             <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Agents Déployés</span>
-            <div className="flex items-end justify-between">
-              <span className="text-4xl font-bold tracking-tight text-foreground">{agentsCount}</span>
-              <span className="text-teal-400 flex items-center text-sm font-bold">
+            <div className="flex items-end justify-between gap-2">
+              <span className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">{agentsCount}</span>
+              <span className="text-teal-500 flex items-center text-xs sm:text-sm font-bold shrink-0">
                 <UserCheck className="w-4 h-4 mr-1" /> OK
               </span>
             </div>
           </div>
-          <div className="bg-card border border-border p-6 rounded-xl flex flex-col gap-2 shadow-sm">
+          <div className="bg-card border border-border p-4 sm:p-6 rounded-xl flex flex-col gap-2 shadow-sm min-w-0">
             <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Alertes Réseau</span>
-            <div className="flex items-end justify-between">
-              <span className="text-4xl font-bold tracking-tight text-foreground">0</span>
-              <span className="text-amber-500 flex items-center text-sm font-bold">
+            <div className="flex items-end justify-between gap-2">
+              <span className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">0</span>
+              <span className="text-amber-500 flex items-center text-xs sm:text-sm font-bold shrink-0">
                 <AlertTriangle className="w-4 h-4 mr-1" /> Normal
               </span>
             </div>
@@ -288,19 +288,19 @@ export default function AffectationsPage() {
         </div>
 
         {/* Section 1: Contrôle des Affectations Form */}
-        <section className="bg-card border border-border rounded-xl overflow-hidden shadow-md">
-          <div className="p-6 border-b border-border flex justify-between items-center bg-muted/20">
-            <div>
+        <section className="bg-card border border-border rounded-xl overflow-hidden shadow-md min-w-0">
+          <div className="p-4 sm:p-6 border-b border-border flex justify-between items-center gap-3 bg-muted/20">
+            <div className="min-w-0">
               <h2 className="text-lg font-semibold text-foreground">
                 Contrôle des Affectations
               </h2>
               <p className="text-muted-foreground text-sm mt-1">Administration centrale - Configuration des affectations territoriales et restrictions GPS</p>
             </div>
-            <button className="text-muted-foreground hover:text-foreground transition-colors">
+            <button className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <MoreVertical className="w-5 h-5" />
             </button>
           </div>
-          <div className="p-6 sm:p-8">
+          <div className="p-4 sm:p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
               {/* Agent (Liste déroulante) */}
               <div className="flex flex-col gap-2">
@@ -417,23 +417,23 @@ export default function AffectationsPage() {
             </div>
 
             {/* Buttons Row */}
-            <div className="flex flex-col sm:flex-row justify-end mt-6 gap-4 border-t border-border pt-6">
+            <div className="flex flex-col sm:flex-row justify-end mt-6 gap-3 sm:gap-4 border-t border-border pt-6">
               <Button
                 onClick={() => applyGeoRestrictionMutation.mutate()}
                 disabled={applyGeoRestrictionMutation.isPending || !selectedAgent || (geoRestrictionEnabled && !restrictionType)}
                 variant="outline"
-                className="px-6 py-6 rounded-lg font-bold flex items-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+                className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-6 h-auto rounded-lg font-bold flex items-center justify-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50 whitespace-normal text-center"
               >
-                <Shield className="w-5 h-5" />
+                <Shield className="w-5 h-5 shrink-0" />
                 Mettre à jour Restriction GPS
               </Button>
 
               <Button
                 onClick={() => saveAffectationMutation.mutate()}
                 disabled={saveAffectationMutation.isPending || !selectedAgent || !selectedDomaineId || !selectedNiveau}
-                className="bg-teal-600 text-white hover:bg-teal-700 px-8 py-6 rounded-lg font-bold flex items-center gap-3 transition-all shadow-[0_0_15px_rgba(13,148,136,0.2)] hover:shadow-[0_0_20px_rgba(13,148,136,0.4)]"
+                className="w-full sm:w-auto bg-teal-600 text-white hover:bg-teal-700 px-4 sm:px-8 py-3 sm:py-6 h-auto rounded-lg font-bold flex items-center justify-center gap-3 transition-all shadow-[0_0_15px_rgba(13,148,136,0.2)] hover:shadow-[0_0_20px_rgba(13,148,136,0.4)] whitespace-normal text-center"
               >
-                <CheckCircle className="w-5 h-5" />
+                <CheckCircle className="w-5 h-5 shrink-0" />
                 {saveAffectationMutation.isPending ? "Enregistrement..." : "Enregistrer l'Affectation"}
               </Button>
             </div>
@@ -587,7 +587,7 @@ export default function AffectationsPage() {
           </div>
           
           {!isLoading && (
-            <div className="px-6 py-4 border-t border-border bg-muted/10 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-t border-border bg-muted/10 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
               <span className="text-sm text-muted-foreground font-medium">
                 Affichage {(pagination.page - 1) * 10 + (filtered.length > 0 ? 1 : 0)}-{Math.min(pagination.page * 10, filtered.length)} sur {filtered.length} affectations
               </span>

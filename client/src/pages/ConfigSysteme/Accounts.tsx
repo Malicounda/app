@@ -833,18 +833,18 @@ export default function Accounts() {
       </div>
 
       {/* Administrative options card */}
-      <Card>
-        <CardHeader>
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle>Options administratives</CardTitle>
           <CardDescription>Paramètres globaux pour le comportement des agents</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
+        <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0">
               <Label className="text-base font-medium">Permettre aux agents d'accéder aux détails des permis depuis la fiche chasseur</Label>
               <p className="text-sm text-muted-foreground">Si activé, un bouton s'affichera dans la modal 'Détails du Chasseur' pour ouvrir le modal 'Détails du Permis'.</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <Badge variant={agentPermitAccessData?.enabled ? "default" : "secondary"}>
                 {agentPermitAccessData?.enabled ? "Activé" : "Désactivé"}
               </Badge>
@@ -872,14 +872,14 @@ export default function Accounts() {
             </div>
           </div>
 
-          <div className="mt-4 p-3 border rounded-md bg-slate-50 flex items-center justify-between gap-4">
-            <div className="space-y-1">
+          <div className="mt-4 p-3 border rounded-md bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1 min-w-0">
               <Label htmlFor="national-override" className="text-base font-medium">Autoriser agents à délivrer permis/attaxes à tous les chasseurs (National)</Label>
               <p className="text-sm text-muted-foreground">
                 Lorsque cette option est activée, les agents régionaux et de secteur peuvent délivrer un permis ou ajouter une taxe à n'importe quel chasseur de la liste nationale. Les règles de portée par région/département sont temporairement suspendues.
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <Badge variant={nationalOverrideData?.enabled ? "default" : "secondary"}>
                 {nationalOverrideData?.enabled ? "Activé" : "Désactivé"}
               </Badge>
@@ -894,8 +894,8 @@ export default function Accounts() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle>Gestion des utilisateurs</CardTitle>
           <CardDescription>
             Gestion des différents profils d'utilisateurs du système
@@ -922,10 +922,10 @@ export default function Accounts() {
           </div>
         </CardHeader>
 
-        <CardContent className="p-0">
+        <CardContent className="p-0 min-w-0">
           <Tabs defaultValue="allUsers">
             <div className="overflow-x-auto">
-              <TabsList className="w-full flex overflow-x-auto whitespace-nowrap gap-2 rounded-none">
+              <TabsList className="w-full flex justify-start overflow-x-auto whitespace-nowrap gap-2 rounded-none">
                 <TabsTrigger value="allUsers" className="font-semibold">Tous les utilisateurs ({users.length})</TabsTrigger>
                 <TabsTrigger value="admins">Administrateurs ({admins.length})</TabsTrigger>
                 <TabsTrigger value="agents">Agents Régionaux ({agents.length})</TabsTrigger>

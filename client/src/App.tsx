@@ -721,6 +721,13 @@ function Router() {
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
+        <Route path="/changeprofil">
+          <ChasseRoute>
+            <ProtectedRoute adminOnly superAdminOnly>
+              <ChangeprofilPage />
+            </ProtectedRoute>
+          </ChasseRoute>
+        </Route>
 
         <Route path="/superadmin/affectations">
           <ChasseRoute>
@@ -924,13 +931,6 @@ function Router() {
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
-        <Route path="/changeprofil">
-          <ChasseRoute>
-            <ProtectedRoute adminOrAgentOnly>
-              <ChangeprofilPage />
-            </ProtectedRoute>
-          </ChasseRoute>
-        </Route>
         <Route path="/android-settings">
           <ChasseRoute>
             <ProtectedRoute>
@@ -1037,11 +1037,6 @@ function Router() {
             <Infractions />
           </ProtectedRoute>
         </Route>
-        <Route path="/changeprofil">
-          <ProtectedRoute adminOrAgentOnly>
-            <ChangeprofilPage />
-          </ProtectedRoute>
-        </Route>
         <Route path="/android-settings">
           <ProtectedRoute>
             <AndroidSettings />
@@ -1082,7 +1077,8 @@ function applyTheme(cfg: any, user: any, location: string) {
   const isSuperAdminSection = location.startsWith('/superadmin') || 
                               location.startsWith('/admin') || 
                               location === '/settings' || 
-                              location === '/accounts';
+                              location === '/accounts' ||
+                              location === '/changeprofil';
   const shouldApplySuperAdminTheme = isSuperAdminUser || (isSuperAdminSection && isSuperAdminUser);
 
   // Détection automatique du domaine par l'URL si non défini ou pour corriger le localStorage au démarrage

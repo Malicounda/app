@@ -456,16 +456,6 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
               <span className={labelCls}>Infractions</span>
             </Link>
 
-            <Link
-              href="/changeprofil"
-              onClick={handleLinkClick}
-              className={location === '/changeprofil' ? activeLinkStyle : linkStyle}
-            >
-              <span className={iconWrapCls}>
-                <ProfileChangeIcon className={cn('text-blue-600', iconSize)} />
-              </span>
-              <span className={labelCls}>Changement Profil</span>
-            </Link>
 
             {/* Placer Historique avant Paramètres pour qu'il soit visible en bas de viewport */}
             {isUserSuperAdmin(user) && (
@@ -549,6 +539,17 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
                 <AccountManagementIcon className={cn('text-slate-400', iconSize)} />
               </span>
               <span className={labelCls}>Gestion des Comptes</span>
+            </Link>
+
+            <Link
+              href="/changeprofil"
+              onClick={handleLinkClick}
+              className={location === '/changeprofil' ? activeLinkStyle : linkStyle}
+            >
+              <span className={iconWrapCls}>
+                <ProfileChangeIcon className={cn('text-slate-400', iconSize)} />
+              </span>
+              <span className={labelCls}>Changement Profil</span>
             </Link>
 
             <Link

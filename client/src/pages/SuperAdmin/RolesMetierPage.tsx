@@ -281,10 +281,10 @@ export default function RolesMetierPage() {
   const activeRolesCount = roles.filter((r) => r.isActive).length;
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto py-4">
+    <div className="space-y-4 w-full min-w-0 max-w-6xl mx-auto py-3 sm:py-4">
       <div className="space-y-1">
         <h2 className="text-2xl font-bold">Contrôle des Rôles Métier</h2>
-        <div className="text-sm text-muted-foreground">Administration centrale - Rôles métier</div>
+        <div className="text-sm opacity-75">Administration centrale - Rôles métier</div>
       </div>
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
@@ -341,11 +341,11 @@ export default function RolesMetierPage() {
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader>
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle>Créer un rôle métier</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Code</Label>
             <Input
@@ -381,8 +381,8 @@ export default function RolesMetierPage() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="space-y-2">
+        <Card className="min-w-0 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6 space-y-2">
             <CardTitle>Rôles métier par défaut</CardTitle>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -405,13 +405,13 @@ export default function RolesMetierPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-2 min-w-0">
+            <p className="text-sm text-muted-foreground break-words">
               Les agents créés sans domaine spécifique recevront automatiquement l&apos;un de ces rôles métier.
               Connexion possible avec le matricule seul. {selectableDefaultRoles.length} rôle(s) éligible(s),{" "}
               {defaultRoleIds.length} sélectionné(s).
             </p>
-            <div className="border rounded-md divide-y max-h-[280px] overflow-y-auto">
+            <div className="border rounded-md divide-y max-h-[280px] overflow-y-auto overflow-x-hidden">
               {selectableDefaultRoles.map((r) => {
                 const isSelected = defaultRoleIds.includes(r.id);
                 return (
@@ -420,15 +420,15 @@ export default function RolesMetierPage() {
                     type="button"
                     onClick={() => setDefaultMutation.mutate({ id: r.id, isDefault: !isSelected })}
                     disabled={setDefaultMutation.isPending || bulkDefaultPending}
-                    className={`w-full flex items-center justify-between px-4 py-3 text-sm text-left transition-colors hover:bg-primary/10 hover:text-primary ${
+                    className={`w-full flex items-center justify-between gap-3 px-3 sm:px-4 py-3 text-sm text-left transition-colors hover:bg-primary/10 hover:text-primary ${
                       isSelected ? "bg-primary/15 text-primary font-medium" : ""
                     }`}
                   >
-                    <span>
-                      {r.labelFr} ({r.code})
+                    <span className="min-w-0 flex-1 break-words">
+                      {r.labelFr} <span className="break-all text-xs opacity-80">({r.code})</span>
                     </span>
                     <div
-                      className={`flex h-5 w-5 items-center justify-center rounded border ${
+                      className={`shrink-0 flex h-5 w-5 items-center justify-center rounded border ${
                         isSelected ? "bg-primary border-primary text-primary-foreground" : "border-input bg-background"
                       }`}
                     >
@@ -438,17 +438,17 @@ export default function RolesMetierPage() {
                 );
               })}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-xs text-muted-foreground mt-2 break-words">
               Cliquez sur un rôle pour l&apos;ajouter ou le retirer de la sélection par défaut.
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="min-w-0 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6">
             <CardTitle>Grades (liste déroulante agents)</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-4 min-w-0">
             <p className="text-sm text-muted-foreground">
               Les grades ajoutés ici apparaissent dans les formulaires Ajouter / Modifier un agent.
             </p>
@@ -492,14 +492,15 @@ export default function RolesMetierPage() {
                 <div className="p-4 text-sm text-muted-foreground">Aucun grade défini.</div>
               ) : (
                 grades.map((g) => (
-                  <div key={g.id} className="flex items-center justify-between gap-2 px-4 py-2 text-sm">
-                    <span>
-                      {g.label} <span className="text-muted-foreground">({g.code})</span>
+                  <div key={g.id} className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 text-sm">
+                    <span className="min-w-0 flex-1 break-words">
+                      {g.label} <span className="text-muted-foreground break-all text-xs">({g.code})</span>
                     </span>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
+                      className="shrink-0"
                       onClick={() => deleteGradeMutation.mutate(g.id)}
                       disabled={deleteGradeMutation.isPending}
                     >
@@ -514,15 +515,15 @@ export default function RolesMetierPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 space-y-0">
           <CardTitle>Liste</CardTitle>
           <span className="text-sm font-medium text-muted-foreground">
             Total : {roles.length} rôle(s)
             {activeRolesCount !== roles.length ? ` (${activeRolesCount} actif(s))` : ""}
           </span>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
           {isLoading ? (
             <div className="py-6">Chargement...</div>
           ) : (

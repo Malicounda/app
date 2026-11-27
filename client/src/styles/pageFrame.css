@@ -31,6 +31,8 @@ html, body {
 
 .page-frame-inner {
   /* Container centré similaire aux contrôles map */
+  width: 100%;
+  min-width: 0;
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 1rem; /* un peu moins de padding horizontal pour coller aux autres pages */

@@ -31,6 +31,28 @@ export default defineConfig({
     react({
       babel: { configFile: './babel.config.js' }
     }),
+    {
+      name: 'private-network-access-cors',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          res.setHeader('Access-Control-Allow-Private-Network', 'true')
+          if (req.headers.origin) {
+            res.setHeader('Access-Control-Allow-Origin', req.headers.origin)
+            res.setHeader('Access-Control-Allow-Credentials', 'true')
+          } else {
+            res.setHeader('Access-Control-Allow-Origin', '*')
+          }
+          if (req.method === 'OPTIONS') {
+            res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS')
+            res.setHeader('Access-Control-Allow-Headers', req.headers['access-control-request-headers'] || '*')
+            res.statusCode = 204
+            res.end()
+            return
+          }
+          next()
+        })
+      }
+    },
     ...(isDev ? [mkcert()] : [])
   ],
   resolve: {
@@ -79,6 +101,10 @@ export default defineConfig({
       port: 5173
     },
     cors: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Private-Network': 'true'
+    },
     proxy: {
       '/api': {
         target: BACKEND_URL,
@@ -96,6 +122,10 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Private-Network': 'true'
+    },
     proxy: {
       '/api': {
         target: BACKEND_URL,
