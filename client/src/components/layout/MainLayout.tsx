@@ -60,10 +60,13 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
   const isSuperAdmin = (user as any)?.isSuperAdmin === true;
   const isHunterOrGuide = user?.role === 'hunter' || user?.role === 'hunting-guide';
+  const isPilotagePage = location === '/pilotage' || location.endsWith('/pilotage');
   const isAlerteAgent = (typeof window !== 'undefined' && (localStorage.getItem('domain') || '').toUpperCase() === 'ALERTE') ||
     ((() => { const d = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase(); return d !== 'CHASSE' && d !== 'REBOISEMENT'; })() &&
       ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
-  const chromeless = (isAlerteAgent || isHunterOrGuide) && !isSuperAdmin;
+  const chromeless = (isAlerteAgent || isHunterOrGuide) && !isSuperAdmin && !isPilotagePage;
+  const hidePilotageChrome = isPilotagePage && !isSuperAdmin;
+  const hideSidebarAndNav = chromeless || hidePilotageChrome;
 
   const normalizedRole = (user?.role || '')
     .toLowerCase()
@@ -102,7 +105,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
     // Si l'utilisateur est sur la page login ou racine mais qu'il est déjà authentifié
     if (isAuthenticated && (location === '/login' || location === '/')) {
-      setLocation(getHomePage(user?.role, user?.type, (user as any)?.isSuperAdmin, !!(user as any)?.isDefaultRole, !!(user as any)?.isSupervisorRole));
+      setLocation(getHomePage(user?.role, user?.type, (user as any)?.isSuperAdmin, !!(user as any)?.isDefaultRole, !!(user as any)?.isSupervisorRole, user));
       return;
     }
 
@@ -234,7 +237,9 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
   return (
     <div className="w-full overflow-hidden flex flex-col" style={{ height: '100dvh' }}>
       {/* Header */}
-      {!hideMinistryHeader && !chromeless && <Header />}
+      {!hideMinistryHeader && !chromeless && (
+        <Header hideMenuToggle={hideSidebarAndNav} isPilotage={isPilotagePage} />
+      )}
 
       {/* Entête verte plein écran pour les agents Alerte */}
       {chromeless && (
@@ -296,14 +301,14 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
       {/* Main Content */}
       <div
-        className={chromeless ? "flex flex-1 min-h-0 overflow-hidden" : "flex flex-1 min-h-0 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
+        className={hideSidebarAndNav ? "flex flex-1 min-h-0 overflow-hidden" : "flex flex-1 min-h-0 overflow-hidden md:grid md:grid-cols-[auto,1fr]"}
         style={{ 
           ...(!chromeless ? { height: 'calc(100dvh - var(--fixed-top, 56px))' } : {}),
           paddingTop: chromeless && (location !== '/sms' || isHunterOrGuide) ? 'calc(52px + env(safe-area-inset-top, 0px))' : undefined
         }}
       >
-        {/* Sidebar desktop: FIXED pour une scrollbar toujours visible au-dessus du contenu - MASQUÉ SUR MOBILE */}
-        {!chromeless && (
+        {/* Sidebar desktop: FIXED pour une scrollbar toujours visible au-dessus du contenu - MASQUÉ SUR MOBILE ET SUR /pilotage */}
+        {!hideSidebarAndNav && (
         <div
           className={`sidebar-desktop hidden md:block fixed left-0 ${isSuperAdmin ? 'bg-[#0d1220]' : 'bg-white'} shadow-sm z-[90] ${isSidebarCollapsed ? 'w-16' : 'w-64'} border-r-2 ${isSuperAdmin ? 'border-[#3d4947]' : 'border-gray-300'} transition-all duration-300 ease-in-out`}
           style={{
@@ -319,13 +324,13 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
           <Sidebar collapsed={isSidebarCollapsed} />
         </div>
         )}
-        {/* Espaceur (colonne fantôme) pour réserver l'espace de la sidebar fixe - MASQUÉ SUR MOBILE */}
-        {!chromeless && (
+        {/* Espaceur (colonne fantôme) pour réserver l'espace de la sidebar fixe - MASQUÉ SUR MOBILE ET SUR /pilotage */}
+        {!hideSidebarAndNav && (
           <div className={`sidebar-desktop hidden md:block ${isSidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 ease-in-out`} style={{ willChange: 'width' }} />
         )}
 
         {/* Bouton flottant trapèze attaché au volet de navigation (desktop) */}
-        {!chromeless && (
+        {!hideSidebarAndNav && (
         <button
           type="button"
           aria-label={isSidebarCollapsed ? 'Agrandir le menu' : 'Réduire le menu'}
@@ -368,7 +373,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         )}
 
         {/* Sidebar mobile avec animation améliorée */}
-        {!chromeless && (
+        {!hideSidebarAndNav && (
         <div
           className={`fixed left-0 ${isSuperAdmin ? 'bg-[#0d1220]' : 'bg-white'} shadow-xl z-[200] w-64 md:hidden overflow-hidden
             ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
@@ -385,7 +390,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
         )}
 
         {/* Overlay sombre avec animation pour le menu mobile */}
-        {!chromeless && (
+        {!hideSidebarAndNav && (
         <div
           className={`fixed left-0 right-0 bg-black z-[199] md:hidden transition-opacity duration-300 ${isSidebarOpen ? 'opacity-50' : 'opacity-0 pointer-events-none'}`}
           style={{
@@ -402,8 +407,8 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
         {/* Colonne droite (desktop): sticky nav + main */}
         <div className="min-w-0 min-h-0 w-full flex-1 flex flex-col overflow-hidden">
-          {/* Desktop Navigation Bar (masquée pour Alerte, SuperAdmin et la Carte) */}
-          {!chromeless && !isSuperAdmin && !location?.startsWith('/map') && <Navbar />}
+          {/* Desktop Navigation Bar (masquée pour Alerte, SuperAdmin, Pilotage KPI et la Carte) */}
+          {!hideSidebarAndNav && !isSuperAdmin && !location?.startsWith('/map') && <Navbar />}
 
           {/* Main Section - responsive */}
           <main
@@ -442,7 +447,7 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
               </div>
             ) : (
               <div className="page-frame-container">
-                <div className="page-frame-inner">
+                <div className={isPilotagePage ? "page-frame-inner page-frame-wide" : "page-frame-inner"}>
                   <Suspense fallback={<PageLoader />}>
                     {children}
                   </Suspense>

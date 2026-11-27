@@ -6,7 +6,12 @@ import { PawPrint, RefreshCw, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MdLogout, MdMenu, MdPerson } from 'react-icons/md';
 
-export default function Header() {
+interface HeaderProps {
+  hideMenuToggle?: boolean;
+  isPilotage?: boolean;
+}
+
+export default function Header({ hideMenuToggle = false, isPilotage = false }: HeaderProps) {
   const { logout, user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -78,17 +83,30 @@ export default function Header() {
     window.dispatchEvent(new CustomEvent('toggle-sidebar'));
   };
 
+  const isLightPilotageHeader = isPilotage && !isSuperAdmin;
+
   return (
-    <header id="app-header" className={`${isSuperAdmin ? 'bg-[#131b2e]' : 'bg-[#0b6b3a]'} text-white px-2 sm:px-3 py-0 sm:py-0.5 flex justify-between items-center fixed w-full z-[210] top-0`}>
+    <header
+      id="app-header"
+      className={`${
+        isSuperAdmin
+          ? 'bg-[#131b2e] text-white'
+          : isLightPilotageHeader
+            ? 'bg-gradient-to-r from-emerald-100 via-green-100 to-emerald-100 text-emerald-950 border-b-2 border-emerald-300 shadow-xs'
+            : 'bg-[#0b6b3a] text-white'
+      } px-2 sm:px-4 py-1 sm:py-1.5 flex justify-between items-center fixed w-full z-[210] top-0`}
+    >
       <div className="flex items-center">
         {/* Bouton hamburger pour mobile uniquement */}
-        <button
-          className="md:hidden text-white bg-white/15 hover:bg-white/25 rounded-t-sm rounded-b-md p-0.5 mr-1 flex items-center justify-center transition-colors shadow-sm"
-          onClick={toggleSidebar}
-          aria-label="Menu"
-        >
-          <MdMenu className="text-lg leading-none" />
-        </button>
+        {!hideMenuToggle && (
+          <button
+            className="md:hidden text-white bg-white/15 hover:bg-white/25 rounded-t-sm rounded-b-md p-0.5 mr-1 flex items-center justify-center transition-colors shadow-sm"
+            onClick={toggleSidebar}
+            aria-label="Menu"
+          >
+            <MdMenu className="text-lg leading-none" />
+          </button>
+        )}
 
         {/* Drapeau visible en mode mobile (à côté du menu) - non cliquable */}
         <div className="flex md:hidden items-center mr-1" aria-hidden>
@@ -125,8 +143,18 @@ export default function Header() {
 
       {/* Titre centré dynamique selon le rôle */}
       <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center pointer-events-none">
-        <div className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
-          <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+        <div
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border backdrop-blur-sm ${
+            isLightPilotageHeader
+              ? 'bg-white/85 border-emerald-300 text-emerald-950 shadow-xs'
+              : 'bg-black/20 border-white/10'
+          }`}
+        >
+          <div
+            className={`w-7 h-7 rounded-full flex items-center justify-center ${
+              isLightPilotageHeader ? 'bg-emerald-100' : 'bg-white/20'
+            }`}
+          >
             {isSuperAdmin ? (
               <Settings className="w-4 h-4 text-white" />
             ) : (
@@ -134,11 +162,19 @@ export default function Header() {
             )}
           </div>
           <div className="leading-tight">
-            <div className="font-bold text-[10px] sm:text-[11px] tracking-wide uppercase">
-              {isSuperAdmin ? "Super-Administrateur Central" : "Gestion de la Faune"}
+            <div className="font-bold text-[11px] sm:text-xs tracking-wide uppercase">
+              {isSuperAdmin ? "Super-Administrateur Central" : isPilotage ? "Pilotage Territorial" : "Gestion de la Faune"}
             </div>
-            <div className={`text-[8px] sm:text-[9px] ${isSuperAdmin ? 'text-teal-200' : 'text-green-100'} opacity-90 font-medium`}>
-                  {isSuperAdmin ? "Système de Contrôle et de Digitalisation" : "Division FAUNE"}
+            <div
+              className={`text-[9px] sm:text-[10px] font-medium ${
+                isSuperAdmin
+                  ? 'text-teal-200 opacity-90'
+                  : isLightPilotageHeader
+                    ? 'text-emerald-700'
+                    : 'text-green-100 opacity-90'
+              }`}
+            >
+              {isSuperAdmin ? "Système de Contrôle et de Digitalisation" : isPilotage ? "Tableau de bord KPI" : "Division FAUNE"}
             </div>
           </div>
         </div>
@@ -149,7 +185,13 @@ export default function Header() {
           <Button
             variant="outline"
             size="sm"
-            className={`flex items-center ${isSuperAdmin ? 'bg-[#222a3d] text-teal-300 hover:bg-[#2d3449] border-[#3d4947]' : 'bg-white text-[#0b6b3a] hover:bg-gray-100'} px-2 sm:px-3`}
+            className={`flex items-center ${
+              isSuperAdmin
+                ? 'bg-[#222a3d] text-teal-300 hover:bg-[#2d3449] border-[#3d4947]'
+                : isLightPilotageHeader
+                  ? 'bg-white text-emerald-800 hover:bg-emerald-50 border-emerald-300'
+                  : 'bg-white text-[#0b6b3a] hover:bg-gray-100'
+            } px-2 sm:px-3`}
             onClick={handleRefreshAll}
           >
             <RefreshCw id="refresh-button" className="h-4 w-4 mr-1" />
@@ -158,7 +200,13 @@ export default function Header() {
         )}
         {/* Nom de l'utilisateur entre Actualiser et Déconnexion */}
         {user && !isSuperAdmin && (
-          <div className="hidden sm:inline-flex items-center text-green-700 text-sm font-semibold bg-green-50 px-2 sm:px-3 py-0.5 rounded-md whitespace-nowrap">
+          <div
+            className={`hidden sm:inline-flex items-center text-sm font-semibold px-2.5 sm:px-3 py-1 rounded-md whitespace-nowrap ${
+              isLightPilotageHeader
+                ? 'bg-white text-emerald-900 border border-emerald-300'
+                : 'text-green-700 bg-green-50'
+            }`}
+          >
             <MdPerson className="text-base mr-1" aria-hidden />
             <span>{`${user.firstName ?? ''} ${typeof user.lastName === 'string' ? user.lastName.toUpperCase() : ''}`.trim()}</span>
           </div>

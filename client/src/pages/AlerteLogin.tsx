@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { getHomePage } from "@/utils/navigation";
 import LicenseDialog from "@/components/layout/LicenseDialog";
 import "../styles/login.css";
 
@@ -65,8 +66,15 @@ export default function AlerteLogin() {
   // redirection si déjà connecté
   useEffect(() => {
     if (isAuthenticated && user) {
-      const isSupervisor = (user as any)?.isSupervisorRole;
-      setLocation(isSupervisor ? "/supervisor" : "/default-home");
+      const homePage = getHomePage(
+        user.role,
+        user.type,
+        (user as any)?.isSuperAdmin,
+        (user as any)?.isDefaultRole,
+        (user as any)?.isSupervisorRole,
+        user
+      );
+      setLocation(homePage);
     }
   }, [isAuthenticated, user, setLocation]);
 

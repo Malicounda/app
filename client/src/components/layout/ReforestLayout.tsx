@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import PageLoader from '@/components/ui/PageLoader';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FileText, LayoutDashboard, LogOut, MapPin, MessageSquare, RefreshCw, Sprout, TreePine, User } from 'lucide-react';
+import { BarChart3, BookOpen, FileText, LayoutDashboard, LogOut, MapPin, MessageSquare, RefreshCw, Sprout, TreePine, User } from 'lucide-react';
 import React, { Suspense } from 'react';
 import { Link, useLocation } from 'wouter';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
@@ -58,6 +58,9 @@ export default function ReforestLayout({ children }: { children: React.ReactNode
   };
 
   const navItems = [
+    ...(!(user as any)?.isSuperAdmin && Boolean((user as any)?.territorialScope)
+      ? [{ path: '/pilotage', label: 'Pilotage KPI', icon: BarChart3, roles: ['admin', 'agent', 'sub-agent'] }]
+      : []),
     { path: dashboardPath, label: 'Tableau de bord', icon: LayoutDashboard, roles: ['admin', 'agent', 'sub-agent'] },
     { path: '/reboisement/reports', label: 'Rapports Quinzaine', icon: FileText, roles: ['admin', 'agent', 'sub-agent'] },
     { path: '/reboisement/localisation', label: 'Localisation', icon: MapPin, roles: ['admin', 'agent', 'sub-agent'] },

@@ -43,7 +43,8 @@ export default function HomePageWrapper() {
         user.type,
         (user as any).isSuperAdmin,
         !!(user as any).isDefaultRole,
-        !!(user as any).isSupervisorRole
+        !!(user as any).isSupervisorRole,
+        user
       );
       setLocation(homePage);
     }

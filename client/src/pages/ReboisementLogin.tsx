@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { getHomePage } from "@/utils/navigation";
 import "../styles/login.css";
 
 const schema = z.object({
@@ -26,9 +27,23 @@ const schema = z.object({
 });
 
 export default function ReboisementLogin() {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, isAuthenticated, user } = useAuth();
   const [, setLocation] = useLocation();
   const [loginTheme, setLoginTheme] = useState<{ bgImage?: string; bgColor?: string; primary?: string }>({});
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const homePage = getHomePage(
+        user.role,
+        user.type,
+        (user as any)?.isSuperAdmin,
+        (user as any)?.isDefaultRole,
+        (user as any)?.isSupervisorRole,
+        user
+      );
+      setLocation(homePage);
+    }
+  }, [isAuthenticated, user, setLocation]);
 
   useEffect(() => {
     try {

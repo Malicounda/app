@@ -54,6 +54,8 @@ export default function DashboardRedirector() {
     if (isSuperAdmin) {
       localStorage.removeItem('domain');
       target = '/superadmin/agents';
+    } else if ((user as any)?.territorialScope) {
+      target = '/pilotage';
 
       // ──────────────────────────────────────────────
       // 2. DOMAINE ALERTE ou Rôles Alerte

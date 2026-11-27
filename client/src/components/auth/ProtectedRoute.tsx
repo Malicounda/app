@@ -22,6 +22,7 @@ interface ProtectedRouteProps {
   allowAlerteRoles?: boolean;
   requireSupervisor?: boolean;
   requireDefaultRole?: boolean;
+  requireTerritorialPilotage?: boolean;
   hunterOnly?: boolean;
   huntingGuideOnly?: boolean;
 }
@@ -63,6 +64,7 @@ export function ProtectedRoute({
   allowAlerteRoles,
   requireSupervisor,
   requireDefaultRole,
+  requireTerritorialPilotage,
   hunterOnly,
   huntingGuideOnly
 }: ProtectedRouteProps) {
@@ -95,6 +97,10 @@ export function ProtectedRoute({
 
     if (requireDefaultRole) {
       return isDefaultRole;
+    }
+
+    if (requireTerritorialPilotage) {
+      return Boolean((user as any)?.territorialScope);
     }
 
     // Si la route autorise explicitement les rôles Alerte (défaut / superviseur)

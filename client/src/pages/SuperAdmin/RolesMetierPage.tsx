@@ -14,12 +14,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
+  BarChart3,
   Briefcase,
   CheckCircle2,
   Loader2,
@@ -35,6 +43,8 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+type TerritorialScope = "national" | "regional" | "departemental" | "arrondissement" | null;
+
 type RoleMetier = {
   id: number;
   code: string;
@@ -43,6 +53,8 @@ type RoleMetier = {
   isActive: boolean;
   isDefault: boolean;
   isSupervisor: boolean;
+  territorialScope?: TerritorialScope;
+  pilotageDomains?: string[];
   createdAt: string;
 };
 
@@ -54,7 +66,22 @@ type AgentGrade = {
 };
 
 type RoleProfileType = "standard" | "default" | "supervisor";
-type RoleFilter = "all" | "default" | "supervisor" | "standard" | "inactive";
+type RoleFilter = "all" | "pilotage" | "default" | "supervisor" | "inactive";
+
+type DomaineItem = {
+  id: number;
+  nomDomaine: string;
+  codeSlug: string;
+  isActive: boolean;
+};
+
+const SCOPE_OPTIONS: Array<{ value: string; label: string; shortLabel: string }> = [
+  { value: "__none__", label: "Aucun pilotage KPI", shortLabel: "Aucun" },
+  { value: "national", label: "National (Tout le pays)", shortLabel: "National" },
+  { value: "regional", label: "Régional (Sa Région)", shortLabel: "Régional" },
+  { value: "departemental", label: "Départemental (Son Secteur)", shortLabel: "Départemental" },
+  { value: "arrondissement", label: "Arrondissement (Sous-Secteur)", shortLabel: "Arrondissement" },
+];
 
 function labelToCode(value: string): string {
   return String(value || "")
@@ -89,10 +116,41 @@ export default function RolesMetierPage() {
     queryFn: () => apiRequest<AgentGrade[]>({ url: "/api/agent-grades", method: "GET" }),
   });
 
+  const { data: domainesData } = useQuery({
+    queryKey: ["/api/domaines"],
+    queryFn: () => apiRequest<DomaineItem[]>({ url: "/api/domaines", method: "GET" }),
+  });
+
+  // Domaines chargés STRICTEMENT depuis la page Domaines (un domaine non ajouté n'apparaît jamais)
+  const domainChoices = useMemo(() => {
+    const map = new Map<string, string>();
+    const activeDomaines = (Array.isArray(domainesData) ? domainesData : []).filter(
+      (d) => d && d.isActive !== false && (d.codeSlug || d.nomDomaine)
+    );
+    for (const d of activeDomaines) {
+      const slug = String(d.codeSlug || d.nomDomaine).trim().toUpperCase();
+      if (slug) {
+        map.set(slug, String(d.nomDomaine || slug).trim());
+      }
+    }
+    return [
+      { key: "ALL", label: "Tous" },
+      ...Array.from(map.entries()).map(([key, label]) => ({ key, label })),
+    ];
+  }, [domainesData]);
+
   const roles = useMemo(
     () =>
       (Array.isArray(rolesData) ? rolesData : [])
-        .map((r: any) => ({ ...r, isDefault: !!r.isDefault, isSupervisor: !!r.isSupervisor }))
+        .map((r: any) => ({
+          ...r,
+          isDefault: !!r.isDefault,
+          isSupervisor: !!r.isSupervisor,
+          territorialScope: (r.territorialScope || r.territorial_scope || null) as TerritorialScope,
+          pilotageDomains: Array.isArray(r.pilotageDomains || r.pilotage_domains)
+            ? (r.pilotageDomains || r.pilotage_domains)
+            : [],
+        }))
         .sort((a, b) => a.labelFr.localeCompare(b.labelFr, "fr")),
     [rolesData]
   );
@@ -225,6 +283,53 @@ export default function RolesMetierPage() {
     }
   };
 
+  const handleUpdatePilotage = async (
+    role: RoleMetier,
+    nextScope: TerritorialScope,
+    nextDomains?: string[]
+  ) => {
+    if (switchingRoleId === role.id) return;
+    setSwitchingRoleId(role.id);
+    try {
+      await apiRequest({
+        url: `/api/roles-metier/${role.id}/pilotage`,
+        method: "PATCH",
+        data: {
+          territorialScope: nextScope,
+          pilotageDomains: nextScope ? (nextDomains ?? (role.pilotageDomains?.length ? role.pilotageDomains : ["ALL"])) : [],
+        },
+      });
+      await qc.invalidateQueries({ queryKey: ["/api/roles-metier"] });
+    } catch (e: any) {
+      toast({
+        title: "Mise à jour impossible",
+        description: e?.body?.message || e?.message || "Erreur lors de la mise à jour de la portée KPI.",
+        variant: "destructive",
+      });
+    } finally {
+      setSwitchingRoleId(null);
+    }
+  };
+
+  const handleTogglePilotageDomain = (role: RoleMetier, domainKey: string) => {
+    if (!role.territorialScope) return;
+    const allSpecificKeys = domainChoices.filter((d) => d.key !== "ALL").map((d) => d.key);
+    const current = Array.isArray(role.pilotageDomains) ? role.pilotageDomains : [];
+    let next: string[];
+    if (domainKey === "ALL") {
+      next = ["ALL"];
+    } else {
+      const base = current.includes("ALL") ? allSpecificKeys : current.filter((d) => d !== "ALL");
+      const toggled = base.includes(domainKey) ? base.filter((d) => d !== domainKey) : [...base, domainKey];
+      if (allSpecificKeys.length > 0 && toggled.length >= allSpecificKeys.length) {
+        next = ["ALL"];
+      } else {
+        next = toggled;
+      }
+    }
+    void handleUpdatePilotage(role, role.territorialScope, next);
+  };
+
   const handleBulkDefault = async (enable: boolean) => {
     const targets = roles.filter((r) => r.isActive && !r.isSupervisor && (enable ? !r.isDefault : r.isDefault));
     if (!targets.length) return;
@@ -305,20 +410,20 @@ export default function RolesMetierPage() {
   // ── Derived metrics & filtered lists ─────────────────────────────────────────
   const stats = useMemo(() => {
     const active = roles.filter((r) => r.isActive).length;
+    const pilotage = roles.filter((r) => r.isActive && Boolean(r.territorialScope)).length;
     const defaults = roles.filter((r) => r.isActive && r.isDefault).length;
     const supervisors = roles.filter((r) => r.isActive && r.isSupervisor).length;
-    const standards = roles.filter((r) => r.isActive && !r.isDefault && !r.isSupervisor).length;
     const inactive = roles.filter((r) => !r.isActive).length;
     const eligibleForDefault = roles.filter((r) => r.isActive && !r.isSupervisor).length;
-    return { total: roles.length, active, defaults, supervisors, standards, inactive, eligibleForDefault };
+    return { total: roles.length, active, pilotage, defaults, supervisors, inactive, eligibleForDefault };
   }, [roles]);
 
   const filteredRoles = useMemo(() => {
     const q = roleSearch.trim().toLowerCase();
     return roles.filter((r) => {
+      if (roleFilter === "pilotage" && !(r.isActive && Boolean(r.territorialScope))) return false;
       if (roleFilter === "default" && !(r.isActive && r.isDefault)) return false;
       if (roleFilter === "supervisor" && !(r.isActive && r.isSupervisor)) return false;
-      if (roleFilter === "standard" && !(r.isActive && !r.isDefault && !r.isSupervisor)) return false;
       if (roleFilter === "inactive" && r.isActive) return false;
       if (!q) return true;
       return r.labelFr.toLowerCase().includes(q) || r.code.toLowerCase().includes(q);
@@ -396,50 +501,62 @@ export default function RolesMetierPage() {
       {/* ══════════════════ ONGLET 1 : RÔLES MÉTIER ══════════════════ */}
       {activeTab === "roles" && (
         <div className="space-y-4">
-          {/* 3 mini-indicateurs synthétiques */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* 4 mini-indicateurs synthétiques */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="border-slate-200/80">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-                  <Users className="h-5 w-5" />
+              <CardContent className="p-3.5 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                  <Users className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs text-muted-foreground">Total rôles métier</div>
-                  <div className="text-xl font-bold leading-tight">
+                  <div className="text-xs text-muted-foreground">Total rôles</div>
+                  <div className="text-lg font-bold leading-tight">
                     {stats.total}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      ({stats.active} actif{stats.active > 1 ? "s" : ""})
-                    </span>
+                    <span className="text-[11px] font-normal text-muted-foreground">({stats.active} actifs)</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-teal-200/80 bg-teal-50/30">
+              <CardContent className="p-3.5 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
+                  <BarChart3 className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-teal-800/80">Pilotage KPI</div>
+                  <div className="text-lg font-bold text-teal-900 leading-tight">
+                    {stats.pilotage}{" "}
+                    <span className="text-[11px] font-normal text-teal-800/75">cadres</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-emerald-200/80 bg-emerald-50/30">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                  <UserCheck className="h-5 w-5" />
+              <CardContent className="p-3.5 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <UserCheck className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs text-emerald-800/80">Terrain (Par défaut)</div>
-                  <div className="text-xl font-bold text-emerald-900 leading-tight">
+                  <div className="text-xs text-emerald-800/80">Terrain Alerte</div>
+                  <div className="text-lg font-bold text-emerald-900 leading-tight">
                     {stats.defaults}{" "}
-                    <span className="text-xs font-normal text-emerald-800/75">connexion matricule seul</span>
+                    <span className="text-[11px] font-normal text-emerald-800/75">matricule seul</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-blue-200/80 bg-blue-50/30">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                  <Shield className="h-5 w-5" />
+              <CardContent className="p-3.5 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                  <Shield className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs text-blue-800/80">Superviseurs</div>
-                  <div className="text-xl font-bold text-blue-900 leading-tight">
-                    {stats.supervisors}{" "}
-                    <span className="text-xs font-normal text-blue-800/75">espace Superviseur</span>
+                  <div className="text-xs text-blue-800/80">Superviseurs Alerte</div>
+                  <div className="text-lg font-bold text-blue-900 leading-tight">
+                    {stats.supervisors}
                   </div>
                 </div>
               </CardContent>
@@ -502,9 +619,9 @@ export default function RolesMetierPage() {
                   {(
                     [
                       { key: "all", label: `Tous (${stats.total})` },
-                      { key: "default", label: `Terrain (${stats.defaults})` },
+                      { key: "pilotage", label: `Pilotage KPI (${stats.pilotage})` },
+                      { key: "default", label: `Terrain Alerte (${stats.defaults})` },
                       { key: "supervisor", label: `Superviseurs (${stats.supervisors})` },
-                      { key: "standard", label: `Standard (${stats.standards})` },
                       ...(stats.inactive > 0 ? [{ key: "inactive" as const, label: `Inactifs (${stats.inactive})` }] : []),
                     ] as Array<{ key: RoleFilter; label: string }>
                   ).map((f) => (
@@ -569,10 +686,9 @@ export default function RolesMetierPage() {
 
               {/* Légende claire */}
               <p className="text-xs text-muted-foreground">
-                Choisissez directement le profil de chaque rôle en 1 clic :{" "}
-                <strong className="text-foreground">Standard</strong> (fiche agent classique),{" "}
-                <strong className="text-emerald-700">Terrain (Par défaut)</strong> (connexion par matricule seul) ou{" "}
-                <strong className="text-blue-700">Superviseur</strong> (espace superviseur).
+                <strong className="text-teal-700">Portée KPI (Pilotage)</strong> définit le niveau territorial visible par ce rôle
+                (<strong>National</strong>, <strong>Régional</strong>, <strong>Départemental</strong>, <strong>Arrondissement</strong>) sur les domaines choisis.{" "}
+                <strong className="text-foreground">Accès Alerte</strong> règle le mode mobile Alerte (<em>Terrain</em> ou <em>Superviseur</em>).
               </p>
 
               {/* Table */}
@@ -591,17 +707,19 @@ export default function RolesMetierPage() {
                     <TableHeader className="sticky top-0 z-10 bg-muted/60 backdrop-blur-xs">
                       <TableRow>
                         <TableHead>Rôle métier</TableHead>
-                        <TableHead className="w-[310px]">Profil d&apos;accès (1 clic)</TableHead>
-                        <TableHead className="text-right w-[180px]">Actions</TableHead>
+                        <TableHead className="w-[260px]">Portée KPI &amp; Domaines</TableHead>
+                        <TableHead className="w-[250px]">Accès Alerte</TableHead>
+                        <TableHead className="text-right w-[150px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredRoles.map((r) => {
                         const profile = getRoleProfile(r);
                         const isBusy = switchingRoleId === r.id || bulkPending;
+                        const activeDomains = Array.isArray(r.pilotageDomains) ? r.pilotageDomains : [];
                         return (
                           <TableRow key={r.id} className={!r.isActive ? "opacity-60 bg-muted/20" : ""}>
-                            <TableCell className="min-w-[200px]">
+                            <TableCell className="min-w-[180px]">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium text-sm text-foreground">{r.labelFr}</span>
                                 {!r.isActive && (
@@ -616,27 +734,77 @@ export default function RolesMetierPage() {
                             </TableCell>
 
                             <TableCell>
+                              <div className="space-y-1.5">
+                                <Select
+                                  value={r.territorialScope || "__none__"}
+                                  disabled={!r.isActive || isBusy}
+                                  onValueChange={(val) => {
+                                    const nextScope = val === "__none__" ? null : (val as TerritorialScope);
+                                    void handleUpdatePilotage(r, nextScope);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8 text-xs bg-white w-full">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="w-[var(--radix-select-trigger-width)]">
+                                    {SCOPE_OPTIONS.map((opt) => (
+                                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                        {opt.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                {r.territorialScope && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {domainChoices.map((d) => {
+                                      const selected =
+                                        d.key === "ALL"
+                                          ? activeDomains.includes("ALL")
+                                          : activeDomains.includes("ALL") || activeDomains.includes(d.key);
+                                      return (
+                                        <button
+                                          key={d.key}
+                                          type="button"
+                                          disabled={!r.isActive || isBusy}
+                                          onClick={() => handleTogglePilotageDomain(r, d.key)}
+                                          className={`rounded px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
+                                            selected
+                                              ? "bg-teal-600 border-teal-600 text-white"
+                                              : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                                          }`}
+                                        >
+                                          {d.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+
+                            <TableCell>
                               <div
                                 className="inline-flex items-center rounded-lg border bg-muted/40 p-0.5 gap-0.5"
-                                title={!r.isActive ? "Réactivez ce rôle pour changer son profil" : undefined}
+                                title={!r.isActive ? "Réactivez ce rôle pour changer son accès Alerte" : undefined}
                               >
                                 <button
                                   type="button"
                                   disabled={!r.isActive || isBusy}
                                   onClick={() => void handleSwitchProfile(r, "standard")}
-                                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all disabled:opacity-50 ${
+                                  className={`rounded-md px-2 py-1 text-xs font-medium transition-all disabled:opacity-50 ${
                                     profile === "standard"
                                       ? "bg-white text-slate-900 shadow-xs ring-1 ring-slate-200"
                                       : "text-muted-foreground hover:text-foreground"
                                   }`}
                                 >
-                                  Standard
+                                  Aucun
                                 </button>
                                 <button
                                   type="button"
                                   disabled={!r.isActive || isBusy}
                                   onClick={() => void handleSwitchProfile(r, "default")}
-                                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all disabled:opacity-50 ${
+                                  className={`rounded-md px-2 py-1 text-xs font-medium transition-all disabled:opacity-50 ${
                                     profile === "default"
                                       ? "bg-emerald-600 text-white shadow-xs"
                                       : "text-muted-foreground hover:text-emerald-700"
@@ -648,7 +816,7 @@ export default function RolesMetierPage() {
                                   type="button"
                                   disabled={!r.isActive || isBusy}
                                   onClick={() => void handleSwitchProfile(r, "supervisor")}
-                                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all disabled:opacity-50 ${
+                                  className={`rounded-md px-2 py-1 text-xs font-medium transition-all disabled:opacity-50 ${
                                     profile === "supervisor"
                                       ? "bg-blue-600 text-white shadow-xs"
                                       : "text-muted-foreground hover:text-blue-700"

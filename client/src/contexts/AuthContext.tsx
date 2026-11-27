@@ -36,9 +36,12 @@ interface User {
 
   grade?: string | null;
   genre?: string | null;
+  matricule?: string | null;
 
   roleMetierCode?: string | null;
   roleMetierLabel?: string | null;
+  territorialScope?: "national" | "regional" | "departemental" | "arrondissement" | null;
+  pilotageDomains?: string[];
 
   region?: string;
 
@@ -141,6 +144,12 @@ async function saveSession(u: User) {
         departement: u.departement,
         commune: u.commune,
         arrondissement: u.arrondissement,
+        roleMetierCode: u.roleMetierCode,
+        roleMetierLabel: u.roleMetierLabel,
+        territorialScope: u.territorialScope,
+        pilotageDomains: u.pilotageDomains,
+        grade: u.grade,
+        matricule: u.matricule,
       })
     );
   } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);   }
@@ -286,7 +295,8 @@ export function AuthProvider({
           response.user.type,
           (response.user as any)?.isSuperAdmin,
           (response.user as any)?.isDefaultRole,
-          (response.user as any)?.isSupervisorRole
+          (response.user as any)?.isSupervisorRole,
+          response.user
         );
       }
 

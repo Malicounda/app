@@ -132,6 +132,8 @@ export const rolesMetier = pgTable("roles_metier", {
   isActive: boolean("is_active").notNull().default(true),
   isDefault: boolean("is_default").notNull().default(false),
   isSupervisor: boolean("is_supervisor").notNull().default(false),
+  territorialScope: text("territorial_scope"), // 'national' | 'regional' | 'departemental' | 'arrondissement' | null
+  pilotageDomains: jsonb("pilotage_domains").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

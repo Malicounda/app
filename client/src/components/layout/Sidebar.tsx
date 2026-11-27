@@ -263,6 +263,20 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
           </Link>
         )}
 
+        {/* Accès direct au Pilotage Territorial KPI (National / Régional / Départemental / Arrondissement) */}
+        {!isUserSuperAdmin(user) && Boolean((user as any)?.territorialScope) && (
+          <Link
+            href="/pilotage"
+            onClick={handleLinkClick}
+            className={location === '/pilotage' ? activeLinkStyle : linkStyle}
+          >
+            <span className={iconWrapCls}>
+              <StatsIcon className={cn('text-teal-600', iconSize)} />
+            </span>
+            <span className={labelCls}>Pilotage KPI</span>
+          </Link>
+        )}
+
         {/* Sections spécifiques aux administrateurs */}
         {user?.role === 'admin' && !isUserSuperAdmin(user) && (
           <>

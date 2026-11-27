@@ -8,6 +8,7 @@ import {
     listRolesMetier,
     setRoleMetierActive,
     setRoleMetierDefault,
+    setRoleMetierPilotage,
     setRoleMetierSupervisor,
     updateRoleMetier,
 } from '../controllers/rolesMetier.controller.js';
@@ -25,6 +26,7 @@ router.put('/:id', isAdmin, updateRoleMetier);
 router.patch('/:id/active', isAdmin, setRoleMetierActive);
 router.patch('/:id/default', isAdmin, setRoleMetierDefault);
 router.patch('/:id/supervisor', isAdmin, setRoleMetierSupervisor);
+router.patch('/:id/pilotage', isAdmin, setRoleMetierPilotage);
 router.get('/default', isAdmin, getDefaultRoleMetier);
 router.delete('/:id/hard', isAdmin, deleteRoleMetier);
 router.delete('/:id', isAdmin, deactivateRoleMetier);

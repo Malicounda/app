@@ -39,6 +39,12 @@ export const getHomePage = (role?: string, type?: string, isSuperAdmin?: boolean
     domain = (localStorage.getItem('domain') || '').toUpperCase();
   } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
+  // Cadre avec portée de pilotage KPI (National / Régional / Départemental / Arrondissement) :
+  // quel que soit le portail de connexion (Chasse, Reboisement, Alerte...), redirection directe vers /pilotage
+  if (user?.territorialScope) {
+    return '/pilotage';
+  }
+
   // Redirection Alerte : uniquement si le domaine est explicitement ALERTE,
   // OU si les flags isDefaultRole/isSupervisorRole sont actifs MAIS que le domaine
   // n'est pas CHASSE ni REBOISEMENT (évite la contamination inter-domaines).

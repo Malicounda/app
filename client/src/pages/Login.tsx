@@ -81,7 +81,7 @@ export default function Login() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      const homePage = getHomePage(user.role, user.type, (user as any)?.isSuperAdmin, (user as any)?.isDefaultRole, (user as any)?.isSupervisorRole);
+      const homePage = getHomePage(user.role, user.type, (user as any)?.isSuperAdmin, (user as any)?.isDefaultRole, (user as any)?.isSupervisorRole, user);
       setLocation(homePage);
     }
   }, [isAuthenticated, user, setLocation]);

@@ -654,7 +654,7 @@ export default function SuperAdminAgentsPage() {
       defaultSysRole = row.adminDomainName ? "admin" : "super-admin";
     } else if (row.userRole) {
       const rLow = row.userRole.toLowerCase();
-      if (["agent", "hunter", "sub-agent", "super-admin"].includes(rLow)) {
+      if (["agent", "sub-agent", "super-admin"].includes(rLow)) {
         defaultSysRole = rLow;
       }
     }
@@ -1443,8 +1443,7 @@ export default function SuperAdminAgentsPage() {
                         <SelectValue placeholder="Sélectionner le rôle système" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="agent">Agent (Standard)</SelectItem>
-                        <SelectItem value="hunter">Hunter</SelectItem>
+                        <SelectItem value="agent">Agent</SelectItem>
                         <SelectItem value="sub-agent">Sous-agent</SelectItem>
                         <SelectItem value="admin">Administrateur de Domaine</SelectItem>
                         <SelectItem value="super-admin">Super Administrateur</SelectItem>
@@ -1809,8 +1808,7 @@ export default function SuperAdminAgentsPage() {
                         <SelectValue placeholder="Sélectionner le rôle système" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="agent">Agent (Standard)</SelectItem>
-                        <SelectItem value="hunter">Hunter</SelectItem>
+                        <SelectItem value="agent">Agent</SelectItem>
                         <SelectItem value="sub-agent">Sous-agent</SelectItem>
                         <SelectItem value="admin">Administrateur de Domaine</SelectItem>
                         <SelectItem value="super-admin">Super Administrateur</SelectItem>

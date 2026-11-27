@@ -102,6 +102,7 @@ const RolesMetierPage = lazy(() => import("@/pages/SuperAdmin/RolesMetierPage"))
 const ThemePage = lazy(() => import("@/pages/SuperAdmin/ThemePage"));
 const ApkHistoryPage = lazy(() => import("@/pages/SuperAdmin/ApkHistoryPage"));
 const SuperAdminMessagesPage = lazy(() => import("@/pages/SuperAdmin/MessagesPage"));
+const TerritorialDashboardPage = lazy(() => import("@/pages/Pilotage/TerritorialDashboardPage"));
 const SupervisorPage = lazy(() => import("@/pages/Supervisor/SupervisorPage"));
 const Taxes = lazy(() => import("@/pages/Taxes"));
 const TriageDashboard = lazy(() => import("@/pages/triage/TriageDashboard"));
@@ -161,7 +162,8 @@ function Router() {
       ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
   const isHunterOrGuide = user?.role === 'hunter' || user?.role === 'hunting-guide';
   // Désactiver l'écran de verrouillage uniquement pour le terrain Alerte, les Chasseurs et les Guides
-  const disableLockScreen = isAlerteDomain || isHunterOrGuide;
+  const isPilotageUrl = location === '/pilotage' || location.endsWith('/pilotage');
+  const disableLockScreen = (isAlerteDomain && !isPilotageUrl) || isHunterOrGuide;
 
   // Heartbeat de session + verrouillage d'écran après inactivité
   const sessionHeartbeat = useSessionHeartbeat(isAuthenticated, disableLockScreen);
@@ -990,6 +992,11 @@ function Router() {
         <Route path="/default-home">
           <ProtectedRoute requireDefaultRole>
             <AgentDefaultPage />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/pilotage">
+          <ProtectedRoute requireTerritorialPilotage allowSuperAdmin>
+            <TerritorialDashboardPage />
           </ProtectedRoute>
         </Route>
         <Route path="/alerts">

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { agents, rolesMetier, users } from '../../shared/schema.js';
 import { db } from '../db.js';
 import { storage } from '../storage.js';
+import { ensureRolesMetierPilotageColumns } from './rolesMetier.controller.js';
 import { getSessionMaxAgeMs } from '../sessionConfig.js';
 
 // Schéma de validation pour l'inscription
@@ -74,8 +75,11 @@ export const login = async (req: Request, res: Response) => {
         let userRoleMetierLabel: string | null = null;
         let isSupervisorRole = false;
         let isDefaultRole = false;
+        let territorialScope: string | null = null;
+        let pilotageDomains: string[] = [];
 
         try {
+            await ensureRolesMetierPilotageColumns();
             const agentRows = await db
                 .select({
                     roleMetierId: agents.roleMetierId,
@@ -83,6 +87,8 @@ export const login = async (req: Request, res: Response) => {
                     roleMetierLabel: rolesMetier.labelFr,
                     roleMetierIsDefault: rolesMetier.isDefault,
                     roleMetierIsSupervisor: rolesMetier.isSupervisor,
+                    territorialScope: rolesMetier.territorialScope,
+                    pilotageDomains: rolesMetier.pilotageDomains,
                 })
                 .from(agents)
                 .leftJoin(rolesMetier, eq(agents.roleMetierId as any, rolesMetier.id as any))
@@ -94,12 +100,15 @@ export const login = async (req: Request, res: Response) => {
                 userRoleMetierLabel = agentRows[0].roleMetierLabel ?? null;
                 isDefaultRole = agentRows[0].roleMetierIsDefault ?? false;
                 isSupervisorRole = agentRows[0].roleMetierIsSupervisor ?? false;
+                territorialScope = (agentRows[0] as any).territorialScope ?? null;
+                pilotageDomains = Array.isArray((agentRows[0] as any).pilotageDomains)
+                    ? (agentRows[0] as any).pilotageDomains
+                    : [];
 
-                // skipPassword uniquement pour les superviseurs SANS domaine ALERTE
-                // Pour ALERTE, le mot de passe est TOUJOURS requis
+                // Les rôles de pilotage KPI multi-domaines exigent TOUJOURS un mot de passe / code d'accès
                 const passwordEmpty = !password || String(password).trim() === '';
 
-                if (passwordEmpty && !isAlerteLogin && isSupervisorRole) {
+                if (passwordEmpty && !isAlerteLogin && isSupervisorRole && !territorialScope) {
                     skipPassword = true;
                     console.log('[LOGIN] Connexion sans mot de passe autorisée (superviseur hors ALERTE) pour:', user.username);
                 }
@@ -188,7 +197,7 @@ export const login = async (req: Request, res: Response) => {
 
         // currentDomain is already defined above
 
-        if (currentDomain && !isSuperAdmin && !skipPassword && !isDefaultRole && !isSupervisorRole) {
+        if (currentDomain && !isSuperAdmin && !skipPassword && !isDefaultRole && !isSupervisorRole && !territorialScope) {
             const normalized = currentDomain.toUpperCase().trim();
             try {
                 const domains = await storage.getUserDomainsByUserId(user.id);
@@ -335,7 +344,18 @@ export const login = async (req: Request, res: Response) => {
                     const { password, ...safeUser } = user as any;
                     res.json({
                         message: "Connexion réussie",
-                        user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre, roleMetierCode, roleMetierLabel },
+                        user: {
+                            ...safeUser,
+                            isSuperAdmin,
+                            isDefaultRole,
+                            isSupervisorRole,
+                            grade,
+                            genre,
+                            roleMetierCode,
+                            roleMetierLabel,
+                            territorialScope,
+                            pilotageDomains,
+                        },
                         token
                     });
                     return;
@@ -344,7 +364,16 @@ export const login = async (req: Request, res: Response) => {
                 const { password, ...safeUser } = user as any;
                 res.json({
                     message: "Connexion réussie",
-                    user: { ...safeUser, isSuperAdmin, isDefaultRole, isSupervisorRole, grade, genre },
+                    user: {
+                        ...safeUser,
+                        isSuperAdmin,
+                        isDefaultRole,
+                        isSupervisorRole,
+                        grade,
+                        genre,
+                        territorialScope,
+                        pilotageDomains,
+                    },
                     token
                 });
             } catch (tokErr) {
@@ -558,6 +587,7 @@ export const getMe = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Non authentifié" });
         }
 
+        await ensureRolesMetierPilotageColumns();
         const rows = await db
             .select({
                 id: users.id,
@@ -581,6 +611,8 @@ export const getMe = async (req: Request, res: Response) => {
                 roleMetierLabel: rolesMetier.labelFr,
                 roleMetierIsDefault: rolesMetier.isDefault,
                 roleMetierIsSupervisor: rolesMetier.isSupervisor,
+                territorialScope: rolesMetier.territorialScope,
+                pilotageDomains: rolesMetier.pilotageDomains,
             })
             .from(users)
             .leftJoin(agents, eq(agents.userId as any, users.id as any))
@@ -640,6 +672,8 @@ export const getMe = async (req: Request, res: Response) => {
             roleMetierLabel: u.roleMetierLabel ?? null,
             isDefaultRole: !!u.roleMetierIsDefault,
             isSupervisorRole: !!u.roleMetierIsSupervisor,
+            territorialScope: u.territorialScope ?? null,
+            pilotageDomains: Array.isArray(u.pilotageDomains) ? u.pilotageDomains : [],
         });
     } catch (e: any) {
         return res.status(500).json({ message: e?.message || 'Erreur serveur' });

@@ -49,6 +49,7 @@ import userRoutes from './users.routes.js';
 import weaponsRoutes from './weapons.routes.js';
 import zonesRoutes from './zones.routes.js';
 import superadminCommsRoutes from './superadmin-comms.routes.js';
+import territorialKpiRoutes from './territorialKpi.routes.js';
 import themesRoutes from './themes.routes.js';
 
 export default function registerRoutes(app: Express): void {
@@ -98,6 +99,7 @@ export default function registerRoutes(app: Express): void {
   // Routes pour les rôles métier (référentiel)
   app.use('/api/roles-metier', rolesMetierRoutes);
   app.use('/api/agent-grades', agentGradesRoutes);
+  app.use('/api/territorial-kpi', territorialKpiRoutes);
 
   // Routes pour les catégories de permis et leurs tarifs
   app.use('/api/permit-categories', permitCategoriesRoutes);
