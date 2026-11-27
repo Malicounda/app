@@ -101,6 +101,7 @@ const DomainesPage = lazy(() => import("@/pages/SuperAdmin/DomainesPage"));
 const RolesMetierPage = lazy(() => import("@/pages/SuperAdmin/RolesMetierPage"));
 const ThemePage = lazy(() => import("@/pages/SuperAdmin/ThemePage"));
 const ApkHistoryPage = lazy(() => import("@/pages/SuperAdmin/ApkHistoryPage"));
+const SuperAdminMessagesPage = lazy(() => import("@/pages/SuperAdmin/MessagesPage"));
 const SupervisorPage = lazy(() => import("@/pages/Supervisor/SupervisorPage"));
 const Taxes = lazy(() => import("@/pages/Taxes"));
 const TriageDashboard = lazy(() => import("@/pages/triage/TriageDashboard"));
@@ -159,8 +160,8 @@ function Router() {
     ((_appDomain !== 'CHASSE' && _appDomain !== 'REBOISEMENT') &&
       ((user as any)?.isDefaultRole || (user as any)?.isSupervisorRole));
   const isHunterOrGuide = user?.role === 'hunter' || user?.role === 'hunting-guide';
-  // L'utilisateur a demandé à désactiver l'écran de verrouillage / session expirée
-  const disableLockScreen = true; // isAlerteDomain || isHunterOrGuide;
+  // Désactiver l'écran de verrouillage uniquement pour le terrain Alerte, les Chasseurs et les Guides
+  const disableLockScreen = isAlerteDomain || isHunterOrGuide;
 
   // Heartbeat de session + verrouillage d'écran après inactivité
   const sessionHeartbeat = useSessionHeartbeat(isAuthenticated, disableLockScreen);
@@ -342,7 +343,10 @@ function Router() {
               const { user } = useAuth();
               const [, setLocation] = useLocation();
               useEffect(() => {
-                if ((user as any)?.isSuperAdmin) return;
+                if (isUserSuperAdmin(user)) {
+                  setLocation('/superadmin/agents');
+                  return;
+                }
                 if (user?.role === 'admin') {
                   setLocation('/reboisement/admin');
                 } else if (user?.role === 'agent') {
@@ -782,6 +786,13 @@ function Router() {
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
+        <Route path="/superadmin/messagerie">
+          <ChasseRoute>
+            <ProtectedRoute adminOnly superAdminOnly>
+              <SuperAdminMessagesPage />
+            </ProtectedRoute>
+          </ChasseRoute>
+        </Route>
         <Route
           path="/agents"
           component={() => {
@@ -849,7 +860,10 @@ function Router() {
         </Route>
         <Route path="/sms">
           <ChasseRoute>
-            <ProtectedRoute allowedRoles={["admin","agent","sub-agent","brigade","triage","poste-control","sous-secteur","hunter","hunting-guide"]}>
+            <ProtectedRoute
+              allowedRoles={["admin","agent","sub-agent","brigade","triage","poste-control","sous-secteur","hunter","hunting-guide"]}
+              allowAlerteRoles
+            >
               <SMSPage />
             </ProtectedRoute>
           </ChasseRoute>
@@ -933,114 +947,88 @@ function Router() {
         </Route>
         <Route path="/android-settings">
           <ChasseRoute>
-            <ProtectedRoute>
+            <ProtectedRoute allowAlerteRoles>
               <AndroidSettings />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/sector-permits">
-          <ProtectedRoute allowedRoles={["agent", "sub-agent"]} allowedTypes={["secteur"]}>
-            <SectorPermits />
-          </ProtectedRoute>
+          <ChasseRoute>
+            <ProtectedRoute allowedRoles={["agent", "sub-agent"]} allowedTypes={["secteur"]}>
+              <SectorPermits />
+            </ProtectedRoute>
+          </ChasseRoute>
         </Route>
         <Route path="/sector-requests">
-          <ProtectedRoute allowedRoles={["agent", "sub-agent"]} allowedTypes={["secteur"]}>
-            <SectorRequests />
-          </ProtectedRoute>
+          <ChasseRoute>
+            <ProtectedRoute allowedRoles={["agent", "sub-agent"]} allowedTypes={["secteur"]}>
+              <SectorRequests />
+            </ProtectedRoute>
+          </ChasseRoute>
         </Route>
         <Route path="/map">
-          <ProtectedRoute>
+          <ProtectedRoute
+            allowedRoles={["admin", "agent", "sub-agent", "brigade", "triage", "poste-control", "sous-secteur"]}
+            allowSuperAdmin
+            allowAlerteRoles
+          >
             <MapPage />
           </ProtectedRoute>
         </Route>
         <Route path="/geojson-test">
-          <ProtectedRoute>
-            <GeoJSONTestPage />
-          </ProtectedRoute>
+          <ChasseRoute>
+            <ProtectedRoute adminOnly>
+              <GeoJSONTestPage />
+            </ProtectedRoute>
+          </ChasseRoute>
         </Route>
         <Route path="/supervisor">
-          <ProtectedRoute>
+          <ProtectedRoute requireSupervisor>
             <SupervisorPage />
           </ProtectedRoute>
         </Route>
         <Route path="/default-home">
-          <ProtectedRoute>
+          <ProtectedRoute requireDefaultRole>
             <AgentDefaultPage />
           </ProtectedRoute>
         </Route>
         <Route path="/alerts">
           <ChasseRoute>
-            <ProtectedRoute>
+            <ProtectedRoute
+              allowedRoles={["admin", "agent", "sub-agent", "brigade", "triage", "poste-control", "sous-secteur", "hunter", "hunting-guide"]}
+              allowAlerteRoles
+            >
               <AlertsPage />
-            </ProtectedRoute>
-          </ChasseRoute>
-        </Route>
-        <Route path="/sms">
-          <ChasseRoute>
-            <ProtectedRoute>
-              <SMSPage />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/profile">
           <ChasseRoute>
-            <ProtectedRoute>
+            <ProtectedRoute allowAlerteRoles>
               <ProfileRouteGuard />
             </ProtectedRoute>
           </ChasseRoute>
         </Route>
         <Route path="/mypermits">
-          <MyPermitsRedirect />
+          <ChasseRoute>
+            <ProtectedRoute hunterOnly>
+              <MyPermitsRedirect />
+            </ProtectedRoute>
+          </ChasseRoute>
         </Route>
         <Route path="/hunter-permits">
-          <ProtectedRoute hunterOnly>
-            <HunterPermits />
-          </ProtectedRoute>
+          <ChasseRoute>
+            <ProtectedRoute hunterOnly>
+              <HunterPermits />
+            </ProtectedRoute>
+          </ChasseRoute>
         </Route>
         <Route path="/hunting-reports">
-          <ProtectedRoute allowedRoles={["hunter", "hunting-guide"]}>
-            <HuntingReports />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/hunting-activities">
-          <ProtectedRoute allowedRoles={["hunter", "hunting-guide"]}>
-            <HuntingActivities />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/historiquehunterscomptes">
-          <ProtectedRoute hunterOnly>
-            <History />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/guides/associate-hunters">
-          <ProtectedRoute huntingGuideOnly>
-            <AssociateHunters />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/guides">
-          <ProtectedRoute adminOnly>
-            <Guides />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/admin/gestion-des-agents">
-          <ProtectedRoute adminOnly>
-            <GestiondesAgents />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/admin/create-agent">
-          <ProtectedRoute adminOnly>
-            <CreateAgentForm />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/infractions">
-          <ProtectedRoute adminOrAgentOrSubAgentOnly>
-            <Infractions />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/android-settings">
-          <ProtectedRoute>
-            <AndroidSettings />
-          </ProtectedRoute>
+          <ChasseRoute>
+            <ProtectedRoute allowedRoles={["hunter", "hunting-guide"]}>
+              <HuntingReports />
+            </ProtectedRoute>
+          </ChasseRoute>
         </Route>
         <Route path="/statistics">
           <ChasseRoute>
@@ -1116,7 +1104,7 @@ function applyTheme(cfg: any, user: any, location: string) {
     }
   }
 
-  if (pathDomain && pathDomain !== domainKey) {
+  if (!isSuperAdminUser && pathDomain && pathDomain !== domainKey) {
     domainKey = pathDomain;
     try {
       localStorage.setItem('domain', pathDomain);
@@ -1244,6 +1232,7 @@ function AppContent() {
       import("@/pages/SuperAdmin/RolesMetierPage").catch(() => {});
       import("@/pages/SuperAdmin/ThemePage").catch(() => {});
       import("@/pages/SuperAdmin/ApkHistoryPage").catch(() => {});
+      import("@/pages/SuperAdmin/MessagesPage").catch(() => {});
       import("@/pages/ConfigSysteme/Accounts").catch(() => {});
       import("@/pages/ConfigSysteme/Settings").catch(() => {});
     }, 300);

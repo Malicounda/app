@@ -27,6 +27,7 @@ import {
   Home,
   CreditCard,
   FolderOpen,
+  Lock,
   User,
   Plus,
   X,
@@ -193,10 +194,20 @@ const PermitCard = ({ item, onViewDetails, user }: { item: HunterPermit, onViewD
           </div>
         )}
 
-        {/* Catégorie */}
-        <div className={`text-xs sm:text-sm ${isExhausted ? 'text-slate-400' : 'text-slate-600'}`}>
-          <span className="text-slate-400">Catégorie :</span>{' '}
-          <span className="font-medium capitalize text-slate-700">{getCategoryLabel(item.categoryId, item.type)}</span>
+        {/* Catégorie et date de délivrance */}
+        <div className={`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${isExhausted ? 'text-slate-400' : 'text-slate-600'}`}>
+          <div>
+            <span className="text-slate-400">Catégorie :</span>{' '}
+            <span className="font-medium capitalize text-slate-700">{getCategoryLabel(item.categoryId, item.type)}</span>
+          </div>
+          {item.issueDate && (
+            <div className="text-xs text-slate-500">
+              <span className="text-slate-400">Délivré le :</span>{' '}
+              <span className="font-medium text-slate-700">
+                {format(new Date(item.issueDate), "dd/MM/yyyy")}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Messages d'état du permis */}
@@ -398,6 +409,7 @@ export default function HunterDashboard() {
   const [isProfileComplete, setIsProfileComplete] = useState<boolean>(true);
   const [completionStatusLoading, setCompletionStatusLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'home' | 'permits' | 'documents'>('home');
+  const [permitsSubTab, setPermitsSubTab] = useState<'permits' | 'taxes'>('permits');
   const [showFabMenu, setShowFabMenu] = useState(false);
 
   // Sync activeTab with URL path
@@ -546,28 +558,63 @@ export default function HunterDashboard() {
     refetchOnWindowFocus: true,
   });
 
-  // Statut de vérification / validation du dossier par l'administration
+  // Statut de vérification / validation du dossier par l'administration (tenant compte de la campagne)
   const { data: dossierStatus } = useQuery({
     queryKey: ['hunter-dossier-status'],
     queryFn: async () => {
       try {
         const response: any = await apiRequest('GET', '/api/hunters/me/dossier-status');
-        if (response?.data) return response.data as { status: 'pending' | 'validated' | 'rejected'; invalidatedDocs: string[]; reason: string | null };
-        if (response?.status) return response as { status: 'pending' | 'validated' | 'rejected'; invalidatedDocs: string[]; reason: string | null };
+        const payload = response?.data || response;
+        if (payload?.status) {
+          return payload as {
+            status: 'pending' | 'validated' | 'rejected';
+            invalidatedDocs: string[];
+            reason: string | null;
+            campaignOpen?: boolean;
+            campaignYear?: string | null;
+            expiredForNewCampaign?: boolean;
+          };
+        }
       } catch {
         // Fallback sécurisé : en attente
       }
-      return { status: 'pending' as const, invalidatedDocs: [] as string[], reason: null as string | null };
+      return {
+        status: 'pending' as const,
+        invalidatedDocs: [] as string[],
+        reason: null as string | null,
+        campaignOpen: true,
+        campaignYear: null as string | null,
+        expiredForNewCampaign: false,
+      };
     },
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     staleTime: 5_000,
   });
 
+  // Taxes d'abattage payées par le chasseur (liées à ses permis)
+  const { data: hunterTaxes = [], isLoading: taxesLoading } = useQuery({
+    queryKey: ['hunter-taxes', user?.hunterId],
+    enabled: Boolean(user?.hunterId),
+    queryFn: async () => {
+      try {
+        const response: any = await apiRequest('GET', `/api/taxes/hunter/${user?.hunterId}`);
+        if (Array.isArray(response)) return response;
+        if (Array.isArray(response?.data)) return response.data;
+        return [];
+      } catch {
+        return [];
+      }
+    },
+    refetchOnMount: 'always',
+    staleTime: 15_000,
+  });
+
   // Filtrage des permis par statut (utilisant les statuts calculés côté serveur)
   // Toujours opérer sur des tableaux pour éviter les erreurs de type
   const permitsArr = Array.isArray(permits) ? permits : [];
   const documentsArr = Array.isArray(documents) ? documents : [];
+  const taxesArr = Array.isArray(hunterTaxes) ? hunterTaxes : [];
 
   const activePermits = permitsArr.filter((p: HunterPermit) => {
     console.log(`[Dashboard] Filtrage permis ${p.permitNumber}: status=${p.status}, expiryDate=${p.expiryDate}`);
@@ -771,7 +818,7 @@ export default function HunterDashboard() {
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
       <AgentTopHeader />
       
-      <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 pb-24 pt-4">
+      <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain px-4 pb-36 pt-4">
         
         {activeTab === 'home' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
@@ -790,7 +837,14 @@ export default function HunterDashboard() {
             {/* Bandeau statut de validation du dossier */}
             {isProfileComplete && (
               <div className="mx-auto w-full max-w-md">
-                {dossierStatus?.status === 'rejected' ? (
+                {dossierStatus?.campaignOpen === false ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-xs text-slate-700 flex items-start gap-2">
+                    <Lock className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+                    <span>
+                      Campagne de chasse clôturée — Les demandes de permis reprendront à l&apos;ouverture de la prochaine campagne (une nouvelle validation de votre dossier sera requise).
+                    </span>
+                  </div>
+                ) : dossierStatus?.status === 'rejected' ? (
                   <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-900 space-y-1">
                     <div className="font-bold flex items-center gap-1.5">
                       <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
@@ -827,7 +881,9 @@ export default function HunterDashboard() {
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 flex items-start gap-2">
                     <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                     <span>
-                      {documentsArr.length === 0
+                      {dossierStatus?.expiredForNewCampaign
+                        ? "Nouvelle campagne de chasse — Une nouvelle validation de votre dossier est requise avant toute demande de permis."
+                        : documentsArr.length === 0
                         ? "Déposez vos pièces dans « Documents » pour qu'elles soient vérifiées par l'administration avant toute demande de permis."
                         : "Vos documents sont en attente de vérification. La demande de permis sera débloquée dès validation de votre dossier."}
                     </span>
@@ -840,9 +896,11 @@ export default function HunterDashboard() {
             <div className="relative z-10 mx-auto w-full max-w-md pt-2">
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {(() => {
+                  const isCampaignOpen = dossierStatus?.campaignOpen !== false;
                   const isDossierValidated = dossierStatus?.status === 'validated';
-                  const canAccessDemande = isProfileComplete && isDossierValidated;
+                  const canAccessDemande = isProfileComplete && isCampaignOpen && isDossierValidated;
                   const canAccessReports = isProfileComplete && permitsArr.some((p: HunterPermit) => p.status === 'active' || p.status === 'expired');
+                  const canAccessPermits = isProfileComplete && activePermits.length > 0;
 
                   return (
                     <>
@@ -854,12 +912,19 @@ export default function HunterDashboard() {
                             setLocation('/permit-request');
                           } else if (!isProfileComplete) {
                             setShowCompletionModal(true);
+                          } else if (!isCampaignOpen) {
+                            toast({
+                              title: 'Campagne de chasse fermée',
+                              description: "Les demandes de permis reprendront à l'ouverture de la prochaine campagne.",
+                            });
                           } else {
                             toast({
                               title: dossierStatus?.status === 'rejected' ? 'Pièces à corriger' : 'Dossier en attente de validation',
                               description:
                                 dossierStatus?.status === 'rejected'
                                   ? 'Certaines pièces ont été invalidées. Consultez vos Documents ou votre Messagerie pour les remplacer.'
+                                  : dossierStatus?.expiredForNewCampaign
+                                  ? "Une nouvelle campagne a commencé : votre dossier doit être validé à nouveau avant de faire une demande."
                                   : "Vos documents doivent d'abord être vérifiés et validés par l'administration avant d'effectuer une demande de permis.",
                               variant: dossierStatus?.status === 'rejected' ? 'destructive' : 'default',
                             });
@@ -868,8 +933,13 @@ export default function HunterDashboard() {
                         className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200 
                           ${canAccessDemande 
                             ? 'border-emerald-100 bg-gradient-to-br from-emerald-50 to-green-50 hover:shadow-md hover:shadow-emerald-500/10 hover:border-emerald-200 active:bg-emerald-100 cursor-pointer' 
-                            : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
+                            : 'border-slate-200 bg-slate-100 opacity-65 cursor-not-allowed grayscale'}`}
                       >
+                        {!canAccessDemande && (
+                          <span className="absolute top-2.5 right-2.5 h-5 w-5 rounded-full bg-slate-200/90 text-slate-600 flex items-center justify-center" title="Verrouillé">
+                            <Lock className="h-3 w-3" />
+                          </span>
+                        )}
                         <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
                           ${canAccessDemande
                             ? 'bg-gradient-to-br from-emerald-400 to-green-600 shadow-emerald-500/25 group-hover:shadow-emerald-500/40'
@@ -892,8 +962,13 @@ export default function HunterDashboard() {
                         className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200
                           ${canAccessReports
                             ? 'border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50 hover:shadow-md hover:shadow-amber-500/10 hover:border-amber-200 active:bg-amber-100 cursor-pointer'
-                            : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
+                            : 'border-slate-200 bg-slate-100 opacity-65 cursor-not-allowed grayscale'}`}
                       >
+                        {!canAccessReports && (
+                          <span className="absolute top-2.5 right-2.5 h-5 w-5 rounded-full bg-slate-200/90 text-slate-600 flex items-center justify-center" title="Verrouillé">
+                            <Lock className="h-3 w-3" />
+                          </span>
+                        )}
                         <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
                           ${canAccessReports
                             ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/25 group-hover:shadow-amber-500/40'
@@ -909,17 +984,22 @@ export default function HunterDashboard() {
 
                 {/* Mes permis */}
                 <motion.button
-                  whileTap={isProfileComplete && activePermits.length > 0 ? { scale: 0.96 } : {}}
+                  whileTap={canAccessPermits ? { scale: 0.96 } : {}}
                   onClick={() => { 
-                    if (isProfileComplete && activePermits.length > 0) {
+                    if (canAccessPermits) {
                       setActiveTab('permits'); setLocation('/hunter/permits'); 
                     }
                   }}
                   className={`group relative flex flex-col items-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200
-                    ${isProfileComplete && activePermits.length > 0
+                    ${canAccessPermits
                       ? 'border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-md hover:shadow-blue-500/10 hover:border-blue-200 active:bg-blue-100 cursor-pointer'
-                      : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed grayscale'}`}
+                      : 'border-slate-200 bg-slate-100 opacity-65 cursor-not-allowed grayscale'}`}
                 >
+                  {!canAccessPermits && (
+                    <span className="absolute top-2.5 right-2.5 h-5 w-5 rounded-full bg-slate-200/90 text-slate-600 flex items-center justify-center" title="Verrouillé">
+                      <Lock className="h-3 w-3" />
+                    </span>
+                  )}
                   <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-shadow
                     ${isProfileComplete && activePermits.length > 0
                       ? 'bg-gradient-to-br from-blue-400 to-indigo-500 shadow-blue-500/25 group-hover:shadow-blue-500/40'
@@ -984,10 +1064,121 @@ export default function HunterDashboard() {
 
         {activeTab === 'permits' && (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-green-600" /> Mes Permis
-            </h2>
-      {/* Contenu principal du compte chasseur (sans wrapper fixe) */}        {permitsError ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 max-w-6xl">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                {permitsSubTab === 'permits' ? (
+                  <>
+                    <CreditCard className="w-5 h-5 text-green-600" /> Mes Permis
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-5 h-5 text-amber-600" /> Mes Taxes d&apos;abattage
+                  </>
+                )}
+              </h2>
+
+              {/* Sélecteur d'onglets discret : Permis / Taxes */}
+              <div className="inline-flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200/80">
+                <button
+                  type="button"
+                  onClick={() => setPermitsSubTab('permits')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    permitsSubTab === 'permits'
+                      ? 'bg-white text-emerald-800 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  Permis
+                  {permitsArr.length > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-800">
+                      {permitsArr.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPermitsSubTab('taxes')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    permitsSubTab === 'taxes'
+                      ? 'bg-white text-amber-800 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Taxes
+                  {taxesArr.length > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800">
+                      {taxesArr.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+        {permitsSubTab === 'taxes' ? (
+          taxesLoading ? (
+            <LoadingState message="Chargement de vos taxes..." />
+          ) : taxesArr.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title="Aucune taxe d'abattage"
+              description="Les taxes d'abattage (phacochère, grand gibier, etc.) liées à vos permis apparaîtront ici dès leur paiement."
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl">
+              {taxesArr.map((tax: any) => (
+                <motion.div
+                  key={tax.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full sm:max-w-[380px] h-full flex flex-col rounded-2xl border border-amber-200 bg-gradient-to-br from-white via-amber-50/40 to-amber-50 overflow-hidden shadow-sm hover:shadow-md transition-all"
+                >
+                  <div className="h-1.5 w-full bg-gradient-to-r from-amber-600 via-amber-500 to-orange-400 shrink-0" />
+                  <div className="p-4 flex flex-col gap-2.5 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-bold text-sm text-slate-900 capitalize truncate">
+                          {tax.animalType || 'Taxe d’abattage'}
+                        </div>
+                        {tax.taxNumber && (
+                          <div className="text-[11px] text-slate-500 font-mono truncate">{tax.taxNumber}</div>
+                        )}
+                      </div>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
+                        Qté : {tax.quantity ?? 1}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col items-start gap-1.5">
+                      <span className="inline-flex items-center max-w-full px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg truncate">
+                        Permis : {tax.permitNumber || '—'}
+                      </span>
+                      <span className="inline-flex items-center max-w-full px-2.5 py-1 text-xs font-medium bg-white text-slate-700 border border-slate-200 rounded-lg truncate">
+                        Quittance : {tax.receiptNumber || '—'}
+                      </span>
+                    </div>
+
+                    <div className="pt-2.5 mt-auto border-t border-amber-100 flex items-center justify-between gap-2 text-xs">
+                      <div className="font-bold text-sm text-emerald-800">
+                        {Number(tax.amount || 0).toLocaleString('fr-FR')} FCFA
+                      </div>
+                      {tax.issueDate && (
+                        <div className="text-slate-500">
+                          <span className="text-slate-400">Payé le :</span>{' '}
+                          <span className="font-medium text-slate-700">
+                            {format(new Date(tax.issueDate), "dd/MM/yyyy")}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )
+        ) : permitsError ? (
           <ErrorState
             title="Erreur de chargement"
             message="Impossible de charger vos permis. Veuillez réessayer."
@@ -1059,9 +1250,20 @@ export default function HunterDashboard() {
 
         {activeTab === 'documents' && (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <FolderOpen className="w-5 h-5 text-green-600" /> Mes Documents
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-3 max-w-6xl">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-green-600" /> Mes Documents
+              </h2>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setIsUploadDialogOpen(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl gap-1.5 shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Ajouter un document
+              </Button>
+            </div>
 
             {dossierStatus?.status === 'rejected' && (
               <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-900 space-y-1">
@@ -1521,21 +1723,19 @@ export default function HunterDashboard() {
 
       </div>
 
-      {/* FAB Button - Direct to new declaration or add document */}
-      <motion.button 
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        className="fixed bottom-20 right-4 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white active:scale-95 transition-colors z-[80] bg-green-600 shadow-green-600/30"
-        onClick={() => {
-          if (activeTab === 'documents') {
-            setIsUploadDialogOpen(true);
-          } else {
+      {/* FAB Button - Affiché uniquement sur l'accueil pour ne jamais masquer les permis, taxes ou documents */}
+      {activeTab === 'home' && (
+        <motion.button 
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          className="fixed bottom-20 right-4 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white active:scale-95 transition-colors z-[80] bg-green-600 shadow-green-600/30"
+          onClick={() => {
             setLocation('/hunting-reports?new=true');
-          }
-        }}
-        aria-label={activeTab === 'documents' ? "Ajouter un document" : "Nouvelle déclaration"}
-      >
-        <Plus className="w-6 h-6" strokeWidth={2.5} />
-      </motion.button>
+          }}
+          aria-label="Nouvelle déclaration"
+        >
+          <Plus className="w-6 h-6" strokeWidth={2.5} />
+        </motion.button>
+      )}
 
       <FileUploadDialog
         open={isUploadDialogOpen}

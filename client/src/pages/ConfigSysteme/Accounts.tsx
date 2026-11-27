@@ -1,4 +1,5 @@
 import AddAgentForm from "@/components/agents/AddAgentForm";
+import { exportMultiSheetExcel } from "@/lib/excelWorkbook";
 import AgentForm from "@/components/agents/AgentForm";
 // ResponsivePage removed: MainLayout supplies the page-frame wrapper
 import {
@@ -545,19 +546,34 @@ export default function Accounts() {
   };
 
   const handleExport = () => {
-    const filteredList = filterUsers(users);
     const header = ["Nom d'utilisateur", "Rôle", "Nom", "Prénom", "Email", "Téléphone", "Région", "Statut"];
-    const rows = filteredList.map((u) => [
-      u.username || "",
-      u.role || "",
-      u.lastName || "",
-      u.firstName || "",
-      u.email || "",
-      u.phone || "",
-      u.region || "",
-      u.isSuspended ? "Suspendu" : "Actif",
-    ]);
-    exportArrayToCsv("utilisateurs_scodi.csv", header, rows);
+    const toRows = (list: User[]) =>
+      filterUsers(list).map((u) => [
+        u.username || "",
+        u.role || "",
+        u.lastName || "",
+        u.firstName || "",
+        u.email || "",
+        u.phone || "",
+        u.region || "",
+        u.isSuspended ? "Suspendu" : "Actif",
+      ]);
+
+    exportMultiSheetExcel(
+      [
+        { name: "Tous les utilisateurs", headers: header, rows: toRows(users) },
+        { name: "Administrateurs", headers: header, rows: toRows(admins) },
+        { name: "Agents Régionaux", headers: header, rows: toRows(agents) },
+        { name: "Agents Secteur", headers: header, rows: toRows(subAgents) },
+        { name: "Guides de Chasse", headers: header, rows: toRows(guides) },
+        { name: "Chasseurs", headers: header, rows: toRows(hunters) },
+      ],
+      `utilisateurs_scodi_${new Date().toISOString().split("T")[0]}.xls`
+    );
+    toast({
+      title: "Export réussi",
+      description: "Classeur généré avec 6 onglets (Tous, Administrateurs, Agents Régionaux, Agents Secteur, Guides, Chasseurs).",
+    });
   };
 
   // Rendu de tableau d'utilisateurs
@@ -874,7 +890,7 @@ export default function Accounts() {
 
           <div className="mt-4 p-3 border rounded-md bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1 min-w-0">
-              <Label htmlFor="national-override" className="text-base font-medium">Autoriser agents à délivrer permis/attaxes à tous les chasseurs (National)</Label>
+              <Label htmlFor="national-override" className="text-base font-medium">Autoriser agents à délivrer permis/taxes à tous les chasseurs (National)</Label>
               <p className="text-sm text-muted-foreground">
                 Lorsque cette option est activée, les agents régionaux et de secteur peuvent délivrer un permis ou ajouter une taxe à n'importe quel chasseur de la liste nationale. Les règles de portée par région/département sont temporairement suspendues.
               </p>
@@ -916,7 +932,7 @@ export default function Accounts() {
             <div className="flex space-x-2 w-full sm:w-auto">
               <Button variant="outline" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
-                Exporter
+                Exporter (Classeur)
               </Button>
             </div>
           </div>

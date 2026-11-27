@@ -7,6 +7,7 @@ import { authenticatedFetch } from '../lib/authenticatedFetch';
 import { getApiBaseUrl } from '../utils/environment';
 import { useToast } from './use-toast';
 import { syncLauncherBadge } from '../lib/launcherBadge';
+import { initNotificationAudioUnlock, playNotificationSound } from '../lib/notificationSound';
 
 const VAPID_PUBLIC_KEY =
   'BNcXB8lrjG6n81HfH7lTfqSB-yT3ucZj23LNcfD2NSrAiiZxIHmX63svFrUdGfUuThsi6kCWYD0TRvtKCAk9P9A';
@@ -25,7 +26,10 @@ const OLD_CHANNEL_IDS = ['alerte_messages', 'alerte_messages_v2', 'alerte_messag
  * User-agent « AlerteAPK » est TOUJOURS injecté par Android natif.
  */
 function isInAlerteApk(): boolean {
-  if (typeof navigator !== 'undefined' && navigator.userAgent.includes('AlerteAPK')) {
+  if (
+    typeof navigator !== 'undefined' &&
+    (navigator.userAgent.includes('AlerteAPK') || navigator.userAgent.includes('ChasseAPK'))
+  ) {
     return true;
   }
   const cap = typeof window !== 'undefined'
@@ -194,18 +198,22 @@ export function useNotifications(enabled = true, userId?: number | null) {
   const [isPushSupported, setIsPushSupported] = useState(false);
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
 
-  // Setup des permissions + channel Android au montage
+  // Setup des permissions + channel Android + déverrouillage audio Web au montage
   useEffect(() => {
     if (!enabled) return;
+    initNotificationAudioUnlock();
+
     const setup = async () => {
-      try {
-        const check = await LocalNotifications.checkPermissions();
-        if (check.display !== 'granted') {
-          await LocalNotifications.requestPermissions();
+      if (isInAlerteApk()) {
+        try {
+          const check = await LocalNotifications.checkPermissions();
+          if (check.display !== 'granted') {
+            await LocalNotifications.requestPermissions();
+          }
+          await ensureAndroidNotificationChannel();
+        } catch (e) {
+          console.log('[Notif] setup error:', e);
         }
-        await ensureAndroidNotificationChannel();
-      } catch (e) {
-        console.log('[Notif] setup error:', e);
       }
     };
     void setup();
@@ -245,13 +253,37 @@ export function useNotifications(enabled = true, userId?: number | null) {
       socket.on('notification', (payload: { title?: string; body?: string; data?: { type?: string } }) => {
         const title = payload?.title || 'Notification';
         const body = payload?.body || '';
+        const notifType = payload?.data?.type;
+
+        // Son de notification sur Desktop & Navigateurs Web (et premier plan)
+        if (!isInAlerteApk()) {
+          void playNotificationSound(notifType);
+
+          // Notification système navigateur si l'onglet est en arrière-plan et permission accordée
+          if (
+            document.visibilityState !== 'visible' &&
+            typeof window !== 'undefined' &&
+            'Notification' in window &&
+            Notification.permission === 'granted'
+          ) {
+            try {
+              new Notification(title, {
+                body,
+                icon: '/scodi-logo-badge.png',
+                silent: false,
+              });
+            } catch {
+              // Certains contextes exigent ServiceWorkerRegistration.showNotification
+            }
+          }
+        }
 
         // Toast in-app si l'application est visible
         if (document.visibilityState === 'visible') {
           toast({
             title,
             description: body,
-            variant: payload?.data?.type === 'ALERT' ? 'destructive' : 'default',
+            variant: notifType === 'ALERT' ? 'destructive' : 'default',
           });
         }
 

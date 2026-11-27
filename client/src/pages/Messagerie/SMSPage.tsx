@@ -1,7 +1,7 @@
 import ResponsivePage from "@/components/layout/ResponsivePage";
 import AgentTopHeader from "@/components/layout/AgentTopHeader";
-import InternalMessageComposer from "@/components/messaging/InternalMessageComposer";
 import InternalMessageList from "@/components/messaging/InternalMessageList";
+import InternalMessagingShell from "@/components/messaging/InternalMessagingShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
@@ -17,7 +17,7 @@ import {
 } from "@/lib/messagingUtils";
 import { useInternalMessaging } from "@/hooks/useInternalMessaging";
 import { getMessagingDomaineIdForHook } from "@/utils/messagingDomain";
-import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Check, CheckCheck, Clock, Camera, Loader2 } from "lucide-react";
+import { ArrowLeft, MoreVertical, Plus, Search, Send, Trash2, User, X, Paperclip, Check, CheckCheck, Clock, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 
@@ -34,6 +34,33 @@ const GLOBAL_TARGETS = [
   { key: "guides", label: "Guides", target: { role: "hunting-guide" } },
   { key: "agents", label: "Agents", target: { role: "agent" } },
 ];
+
+function renderFormattedMessageText(text: string, isSentBubble = false) {
+  const isInvalidationMessage = /invalidée?s?/i.test(text) && text.includes('• ');
+  if (!isInvalidationMessage) {
+    return <span className="whitespace-pre-wrap break-words">{text}</span>;
+  }
+  const lines = text.split('\n');
+  return (
+    <span className="whitespace-pre-wrap break-words">
+      {lines.map((line, idx) => {
+        const isBulletDoc = line.trim().startsWith('• ');
+        return (
+          <span key={idx}>
+            {idx > 0 ? '\n' : ''}
+            {isBulletDoc ? (
+              <strong className={isSentBubble ? 'font-bold text-amber-200' : 'font-bold text-red-600'}>
+                {line}
+              </strong>
+            ) : (
+              line
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 export default function SimpleSMSPage() {
   const { toast } = useToast();
@@ -278,6 +305,7 @@ export default function SimpleSMSPage() {
         if (role === 'hunter' || role === 'hunting-guide') {
           const currentDomaineId = domaineId || 2;
           const requests = [
+            authenticatedFetch(`/api/messages/agents?role=support`),
             authenticatedFetch(`/api/messages/agents?role=admin&domaineId=${encodeURIComponent(String(currentDomaineId))}`),
             authenticatedFetch(`/api/messages/agents?role=agent&domaineId=${encodeURIComponent(String(currentDomaineId))}`),
           ];
@@ -289,6 +317,9 @@ export default function SimpleSMSPage() {
             .filter(u => !isSelf(u))
             .map((u: any) => {
               const value = String(u?.id || '').trim();
+              if (u?.isSuperAdmin || u?.role === 'support') {
+                return { value, label: 'Support Technique (Équipe Support)', roleTag: 'Support Technique' };
+              }
               const full = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
               const grade = String(u?.grade || '').trim();
               const name = grade ? `${grade} ${full || u?.username}` : (full || u?.username || value);
@@ -301,47 +332,44 @@ export default function SimpleSMSPage() {
         }
 
         if (isAlerteDomain) {
-          // ══ ALERTE : routage hiérarchique vers superviseurs ══
+          // ══ ALERTE : routage hiérarchique vers superviseurs + Support Technique ══
           let url = '';
           if (isDefaultRole) {
-            // Agent terrain -> superviseurs du même département
-            // Fallback sur région si pas de département défini
             if (userDept) {
               url = `/api/messages/agents?role=supervisor&departement=${encodeURIComponent(userDept)}`;
             } else if (userRegion) {
               url = `/api/messages/agents?role=supervisor&region=${encodeURIComponent(userRegion)}`;
-            } else {
-              // Aucune zone -> pas de destinataire auto
-              if (!cancelled) setAutoRecipients([]);
-              return;
             }
           } else if (isSupervisorRole) {
-            // Superviseur départemental (a un departement) -> superviseurs régionaux de sa région
-            // Superviseur régional (pas de dept spécifique) -> pas de remountée auto
             if (userDept && userRegion) {
-              // Super dept -> cherche superviseurs de la même région (sans filtre département)
               url = `/api/messages/agents?role=supervisor&region=${encodeURIComponent(userRegion)}`;
-            } else {
-              if (!cancelled) setAutoRecipients([]);
-              return;
             }
-          } else {
-            if (!cancelled) setAutoRecipients([]);
-            return;
           }
 
-          const resp = await authenticatedFetch(url);
-          const data: any[] = resp.ok ? await resp.json() : [];
+          const [supResp, supportResp] = await Promise.all([
+            url ? authenticatedFetch(url) : Promise.resolve(null),
+            authenticatedFetch(`/api/messages/agents?role=support`),
+          ]);
+          const data: any[] = supResp && supResp.ok ? await supResp.json() : [];
+          const supportData: any[] = supportResp.ok ? await supportResp.json() : [];
           const isSelf = (u: any) => Number(u?.id) === Number((user as any)?.id);
 
-          const opts = data
+          const supportOpts = (Array.isArray(supportData) ? supportData : [])
+            .filter(u => !isSelf(u))
+            .map(u => ({
+              value: String(u?.id || '').trim(),
+              label: 'Support Technique (Équipe Support)',
+              roleTag: 'Support Technique',
+            }))
+            .filter(o => Boolean(o.value));
+
+          const opts = (Array.isArray(data) ? data : [])
             .filter(u => !isSelf(u))
             .map(u => {
               const value = String(u?.id || '').trim();
               const full = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
               const grade = String(u?.grade || '').trim();
               const name = grade ? `${grade} ${full || u?.username}` : (full || u?.username || value);
-              // Étiquette : superviseur départemental ou régional
               const isRegionalSup = !u?.departement;
               const roleTag = isRegionalSup ? 'Superviseur régional' : 'Superviseur départemental';
               const loc = u?.departement ? ` — ${u.departement}` : u?.region ? ` — ${u.region}` : '';
@@ -349,7 +377,7 @@ export default function SimpleSMSPage() {
             })
             .filter(o => Boolean(o.value));
 
-          const unique = Array.from(new Map(opts.map(o => [o.value, o])).values());
+          const unique = Array.from(new Map([...supportOpts, ...opts].map(o => [o.value, o])).values());
           if (!cancelled) setAutoRecipients(unique);
           return; // ne pas exécuter la logique des autres domaines
         }
@@ -477,6 +505,9 @@ export default function SimpleSMSPage() {
           return full;
         };
         const toLabel = (u: any, roleLabel: string) => {
+          if (u?.isSuperAdmin || u?.role === 'support') {
+            return 'Support Technique — Équipe Support';
+          }
           const fullName = toName(u);
           const username = String(u?.username || '').trim();
           const name = fullName || username || roleLabel;
@@ -559,9 +590,14 @@ export default function SimpleSMSPage() {
     for (const msg of inbox) {
       const mAny = msg as any;
       const sId = String(mAny?.sender?.id || mAny?.senderId || '');
-      const sName = [mAny?.sender?.firstName, mAny?.sender?.lastName].filter(Boolean).join(' ') || 'Inconnu';
-      const sGrade = String(mAny?.sender?.grade || '').trim();
-      const sRoleMetier = String(mAny?.sender?.roleMetierLabel || mAny?.sender?.role_metier_label || '').trim();
+      const isSuperSender = Boolean(mAny?.sender?.isSuperAdmin);
+      const sName = isSuperSender
+        ? 'Équipe Support'
+        : ([mAny?.sender?.firstName, mAny?.sender?.lastName].filter(Boolean).join(' ') || mAny?.senderDisplayName || mAny?.senderName || 'Équipe Support');
+      const sGrade = isSuperSender ? '' : String(mAny?.sender?.grade || '').trim();
+      const sRoleMetier = isSuperSender
+        ? 'Support Système'
+        : String(mAny?.sender?.roleMetierLabel || mAny?.sender?.role_metier_label || '').trim();
       const sIdent = String(mAny?.sender?.id || mAny?.sender?.username || mAny?.sender?.email || mAny?.sender?.matricule || sName);
       const key = sId || sIdent;
       const time = new Date(mAny?.createdAt || 0);
@@ -593,10 +629,13 @@ export default function SimpleSMSPage() {
         rId = String(mAny?.recipient?.id || mAny?.recipientId || '');
         const reader = mAny?.readers?.[0];
 
-        rGrade = String(mAny?.recipient?.grade || reader?.grade || '').trim();
-        rRoleMetier = String(mAny?.recipient?.role_metier_label || '').trim();
+        const isSuperRecipient = Boolean(mAny?.recipient?.isSuperAdmin);
+        rGrade = isSuperRecipient ? '' : String(mAny?.recipient?.grade || reader?.grade || '').trim();
+        rRoleMetier = isSuperRecipient ? 'Support Système' : String(mAny?.recipient?.role_metier_label || '').trim();
 
-        baseName = [mAny?.recipient?.firstName, mAny?.recipient?.lastName].filter(Boolean).join(' ') || reader?.name || mAny?.recipientIdentifier || (rId ? 'Utilisateur' : 'Destinataire');
+        baseName = isSuperRecipient
+          ? 'Équipe Support'
+          : ([mAny?.recipient?.firstName, mAny?.recipient?.lastName].filter(Boolean).join(' ') || reader?.name || mAny?.recipientIdentifier || (rId ? 'Utilisateur' : 'Destinataire'));
         rName = rGrade ? `${rGrade} ${baseName}` : baseName;
         rIdent = String(rId || mAny?.recipientIdentifier || mAny?.recipient?.username || mAny?.recipient?.email || reader?.matricule || 'deleted');
       }
@@ -993,7 +1032,7 @@ export default function SimpleSMSPage() {
                           onClick={() => setActiveActionMessage(m)}
                           className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-green-700 active:scale-95 transition-all flex flex-col gap-1.5"
                         >
-                          {m.content && <span>{m.content}</span>}
+                          {m.content && !(hasAttachment && /^\[?pi[èe]ce jointe\]?$/i.test(String(m.content).trim())) && renderFormattedMessageText(m.content, true)}
                           {hasAttachment && url && (
                             <ChatAttachmentBlock
                               url={url}
@@ -1034,7 +1073,7 @@ export default function SimpleSMSPage() {
                           onClick={() => setActiveActionMessage(m)}
                           className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all flex flex-col gap-1.5"
                         >
-                          {m.content && <span>{m.content}</span>}
+                          {m.content && !(hasAttachment && /^\[?pi[èe]ce jointe\]?$/i.test(String(m.content).trim())) && renderFormattedMessageText(m.content, false)}
                           {hasAttachment && url && (
                             <ChatAttachmentBlock
                               url={url}
@@ -1102,17 +1141,44 @@ export default function SimpleSMSPage() {
                 )}
                 <div className="px-1 sm:px-3 py-2 border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] bg-white shrink-0">
                   <div className="flex items-end gap-1 sm:gap-2">
-                    <input ref={defaultFileRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setDefaultAttachment(f); setShowAttachMenu(false); } }} />
+                    <input
+                      ref={defaultFileRef}
+                      type="file"
+                      accept={inboxOnly ? "image/*" : undefined}
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        if (inboxOnly && !f.type.startsWith('image/')) {
+                          toast({
+                            title: "Photo uniquement",
+                            description: "Vous pouvez uniquement joindre des photos (images) dans la messagerie.",
+                            variant: "destructive",
+                          });
+                          e.target.value = '';
+                          return;
+                        }
+                        setDefaultAttachment(f);
+                        setShowAttachMenu(false);
+                      }}
+                    />
                     <input id="camera-capture-input-2" type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setDefaultAttachment(f); setShowAttachMenu(false); } }} />
                     <div className="relative shrink-0">
-                      <button type="button" onClick={() => setShowAttachMenu(!showAttachMenu)} className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><Paperclip className="h-4 w-4 text-gray-500" /></button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAttachMenu(!showAttachMenu)}
+                        title={inboxOnly ? "Joindre une photo" : "Joindre une pièce jointe"}
+                        className="shrink-0 h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                      >
+                        {inboxOnly ? <Camera className="h-4 w-4 text-gray-600" /> : <Paperclip className="h-4 w-4 text-gray-500" />}
+                      </button>
                       {showAttachMenu && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setShowAttachMenu(false)} />
                           <div className="absolute bottom-11 left-0 w-44 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
                             <button type="button" onClick={() => { defaultFileRef.current?.click(); }} className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors">
-                              <Plus className="h-4 w-4 text-gray-500" />
-                              <span>Fichier</span>
+                              {inboxOnly ? <ImageIcon className="h-4 w-4 text-gray-500" /> : <Plus className="h-4 w-4 text-gray-500" />}
+                              <span>{inboxOnly ? 'Galerie photo' : 'Fichier'}</span>
                             </button>
                             <button type="button" onClick={() => { setShowAttachMenu(false); setShowCameraModal(true); }} className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors">
                               <Camera className="h-4 w-4 text-gray-500" />
@@ -1625,9 +1691,9 @@ export default function SimpleSMSPage() {
                   onStaleMessage={(m) =>
                     purgeStaleMessage(Number(m.id), Boolean(m.isGroupMessage))
                   }
-                  onReply={async ({ recipientIdentifier, content }) => {
+                  onReply={async ({ recipientIdentifier, content, attachment }) => {
                     try {
-                      await sendIndividual({ recipientIdentifier, content });
+                      await sendIndividual({ recipientIdentifier, content, attachment });
                       toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
                       return;
                     } catch (e: any) {
@@ -1650,112 +1716,45 @@ export default function SimpleSMSPage() {
       {inboxOnly && <AgentTopHeader />}
       <ResponsivePage className={`bg-transparent w-full ${usePhoneMessagingUi ? 'flex-1 h-full flex flex-col' : 'flex-1'}`}>
         <div className={`${usePhoneMessagingUi ? 'w-full' : inboxOnly ? 'mx-auto max-w-3xl' : 'mx-auto max-w-6xl'} ${usePhoneMessagingUi ? 'h-full flex flex-col flex-1' : ''}`}>
-          <div className={`grid ${usePhoneMessagingUi ? 'gap-0' : 'gap-4'} ${inboxOnly || usePhoneMessagingUi ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} ${usePhoneMessagingUi ? 'h-full flex-1' : 'lg:h-[78vh]'}`}>
-            {!usePhoneMessagingUi && (
-              <section className="bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden flex flex-col min-h-0 shadow-sm lg:h-[78vh] lg:order-2">
-                <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex items-start gap-2">
-                    <div className="h-9 w-9 rounded-full bg-green-50 text-green-700 flex items-center justify-center shrink-0">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3 8.25A2.25 2.25 0 015.25 6h13.5A2.25 2.25 0 0121 8.25v9.5A2.25 2.25 0 0118.75 20H5.25A2.25 2.25 0 013 17.75v-9.5zm2.25-.75a.75.75 0 00-.75.75v.807l7.06 4.237a2.25 2.25 0 002.38 0L21.5 9.057V8.25a.75.75 0 00-.75-.75H5.25zm16.25 3.308l-6.786 4.072a3.75 3.75 0 01-3.956 0L4.5 10.808v6.942c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-6.942z" /></svg>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-gray-900">{activeTab === 'reçus' ? 'Boîte de réception' : "Boîte d'envoi"}</div>
-                      <div className="text-xs text-gray-500">{(activeTab === 'reçus' ? inbox.length : sent.length)} message(s)</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="hidden md:flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 py-2 w-64 shadow-sm">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-500"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /></svg>
-                      <input
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        className="bg-transparent outline-none text-sm w-full"
-                        placeholder="Rechercher un message..."
-                      />
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('reçus')}
-                      className={`text-xs rounded-full px-3 py-1 border ${activeTab === 'reçus' ? 'bg-green-50 border-green-600 text-green-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      Reçus
-                    </button>
-                    {!inboxOnly && (
-                      <button
-                        onClick={() => setActiveTab('envoyés')}
-                        className={`text-xs rounded-full px-3 py-1 border ${activeTab === 'envoyés' ? 'bg-green-50 border-green-600 text-green-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                      >
-                        Envoyés
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="md:hidden border-b border-gray-200 px-4 py-3">
-                  <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 py-2 w-full shadow-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-500"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /></svg>
-                    <input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      className="bg-transparent outline-none text-sm w-full"
-                      placeholder="Rechercher un message..."
-                    />
-                  </div>
-                </div>
-
-                <div className="p-4 flex-1 min-h-0">
-                  {activeTab === 'reçus' && (
-                    <InternalMessageList
-                      messages={filteredInbox}
-                      loading={loadingInbox}
-                      emptyLabel="Aucun message reçu pour le moment."
-                      onDelete={handleDelete}
-                      onRefresh={refreshInbox}
-                      onStaleMessage={(m) =>
-                        purgeStaleMessage(Number(m.id), Boolean(m.isGroupMessage))
-                      }
-                      onReply={async ({ recipientIdentifier, content }) => {
-                        try {
-                          await sendIndividual({ recipientIdentifier, content });
-                          toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
-                          return;
-                        } catch (e: any) {
-                          if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-                          toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive' });
-                        }
-                      }}
-                    />
-                  )}
-
-                  {!inboxOnly && activeTab === 'envoyés' && (
-                    <InternalMessageList
-                      messages={filteredSent}
-                      loading={loadingSent}
-                      emptyLabel="Aucun message envoyé pour le moment."
-                      context="sent"
-                      onDelete={handleDelete}
-                      onRefresh={refreshSent}
-                      onStaleMessage={(m) =>
-                        purgeStaleMessage(Number(m.id), Boolean(m.isGroupMessage))
-                      }
-                    />
-                  )}
-                </div>
-              </section>
-            )}
-
-            {!inboxOnly && !usePhoneMessagingUi && (
-              <aside id="composer-panel" className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 shadow-sm lg:h-[78vh] lg:overflow-auto lg:order-1">
-                <InternalMessageComposer
-                  loading={sending}
-                  onSubmit={handleSubmit}
-                  regionTargets={targets}
-                  allowIndividual
-                  allowGroup
-                  adminRecipients={recipientOptions}
-                  showAdminQuickPick={role === 'admin' && recipientOptions.length > 0}
-                />
-              </aside>
-            )}
+          {!usePhoneMessagingUi ? (
+            <InternalMessagingShell
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              query={query}
+              onQueryChange={setQuery}
+              inbox={inbox}
+              filteredInbox={filteredInbox}
+              sent={sent}
+              filteredSent={filteredSent}
+              loadingInbox={loadingInbox}
+              loadingSent={loadingSent}
+              sending={sending}
+              inboxOnly={inboxOnly}
+              onRefreshInbox={refreshInbox}
+              onRefreshSent={refreshSent}
+              onDelete={handleDelete}
+              onStaleMessage={(m) =>
+                purgeStaleMessage(Number(m.id), Boolean(m.isGroupMessage))
+              }
+              onReply={async ({ recipientIdentifier, content, attachment }) => {
+                try {
+                  await sendIndividual({ recipientIdentifier, content, attachment });
+                  toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
+                  return;
+                } catch (e: any) {
+                  if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+                  toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive' });
+                }
+              }}
+              onSubmitCompose={handleSubmit}
+              regionTargets={targets}
+              allowIndividual
+              allowGroup
+              adminRecipients={recipientOptions}
+              showAdminQuickPick={recipientOptions.length > 0}
+            />
+          ) : (
+            <div className="grid gap-0 grid-cols-1 h-full flex-1">
 
 
 
@@ -1872,7 +1871,7 @@ export default function SimpleSMSPage() {
                               onClick={() => setActiveActionMessage(m)}
                               className="bg-green-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-green-700 active:scale-95 transition-all flex flex-col gap-1.5"
                             >
-                              {m.content && <span>{m.content}</span>}
+                              {m.content && !(hasAttachment && /^\[?pi[èe]ce jointe\]?$/i.test(String(m.content).trim())) && renderFormattedMessageText(m.content, true)}
                               {hasAttachment && url && (
                                 <ChatAttachmentBlock
                                   url={url}
@@ -1913,7 +1912,7 @@ export default function SimpleSMSPage() {
                               onClick={() => setActiveActionMessage(m)}
                               className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-800 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all flex flex-col gap-1.5"
                             >
-                              {m.content && <span>{m.content}</span>}
+                              {m.content && !(hasAttachment && /^\[?pi[èe]ce jointe\]?$/i.test(String(m.content).trim())) && renderFormattedMessageText(m.content, false)}
                               {hasAttachment && url && (
                                 <ChatAttachmentBlock
                                   url={url}
@@ -2069,7 +2068,8 @@ export default function SimpleSMSPage() {
                 )}
               </aside>
             )}
-          </div>
+            </div>
+          )}
         </div>
       </ResponsivePage>
 

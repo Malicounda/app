@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { LockState } from "@/hooks/useSessionHeartbeat";
-import { Lock, LogOut, ShieldAlert } from "lucide-react";
+import { Eye, EyeOff, Lock, LogOut, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -61,6 +61,7 @@ export default function SessionLockOverlay({
   forceLogout,
 }: SessionLockOverlayProps) {
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -72,6 +73,7 @@ export default function SessionLockOverlay({
   useEffect(() => {
     if (lockState === "active") {
       document.body.removeAttribute("data-session-locked");
+      setShowPassword(false);
       return;
     }
 
@@ -103,20 +105,26 @@ export default function SessionLockOverlay({
   }, [forceLogout, isLoggingOut]);
 
   const handleUnlock = async () => {
+    if (isVerifying) return;
     if (!password.trim()) {
       setError("Veuillez saisir votre mot de passe");
       return;
     }
     setIsVerifying(true);
     setError("");
-    const result = await reauthenticate(password);
-    setIsVerifying(false);
-    if (!result.ok) {
-      setError(result.error || "Mot de passe incorrect");
-      setPassword("");
-    } else {
-      setPassword("");
-      restoreBodyPointerEvents();
+    try {
+      const result = await reauthenticate(password);
+      if (!result.ok) {
+        setError(result.error || "Mot de passe incorrect");
+        setPassword("");
+      } else {
+        setPassword("");
+        restoreBodyPointerEvents();
+      }
+    } catch {
+      setError("Erreur inattendue lors de la vérification.");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -189,22 +197,35 @@ export default function SessionLockOverlay({
           </p>
 
           <div className="space-y-3 mb-4">
-            <Input
-              type="password"
-              placeholder={unlockWithMatricule ? "Mot de passe ou matricule" : "Mot de passe de connexion"}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void handleUnlock();
-              }}
-              disabled={isVerifying || isLoggingOut}
-              autoFocus
-              autoComplete="current-password"
-              className="text-center"
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder={unlockWithMatricule ? "Mot de passe ou matricule" : "Mot de passe de connexion"}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleUnlock();
+                }}
+                disabled={isVerifying || isLoggingOut}
+                autoFocus
+                autoComplete="current-password"
+                className="text-center px-10"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setShowPassword((prev) => !prev)}
+                disabled={isVerifying || isLoggingOut}
+                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:text-gray-600 focus:outline-none disabled:opacity-40"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             {unlockWithMatricule && (
               <p className="text-xs text-muted-foreground">
                 Compte sans mot de passe : saisissez votre matricule pour déverrouiller.
@@ -227,7 +248,7 @@ export default function SessionLockOverlay({
               variant="ghost"
               size="sm"
               className="text-gray-500 hover:text-red-600 w-full"
-              disabled={isLoggingOut || isVerifying}
+              disabled={isLoggingOut}
               onClick={handleForceLogout}
             >
               <LogOut className="h-4 w-4 mr-1" />

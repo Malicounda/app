@@ -66,11 +66,12 @@ router.get('/regional', isAuthenticated, async (req, res) => {
   }
 });
 
-// Récupérer l'historique (admin uniquement)
+// Récupérer l'historique (admin / superadmin uniquement)
 router.get('/', isAuthenticated, isAdmin, async (req, res) => {
   try {
-    const { entityType, entityId, userId, operation, startDate, endDate, page = 1, limit = 50 } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
+    const { entityType, entityId, userId, operation, startDate, endDate, page = 1, limit = 500 } = req.query;
+    const safeLimit = Math.min(2000, Math.max(1, Number(limit) || 500));
+    const offset = (Math.max(1, Number(page) || 1) - 1) * safeLimit;
 
     // Construire le WHERE et les paramètres (SQL brut)
     const clauses: string[] = [];
@@ -97,7 +98,7 @@ router.get('/', isAuthenticated, isAdmin, async (req, res) => {
     const countRes = await pg.query(countQuery, params);
     const total: number = countRes.rows[0]?.count ?? 0;
 
-    // Données paginées
+    // Données paginées enrichies avec le nom réel de l'acteur
     const dataQuery = `
       SELECT
         h.id AS "id",
@@ -106,22 +107,27 @@ router.get('/', isAuthenticated, isAdmin, async (req, res) => {
         h.entity_id AS "entityId",
         h.details AS "details",
         h.user_id AS "userId",
-        h.created_at AS "createdAt"
+        h.created_at AS "createdAt",
+        NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), '') AS "actorName",
+        u.username AS "actorUsername",
+        u.role AS "actorRole",
+        u.matricule AS "actorMatricule"
       FROM history h
+      LEFT JOIN users u ON u.id = h.user_id
       ${whereSql}
       ORDER BY h.created_at DESC
       LIMIT $${p++} OFFSET $${p++}
     `;
-    const dataParams = [...params, Number(limit), offset];
+    const dataParams = [...params, safeLimit, offset];
     const dataRes = await pg.query(dataQuery, dataParams);
 
     res.json({
       data: dataRes.rows,
       pagination: {
         total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(total / Number(limit))
+        page: Number(page) || 1,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit)
       }
     });
   } catch (error) {
@@ -199,8 +205,6 @@ router.get('/user/:userId', isAuthenticated, isAdmin, async (req, res) => {
   }
 });
 
-export default router;
-
 // Supprimer une entrée d'historique par id (admin uniquement)
 router.delete('/:id', isAuthenticated, isAdmin, async (req, res) => {
   try {
@@ -212,3 +216,21 @@ router.delete('/:id', isAuthenticated, isAdmin, async (req, res) => {
     return res.status(500).json({ message: 'Échec de la suppression de l\'historique' });
   }
 });
+
+// Suppression groupée d'entrées d'historique
+router.post('/bulk-delete', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const rawIds = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const ids = rawIds.map((v: any) => Number(v)).filter((n: number) => Number.isInteger(n) && n > 0);
+    if (ids.length === 0) {
+      return res.status(400).json({ message: 'Aucun événement sélectionné' });
+    }
+    await pg.query('DELETE FROM history WHERE id = ANY($1::int[])', [ids]);
+    return res.json({ ok: true, deletedCount: ids.length });
+  } catch (error) {
+    console.error("Erreur lors de la suppression groupée de l'historique:", error);
+    return res.status(500).json({ message: "Échec de la suppression groupée de l'historique" });
+  }
+});
+
+export default router;

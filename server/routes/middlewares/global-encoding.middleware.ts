@@ -1,16 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
+import { normalizeOriginalFilename } from '../../lib/filenameEncoding.js';
 
 /**
  * Middleware global pour corriger les problèmes d'encodage (UTF-8)
  * pour les fichiers uploadés (Multer) et téléchargés (Content-Disposition).
- * 
- * Ce système garantit que n'importe quelle route actuelle ou future
- * utilisant Multer ou envoyant des fichiers aura les accents correctement gérés.
+ *
+ * Utilise normalizeOriginalFilename afin de ne JAMAIS corrompre un nom déjà en UTF-8 valide
+ * (un décodage latin1->utf8 aveugle transformait les accents valides en caractère ).
  */
 export const globalEncodingFixer = (req: Request, res: Response, next: NextFunction) => {
   // 1. FIX DES UPLOADS (MULTER)
-  // Multer utilise Busboy qui décode les noms de fichiers en Latin-1 par défaut.
-  // On intercepte l'assignation de req.file et req.files par Multer pour les forcer en UTF-8.
   let _file: any = undefined;
   let _files: any = undefined;
 
@@ -19,7 +18,7 @@ export const globalEncodingFixer = (req: Request, res: Response, next: NextFunct
     set(value) {
       if (value && value.originalname) {
         try {
-          value.originalname = Buffer.from(value.originalname, 'latin1').toString('utf8');
+          value.originalname = normalizeOriginalFilename(value.originalname);
         } catch (e) { /* ignore */ }
       }
       _file = value;
@@ -35,7 +34,7 @@ export const globalEncodingFixer = (req: Request, res: Response, next: NextFunct
         value.forEach(f => {
           if (f && f.originalname) {
             try {
-              f.originalname = Buffer.from(f.originalname, 'latin1').toString('utf8');
+              f.originalname = normalizeOriginalFilename(f.originalname);
             } catch (e) { /* ignore */ }
           }
         });
@@ -45,7 +44,7 @@ export const globalEncodingFixer = (req: Request, res: Response, next: NextFunct
             arr.forEach(f => {
               if (f && f.originalname) {
                 try {
-                  f.originalname = Buffer.from(f.originalname, 'latin1').toString('utf8');
+                  f.originalname = normalizeOriginalFilename(f.originalname);
                 } catch (e) { /* ignore */ }
               }
             });

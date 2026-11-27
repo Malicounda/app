@@ -302,7 +302,7 @@ router.post('/hunter-profiles/:hunterId/validate', async (req, res) => {
       '',
       "Votre dossier et vos pièces justificatives ont été vérifiés et validés par l'administration.",
       'Vous pouvez désormais effectuer votre demande de permis de chasse depuis votre espace chasseur.',
-      ...(note ? ['', `Note de l'administration : ${note}`] : []),
+      ...(note ? ['', `Note de l'administration : ${/[.!?…]$/.test(note) ? note : `${note}.`}`] : []),
     ].join('\n');
 
     const notif = await sendDossierNotificationMessage(
@@ -311,6 +311,16 @@ router.post('/hunter-profiles/:hunterId/validate', async (req, res) => {
       'Dossier validé — Demande de permis disponible',
       messageBody
     );
+
+    try {
+      await storage.createHistory({
+        userId: reviewerId || null,
+        operation: 'validate_dossier',
+        entityType: 'hunter',
+        entityId: hunterIdNum,
+        details: `Validation du dossier chasseur${note ? ` — Note : ${note}` : ''}`,
+      } as any);
+    } catch {}
 
     return res.json({
       ok: true,
@@ -344,25 +354,43 @@ router.post('/hunter-profiles/:hunterId/invalidate', async (req, res) => {
 
     const verification = await invalidateHunterDossier(hunterIdNum, reviewerId, documentCodes, reason);
 
-    const docLabels = verification.invalidatedDocs.map((code) => `• ${HUNTER_DOC_LABELS[code] || code}`);
+    const isPlural = verification.invalidatedDocs.length > 1;
+    const formattedReason = /[.!?…]$/.test(reason) ? reason : `${reason}.`;
+    const docLabels = verification.invalidatedDocs.map((code, idx) => {
+      const label = HUNTER_DOC_LABELS[code] || code;
+      const suffix = idx === verification.invalidatedDocs.length - 1 ? '.' : ' ;';
+      return `• ${label}${suffix}`;
+    });
     const messageBody = [
       'Bonjour,',
       '',
-      `Lors de la vérification de votre dossier, ${verification.invalidatedDocs.length > 1 ? 'les pièces suivantes ont été invalidées' : 'la pièce suivante a été invalidée'} :`,
+      `Lors de la vérification de votre dossier, ${isPlural ? 'les pièces suivantes ont été invalidées' : 'la pièce suivante a été invalidée'} :`,
       ...docLabels,
       '',
       "Motif indiqué par l'administration :",
-      reason,
+      formattedReason,
       '',
-      'Veuillez corriger et téléverser à nouveau ces pièces dans votre espace « Documents » afin de permettre la validation de votre dossier et l\'accès à la demande de permis.',
+      isPlural
+        ? 'Veuillez corriger et téléverser à nouveau ces pièces dans votre espace « Documents » afin de permettre la validation de votre dossier et l\'accès à la demande de permis.'
+        : 'Veuillez corriger et téléverser à nouveau cette pièce dans votre espace « Documents » afin de permettre la validation de votre dossier et l\'accès à la demande de permis.',
     ].join('\n');
 
     const notif = await sendDossierNotificationMessage(
       reviewerId,
       hunterIdNum,
-      'Pièce(s) à corriger dans votre dossier chasseur',
+      isPlural ? 'Pièces à corriger dans votre dossier chasseur' : 'Pièce à corriger dans votre dossier chasseur',
       messageBody
     );
+
+    try {
+      await storage.createHistory({
+        userId: reviewerId || null,
+        operation: 'invalidate_dossier',
+        entityType: 'hunter',
+        entityId: hunterIdNum,
+        details: `Invalidation de ${verification.invalidatedDocs.length} pièce(s) (${verification.invalidatedDocs.map((c) => HUNTER_DOC_LABELS[c] || c).join(', ')}) — Motif : ${reason}`,
+      } as any);
+    } catch {}
 
     return res.json({
       ok: true,
@@ -406,6 +434,16 @@ router.post('/hunter-profiles/:hunterId/toggle-access', async (req, res) => {
     } catch (e) {
       console.warn('[admin] toggle-access domain update warning:', e);
     }
+
+    try {
+      await storage.createHistory({
+        userId: Number((req.user as any)?.id || 0) || null,
+        operation: active ? 'activate' : 'suspend',
+        entityType: 'user',
+        entityId: Number(linkedUser.id),
+        details: `${active ? 'Rétablissement' : 'Coupure'} de l'accès du compte chasseur @${linkedUser.username}`,
+      } as any);
+    } catch {}
 
     return res.json({
       ok: true,

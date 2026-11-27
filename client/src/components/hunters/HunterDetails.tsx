@@ -318,18 +318,20 @@ export default function HunterDetails({ hunterId, open, onClose }: HunterDetails
     queryFn: async () => {
       try {
         const res: any = await apiRequest<{ enabled: boolean }>('GET', '/api/settings/agent-permit-access');
-        if (res && res.ok && typeof res.data !== 'undefined') return res.data as any;
-        // if server returned ok=false, fallback to local
+        if (typeof res?.enabled === 'boolean') return { enabled: res.enabled };
+        if (typeof res?.data?.enabled === 'boolean') return { enabled: res.data.enabled };
         const local = readLocalAgentPermitAccess();
         return local ?? DEFAULT_PERMIT_ACCESS;
-      } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
         const local = readLocalAgentPermitAccess();
         return local ?? DEFAULT_PERMIT_ACCESS;
       }
     },
-    initialData: readLocalAgentPermitAccess() ?? DEFAULT_PERMIT_ACCESS,
     enabled: !!user,
-    refetchOnWindowFocus: false,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    staleTime: 10_000,
     retry: false,
   });
 

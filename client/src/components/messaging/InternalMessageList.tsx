@@ -7,10 +7,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { InternalMessageRecord } from "@/hooks/useInternalMessaging";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Share2, Trash2, Check, CheckCheck, Clock, ArrowLeft, RefreshCw, Square, CheckSquare, Loader2 } from "lucide-react";
+import { Mail as MailIcon, MailOpen as MailOpenIcon, MessageSquareIcon, Paperclip, Send as SendIcon, Share2, Trash2, Check, CheckCheck, Clock, ArrowLeft, RefreshCw, Square, CheckSquare, Loader2, X as XIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { repairAttachmentFileName } from "@/lib/attachmentMime";
@@ -23,7 +30,7 @@ interface InternalMessageListProps {
   onDelete?: (message: InternalMessageRecord) => Promise<void> | void;
   onStaleMessage?: (message: InternalMessageRecord) => void;
   context?: 'inbox' | 'sent';
-  onReply?: (payload: { recipientIdentifier: string; content: string; original: InternalMessageRecord }) => Promise<void> | void;
+  onReply?: (payload: { recipientIdentifier: string; content: string; attachment?: File | null; original: InternalMessageRecord }) => Promise<void> | void;
   onRefresh?: () => void;
 }
 
@@ -123,7 +130,7 @@ export default function InternalMessageList({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [readerDetailFor, setReaderDetailFor] = useState<InternalMessageRecord | null>(null);
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = 8;
   const [forwardFor, setForwardFor] = useState<InternalMessageRecord | null>(null);
   const [sectorAgents, setSectorAgents] = useState<Array<{ id: number; label: string }>>([]);
   const [sectorLoading, setSectorLoading] = useState(false);
@@ -140,7 +147,10 @@ export default function InternalMessageList({
   const [replyFor, setReplyFor] = useState<InternalMessageRecord | null>(null);
   const [replyRecipient, setReplyRecipient] = useState<string>("");
   const [replyContent, setReplyContent] = useState<string>("");
+  const [replyAttachment, setReplyAttachment] = useState<File | null>(null);
+  const [replyError, setReplyError] = useState<string | null>(null);
   const [replySubmitting, setReplySubmitting] = useState(false);
+  const replyFileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<InternalMessageRecord | null>(null);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -394,9 +404,12 @@ export default function InternalMessageList({
       (typeof message.senderLastName === 'string' ? message.senderLastName.trim() : undefined);
     const senderBase = !isGroupMsg ? extractFirstString(message, SENDER_KEYS) : null;
     const senderName = [senderFirstName, senderLastName].filter(isNonEmptyString).join(' ');
-    const sender = senderRoleLabel
-      ? `${senderRoleLabel}${senderName ? ` • ${senderName}` : ''}`
-      : (senderName || senderBase);
+    const isSuperSender = Boolean((senderObj as any)?.isSuperAdmin);
+    const sender = isSuperSender
+      ? 'Équipe Support'
+      : senderRoleLabel
+        ? `${senderRoleLabel}${senderName ? ` • ${senderName}` : ''}`
+        : (senderName || senderBase);
 
     const attachmentName = extractFirstString(message, ['attachmentName', 'attachment_name']) ?? (message.attachmentPath as string | undefined) ?? null;
     const attachmentSizeRaw = typeof message.attachmentSize === 'number' ? message.attachmentSize : Number(message.attachmentSize ?? 0);
@@ -410,9 +423,12 @@ export default function InternalMessageList({
       let roleLabel: string | undefined;
       if (recipientRoleRaw === 'sub-agent') roleLabel = 'Agent secteur';
       else if (recipientRoleRaw === 'agent') roleLabel = 'Agent IREF';
+      const isSuperRecipient = Boolean((recipientObj as any)?.isSuperAdmin);
       const targetRole = (message as any)?.targetRole as string | undefined;
       const looksLikeAdmin = (recipientRoleRaw === 'admin') || (typeof targetRole === 'string' && targetRole.toLowerCase() === 'admin') || (typeof (recipient || recipientName) === 'string' && /admin/i.test(String(recipient || recipientName)));
-      if (looksLikeAdmin) {
+      if (isSuperRecipient) {
+        metaParts.push('Destinataire : Équipe Support');
+      } else if (looksLikeAdmin) {
         metaParts.push('Destinataire : Admin');
       } else {
         const assignmentParts: string[] = [];
@@ -440,36 +456,37 @@ export default function InternalMessageList({
     const { subject, content, timestamp, sender, attachmentName, attachmentSize, hasAttachment, meta } = getMessageDetails(selectedMessage);
     
     return (
-      <div className="flex-1 overflow-auto rounded-md bg-white w-full flex flex-col border shadow-sm relative z-10">
-        <div className="flex items-center justify-between p-3 border-b sticky top-0 bg-white">
-          <Button variant="ghost" size="icon" onClick={() => setSelectedMessage(null)} className="hover:bg-gray-100 text-gray-600" title="Retour à la liste">
-            <ArrowLeft className="h-5 w-5" />
+      <div className="flex-1 overflow-auto rounded-xl bg-white w-full flex flex-col border border-gray-200 shadow-sm relative z-10">
+        <div className="flex items-center justify-between px-3 py-2.5 sm:px-4 border-b border-gray-100 sticky top-0 bg-white/95 backdrop-blur-xs">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedMessage(null)} className="hover:bg-gray-100 text-gray-700 gap-1.5 px-2.5" title="Retour à la liste">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="text-xs sm:text-sm font-medium">Retour</span>
           </Button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {context === 'inbox' && normalizedRole !== 'hunter' && normalizedRole !== 'hunting-guide' && (
-              <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-800" onClick={() => { setForwardFor(selectedMessage); setForwardSubject(subject || ''); setForwardContent(''); setForwardError(null); }} title="Transférer">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:text-gray-800" onClick={() => { setForwardFor(selectedMessage); setForwardSubject(subject || ''); setForwardContent(''); setForwardError(null); }} title="Transférer">
                 <Share2 className="h-4 w-4" />
               </Button>
             )}
             {onDelete && (
-              <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => requestDelete(selectedMessage)} title="Supprimer">
-                <Trash2 className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => requestDelete(selectedMessage)} title="Supprimer">
+                <Trash2 className="h-4 w-4" />
               </Button>
             )}
           </div>
         </div>
         
-        <div className="p-6 flex-1 overflow-y-auto">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">{subject || "Message interne"}</h2>
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">{subject || "Message interne"}</h2>
           
-          <div className="flex items-start justify-between mb-8">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-6 pb-4 border-b border-gray-100">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="h-10 w-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold uppercase shrink-0">
                 {(sender || meta || '?').charAt(0).toUpperCase()}
               </div>
-              <div>
-                <div className="font-semibold text-gray-900 text-sm">{meta}</div>
-                <div className="text-xs text-gray-500">{timestamp}</div>
+              <div className="min-w-0">
+                <div className="font-semibold text-gray-900 text-sm break-words">{meta}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{timestamp}</div>
               </div>
             </div>
             {context === 'sent' && Array.isArray((selectedMessage as any).readers) && (selectedMessage as any).readers.length > 0 && (
@@ -479,33 +496,51 @@ export default function InternalMessageList({
             )}
           </div>
           
-          <div className="text-sm text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
-            {content}
-          </div>
+          {!(hasAttachment && /^\[?pi[èe]ce jointe\]?$/i.test(content.trim())) && (
+            <div className="text-sm text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
+              {/invalidée?s?/i.test(content) && content.includes('• ')
+                ? content.split('\n').map((line, idx) => (
+                    <span key={idx}>
+                      {idx > 0 ? '\n' : ''}
+                      {line.trim().startsWith('• ') ? (
+                        <strong className="font-bold text-red-600">{line}</strong>
+                      ) : (
+                        line
+                      )}
+                    </span>
+                  ))
+                : content}
+            </div>
+          )}
           
           {hasAttachment && (
-            <div className="mt-8 pt-4 border-t border-gray-100 flex flex-col items-start gap-2">
-              <div className="text-sm font-semibold text-gray-700">Pièces jointes</div>
-              <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors w-full sm:w-auto">
-                <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center"><MailIcon className="h-4 w-4 text-gray-500"/></div>
-                <div className="flex flex-col min-w-0 pr-4">
-                  <span className="text-sm font-medium truncate max-w-[200px]">{attachmentName}</span>
+            <div className={`${/^\[?pi[èe]ce jointe\]?$/i.test(content.trim()) ? 'mt-2' : 'mt-6 pt-4 border-t border-gray-100'} flex flex-col items-start gap-2`}>
+              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pièce jointe</div>
+              <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors w-full sm:w-auto sm:min-w-[280px]">
+                <div className="h-9 w-9 rounded-lg bg-green-50 text-green-700 flex items-center justify-center shrink-0"><Paperclip className="h-4 w-4"/></div>
+                <div className="flex flex-col min-w-0 pr-3">
+                  <span className="text-sm font-medium text-gray-900 truncate max-w-[220px]" title={repairAttachmentFileName(attachmentName)}>
+                    {repairAttachmentFileName(attachmentName)}
+                  </span>
                   <span className="text-xs text-gray-500">{attachmentSize ? formatFileSize(attachmentSize) : ''}</span>
                 </div>
-                <Button variant="outline" size="sm" className="ml-auto" onClick={() => openAttachmentPreview(selectedMessage)}>Aperçu</Button>
+                <Button variant="outline" size="sm" className="ml-auto shrink-0" onClick={() => openAttachmentPreview(selectedMessage)}>Aperçu</Button>
               </div>
             </div>
           )}
           
           {/* Actions bas de page */}
           {context === 'inbox' && (
-            <div className="mt-10 pt-4 flex gap-3">
+            <div className="mt-8 pt-4 border-t border-gray-100 flex flex-wrap gap-2.5">
               <Button variant="outline" className="gap-2 rounded-full border-gray-300" onClick={() => {
                 setReplyFor(selectedMessage);
                 const senderObj = typeof selectedMessage.sender === 'object' && selectedMessage.sender ? (selectedMessage.sender as any) : null;
                 const identifier = ((typeof senderObj?.username === 'string' && senderObj.username.trim()) || (typeof (selectedMessage as any).senderUsername === 'string' && String((selectedMessage as any).senderUsername).trim()) || (typeof senderObj?.email === 'string' && senderObj.email.trim()) || (typeof (senderObj as any)?.matricule === 'string' && String((senderObj as any).matricule).trim()) || (typeof (selectedMessage as any)?.senderId === 'number' && Number.isFinite((selectedMessage as any).senderId) ? String((selectedMessage as any).senderId) : '')) as string;
                 setReplyRecipient(identifier);
                 setReplyContent('');
+                setReplyAttachment(null);
+                setReplyError(null);
+                if (replyFileInputRef.current) replyFileInputRef.current.value = '';
               }}>
                 <MailIcon className="h-4 w-4" /> Répondre
               </Button>
@@ -530,12 +565,12 @@ export default function InternalMessageList({
         const end = Math.min(filteredMessages.length, start + PAGE_SIZE);
         const canShowFilter = context === 'inbox';
         return (
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-gray-500">
               Affichage {filteredMessages.length === 0 ? 0 : start + 1} à {end} sur {filteredMessages.length}
             </span>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 border-r pr-2 mr-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 border-r border-gray-200 pr-2">
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:bg-gray-100" onClick={() => {
                   if (selectedMessageIds.size === filteredMessages.length && filteredMessages.length > 0) {
                     setSelectedMessageIds(new Set());
@@ -547,7 +582,7 @@ export default function InternalMessageList({
                     setSelectedMessageIds(newSet);
                   }
                 }} title={selectedMessageIds.size === filteredMessages.length ? "Tout désélectionner" : "Tout sélectionner"}>
-                  {selectedMessageIds.size > 0 && selectedMessageIds.size === filteredMessages.length ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                  {selectedMessageIds.size > 0 && selectedMessageIds.size === filteredMessages.length ? <CheckSquare className="h-4 w-4 text-green-700" /> : <Square className="h-4 w-4" />}
                 </Button>
                 {onRefresh && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:bg-gray-100" onClick={onRefresh} title="Actualiser">
@@ -555,36 +590,38 @@ export default function InternalMessageList({
                   </Button>
                 )}
                 {onDelete && selectedMessageIds.size > 0 && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={handleBulkDelete} disabled={bulkDeleting} title={`Supprimer la sélection (${selectedMessageIds.size})`}>
+                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 gap-1" onClick={handleBulkDelete} disabled={bulkDeleting} title={`Supprimer la sélection (${selectedMessageIds.size})`}>
                     <Trash2 className="h-4 w-4" />
+                    <span>({selectedMessageIds.size})</span>
                   </Button>
                 )}
               </div>
               {canShowFilter && (
-                <select
-                  className="h-8 rounded-full border border-gray-200 bg-white px-3 text-xs text-gray-700"
-                  value={listFilter}
-                  onChange={(e) => setListFilter(e.target.value as any)}
-                >
-                  <option value="all">Tous</option>
-                  <option value="unread">Non lus</option>
-                  <option value="read">Lus</option>
-                </select>
+                <Select value={listFilter} onValueChange={(v) => setListFilter(v as any)}>
+                  <SelectTrigger className="h-8 w-[108px] rounded-lg border-gray-200 bg-white px-2.5 text-xs text-gray-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="w-[120px]">
+                    <SelectItem value="all">Tous</SelectItem>
+                    <SelectItem value="unread">Non lus</SelectItem>
+                    <SelectItem value="read">Lus</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={!canGoPrev}
                   aria-label="Page précédente"
                 >
                   ‹
                 </button>
-                <span className="text-xs text-gray-500 min-w-[44px] text-center">{page}/{totalPages}</span>
+                <span className="text-xs text-gray-500 min-w-[40px] text-center">{page}/{totalPages}</span>
                 <button
                   type="button"
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={!canGoNext}
                   aria-label="Page suivante"
@@ -596,26 +633,36 @@ export default function InternalMessageList({
           </div>
         );
       })()}
-      <div className="flex-1 overflow-auto rounded-md bg-gray-50 w-full p-3 relative">
+      <div className="flex-1 overflow-auto rounded-xl bg-gray-50/70 border border-gray-100 w-full p-2 sm:p-3 relative">
         {loading && !hasLoadedOnce && filteredMessages.length === 0 ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-12">
             <p className="text-sm text-gray-500 flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
               Chargement…
             </p>
           </div>
         ) : filteredMessages.length ? (
-          <div className="w-full space-y-3">
+          <div className="w-full space-y-2">
             {paginatedMessages.map((message, index) => {
               const { subject, content, timestamp, sender, hasAttachment, meta, isUnread } = getMessageDetails(message);
               const key = typeof message.id === "number" ? `msg-${message.id}` : `${page}-${index}`;
+              const displayName = context === 'inbox'
+                ? (sender || 'Inconnu')
+                : (meta.replace('Destinataire : ', '') || 'Inconnu');
+              const isSelected = typeof message.id === 'number' && selectedMessageIds.has(message.id);
+              const hasCustomSubject = Boolean(subject && subject.toLowerCase() !== 'message interne');
+
               return (
                 <article
                   key={key}
-                  className={`group rounded-lg border p-0 shadow-sm cursor-pointer transition-all hover:border-gray-300 hover:shadow-md ${
-                    message.isPending ? 'border-amber-200 bg-amber-50/50 border-l-4 border-l-amber-500'
-                      : isUnread ? 'border-gray-200 bg-white border-l-4 border-l-green-600'
-                      : 'border-gray-100 bg-gray-50/80 text-gray-500'
+                  className={`group rounded-xl border transition-all cursor-pointer hover:border-gray-300 hover:shadow-sm ${
+                    isSelected
+                      ? 'border-green-300 bg-green-50/40 ring-1 ring-green-200'
+                      : message.isPending
+                        ? 'border-amber-200 bg-amber-50/60 border-l-4 border-l-amber-500'
+                        : isUnread
+                          ? 'border-gray-200 bg-white border-l-4 border-l-green-600 shadow-xs'
+                          : 'border-gray-200/70 bg-white/80 hover:bg-white'
                   }`}
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest('button')) return;
@@ -623,72 +670,97 @@ export default function InternalMessageList({
                     setSelectedMessage(message);
                   }}
                 >
-                  <div className="flex items-center gap-3 p-3">
+                  <div className="flex items-start gap-2.5 sm:gap-3 p-3 sm:px-4 sm:py-3.5">
                     {/* Checkbox */}
-                    <div className="shrink-0 flex items-center justify-center pl-1 pr-1" onClick={(e) => {
-                      e.stopPropagation();
-                      if (typeof message.id === 'number') {
-                        const newSet = new Set(selectedMessageIds);
-                        if (newSet.has(message.id)) {
-                          newSet.delete(message.id);
-                        } else {
-                          newSet.add(message.id);
+                    <div
+                      className="shrink-0 pt-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (typeof message.id === 'number') {
+                          const newSet = new Set(selectedMessageIds);
+                          if (newSet.has(message.id)) {
+                            newSet.delete(message.id);
+                          } else {
+                            newSet.add(message.id);
+                          }
+                          setSelectedMessageIds(newSet);
                         }
-                        setSelectedMessageIds(newSet);
-                      }
-                    }}>
-                      <div className={`h-4 w-4 rounded border flex items-center justify-center cursor-pointer transition-colors ${typeof message.id === 'number' && selectedMessageIds.has(message.id) ? 'bg-green-600 border-green-600' : 'bg-white border-gray-300 hover:border-gray-400'}`}>
-                        {typeof message.id === 'number' && selectedMessageIds.has(message.id) && <Check className="h-3 w-3 text-white" />}
+                      }}
+                    >
+                      <div className={`h-4 w-4 rounded border flex items-center justify-center cursor-pointer transition-colors ${isSelected ? 'bg-green-600 border-green-600' : 'bg-white border-gray-300 hover:border-gray-400'}`}>
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
                       </div>
                     </div>
-                    {/* Icon Unread / Read */}
-                    <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${isUnread ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+
+                    {/* Avatar / Statut lu-non lu */}
+                    <div className={`shrink-0 h-9 w-9 rounded-full flex items-center justify-center ${isUnread ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                       {isUnread ? <MailIcon className="h-4 w-4" /> : <MailOpenIcon className="h-4 w-4" />}
                     </div>
-                    
-                    {/* Meta / Expéditeur */}
-                    <div className="w-[180px] shrink-0 truncate font-medium text-sm">
-                      {context === 'inbox' ? sender || 'Inconnu' : meta.replace('Destinataire : ', '') || 'Inconnu'}
+
+                    {/* Bloc principal sur 2 lignes : jamais écrasé sur mobile, tablette ou PC */}
+                    <div className="flex-1 min-w-0">
+                      {/* Ligne 1 : Expéditeur/Destinataire + badges + Date */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`text-sm truncate ${isUnread ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
+                            {displayName}
+                          </span>
+                          {isUnread && (
+                            <span className="shrink-0 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800">
+                              Nouveau
+                            </span>
+                          )}
+                          {message.isPending && (
+                            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                              <Clock className="h-2.5 w-2.5" />
+                              En attente
+                            </span>
+                          )}
+                        </div>
+                        <span className={`shrink-0 text-[11px] sm:text-xs whitespace-nowrap ${isUnread ? 'font-semibold text-green-800' : 'text-gray-400'}`}>
+                          {timestamp}
+                        </span>
+                      </div>
+
+                      {/* Ligne 2 : Objet + Aperçu lisible du message + Badge pièce jointe */}
+                      <div className="mt-1 flex items-start justify-between gap-2">
+                        <p className={`text-xs sm:text-sm line-clamp-2 break-words leading-snug ${isUnread ? 'text-gray-800' : 'text-gray-500'}`}>
+                          {hasCustomSubject && (
+                            <span className="font-medium text-gray-900 mr-1.5">{subject} —</span>
+                          )}
+                          {content}
+                        </p>
+                        {hasAttachment && (
+                          <span className="shrink-0 inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600" title="Contient une pièce jointe">
+                            <Paperclip className="h-3 w-3" />
+                            <span className="hidden sm:inline">PJ</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Sujet et Extrait */}
-                    <div className="flex-1 min-w-0 flex items-center gap-2 truncate">
-                      <span className={`text-sm truncate ${isUnread ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
-                        {subject || "Message interne"}
-                      </span>
-                      <span className="text-gray-400 text-sm truncate">
-                        - {content}
-                      </span>
-                    </div>
-
-                    {/* Has Attachment Icon */}
-                    {hasAttachment && (
-                      <div className="shrink-0 text-gray-400">
-                        <MailIcon className="h-4 w-4" />
+                    {/* Action rapide Supprimer */}
+                    {onDelete && (
+                      <div className="shrink-0 self-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => { e.stopPropagation(); requestDelete(message); }}
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     )}
-
-                    {/* Date */}
-                    <div className="shrink-0 text-xs font-medium text-gray-500 w-24 text-right">
-                      {timestamp}
-                    </div>
-                    
-                    {/* Actions au survol */}
-                    <div className="shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                       {onDelete && (
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); requestDelete(message); }} title="Supprimer">
-                           <Trash2 className="h-4 w-4" />
-                         </Button>
-                       )}
-                    </div>
                   </div>
                 </article>
               );
             })}
           </div>
         ) : (
-          <div className="flex flex-col items-center text-center text-gray-500">
-            <MessageSquareIcon className="mb-3 h-12 w-12 opacity-40" />
+          <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500">
+            <MessageSquareIcon className="mb-3 h-12 w-12 opacity-30" />
             <p className="text-sm">{emptyLabel}</p>
           </div>
         )}
@@ -696,56 +768,222 @@ export default function InternalMessageList({
       </>
       )}
       <MessageAttachmentViewer payload={preview} onClose={closePreview} />
-      <Dialog open={!!replyFor} onOpenChange={(open) => { if (!open) { setReplyFor(null); setReplyContent(""); setReplyRecipient(""); setReplySubmitting(false); } }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Répondre à {(() => {
-              // Extraction robuste du nom de l'expéditeur
-              const sObj = typeof replyFor?.sender === 'object' && replyFor.sender ? (replyFor.sender as any) : null;
-              const fn = sObj?.firstName || (replyFor as any)?.senderFirstName || (replyFor as any)?.firstName || "";
-              const ln = sObj?.lastName || (replyFor as any)?.senderLastName || (replyFor as any)?.lastName || "";
-              const displayName = (replyFor as any)?.senderDisplayName || (replyFor as any)?.senderName || "";
-              const name = [fn, ln].filter(Boolean).join(" ").trim() || displayName;
-              return name || replyRecipient || "l'expéditeur";
-            })()}</DialogTitle>
-            <DialogDescription>
-              Votre réponse sera envoyée directement à cette personne.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-sm text-gray-700">Votre réponse</label>
-              <textarea
-                className="w-full rounded border px-3 py-2 text-sm"
-                rows={5}
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-                placeholder="Écrivez votre message"
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={() => { setReplyFor(null); }} disabled={replySubmitting}>Annuler</Button>
-            <Button
-              onClick={async () => {
-                const dest = replyRecipient.trim();
-                const body = replyContent.trim();
-                if (!dest || !body) return;
-                if (onReply) {
-                  setReplySubmitting(true);
-                  try {
-                    await onReply({ recipientIdentifier: dest, content: body, original: replyFor as any });
-                    setReplyFor(null);
-                  } finally {
-                    setReplySubmitting(false);
-                  }
-                }
-              }}
-              disabled={replySubmitting || !replyRecipient.trim() || !replyContent.trim()}
-            >
-              {replySubmitting ? 'Envoi…' : 'Envoyer'}
-            </Button>
-          </DialogFooter>
+      <Dialog
+        open={!!replyFor}
+        onOpenChange={(open) => {
+          if (!open && !replySubmitting) {
+            setReplyFor(null);
+            setReplyContent("");
+            setReplyRecipient("");
+            setReplyAttachment(null);
+            setReplyError(null);
+            if (replyFileInputRef.current) replyFileInputRef.current.value = "";
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-lg max-h-[90dvh] p-0 flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+          {(() => {
+            const sObj = typeof replyFor?.sender === 'object' && replyFor.sender ? (replyFor.sender as any) : null;
+            const isSuper = Boolean(sObj?.isSuperAdmin);
+            const fn = sObj?.firstName || (replyFor as any)?.senderFirstName || (replyFor as any)?.firstName || "";
+            const ln = sObj?.lastName || (replyFor as any)?.senderLastName || (replyFor as any)?.lastName || "";
+            const displayName = (replyFor as any)?.senderDisplayName || (replyFor as any)?.senderName || "";
+            const recipientDisplay = isSuper
+              ? "Équipe Support"
+              : ([fn, ln].filter(Boolean).join(" ").trim() || displayName || replyRecipient || "l'expéditeur");
+            const originalPreview = replyFor ? extractContent(replyFor) : "";
+            const hasOriginalPreview =
+              Boolean(originalPreview) && !/^\[?pi[èe]ce jointe\]?$/i.test(originalPreview.trim());
+            const canSubmit = Boolean(replyRecipient.trim() && (replyContent.trim() || replyAttachment));
+
+            return (
+              <>
+                {/* En-tête moderne */}
+                <DialogHeader className="shrink-0 border-b border-gray-100 bg-gray-50/80 px-5 py-4 text-left">
+                  <div className="flex items-center gap-3 pr-7 min-w-0">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-700 text-white font-bold uppercase shadow-xs">
+                      {recipientDisplay.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <DialogTitle className="text-base font-semibold text-gray-900 truncate">
+                        Répondre à {recipientDisplay}
+                      </DialogTitle>
+                      <DialogDescription className="text-xs text-gray-500 mt-0.5">
+                        Votre réponse sera envoyée directement à ce destinataire.
+                      </DialogDescription>
+                    </div>
+                  </div>
+                </DialogHeader>
+
+                {/* Corps scrollable — zéro débordement sur téléphone */}
+                <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
+                  {/* Rappel discret du message d'origine */}
+                  {hasOriginalPreview && (
+                    <div className="rounded-xl border border-green-100 border-l-4 border-l-green-600 bg-green-50/50 px-3.5 py-2.5">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-green-800 mb-0.5">
+                        En réponse à
+                      </div>
+                      <p className="text-xs text-gray-600 line-clamp-2 break-words leading-snug">
+                        {originalPreview}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Zone de saisie + compteur */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="reply-message-textarea" className="text-sm font-medium text-gray-700 block">
+                      Votre réponse
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        id="reply-message-textarea"
+                        className="w-full min-h-[120px] resize-none rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-3 pb-7 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-colors focus:border-green-600 focus:bg-white focus:ring-2 focus:ring-green-600/15"
+                        rows={4}
+                        maxLength={160}
+                        value={replyContent}
+                        onChange={(e) => {
+                          setReplyContent(e.target.value);
+                          setReplyError(null);
+                        }}
+                        placeholder="Écrivez votre réponse (160 caractères max)..."
+                        disabled={replySubmitting}
+                      />
+                      <span className="pointer-events-none absolute bottom-2.5 right-3 text-[11px] text-gray-400">
+                        {replyContent.length} / 160
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Input fichier caché + Aperçu pièce jointe */}
+                  <input
+                    ref={replyFileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) {
+                        setReplyError("La pièce jointe ne doit pas dépasser 5 Mo.");
+                        e.target.value = "";
+                        return;
+                      }
+                      setReplyError(null);
+                      setReplyAttachment(file);
+                    }}
+                  />
+
+                  {replyAttachment && (
+                    <div className="flex items-center justify-between gap-2.5 rounded-xl border border-green-200 bg-green-50/50 px-3 py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-700">
+                          <Paperclip className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-gray-900 truncate">
+                            {replyAttachment.name}
+                          </div>
+                          <div className="text-[11px] text-gray-500">
+                            {formatFileSize(replyAttachment.size)}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={replySubmitting}
+                        onClick={() => {
+                          setReplyAttachment(null);
+                          if (replyFileInputRef.current) replyFileInputRef.current.value = "";
+                        }}
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        title="Retirer la pièce jointe"
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {replyError && (
+                    <p className="text-xs font-medium text-red-600">{replyError}</p>
+                  )}
+                </div>
+
+                {/* Pied de dialogue propre et adaptatif mobile/PC */}
+                <div className="shrink-0 border-t border-gray-100 bg-gray-50/60 px-5 py-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    <button
+                      type="button"
+                      disabled={replySubmitting}
+                      onClick={() => replyFileInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50/60 hover:border-green-400 transition-colors disabled:opacity-50"
+                      title="Joindre un fichier ou une photo (5 Mo max)"
+                    >
+                      <Paperclip className="h-3.5 w-3.5" />
+                      <span>Joindre un fichier</span>
+                    </button>
+
+                    <div className="flex items-center gap-2 ml-auto">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 px-4 border-gray-300 text-gray-700"
+                        onClick={() => {
+                          setReplyFor(null);
+                          setReplyAttachment(null);
+                          setReplyError(null);
+                          if (replyFileInputRef.current) replyFileInputRef.current.value = "";
+                        }}
+                        disabled={replySubmitting}
+                      >
+                        Annuler
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-9 px-5 bg-green-700 hover:bg-green-800 text-white gap-1.5"
+                        onClick={async () => {
+                          const dest = replyRecipient.trim();
+                          const body = replyContent.trim() || (replyAttachment ? "[Pièce jointe]" : "");
+                          if (!dest || !body) return;
+                          if (onReply) {
+                            setReplySubmitting(true);
+                            try {
+                              await onReply({
+                                recipientIdentifier: dest,
+                                content: body,
+                                attachment: replyAttachment,
+                                original: replyFor as any,
+                              });
+                              setReplyFor(null);
+                              setReplyContent("");
+                              setReplyAttachment(null);
+                              setReplyError(null);
+                              if (replyFileInputRef.current) replyFileInputRef.current.value = "";
+                            } finally {
+                              setReplySubmitting(false);
+                            }
+                          }
+                        }}
+                        disabled={replySubmitting || !canSubmit}
+                      >
+                        {replySubmitting ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <span>Envoi…</span>
+                          </>
+                        ) : (
+                          <>
+                            <SendIcon className="h-3.5 w-3.5" />
+                            <span>Envoyer</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
       <Dialog open={!!forwardFor} onOpenChange={(open) => { if (!open) { setForwardFor(null); setSectorAgents([]); setSelectedSectorIds(new Set()); setSelectAllSectors(false); setForwardSubject(""); setForwardContent(""); setFreeIdentifiers(""); setForwardError(null); setSectorError(null); } }}>
@@ -769,17 +1007,21 @@ export default function InternalMessageList({
               <>
                 {deptOptions.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-700">Département</label>
-                    <select
-                      className="rounded border px-2 py-1 text-sm"
-                      value={sectorDeptFilter}
-                      onChange={(e) => setSectorDeptFilter(e.target.value)}
+                    <label className="text-sm text-gray-700 shrink-0">Département</label>
+                    <Select
+                      value={sectorDeptFilter || "__all__"}
+                      onValueChange={(v) => setSectorDeptFilter(v === "__all__" ? "" : v)}
                     >
-                      <option value="">Tous</option>
-                      {deptOptions.map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-9 flex-1 bg-white text-sm">
+                        <SelectValue placeholder="Tous" />
+                      </SelectTrigger>
+                      <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                        <SelectItem value="__all__">Tous</SelectItem>
+                        {deptOptions.map((d) => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
                 <div className="max-h-48 overflow-auto rounded border p-2">

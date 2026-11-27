@@ -18,7 +18,20 @@ export function checkDomain(arg?: string | CheckDomainOptions) {
         return res.status(401).json({ message: 'Authentification requise' });
       }
 
-      if (currentUser?.isSuperAdmin) {
+      const roleLower = String(currentUser?.role || '').toLowerCase();
+      if (
+        currentUser?.isSuperAdmin === true ||
+        currentUser?.is_super_admin === true ||
+        roleLower === 'superadmin' ||
+        roleLower === 'super_admin'
+      ) {
+        return next();
+      }
+
+      // Vérification de sécurité en base (users.is_super_admin + table super_admins)
+      const isSuper = await storage.isSuperAdmin(Number(currentUser.id));
+      if (isSuper) {
+        (req as any).user = { ...currentUser, isSuperAdmin: true };
         return next();
       }
 

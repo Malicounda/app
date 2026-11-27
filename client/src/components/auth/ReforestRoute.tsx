@@ -1,5 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { ReactNode } from 'react';
+import { getHomePage, isUserSuperAdmin } from '@/utils/navigation';
+import { getLoginRoute } from '@/utils/getLoginRoute';
+import { ReactNode, useEffect } from 'react';
+import { Redirect, useLocation } from 'wouter';
 
 interface ReforestRouteProps {
   children: ReactNode;
@@ -9,12 +12,33 @@ interface ReforestRouteProps {
 
 /**
  * Garde-route pour le domaine REBOISEMENT.
- * - Super Admin : retourne null (il ne doit jamais voir les pages reboisement)
- * - Autres : vérifie que le domaine est REBOISEMENT
- * - La redirection est déléguée au DashboardRedirector
+ * - Super Admin : redirigé immédiatement vers /superadmin/agents
+ * - Autres : vérifie que le domaine est REBOISEMENT et le rôle autorisé, sinon redirige vers leur accueil
  */
 export default function ReforestRoute({ children, allowedRoles, allowedTypes }: ReforestRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  const isSA = isUserSuperAdmin(user);
+  const isReforestDomain = (typeof window !== 'undefined' ? localStorage.getItem('domain') || '' : '').toUpperCase() === 'REBOISEMENT';
+  const roleAllowed = !allowedRoles || (user && allowedRoles.includes(user.role));
+  const typeAllowed = !allowedTypes || !user || user.role !== 'agent' || allowedTypes.includes((user as any)?.agentType);
+  const isAllowed = isAuthenticated && !isSA && isReforestDomain && Boolean(roleAllowed) && Boolean(typeAllowed);
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || !user || isAllowed) return;
+    const homePath = getHomePage(
+      user.role,
+      user.type,
+      isSA,
+      Boolean((user as any)?.isDefaultRole),
+      Boolean((user as any)?.isSupervisorRole),
+      user
+    );
+    if (location !== homePath) {
+      setLocation(homePath);
+    }
+  }, [isLoading, isAuthenticated, user, isAllowed, isSA, location, setLocation]);
 
   if (isLoading) {
     return (
@@ -24,19 +48,11 @@ export default function ReforestRoute({ children, allowedRoles, allowedTypes }: 
     );
   }
 
-  // Super Admin — n'appartient à aucun domaine, ne doit pas voir les pages reboisement
-  if ((user as any)?.isSuperAdmin) return null;
+  if (!isAuthenticated) {
+    return <Redirect to={getLoginRoute()} replace />;
+  }
 
-  if (!isAuthenticated) return null;
-
-  const isReforestDomain = (localStorage.getItem('domain') || '').toUpperCase() === 'REBOISEMENT';
-  if (!isReforestDomain) return null;
-
-  // Vérification des rôles autorisés
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) return null;
-
-  // Vérification des types autorisés
-  if (allowedTypes && user && user.role === 'agent' && !allowedTypes.includes((user as any)?.agentType)) return null;
+  if (!isAllowed) return null;
 
   return <>{children}</>;
 }

@@ -42,6 +42,7 @@ export default function DemandePermisChasse() {
   const [category, setCategory] = useState<'CYNEGETIQUE' | 'AUTRE' | ''>('');
   const [typePermis, setTypePermis] = useState<string>('');
   const [hunterProfile, setHunterProfile] = useState<any>(null);
+  const [existingPermits, setExistingPermits] = useState<any[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,6 +51,8 @@ export default function DemandePermisChasse() {
     status: 'pending' | 'validated' | 'rejected';
     invalidatedDocs: string[];
     reason: string | null;
+    campaignOpen?: boolean;
+    expiredForNewCampaign?: boolean;
   } | null>(null);
   const [loadingDossierStatus, setLoadingDossierStatus] = useState(true);
   
@@ -117,11 +120,14 @@ export default function DemandePermisChasse() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const [profile, dossierResp] = await Promise.all([
+        const [profile, dossierResp, permitsResp] = await Promise.all([
           apiRequest<any>({ url: '/api/hunters/me', method: 'GET' }),
           apiRequest<any>({ url: '/api/hunters/me/dossier-status', method: 'GET' }).catch(() => null),
+          apiRequest<any>({ url: '/api/permits/hunter/my-permits', method: 'GET' }).catch(() => []),
         ]);
         setHunterProfile(profile);
+        const permitsList = Array.isArray(permitsResp) ? permitsResp : (permitsResp?.data || []);
+        setExistingPermits(Array.isArray(permitsList) ? permitsList : []);
         const verif = dossierResp?.data || dossierResp;
         if (verif?.status) {
           setDossierStatus(verif);
@@ -278,9 +284,62 @@ export default function DemandePermisChasse() {
     }
   };
 
+  // Vérifier si une catégorie de permis est déjà détenue et active pour la campagne en cours
+  // (même règle que PermitForm.tsx & POST /api/permits)
+  const getCategoryConflictReason = (catKey: string): string | null => {
+    const keyLower = String(catKey || '').toLowerCase().trim();
+    if (!keyLower || existingPermits.length === 0) return null;
+
+    const now = new Date();
+    const isGibierEau = keyLower.includes('gibier-eau');
+
+    if (isGibierEau) {
+      const conflict = existingPermits.find((p: any) => {
+        const status = String(p.status || '').toLowerCase();
+        const existingKey = String(p.categoryId || p.type || '').toLowerCase();
+        if (status !== 'active' || !existingKey.includes('gibier-eau')) return false;
+        const isExpired = !!p.expiryDate && new Date(p.expiryDate) < now;
+        const renewalsCount = Number(p.renewalCount || p.metadata?.renewalCount || (Array.isArray(p.renewals) ? p.renewals.length : 0) || 0);
+        return !(renewalsCount >= 2 && isExpired);
+      });
+      return conflict ? `Déjà actif (${conflict.permitNumber})` : null;
+    }
+
+    const isClassicFamily = (k: string) =>
+      k.includes('resident') || k.includes('coutumier') || k.includes('touriste') || k.includes('touristique');
+    const familyOf = (k: string) => {
+      if (k.includes('resident')) return 'resident';
+      if (k.includes('coutumier')) return 'coutumier';
+      if (k.includes('touriste') || k.includes('touristique')) return 'touriste';
+      return k;
+    };
+
+    const targetFamily = familyOf(keyLower);
+    const conflict = existingPermits.find((p: any) => {
+      const status = String(p.status || '').toLowerCase();
+      const isNotExpired = !p.expiryDate || new Date(p.expiryDate) >= now;
+      if (status !== 'active' || !isNotExpired) return false;
+      const existingKey = String(p.categoryId || p.type || '').toLowerCase().trim();
+      if (!existingKey || existingKey.includes('gibier-eau')) return false;
+      if (existingKey === keyLower) return true;
+      if (isClassicFamily(keyLower) && isClassicFamily(existingKey)) {
+        return familyOf(existingKey) === targetFamily;
+      }
+      return false;
+    });
+
+    return conflict ? `Déjà actif (${conflict.permitNumber})` : null;
+  };
+
   const submitWithStatus = async (status: 'pending' | 'draft') => {
     if (!typePermis) {
       setError('Veuillez sélectionner un type de permis');
+      return;
+    }
+
+    const conflictReason = status === 'pending' ? getCategoryConflictReason(typePermis) : null;
+    if (conflictReason) {
+      setError(`Vous possédez déjà un permis actif dans cette catégorie (${conflictReason}). Vous pouvez choisir une autre catégorie.`);
       return;
     }
 
@@ -364,18 +423,26 @@ export default function DemandePermisChasse() {
             </div>
 
             <TabsContent value="create" className="m-0 focus-visible:outline-none focus-visible:ring-0">
-              {!loadingDossierStatus && dossierStatus && dossierStatus.status !== 'validated' ? (
+              {!loadingDossierStatus && dossierStatus && (dossierStatus.campaignOpen === false || dossierStatus.status !== 'validated') ? (
                 <Card className="border-amber-200 bg-white shadow-md">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg text-slate-800">
                       <AlertCircle className={`h-5 w-5 ${dossierStatus.status === 'rejected' ? 'text-red-600' : 'text-amber-600'}`} />
-                      {dossierStatus.status === 'rejected'
+                      {dossierStatus.campaignOpen === false
+                        ? 'Campagne de chasse fermée'
+                        : dossierStatus.status === 'rejected'
                         ? 'Pièces invalidées — Correction nécessaire'
+                        : dossierStatus.expiredForNewCampaign
+                        ? 'Nouvelle campagne — Revalidation requise'
                         : 'Dossier en attente de validation'}
                     </CardTitle>
                     <CardDescription>
-                      {dossierStatus.status === 'rejected'
+                      {dossierStatus.campaignOpen === false
+                        ? "La campagne de chasse en cours est clôturée. Les demandes de permis reprendront à l'ouverture de la prochaine campagne (avec une nouvelle validation de votre dossier)."
+                        : dossierStatus.status === 'rejected'
                         ? "L'administration a invalidé une ou plusieurs pièces de votre dossier. Veuillez les remplacer avant de soumettre une demande de permis."
+                        : dossierStatus.expiredForNewCampaign
+                        ? "Une nouvelle campagne de chasse a commencé. Votre dossier doit être vérifié et validé à nouveau par l'administration avant toute demande de permis."
                         : "Vos documents déposés doivent d'abord être inspectés et validés par l'administration avant que vous puissiez soumettre une demande de permis."}
                     </CardDescription>
                   </CardHeader>
@@ -527,11 +594,14 @@ export default function DemandePermisChasse() {
                           <SelectContent className="rounded-xl border-slate-100 shadow-lg">
                             {category === 'CYNEGETIQUE' ? (
                               filteredCynegetiques.length > 0 ? (
-                                filteredCynegetiques.map((cat) => (
-                                  <SelectItem key={cat.id} value={cat.id}>
-                                    {cat.name}
-                                  </SelectItem>
-                                ))
+                                filteredCynegetiques.map((cat) => {
+                                  const conflict = getCategoryConflictReason(cat.id);
+                                  return (
+                                    <SelectItem key={cat.id} value={cat.id} disabled={Boolean(conflict)}>
+                                      {cat.name}{conflict ? ` — ${conflict}` : ''}
+                                    </SelectItem>
+                                  );
+                                })
                               ) : (
                                 <div className="px-3 py-2 text-sm text-muted-foreground">
                                   Aucune catégorie disponible pour votre profil.
@@ -539,11 +609,14 @@ export default function DemandePermisChasse() {
                               )
                             ) : (
                               filteredAutres.length > 0 ? (
-                                filteredAutres.map((opt) => (
-                                  <SelectItem key={opt.id} value={opt.id}>
-                                    {opt.name}
-                                  </SelectItem>
-                                ))
+                                filteredAutres.map((opt) => {
+                                  const conflict = getCategoryConflictReason(opt.id);
+                                  return (
+                                    <SelectItem key={opt.id} value={opt.id} disabled={Boolean(conflict)}>
+                                      {opt.name}{conflict ? ` — ${conflict}` : ''}
+                                    </SelectItem>
+                                  );
+                                })
                               ) : (
                                 <div className="px-3 py-2 text-sm text-muted-foreground">
                                   Aucune option de permis spécial disponible.

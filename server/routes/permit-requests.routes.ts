@@ -367,13 +367,24 @@ router.post('/request', isAuthenticated, async (req, res) => {
       return res.status(400).json({ success: false, message: "Profil chasseur introuvable pour cet utilisateur." });
     }
 
-    // Condition obligatoire : le dossier du chasseur doit être validé par l'administration
+    // Condition obligatoire : campagne ouverte + dossier validé pour la campagne en cours
     const { getHunterDossierVerification } = await import('../services/hunterDossierVerification.js');
     const dossierVerification = await getHunterDossierVerification(Number(hunterId));
+    if (!dossierVerification.campaignOpen) {
+      return res.status(403).json({
+        success: false,
+        code: 'CAMPAIGN_CLOSED',
+        verificationStatus: dossierVerification.status,
+        campaignOpen: false,
+        message: "La campagne de chasse est actuellement fermée. Les demandes de permis reprendront à l'ouverture de la prochaine campagne.",
+      });
+    }
     if (dossierVerification.status !== 'validated') {
       const msg =
         dossierVerification.status === 'rejected'
           ? 'Votre dossier contient des pièces invalidées. Veuillez corriger et renvoyer les documents concernés avant de soumettre une demande de permis.'
+          : dossierVerification.expiredForNewCampaign
+          ? "Une nouvelle campagne de chasse a débuté. Votre dossier doit être validé à nouveau par l'administration avant toute demande de permis."
           : "Votre dossier est en attente de vérification et de validation par l'administration avant toute demande de permis.";
       return res.status(403).json({
         success: false,
@@ -386,6 +397,98 @@ router.post('/request', isAuthenticated, async (req, res) => {
     }
 
     const { id, status, permitType, requestedType, requestedCategory } = req.body;
+    const targetPermitKey = String(requestedType || permitType || '').trim();
+    const targetPermitLower = targetPermitKey.toLowerCase();
+
+    // Règle d'unicité par catégorie (alignée sur POST /api/permits et PermitForm.tsx) :
+    // Un chasseur peut cumuler différentes catégories (ex. classique + gibier d'eau + autre),
+    // mais ne peut pas demander deux fois la même catégorie / grande famille active pour la même campagne.
+    if (targetPermitLower && status !== 'draft') {
+      const isGibierEau = targetPermitLower.includes('gibier-eau');
+      if (isGibierEau) {
+        const conflictRes: any = await db.execute(sql`
+          SELECT id, permit_number AS "permitNumber", category_id AS "categoryId", metadata, expiry_date AS "expiryDate"
+          FROM permits
+          WHERE hunter_id = ${Number(hunterId)}
+            AND status = 'active'
+            AND category_id ILIKE '%gibier-eau%'
+          ORDER BY created_at DESC
+          LIMIT 1
+        ` as any);
+        const conflictRows: any[] = Array.isArray(conflictRes) ? conflictRes : (conflictRes?.rows || []);
+        if (conflictRows.length > 0) {
+          const c = conflictRows[0];
+          const isExpired = !!c?.expiryDate && new Date(c.expiryDate) < new Date();
+          let renewalsCount = 0;
+          try {
+            let meta = c?.metadata;
+            if (typeof meta === 'string') meta = JSON.parse(meta);
+            if (meta && Array.isArray(meta.renewals)) renewalsCount = meta.renewals.length;
+            else if (meta && typeof meta.renewalCount === 'number') renewalsCount = meta.renewalCount;
+          } catch {}
+          const isEpuise = renewalsCount >= 2 && isExpired;
+          if (!isEpuise) {
+            return res.status(409).json({
+              success: false,
+              message: "Vous détenez déjà un permis de Gibier d'Eau actif pour cette campagne.",
+            });
+          }
+        }
+      } else {
+        const activePermitsRes: any = await db.execute(sql`
+          SELECT id, permit_number AS "permitNumber", category_id AS "categoryId", type
+          FROM permits
+          WHERE hunter_id = ${Number(hunterId)}
+            AND status = 'active'
+            AND expiry_date >= CURRENT_DATE
+        ` as any);
+        const activeRows: any[] = Array.isArray(activePermitsRes) ? activePermitsRes : (activePermitsRes?.rows || []);
+
+        const isClassicFamily = (k: string) =>
+          k.includes('resident') || k.includes('coutumier') || k.includes('touriste') || k.includes('touristique');
+        const familyOf = (k: string) => {
+          if (k.includes('resident')) return 'resident';
+          if (k.includes('coutumier')) return 'coutumier';
+          if (k.includes('touriste') || k.includes('touristique')) return 'touriste';
+          return k;
+        };
+
+        const targetFamily = familyOf(targetPermitLower);
+        const conflicting = activeRows.find((p: any) => {
+          const existingKey = String(p.categoryId || p.type || '').toLowerCase().trim();
+          if (!existingKey || existingKey.includes('gibier-eau')) return false;
+          if (existingKey === targetPermitLower) return true;
+          if (isClassicFamily(targetPermitLower) && isClassicFamily(existingKey)) {
+            return familyOf(existingKey) === targetFamily;
+          }
+          return false;
+        });
+
+        if (conflicting) {
+          return res.status(409).json({
+            success: false,
+            message: `Vous possédez déjà un permis actif dans cette catégorie (${conflicting.permitNumber}) pour la campagne en cours. Vous pouvez toutefois demander une autre catégorie de permis.`,
+          });
+        }
+      }
+
+      // Vérifier aussi s'il n'existe pas déjà une demande en attente pour cette même catégorie
+      const existingReqRes: any = await db.execute(sql`
+        SELECT id FROM permit_requests
+        WHERE hunter_id = ${Number(hunterId)}
+          AND status = 'pending'
+          AND LOWER(requested_type) = ${targetPermitLower}
+          ${id ? sql`AND id <> ${Number(id)}` : sql``}
+        LIMIT 1
+      ` as any);
+      const existingReqRows: any[] = Array.isArray(existingReqRes) ? existingReqRes : (existingReqRes?.rows || []);
+      if (existingReqRows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: 'Une demande est déjà en attente de traitement pour cette catégorie de permis.',
+        });
+      }
+    }
 
     // Récupérer le domaine 'chasse'
     const domaineRes = await db.execute(sql`SELECT id FROM domaines WHERE nom_domaine = 'CHASSE' LIMIT 1`);

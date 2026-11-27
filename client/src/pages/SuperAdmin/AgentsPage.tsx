@@ -1233,15 +1233,18 @@ export default function SuperAdminAgentsPage() {
                             <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
                               Modifier
                             </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="text-sky-500 hover:text-sky-600"
-                              onClick={() => setInfoRow(r)}
-                            >
-                              <Info className="h-4 w-4" />
-                            </Button>
+                            {String(r?.userRole || "").toLowerCase() === "admin" && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-sky-500 hover:text-sky-600"
+                                onClick={() => setInfoRow(r)}
+                                title="Information sur le domaine administré"
+                              >
+                                <Info className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

@@ -168,10 +168,10 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
 
   // Unread internal messages count (polling from unread-count endpoint)
   const { data: unreadMsgCount } = useQuery({
-    queryKey: ['messages-unread-count', currentDomaineId],
+    queryKey: ['messages-unread-count', isSuperAdminNav ? 'superadmin' : currentDomaineId],
     queryFn: async () => {
       try {
-        const res = await authenticatedFetch(`/api/messages/unread-count?domaineId=${currentDomaineId}`);
+        const res = await authenticatedFetch(isSuperAdminNav ? '/api/messages/unread-count?domaineId=null' : `/api/messages/unread-count?domaineId=${currentDomaineId}`);
         if (!res.ok) return { total: 0 };
         return await res.json();
       } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
@@ -194,7 +194,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
       const data = Array.isArray(response) ? response : (response as any)?.data || [];
       return data.filter((r: any) => r.status === 'pending').length;
     },
-    enabled: !!user && (user.role === 'admin' || user.role === 'agent' || user.role === 'sub-agent') && isOnline,
+    enabled: !!user && !isSuperAdminNav && (user.role === 'admin' || user.role === 'agent' || user.role === 'sub-agent') && isOnline,
     refetchInterval: 30_000,
   });
 
@@ -248,7 +248,7 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
     <nav className={cn(sidebarStyle, 'sidebar')}>
       <div className="flex flex-col h-full">
         {/* Zone de navigation scrollable */}
-        <div className="flex flex-col space-y-1 pb-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <div className="flex flex-col space-y-0.5 pb-1 flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar">
         {/* Section Profil - commune à tous les utilisateurs (sauf guides de chasse) */}
         {user?.role !== 'hunting-guide' && !isUserSuperAdmin(user) && (
           <Link
@@ -550,6 +550,29 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
                 <ProfileChangeIcon className={cn('text-slate-400', iconSize)} />
               </span>
               <span className={labelCls}>Changement Profil</span>
+            </Link>
+
+            <Link
+              href="/superadmin/messagerie"
+              onClick={handleLinkClick}
+              className={location === '/superadmin/messagerie' ? activeLinkStyle : linkStyle}
+            >
+              <span className={cn(iconWrapCls, collapsed && 'relative')}>
+                <MessagingIcon className={cn('text-slate-400', iconSize)} />
+                {collapsed && unreadMsg > 0 && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-teal-500 text-white text-[10px] font-semibold">
+                    {unreadMsgDisplay}
+                  </span>
+                )}
+              </span>
+              <span className={cn(labelCls, 'flex items-center gap-2')}>
+                Messagerie
+                {!collapsed && unreadMsg > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-5 px-1.5 rounded-full bg-teal-500 text-white text-[10px] font-semibold">
+                    {unreadMsgDisplay}
+                  </span>
+                )}
+              </span>
             </Link>
 
             <Link

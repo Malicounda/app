@@ -163,6 +163,42 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
     }
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ── CAS SPÉCIAL : role=support (Support Technique / SuperAdmin accessible à tous) ──
+    if (roleParam === 'support') {
+      const superIds = await storage.getSuperAdminUserIds();
+      const targetIds = superIds.filter((id: number) => Number(id) !== currentUserId);
+      if (!targetIds.length) {
+        return res.json([]);
+      }
+      const supportUsers = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          matricule: users.matricule,
+          role: users.role,
+        })
+        .from(users)
+        .where(and(inArray(users.id as any, targetIds as any), eq(users.isActive as any, true as any)) as any);
+
+      const payload = (Array.isArray(supportUsers) ? supportUsers : []).map((u: any) => ({
+        id: u.id,
+        username: u.username ?? null,
+        email: u.email ?? null,
+        matricule: u.matricule ?? null,
+        firstName: 'Équipe',
+        lastName: 'Support',
+        grade: null,
+        label: 'Support Technique',
+        region: null,
+        departement: null,
+        role: 'support',
+        isSuperAdmin: true,
+        isSupervisor: false,
+      }));
+      return res.json(payload);
+    }
+
     const validUserRoles = ['admin', 'chasse', 'agent', 'sub-agent', 'super-admin', 'hunter', 'guide'];
     const safeRoleParam = validUserRoles.includes(roleParam) ? roleParam : 'agent';
 
@@ -205,24 +241,27 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
         .leftJoin(agents, eq(agents.userId as any, users.id as any))
         .where(and(whereRole as any, eq(users.isActive as any, true as any)) as any);
 
-    const systemAdminUsers = await db
-      .select({
-        id: users.id,
-        username: users.username,
-        email: users.email,
-        matricule: users.matricule,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        region: users.region,
-        departement: users.departement,
-        role: users.role,
-        grade: agents.grade,
-      })
-      .from(superAdmins)
-      .innerJoin(users, eq(users.id as any, superAdmins.userId as any))
-      .leftJoin(agents, eq(agents.userId as any, users.id as any));
+    const allSuperAdminIds = await storage.getSuperAdminUserIds();
+    const superAdminIds = new Set((allSuperAdminIds || []).map((n: any) => Number(n)).filter((n: any) => Number.isFinite(n)));
 
-    const superAdminIds = new Set((systemAdminUsers || []).map((u: any) => Number(u.id)).filter((n: any) => Number.isFinite(n)));
+    const systemAdminUsers = superAdminIds.size > 0
+      ? await db
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          matricule: users.matricule,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          region: users.region,
+          departement: users.departement,
+          role: users.role,
+          grade: agents.grade,
+        })
+        .from(users)
+        .leftJoin(agents, eq(agents.userId as any, users.id as any))
+        .where(and(inArray(users.id as any, Array.from(superAdminIds) as any), eq(users.isActive as any, true as any)) as any)
+      : [];
 
     const norm = (s: any) => String(s || '')
       .trim()
@@ -243,33 +282,37 @@ router.get('/agents', isAuthenticated, async (req: Request, res: Response) => {
       })
       .filter((u: any) => {
         if (roleParam !== 'admin') return true;
-        // Admin: inclure uniquement l'admin du domaine (dans ce domaine) - pas les admins d'autres domaines.
+        // Admin: inclure uniquement l'admin du domaine (dans ce domaine) - les SuperAdmins sont ajoutés en Support Technique ci-dessous.
         return !superAdminIds.has(Number(u.id));
       });
 
-    const currentUserRole = String(resolvedCurrent?.role || '').toLowerCase();
-    const isDomainAdmin = currentUserRole === 'admin';
-    const isSuperAdminUser = currentUserRole === 'super-admin' || superAdminIds.has(currentUserId);
-    const showSuperAdmin = isDomainAdmin || isSuperAdminUser;
+    // Inclure le Support Technique (SuperAdmin) pour TOUS les utilisateurs (sauf lui-même) afin de faciliter les échanges
+    const supportEntries = (roleParam === 'admin')
+      ? (Array.isArray(systemAdminUsers) ? systemAdminUsers : []).filter((u: any) => Number(u.id) !== currentUserId)
+      : [];
 
-    const mergedForAdmin = (roleParam === 'admin' && showSuperAdmin)
-      ? [...filtered, ...(Array.isArray(systemAdminUsers) ? systemAdminUsers : [])]
+    const mergedForAdmin = roleParam === 'admin'
+      ? [...supportEntries, ...filtered]
       : filtered;
 
-    const payload = mergedForAdmin.map((u: any) => ({
-      id: u.id,
-      username: u.username ?? null,
-      email: u.email ?? null,
-      matricule: u.matricule ?? null,
-      firstName: u.firstName ?? null,
-      lastName: u.lastName ?? null,
-      grade: u.grade ?? null,
-      label: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || (u.username ?? `#${u.id}`),
-      region: u.region ?? null,
-      departement: u.departement ?? null,
-      role: u.role ?? null,
-      isSupervisor: false,
-    }));
+    const payload = mergedForAdmin.map((u: any) => {
+      const isSuper = superAdminIds.has(Number(u.id));
+      return {
+        id: u.id,
+        username: u.username ?? null,
+        email: u.email ?? null,
+        matricule: u.matricule ?? null,
+        firstName: isSuper ? 'Équipe' : (u.firstName ?? null),
+        lastName: isSuper ? 'Support' : (u.lastName ?? null),
+        grade: isSuper ? null : (u.grade ?? null),
+        label: isSuper ? 'Support Technique' : ([u.firstName, u.lastName].filter(Boolean).join(' ').trim() || (u.username ?? `#${u.id}`)),
+        region: isSuper ? null : (u.region ?? null),
+        departement: isSuper ? null : (u.departement ?? null),
+        role: isSuper ? 'support' : (u.role ?? null),
+        isSuperAdmin: isSuper,
+        isSupervisor: false,
+      };
+    });
     res.json(payload);
   } catch (error) {
     console.error('Erreur lors de la liste des agents:', error);
@@ -378,6 +421,8 @@ router.get('/inbox', isAuthenticated, async (req, res) => {
     if (domaineId === false) return;
 
     const userMessages = await storage.getMessagesByRecipient(userId, domaineId);
+    const superAdminIdList = await storage.getSuperAdminUserIds();
+    const superAdminIds = new Set(superAdminIdList.map((n: any) => Number(n)));
 
     // Enrich messages with sender details (grade from agents, roleMetier from rolesMetier)
     const senderIds = [...new Set(userMessages.map((m: any) => m.senderId).filter(Boolean))];
@@ -397,6 +442,18 @@ router.get('/inbox', isAuthenticated, async (req, res) => {
             departement: users.departement,
           }).from(users).where(eq(users.id, sid as any)).limit(1);
           if (rows[0]) {
+            const isSuperSender = superAdminIds.has(Number(sid));
+            if (isSuperSender) {
+              senderMap.set(Number(sid), {
+                ...rows[0],
+                firstName: 'Équipe',
+                lastName: 'Support',
+                isSuperAdmin: true,
+                grade: '',
+                roleMetierLabel: 'Support Système',
+              });
+              continue;
+            }
             // Get grade and roleMetierId from agents table
             let grade = '';
             let roleMetierLabel = '';
@@ -415,16 +472,20 @@ router.get('/inbox', isAuthenticated, async (req, res) => {
                 roleMetierLabel = String(rmRows?.[0]?.labelFr || '').trim();
               }
             } catch { }
-            senderMap.set(Number(sid), { ...rows[0], grade, roleMetierLabel });
+            senderMap.set(Number(sid), { ...rows[0], isSuperAdmin: false, grade, roleMetierLabel });
           }
         } catch { }
       }
     }
 
-    const enriched = userMessages.map((m: any) => ({
-      ...m,
-      sender: senderMap.get(Number(m.senderId)) || { id: m.senderId },
-    }));
+    const enriched = userMessages.map((m: any) => {
+      const senderInfo = senderMap.get(Number(m.senderId)) || { id: m.senderId };
+      return {
+        ...m,
+        senderDisplayName: senderInfo?.isSuperAdmin ? 'Équipe Support' : undefined,
+        sender: senderInfo,
+      };
+    });
 
     res.json(enriched);
   } catch (error) {
@@ -444,6 +505,9 @@ router.get('/sent', isAuthenticated, async (req, res) => {
       storage.getMessagesBySender(senderId, domaineId),
       storage.getGroupMessagesBySender(senderId, domaineId),
     ]);
+
+    const superAdminIdListSent = await storage.getSuperAdminUserIds();
+    const superAdminIdsSent = new Set(superAdminIdListSent.map((n: any) => Number(n)));
 
     // Enrichir les individuels avec info destinataire
     const recipientIds = (Array.isArray(individual) ? individual : []).map((m: any) => m.recipientId).filter((v: any) => Number.isFinite(v));
@@ -511,18 +575,20 @@ router.get('/sent', isAuthenticated, async (req, res) => {
           }
         }
       } catch { }
+      const isSuperRecipient = user ? superAdminIdsSent.has(Number(user.id)) : false;
       return {
         ...m,
         isGroupMessage: false,
         recipient: user ? {
           id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
+          firstName: isSuperRecipient ? 'Équipe' : user.firstName,
+          lastName: isSuperRecipient ? 'Support' : user.lastName,
           username: user.username,
           email: user.email,
           matricule: user.matricule,
-          grade: agentInfo?.grade ?? null,
-          role_metier_label: agentInfo?.role_metier_label ?? null,
+          isSuperAdmin: isSuperRecipient,
+          grade: isSuperRecipient ? null : (agentInfo?.grade ?? null),
+          role_metier_label: isSuperRecipient ? 'Support Système' : (agentInfo?.role_metier_label ?? null),
         } : undefined,
         readers,
         readStatus: readers.length > 0 ? 'read' : 'unread',
@@ -733,25 +799,8 @@ router.post('/', isAuthenticated, handleAttachmentUpload, async (req: Request, r
       return res.status(400).json({ message: 'Aucun destinataire valide fourni.' });
     }
 
-    // Récupérer tous les super-admins du système
-    const systemAdminUsers = await db
-      .select({ id: users.id })
-      .from(superAdmins)
-      .innerJoin(users, eq(users.id as any, superAdmins.userId as any));
-    const superAdminIds = new Set((systemAdminUsers || []).map((u: any) => Number(u.id)).filter((n: any) => Number.isFinite(n)));
-
-    // Vérifier l'autorisation d'envoi aux super-admins
-    const currentUserRole = String((req as any)?.user?.role || '').toLowerCase();
-    const isDomainAdmin = currentUserRole === 'admin';
-    const isSuperAdminUser = currentUserRole === 'super-admin' || superAdminIds.has(senderId);
-    const canSendToSuperAdmin = isDomainAdmin || isSuperAdminUser;
-
-    if (!canSendToSuperAdmin) {
-      const hasSuperAdminRecipient = recipientIds.some(rid => superAdminIds.has(rid));
-      if (hasSuperAdminRecipient) {
-        return res.status(403).json({ message: "Seuls les administrateurs de domaine peuvent envoyer un message à l'administrateur du système." });
-      }
-    }
+    // Autoriser tout utilisateur authentifié à écrire ou répondre à l'Équipe Support (SuperAdmin)
+    // afin que les chasseurs, guides, agents et admins puissent poser leurs questions et recevoir une réponse.
 
     const domaineId = await MessagingService.getAuthorizedContext(senderId, req.body.domaineId, res);
     if (domaineId === false) return;

@@ -55,7 +55,20 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
       return raw === 'true';
     } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  return false;  }
   };
-  const agentPermitAccessEnabled = readLocalAgentPermitAccess();
+  const [agentPermitAccessEnabled, setAgentPermitAccessEnabled] = useState<boolean>(readLocalAgentPermitAccess);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    apiRequest<{ enabled: boolean }>({ url: '/api/settings/agent-permit-access', method: 'GET' })
+      .then((res: any) => {
+        if (!active) return;
+        const val = typeof res?.enabled === 'boolean' ? res.enabled : typeof res?.data?.enabled === 'boolean' ? res.data.enabled : null;
+        if (val !== null) setAgentPermitAccessEnabled(val);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [user]);
 
   // Fonction utilitaire pour formater les dates de manière sécurisée
   const formatSafeDate = (dateValue: any) => {

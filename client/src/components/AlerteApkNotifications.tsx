@@ -36,12 +36,17 @@ export function isAlerteApk(): boolean {
   return false;
 }
 
-/** Notifications natives uniquement dans l'APK Alerte (pas sur le web général). */
+/**
+ * Active les notifications temps réel (Socket.io + son Web Audio + notifications navigateur/APK)
+ * pour TOUS les utilisateurs connectés (ordinateur, mobile web et APK),
+ * et le badge natif launcher uniquement sur APK Android.
+ */
 export default function AlerteApkNotifications() {
   const { user } = useAuth();
   const uid = user?.id != null ? Number(user.id) : null;
-  const enabled = isAlerteApk() && Boolean(user);
-  useNotifications(enabled, Number.isFinite(uid) ? uid : null);
-  useLauncherBadge(enabled);
+  const isLoggedIn = Boolean(user && Number.isFinite(uid));
+  const apkBadgeEnabled = isAlerteApk() && isLoggedIn;
+  useNotifications(isLoggedIn, isLoggedIn ? uid : null);
+  useLauncherBadge(apkBadgeEnabled);
   return null;
 }

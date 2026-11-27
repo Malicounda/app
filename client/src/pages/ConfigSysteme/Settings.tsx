@@ -1829,22 +1829,68 @@ export default function Settings() {
     }
   };
 
-  // Gestion de la campagne cynégétique
-  const [huntingSeason, setHuntingSeason] = useState({
-    startDate: new Date(),
-    endDate: new Date(),
-    bigGameStartDate: new Date(),
-    bigGameEndDate: new Date(),
-    waterGameStartDate: new Date(),
-    waterGameEndDate: new Date(),
-    bigGameEnabled: true,
-    bigGameDerogation: false,
-    waterGameEnabled: true,
-    waterGameDerogation: false,
-    isActive: true,
-    notes: '',
-    inactiveNotes: '',
+  // Gestion de la campagne cynégétique (initialisée depuis le cache sessionStorage pour éviter tout clignotement de dates)
+  const CAMPAIGN_CACHE_KEY = 'scodi_campaign_settings_cache';
+  const [campaignLoaded, setCampaignLoaded] = useState<boolean>(() => {
+    try {
+      return Boolean(typeof window !== 'undefined' && sessionStorage.getItem(CAMPAIGN_CACHE_KEY));
+    } catch {
+      return false;
+    }
   });
+  const [huntingSeason, setHuntingSeason] = useState(() => {
+    try {
+      const cachedRaw = typeof window !== 'undefined' ? sessionStorage.getItem(CAMPAIGN_CACHE_KEY) : null;
+      if (cachedRaw) {
+        const c = JSON.parse(cachedRaw);
+        return {
+          startDate: c.startDate ? new Date(c.startDate) : new Date(),
+          endDate: c.endDate ? new Date(c.endDate) : new Date(),
+          bigGameStartDate: c.bigGameStartDate ? new Date(c.bigGameStartDate) : new Date(),
+          bigGameEndDate: c.bigGameEndDate ? new Date(c.bigGameEndDate) : new Date(),
+          waterGameStartDate: c.waterGameStartDate ? new Date(c.waterGameStartDate) : new Date(),
+          waterGameEndDate: c.waterGameEndDate ? new Date(c.waterGameEndDate) : new Date(),
+          bigGameEnabled: typeof c.bigGameEnabled === 'boolean' ? c.bigGameEnabled : true,
+          bigGameDerogation: Boolean(c.bigGameDerogation),
+          waterGameEnabled: typeof c.waterGameEnabled === 'boolean' ? c.waterGameEnabled : true,
+          waterGameDerogation: Boolean(c.waterGameDerogation),
+          isActive: typeof c.isActive === 'boolean' ? c.isActive : true,
+          notes: c.notes || '',
+          inactiveNotes: c.inactiveNotes || '',
+        };
+      }
+    } catch {}
+    return {
+      startDate: new Date(),
+      endDate: new Date(),
+      bigGameStartDate: new Date(),
+      bigGameEndDate: new Date(),
+      waterGameStartDate: new Date(),
+      waterGameEndDate: new Date(),
+      bigGameEnabled: true,
+      bigGameDerogation: false,
+      waterGameEnabled: true,
+      waterGameDerogation: false,
+      isActive: true,
+      notes: '',
+      inactiveNotes: '',
+    };
+  });
+
+  // Calcul dynamique de l'année et du nombre de jours restants pour l'aperçu de la note
+  const campaignYearLabel = `${huntingSeason.startDate.getFullYear()}-${huntingSeason.endDate.getFullYear()}`;
+  const campaignDaysRemaining = (() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(huntingSeason.endDate);
+    end.setHours(23, 59, 59, 999);
+    const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, diff);
+  })();
+  const renderCampaignNotePreview = (template: string) =>
+    String(template || '')
+      .replace(/\[ANNEE\]/gi, campaignYearLabel)
+      .replace(/\[COMPTEUR\]/gi, String(campaignDaysRemaining));
 
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [isEditingInactiveNote, setIsEditingInactiveNote] = useState(false);
@@ -2320,6 +2366,26 @@ export default function Settings() {
         const data = resp.data as any;
         console.log("Campaign data loaded:", data);
         if (data && data.startDate && data.endDate) {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem(CAMPAIGN_CACHE_KEY, JSON.stringify({
+                startDate: data.startDate,
+                endDate: data.endDate,
+                bigGameStartDate: data.bigGameStartDate,
+                bigGameEndDate: data.bigGameEndDate,
+                waterGameStartDate: data.waterGameStartDate,
+                waterGameEndDate: data.waterGameEndDate,
+                bigGameEnabled: data.bigGameEnabled,
+                bigGameDerogation: data.bigGameDerogation,
+                waterGameEnabled: data.waterGameEnabled,
+                waterGameDerogation: data.waterGameDerogation,
+                isActive: data.isActive,
+                notes: data.notes || '',
+                inactiveNotes: data.inactiveNotes || '',
+              }));
+            }
+          } catch {}
+          setCampaignLoaded(true);
           setHuntingSeason(prevState => ({
             ...prevState,
             startDate: new Date(data.startDate),
@@ -2499,8 +2565,8 @@ export default function Settings() {
         .filter(p => p.categoryKey && p.categoryKey.trim() !== '')
         .map(p => ({
           categoryKey: p.categoryKey,
-          startDate: p.startDate,
-          endDate: p.endDate,
+          startDate: format(p.startDate, 'yyyy-MM-dd'),
+          endDate: format(p.endDate, 'yyyy-MM-dd'),
           enabled: true,
           derogationEnabled: p.derogationEnabled,
         }));
@@ -2534,6 +2600,63 @@ export default function Settings() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Sauvegarde directe en base des périodes spécifiques (ajout, modification, suppression)
+  const [savingCategoryPeriods, setSavingCategoryPeriods] = useState(false);
+  const persistCategoryPeriods = async (nextPeriods: CategoryPeriodRow[], successMessage = 'Périodes spécifiques enregistrées.') => {
+    try {
+      setSavingCategoryPeriods(true);
+      const startYear = huntingSeason.startDate.getFullYear();
+      const endYear = huntingSeason.endDate.getFullYear();
+      const payload = {
+        startDate: format(huntingSeason.startDate, 'yyyy-MM-dd'),
+        endDate: format(huntingSeason.endDate, 'yyyy-MM-dd'),
+        year: `${startYear}-${endYear}`,
+        isActive: huntingSeason.isActive,
+        notes: huntingSeason.notes || '',
+        inactiveNotes: huntingSeason.inactiveNotes || '',
+        categoryPeriods: nextPeriods
+          .filter((p) => p.categoryKey && p.categoryKey.trim() !== '')
+          .map((p) => ({
+            categoryKey: p.categoryKey.trim(),
+            startDate: format(p.startDate, 'yyyy-MM-dd'),
+            endDate: format(p.endDate, 'yyyy-MM-dd'),
+            enabled: true,
+            derogationEnabled: !!p.derogationEnabled,
+          })),
+      };
+
+      const resp = await apiRequest<any>('POST', '/api/settings/campaign', payload);
+      if (!resp.ok) {
+        throw new Error(resp.error || (resp.data as any)?.message || "Erreur lors de l'enregistrement de la période.");
+      }
+
+      const savedList = (resp.data as any)?.categoryPeriods;
+      if (Array.isArray(savedList)) {
+        setCategoryPeriods(
+          savedList.map((p: any) => ({
+            categoryKey: String(p.categoryKey),
+            startDate: new Date(p.startDate),
+            endDate: new Date(p.endDate),
+            derogationEnabled: !!p.derogationEnabled,
+          }))
+        );
+      } else {
+        setCategoryPeriods(nextPeriods);
+      }
+      toast({ title: 'Enregistré', description: successMessage });
+      return true;
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error?.message || "Impossible d'enregistrer les périodes spécifiques.",
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setSavingCategoryPeriods(false);
     }
   };
 
@@ -3081,26 +3204,47 @@ export default function Settings() {
                 <div className="flex flex-col space-y-4">
                   <div>
                     <Label>Statut de la campagne</Label>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <Switch 
-                        id="campaign-active" 
-                        checked={huntingSeason.isActive} 
-                        onCheckedChange={(v) => {
-                          setHuntingSeason(prev => ({ 
-                            ...prev, 
-                            isActive: v,
-                            // Set default message when activating if empty
-                            notes: v && !prev.notes 
-                              ? "Campagne cynégétique de [ANNEE] ouverte. Il reste [COMPTEUR] jours avant la fermeture de la campagne." 
-                              : prev.notes,
-                            // Set default inactive message when deactivating if empty
-                            inactiveNotes: !v && !prev.inactiveNotes
-                              ? "Arrêt des activités de la campagne cynégétique pour [ANNEE]."
-                              : prev.inactiveNotes
-                          }));
-                        }} 
-                      />
-                      <Label htmlFor="campaign-active">{huntingSeason.isActive ? "Active" : "Inactive"}</Label>
+                    <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          id="campaign-active" 
+                          checked={huntingSeason.isActive} 
+                          onCheckedChange={(v) => {
+                            setHuntingSeason(prev => ({ 
+                              ...prev, 
+                              isActive: v,
+                              // Set default message when activating if empty
+                              notes: v && !prev.notes 
+                                ? "Campagne cynégétique de [ANNEE] ouverte. Il reste [COMPTEUR] jours avant la fermeture de la campagne." 
+                                : prev.notes,
+                              // Set default inactive message when deactivating if empty
+                              inactiveNotes: !v && !prev.inactiveNotes
+                                ? "Arrêt des activités de la campagne cynégétique pour [ANNEE]."
+                                : prev.inactiveNotes
+                            }));
+                          }} 
+                        />
+                        <Label htmlFor="campaign-active">{huntingSeason.isActive ? "Active" : "Inactive"}</Label>
+                      </div>
+                      {campaignLoaded && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 font-semibold">
+                            Saison {campaignYearLabel}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={
+                              huntingSeason.isActive && campaignDaysRemaining > 0
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold'
+                                : 'bg-red-50 text-red-700 border-red-200 font-semibold'
+                            }
+                          >
+                            {huntingSeason.isActive && campaignDaysRemaining > 0
+                              ? `${campaignDaysRemaining} jour${campaignDaysRemaining > 1 ? 's' : ''} restant${campaignDaysRemaining > 1 ? 's' : ''}`
+                              : 'Campagne clôturée'}
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -3132,12 +3276,14 @@ export default function Settings() {
                             autoFocus
                           />
                           <p className="text-xs text-muted-foreground mt-1">
-                            Les variables <strong>[ANNEE]</strong> et <strong>[COMPTEUR]</strong> seront remplacées dynamiquement par l'année de la campagne et le nombre de jours restants.
+                            Les variables <strong>[ANNEE]</strong> et <strong>[COMPTEUR]</strong> seront remplacées dynamiquement par l&apos;année de la campagne ({campaignYearLabel}) et le nombre de jours restants ({campaignDaysRemaining}).
                           </p>
                         </>
                       ) : (
                         <div className="text-sm font-medium text-foreground bg-background p-3 border rounded-md min-h-[4rem] whitespace-pre-wrap">
-                          {huntingSeason.notes || <span className="text-muted-foreground italic">Aucune note définie</span>}
+                          {huntingSeason.notes
+                            ? renderCampaignNotePreview(huntingSeason.notes)
+                            : <span className="text-muted-foreground italic">Aucune note définie</span>}
                         </div>
                       )}
                     </div>
@@ -3169,12 +3315,14 @@ export default function Settings() {
                             autoFocus
                           />
                           <p className="text-xs text-red-600/80 mt-1">
-                            La variable <strong>[ANNEE]</strong> sera remplacée dynamiquement par l'année de la campagne.
+                            La variable <strong>[ANNEE]</strong> sera remplacée dynamiquement par l&apos;année de la campagne ({campaignYearLabel}).
                           </p>
                         </>
                       ) : (
                         <div className="text-sm font-medium text-red-800 bg-background p-3 border border-red-200 rounded-md min-h-[4rem] whitespace-pre-wrap">
-                          {huntingSeason.inactiveNotes || <span className="text-red-800/50 italic">Aucune note définie</span>}
+                          {huntingSeason.inactiveNotes
+                            ? renderCampaignNotePreview(huntingSeason.inactiveNotes)
+                            : <span className="text-red-800/50 italic">Aucune note définie</span>}
                         </div>
                       )}
                     </div>
@@ -3328,25 +3476,7 @@ export default function Settings() {
               <CardDescription>Définir, ajouter ou supprimer des périodes spécifiques. Utilisez "dérogation" pour autoriser une période hors campagne.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex border-b border-green-200/60 pb-1">
-                <button
-                  type="button"
-                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activePeriodsSubTab !== 'cynegetique' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-800 bg-white/60 shadow-sm rounded-t-md'}`}
-                  onClick={() => setActivePeriodsSubTab('cynegetique')}
-                >
-                  Permis Cynégétiques
-                </button>
-                <button
-                  type="button"
-                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activePeriodsSubTab !== 'autre' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-800 bg-white/60 shadow-sm rounded-t-md'}`}
-                  onClick={() => setActivePeriodsSubTab('autre')}
-                >
-                  Autres Permis & Certificats
-                </button>
-              </div>
-
-              {activePeriodsSubTab === 'cynegetique' ? (
-                <div className="p-3 border rounded-md bg-white">
+              <div className="p-3 border rounded-md bg-white">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="font-semibold">Périodes Spécifiques de Campagne</div>
                     <Button size="sm" className="w-full sm:w-auto shrink-0" onClick={() => { 
@@ -3389,24 +3519,38 @@ export default function Settings() {
                                 <td className="p-2">
                                   <Popover>
                                     <PopoverTrigger asChild>
-                                      <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>{format(row.startDate, "dd/MM/yyyy")}</Button>
+                                      <Button variant={"outline"} disabled={savingCategoryPeriods} className={cn("w-full justify-start text-left font-normal")}>{format(row.startDate, "dd/MM/yyyy")}</Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0 z-[10020]"><Calendar mode="single" selected={row.startDate} onSelect={(d) => d && setCategoryPeriods(ps => ps.map((p,i) => i===originalIdx ? { ...p, startDate: d } : p))} initialFocus /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0 z-[10020]"><Calendar mode="single" selected={row.startDate} onSelect={(d) => {
+                                      if (!d) return;
+                                      const next = categoryPeriods.map((p, i) => i === originalIdx ? { ...p, startDate: d } : p);
+                                      void persistCategoryPeriods(next, "Date d'ouverture mise à jour.");
+                                    }} initialFocus /></PopoverContent>
                                   </Popover>
                                 </td>
                                 <td className="p-2">
                                   <Popover>
                                     <PopoverTrigger asChild>
-                                      <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal")}>{format(row.endDate, "dd/MM/yyyy")}</Button>
+                                      <Button variant={"outline"} disabled={savingCategoryPeriods} className={cn("w-full justify-start text-left font-normal")}>{format(row.endDate, "dd/MM/yyyy")}</Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0 z-[10020]"><Calendar mode="single" selected={row.endDate} onSelect={(d) => d && setCategoryPeriods(ps => ps.map((p,i) => i===originalIdx ? { ...p, endDate: d } : p))} initialFocus /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0 z-[10020]"><Calendar mode="single" selected={row.endDate} onSelect={(d) => {
+                                      if (!d) return;
+                                      const next = categoryPeriods.map((p, i) => i === originalIdx ? { ...p, endDate: d } : p);
+                                      void persistCategoryPeriods(next, 'Date de fermeture mise à jour.');
+                                    }} initialFocus /></PopoverContent>
                                   </Popover>
                                 </td>
                                 <td className="p-2">
-                                  <Switch checked={row.derogationEnabled} onCheckedChange={(v) => setCategoryPeriods(ps => ps.map((p,i) => i===originalIdx ? { ...p, derogationEnabled: v } : p))} />
+                                  <Switch disabled={savingCategoryPeriods} checked={row.derogationEnabled} onCheckedChange={(v) => {
+                                    const next = categoryPeriods.map((p, i) => i === originalIdx ? { ...p, derogationEnabled: v } : p);
+                                    void persistCategoryPeriods(next, 'Dérogation mise à jour.');
+                                  }} />
                                 </td>
                                 <td className="p-2">
-                                  <Button size="sm" variant="destructive" onClick={() => setCategoryPeriods(ps => ps.filter((_,i) => i!==originalIdx))}>Supprimer</Button>
+                                  <Button size="sm" variant="destructive" disabled={savingCategoryPeriods} onClick={() => {
+                                    const next = categoryPeriods.filter((_, i) => i !== originalIdx);
+                                    void persistCategoryPeriods(next, 'Période supprimée.');
+                                  }}>Supprimer</Button>
                                 </td>
                               </tr>
                             );
@@ -3416,60 +3560,6 @@ export default function Settings() {
                     </table>
                   </div>
                 </div>
-              ) : (
-                <div className="p-3 border rounded-md bg-white">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                    <div className="font-semibold">Durées de validité (Autres Permis)</div>
-                    <Button size="sm" className="w-full sm:w-auto shrink-0" onClick={() => { 
-                      setNewCategoryPeriodType('autre'); 
-                      setNewCategoryPeriodDuration(30);
-                      setNewCategoryPeriod({ categoryKey: '', startDate: new Date(), endDate: new Date(), derogationEnabled: false });
-                      setNewCategoryPeriodOpen(true); 
-                    }}>Définir une durée</Button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durée de validité</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white">
-                        {categories.filter(c => !['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((c.groupe || '').toLowerCase().trim())).length === 0 ? (
-                          <tr><td colSpan={3} className="px-4 py-3 text-center text-muted-foreground">Aucun autre permis défini</td></tr>
-                        ) : (
-                          categories
-                            .filter(c => !['petite-chasse', 'grande-chasse', 'gibier-eau', 'coutumier'].includes((c.groupe || '').toLowerCase().trim()))
-                            .map(c => (
-                              <tr key={c.key} className="bg-white hover:bg-gray-50 border-b border-gray-100 last:border-0">
-                                <td className="p-3 font-medium">{c.labelFr} <span className="text-gray-400 text-xs ml-1">({c.key})</span></td>
-                                <td className="p-3">
-                                  {c.defaultValidityDays ? (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                      {c.defaultValidityDays} jours
-                                    </span>
-                                  ) : (
-                                    <span className="text-gray-400 italic text-xs">Non définie</span>
-                                  )}
-                                </td>
-                                <td className="p-3 text-right">
-                                  <Button size="sm" variant="outline" onClick={() => {
-                                    setNewCategoryPeriodType('autre');
-                                    setNewCategoryPeriod({ categoryKey: c.key, startDate: new Date(), endDate: new Date(), derogationEnabled: false });
-                                    setNewCategoryPeriodDuration(c.defaultValidityDays || 30);
-                                    setNewCategoryPeriodOpen(true);
-                                  }}>Modifier</Button>
-                                </td>
-                              </tr>
-                            ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
 
               <Dialog open={newCategoryPeriodOpen} onOpenChange={setNewCategoryPeriodOpen}>
                 <DialogContent className="max-w-[720px]">
@@ -3636,8 +3726,12 @@ export default function Settings() {
                             return;
                           }
                           const toAdd = { ...newCategoryPeriod, categoryKey: key };
-                          setCategoryPeriods(ps => [...ps, toAdd]);
-                          setNewCategoryPeriodOpen(false);
+                          const existingIdx = categoryPeriods.findIndex((p) => p.categoryKey === key);
+                          const nextList = existingIdx >= 0
+                            ? categoryPeriods.map((p, i) => (i === existingIdx ? toAdd : p))
+                            : [...categoryPeriods, toAdd];
+                          const ok = await persistCategoryPeriods(nextList, 'Nouvelle période spécifique enregistrée.');
+                          if (ok) setNewCategoryPeriodOpen(false);
                         } else {
                           // Logique pour Autres Permis (Mise à jour globale de la durée de validité)
                           if (!newCategoryPeriodDuration || newCategoryPeriodDuration <= 0) {
@@ -3653,8 +3747,7 @@ export default function Settings() {
 
                           try {
                             const payload = { defaultValidityDays: newCategoryPeriodDuration };
-                            // apiRequest takes (method, endpoint, body)
-                            const resp = await apiRequest('PUT', `/permit-categories/${targetCategory.id}`, payload);
+                            const resp = await apiRequest('PUT', `/api/permit-categories/${targetCategory.id}`, payload);
                             if (resp.ok) {
                               toast({ title: 'Succès', description: 'Durée de validité mise à jour globalement pour cette catégorie.' });
                               await loadCategories(false); // Rafraîchir les catégories
@@ -3688,14 +3781,14 @@ export default function Settings() {
               <div className="flex border-b border-green-200/60 pb-1">
                 <button
                   type="button"
-                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab !== 'cynegetique' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-800 bg-white/60 shadow-sm rounded-t-md'}`}
+                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab === 'cynegetique' ? 'border-green-600 text-green-800 bg-green-100/70 rounded-t-md shadow-sm' : 'border-transparent text-gray-600 hover:text-gray-900 bg-transparent rounded-t-md'}`}
                   onClick={() => setActiveSubTab('cynegetique')}
                 >
                   Permis Cynégétiques
                 </button>
                 <button
                   type="button"
-                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab !== 'autre' ? 'border-green-600 text-green-800 bg-green-100/50 rounded-t-md' : 'border-transparent text-gray-800 bg-white/60 shadow-sm rounded-t-md'}`}
+                  className={`px-4 py-2 font-bold text-sm border-b-2 transition-all duration-200 ${activeSubTab === 'autre' ? 'border-green-600 text-green-800 bg-green-100/70 rounded-t-md shadow-sm' : 'border-transparent text-gray-600 hover:text-gray-900 bg-transparent rounded-t-md'}`}
                   onClick={() => setActiveSubTab('autre')}
                 >
                   Autres Permis & Certificats

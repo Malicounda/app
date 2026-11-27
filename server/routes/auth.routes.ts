@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { checkEmail, checkUsername, getMe, heartbeat, login, logout, register, verifyPassword, getActiveSessions } from '../controllers/auth.controller.js';
+import { bulkDeleteActiveSessions, checkEmail, checkUsername, deleteActiveSession, getActiveSessions, getMe, heartbeat, login, logout, register, verifyPassword } from '../controllers/auth.controller.js';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 
 const router = Router();
@@ -19,5 +19,7 @@ router.post('/verify-password', isAuthenticated, verifyPassword);
 
 // Historique des sessions (Audit APK)
 router.get('/active-sessions', isAuthenticated, getActiveSessions);
+router.post('/active-sessions/bulk-delete', isAuthenticated, bulkDeleteActiveSessions);
+router.delete('/active-sessions/:id', isAuthenticated, deleteActiveSession);
 
 export default router;

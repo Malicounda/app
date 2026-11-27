@@ -24,8 +24,19 @@ export class DomainResolver {
       contextId = undefined;
     }
 
-    // Cas spécial: Si contextId est explicitement "null" ou null, on force le domaine Alerte (domaineId = null)
+    // Cas spécial: Si contextId est explicitement "null" ou null, on force le contexte global (domaineId = null)
     if (contextId === "null" || contextId === null) {
+      return { status: "RESOLVED", domaineId: null };
+    }
+
+    // Super Admin : accès transversal global (tous domaines)
+    if (await storage.isSuperAdmin(userId)) {
+      if (contextId !== undefined) {
+        const parsed = Number(contextId);
+        if (!isNaN(parsed) && parsed > 0) {
+          return { status: "RESOLVED", domaineId: parsed };
+        }
+      }
       return { status: "RESOLVED", domaineId: null };
     }
 

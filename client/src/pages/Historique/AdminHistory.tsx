@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { exportMultiSheetExcel } from "@/lib/excelWorkbook";
 import { Hunter } from "@/types/hunters";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -30,6 +31,10 @@ interface HistoryEvent {
   details: string;
   userId: number | null;
   createdAt: string;
+  actorName?: string | null;
+  actorUsername?: string | null;
+  actorRole?: string | null;
+  actorMatricule?: string | null;
 }
 
 interface UserShort {
@@ -167,7 +172,7 @@ export default function AdminHistory() {
   const [selectedOperation, setSelectedOperation] = useState<string>("");
   const [selectedEntityType, setSelectedEntityType] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [currentTab, setCurrentTab] = useState("user");
+  const [currentTab, setCurrentTab] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [infractionPage, setInfractionPage] = useState(1);
   const itemsPerPage = 10;
@@ -247,15 +252,20 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
     }
 
     // Filtrer par texte de recherche
+    // Filtrer par texte de recherche
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      return (
-        event.details.toLowerCase().includes(query) ||
-        (event.userId ? String(event.userId).includes(query) : false) ||
-        event.operation.toLowerCase().includes(query) ||
-        event.entityType.toLowerCase().includes(query)
-      );
+      const matches =
+        (event.details || '').toLowerCase().includes(query) ||
+        (event.actorName || '').toLowerCase().includes(query) ||
+        (event.actorUsername || '').toLowerCase().includes(query) ||
+        (event.operation || '').toLowerCase().includes(query) ||
+        (event.entityType || '').toLowerCase().includes(query);
+      if (!matches) return false;
     }
+
+    // Onglet global "Tout" : afficher l'ensemble des événements du système
+    if (currentTab === "all") return true;
 
     // Filtrer par onglet
     // Onglets simples : correspondance exacte sur entityType
@@ -263,6 +273,9 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
       if (currentTab === "agent") {
         // Agent : entityType=user avec operation create/update/activate/suspend liées aux agents
         return event.entityType === "user" && ["create", "update", "activate", "suspend", "delete"].includes(event.operation);
+      }
+      if (currentTab === "hunter") {
+        return event.entityType === "hunter" || event.entityType === "permit";
       }
       return event.entityType === currentTab;
     }
@@ -278,11 +291,11 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
     if (currentTab === "reboisement") {
       return event.entityType === "reboisement" || /reboisement|pépinière|plantation|reforestation|cnr/i.test(event.entityType + " " + event.details);
     }
-    // Onglet Erreurs & Audit : connexions, erreurs, actions système
+    // Onglet Erreurs & Audit : connexions, déconnexions, erreurs, actions système
     if (currentTab === "errors") {
-      const isErrorOp = ["login", "login_failed", "error", "activate", "suspend", "suspend_profile", "activate_profile"].includes(event.operation);
+      const isErrorOp = ["login", "logout", "session_expired", "login_failed", "error", "activate", "suspend", "suspend_profile", "activate_profile", "validate_dossier", "invalidate_dossier"].includes(event.operation);
       const isSystemType = event.entityType === "system" || event.entityType === "auth";
-      const isErrorDetail = /erreur|error|échec|fail|refusé|invalid|impossible/i.test(event.details || "");
+      const isErrorDetail = /erreur|error|échec|fail|refusé|invalid|impossible|connexion|déconnexion/i.test(event.details || "");
       return isErrorOp || isSystemType || isErrorDetail;
     }
 
@@ -356,7 +369,7 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
         await apiRequest({ url: `/api/history/${pendingDeleteId}`, method: 'DELETE' });
       } else {
         const ids = Array.from(selectedIds);
-        await Promise.all(ids.map((id) => apiRequest({ url: `/api/history/${id}`, method: 'DELETE' })));
+        await apiRequest({ url: '/api/history/bulk-delete', method: 'POST', data: { ids } });
       }
       await refetchHistory();
       clearSelection();
@@ -434,15 +447,20 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
   };
 
   const extractActor = (ev: HistoryEvent) => {
+    if (ev.actorName) {
+      return ev.actorUsername ? `${ev.actorName} (@${ev.actorUsername})` : ev.actorName;
+    }
+    if (ev.actorUsername) return `@${ev.actorUsername}`;
     if (ev.userId && usersMap.has(ev.userId)) return usersMap.get(ev.userId);
-    // tenter d'extraire depuis details
+    // tenter d'extraire depuis details JSON ou texte "Utilisateur: xxx"
     try {
       const parsed = JSON.parse(ev.details);
       if (parsed && parsed.actorName) return parsed.actorName;
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-      // ignore
-     }
-    return ev.userId ? `ID: ${ev.userId}` : 'Système';
+    } catch {
+      const match = String(ev.details || '').match(/Utilisateur\s*:\s*([^\s—-]+)/i);
+      if (match?.[1] && match[1].toLowerCase() !== 'inconnu') return `@${match[1]}`;
+    }
+    return 'Système';
   };
 
   // Safe JSON parse for details
@@ -563,8 +581,16 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
         return "Suspension";
       case "login":
         return "Connexion";
+      case "logout":
+        return "Déconnexion";
+      case "session_expired":
+        return "Session expirée";
       case "login_failed":
         return "Échec de connexion";
+      case "validate_dossier":
+        return "Validation dossier";
+      case "invalidate_dossier":
+        return "Invalidation pièce(s)";
       case "error":
         return "Erreur";
       case "activate":
@@ -618,18 +644,78 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
     }
   };
 
+  const handleExportSystemWorkbook = () => {
+    const toRows = (list: HistoryEvent[]) =>
+      list.map((ev) => [
+        ev.createdAt ? format(new Date(ev.createdAt), "dd/MM/yyyy HH:mm", { locale: fr }) : "—",
+        getOperationName(ev.operation),
+        getEntityTypeName(ev.entityType),
+        extractActor(ev) || "Système",
+        formatDetails(ev) || "",
+      ]);
+
+    const headers = ["Date", "Opération", "Module / Type", "Acteur", "Détails"];
+    const authEvents = systemHistory.filter(
+      (e) => e.entityType === "auth" || ["login", "logout", "session_expired", "login_failed"].includes(e.operation)
+    );
+    const hunterEvents = systemHistory.filter((e) => e.entityType === "hunter" || e.entityType === "permit");
+    const revenueEvents = systemHistory.filter(
+      (e) => ["tax", "revenue", "payment"].includes(e.entityType) || (e.entityType === "permit" && ["create", "renew"].includes(e.operation))
+    );
+    const reboisementEvents = systemHistory.filter(
+      (e) => e.entityType === "reboisement" || /reboisement|pépinière|plantation/i.test(`${e.entityType} ${e.details}`)
+    );
+
+    exportMultiSheetExcel(
+      [
+        { name: "Historique Global", headers, rows: toRows(systemHistory) },
+        { name: "Connexions & Audit", headers, rows: toRows(authEvents) },
+        { name: "Chasseurs & Permis", headers, rows: toRows(hunterEvents) },
+        { name: "Recettes", headers, rows: toRows(revenueEvents) },
+        { name: "Reboisement", headers, rows: toRows(reboisementEvents) },
+      ],
+      `historique_systeme_global_${format(new Date(), "yyyy-MM-dd")}.xls`
+    );
+  };
+
   return (
     <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Historique du système</h1>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <div>
+            <h1 className="text-3xl font-bold">Historique du système</h1>
+            <p className="text-sm opacity-75">Journal d&apos;audit global : qui fait quoi, connexions, déconnexions et actions sur tous les modules</p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleExportSystemWorkbook}
+            className="gap-2 bg-emerald-700 hover:bg-emerald-800 text-white self-start sm:self-auto"
+          >
+            <Download className="h-4 w-4" />
+            Exporter tout (Classeur)
+          </Button>
         </div>
 
       <Card className="overflow-hidden border-0 shadow-md min-w-0">
-        <CardHeader className="p-4 sm:p-6 border-b">
-          <CardTitle>Activités du système</CardTitle>
-          <CardDescription>
-            Consultez l'historique des actions effectuées sur la plateforme
-          </CardDescription>
+        <CardHeader className="p-4 sm:p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <CardTitle>Activités du système</CardTitle>
+            <CardDescription>
+              Consultez l&apos;historique des actions effectuées sur la plateforme ({filteredHistory.length} événement(s))
+            </CardDescription>
+          </div>
+          {currentTab !== 'infractions' && (
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Button size="sm" variant="outline" onClick={selectAllVisible} disabled={paginatedHistory.length === 0}>
+                {allSelectedOnPage ? "Tout désélectionner" : "Tout sélectionner"}
+              </Button>
+              {selectedIds.size > 0 && (
+                <Button size="sm" variant="destructive" onClick={requestDeleteSelected} disabled={isDeleting}>
+                  {isDeleting ? 'Suppression...' : `Supprimer (${selectedIds.size})`}
+                </Button>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-3 sm:p-6 min-w-0">
           <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
@@ -672,11 +758,11 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_OPERATIONS_VALUE}>Toutes les opérations</SelectItem>
-                    {/* {uniqueOperations.map((op) => (
+                    {uniqueOperations.map((op) => (
                       <SelectItem key={op} value={op}>
                         {getOperationName(op)}
                       </SelectItem>
-                    ))} */}
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -728,20 +814,21 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
           </div>
 
           <Tabs
-            defaultValue="user"
+            defaultValue="all"
             value={currentTab}
             onValueChange={setCurrentTab}
             className="mb-4"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <TabsList className="flex-wrap h-auto justify-start">
+                <TabsTrigger value="all">Tout ({systemHistory.length})</TabsTrigger>
+                <TabsTrigger value="errors">Connexions &amp; Audit</TabsTrigger>
+                <TabsTrigger value="hunter">Chasseurs &amp; Permis</TabsTrigger>
                 <TabsTrigger value="user">Utilisateurs</TabsTrigger>
                 <TabsTrigger value="agent">Agents</TabsTrigger>
-                <TabsTrigger value="hunter">Chasseurs</TabsTrigger>
                 <TabsTrigger value="recettes">Recettes</TabsTrigger>
                 <TabsTrigger value="reboisement">Reboisement</TabsTrigger>
                 <TabsTrigger value="infractions">Infractions</TabsTrigger>
-                <TabsTrigger value="errors">Erreurs & Audit</TabsTrigger>
               </TabsList>
 
               {currentTab !== 'infractions' && (
@@ -773,18 +860,6 @@ console.log('[AdminHistory] Unique Entity Types:', uniqueEntityTypes);
           {currentTab === 'infractions' ? (
             <InfractionsJournal page={infractionPage} setPage={setInfractionPage} perPage={infractionItemsPerPage} />
           ) : (<>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={selectAllVisible}>
-                  {allSelectedOnPage ? "Désélectionner tout" : "Sélectionner tout"}
-                </Button>
-                <Button size="sm" variant="destructive" onClick={requestDeleteSelected} disabled={selectedIds.size === 0 || isDeleting}>
-                  {isDeleting ? 'Suppression...' : `Supprimer (${selectedIds.size})`}
-                </Button>
-              </div>
-              <div className="text-sm text-gray-600">{filteredHistory.length} événement(s)</div>
-            </div>
-
             <div className="border rounded-md overflow-x-auto">
               <table className="w-full min-w-[800px] text-sm">
                 <thead className="bg-gray-50 text-gray-700">

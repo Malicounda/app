@@ -181,13 +181,15 @@ async function throwIfResNotOk(res: Response, ctx?: { url?: string; method?: str
       const isIgnoredOfflineEndpoint = isOfflineOrNetworkError && (isMessagingEndpoint || isAlertsEndpoint);
 
       const isAlertsDeleteTimeout = res.status === 403 && isAlertsEndpoint && ctx?.method === 'DELETE';
+      const isVerifyPasswordEndpoint = typeof detail.url === 'string' && detail.url.includes('/api/auth/verify-password');
 
-      if (!isDuplicateAlert && !isStaleMessaging404 && !isIgnoredOfflineEndpoint && !isAlertsDeleteTimeout) {
+      if (!isDuplicateAlert && !isStaleMessaging404 && !isIgnoredOfflineEndpoint && !isAlertsDeleteTimeout && !isVerifyPasswordEndpoint) {
         window.dispatchEvent(new CustomEvent('apiRefusal', { detail }));
       }
     } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e); }
 
-    if (res.status === 401) {
+    const isVerifyPasswordCall = typeof ctx?.url === 'string' && ctx.url.includes('/api/auth/verify-password');
+    if (res.status === 401 && !isVerifyPasswordCall) {
       // Émettre un événement global pour que AuthContext gère le logout proprement
       console.log("Session expirée - Déclenchement du logout propre...");
       try {

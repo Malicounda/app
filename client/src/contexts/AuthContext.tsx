@@ -186,10 +186,17 @@ export function AuthProvider({
         method: "GET",
       });
 
-      if (response) {
-        setUser(response);
+      if (response && response.id && response.role) {
+        // Ne jamais écraser un SuperAdmin en admin classique sur une réponse partielle/transitoire
+        setUser((prev) => {
+          const merged: User =
+            prev && prev.id === response.id && isUserSuperAdmin(prev) && typeof response.isSuperAdmin !== "boolean"
+              ? { ...response, isSuperAdmin: true }
+              : response;
+          void saveSession(merged);
+          return merged;
+        });
         setIsAuthenticated(true);
-        await saveSession(response);
         import("@/lib/pwaUtils").then(({ syncPendingRequests }) => {
           syncPendingRequests().catch(err => {
             if (import.meta.env.DEV) console.warn('[AuthContext] syncPendingRequests background run error:', err);

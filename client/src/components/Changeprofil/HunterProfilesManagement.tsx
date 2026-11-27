@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { apiRequest } from '@/lib/queryClient';
 import { isUserSuperAdmin } from '@/utils/navigation';
+import { repairAttachmentFileName } from '@/lib/attachmentMime';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -122,11 +123,13 @@ export function HunterProfilesManagement() {
   const [selectedInvalidDocs, setSelectedInvalidDocs] = useState<string[]>([]);
   const [reviewMessage, setReviewMessage] = useState('');
   const [submittingReview, setSubmittingReview] = useState<'validate' | 'invalidate' | null>(null);
+  const [confirmValidateOpen, setConfirmValidateOpen] = useState(false);
 
   const openDetailModal = (row: HunterProfileRow) => {
     setDetailRow(row);
     setSelectedInvalidDocs(row.verification?.invalidatedDocs ?? []);
     setReviewMessage(row.verification?.status === 'rejected' ? (row.verification?.reason ?? '') : '');
+    setConfirmValidateOpen(false);
   };
 
   const toggleDocSelection = (code: string) => {
@@ -135,7 +138,43 @@ export function HunterProfilesManagement() {
     );
   };
 
-  const handleValidateDossier = async () => {
+  // Analyse de cohérence des documents pour le dossier actuellement ouvert
+  const detailAnalysis = useMemo(() => {
+    const docs = detailRow?.documents ?? [];
+    const missingDocs = docs.filter((d) => !d.present);
+    const expiredDocs = docs.filter((d) => d.status === 'expired');
+    const invalidatedDocs = docs.filter((d) => d.invalidated);
+    const checkedInvalidDocs = docs.filter((d) => selectedInvalidDocs.includes(d.code));
+    const hasValidationAnomalies =
+      missingDocs.length > 0 ||
+      expiredDocs.length > 0 ||
+      invalidatedDocs.length > 0 ||
+      checkedInvalidDocs.length > 0;
+
+    const savedInvalidSorted = [...(detailRow?.verification?.invalidatedDocs ?? [])].sort().join(',');
+    const currentInvalidSorted = [...selectedInvalidDocs].sort().join(',');
+    const isSameInvalidationAlreadySent =
+      detailRow?.verification?.status === 'rejected' &&
+      selectedInvalidDocs.length > 0 &&
+      savedInvalidSorted === currentInvalidSorted &&
+      reviewMessage.trim() === (detailRow?.verification?.reason ?? '').trim();
+
+    const isAlreadyValidated =
+      detailRow?.verification?.status === 'validated' && selectedInvalidDocs.length === 0;
+
+    return {
+      docs,
+      missingDocs,
+      expiredDocs,
+      invalidatedDocs,
+      checkedInvalidDocs,
+      hasValidationAnomalies,
+      isSameInvalidationAlreadySent,
+      isAlreadyValidated,
+    };
+  }, [detailRow, selectedInvalidDocs, reviewMessage]);
+
+  const executeValidateDossier = async () => {
     if (!detailRow) return;
     try {
       setSubmittingReview('validate');
@@ -150,6 +189,7 @@ export function HunterProfilesManagement() {
           ? `Le dossier de ${detailRow.hunter.firstName} ${detailRow.hunter.lastName} est validé et un message lui a été envoyé. Il peut désormais faire sa demande de permis.`
           : `Le dossier de ${detailRow.hunter.firstName} ${detailRow.hunter.lastName} est validé (aucun compte lié pour l'envoi de message).`,
       });
+      setConfirmValidateOpen(false);
       setDetailRow(null);
       refetch();
     } catch (err: any) {
@@ -161,6 +201,15 @@ export function HunterProfilesManagement() {
     } finally {
       setSubmittingReview(null);
     }
+  };
+
+  const handleValidateDossier = () => {
+    if (!detailRow) return;
+    if (detailAnalysis.hasValidationAnomalies) {
+      setConfirmValidateOpen(true);
+      return;
+    }
+    void executeValidateDossier();
   };
 
   const handleInvalidateDossier = async () => {
@@ -642,7 +691,7 @@ export function HunterProfilesManagement() {
 
       {/* Modal Détail du Dossier & Documents */}
       <Dialog open={!!detailRow} onOpenChange={(open) => !open && setDetailRow(null)}>
-        <DialogContent hideClose className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent hideClose className="max-w-2xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto overflow-x-hidden">
           {detailRow && (
             <>
               <DialogHeader>
@@ -821,8 +870,8 @@ export function HunterProfilesManagement() {
                               )}
                             </div>
                             {doc.present ? (
-                              <div className="text-xs text-muted-foreground truncate">
-                                {doc.name || 'Document téléversé'}
+                              <div className="text-xs text-muted-foreground truncate" title={repairAttachmentFileName(doc.name)}>
+                                {repairAttachmentFileName(doc.name) || 'Document téléversé'}
                                 {doc.expiryDate
                                   ? ` · Expire le ${new Date(doc.expiryDate).toLocaleDateString('fr-FR')}`
                                   : ''}
@@ -874,6 +923,16 @@ export function HunterProfilesManagement() {
                     onChange={(e) => setReviewMessage(e.target.value)}
                     placeholder="Ex. : La photo de la pièce d'identité est floue / la quittance est expirée. Merci de téléverser un document lisible..."
                   />
+                  {selectedInvalidDocs.length > 0 && !reviewMessage.trim() && (
+                    <p className="text-xs text-red-600">
+                      Saisissez un motif ci-dessus pour activer l&apos;invalidation des {selectedInvalidDocs.length} pièce(s) sélectionnée(s).
+                    </p>
+                  )}
+                  {detailAnalysis.isSameInvalidationAlreadySent && (
+                    <p className="text-xs text-muted-foreground">
+                      Cette invalidation a déjà été enregistrée et transmise au chasseur. Modifiez les pièces cochées ou le motif pour renvoyer une nouvelle invalidation.
+                    </p>
+                  )}
                   {!detailRow.user && (
                     <p className="text-xs text-amber-700">
                       Attention : aucun compte utilisateur n&apos;est encore associé à ce chasseur (la décision sera enregistrée sans envoi de message).
@@ -882,38 +941,145 @@ export function HunterProfilesManagement() {
                 </div>
               </div>
 
-              <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+              <DialogFooter className="flex-col sm:flex-row flex-wrap gap-2 pt-2">
                 <Button variant="outline" onClick={() => setDetailRow(null)} disabled={!!submittingReview}>
                   Fermer
                 </Button>
                 <Button
                   type="button"
                   variant="destructive"
-                  disabled={!!submittingReview || selectedInvalidDocs.length === 0}
+                  disabled={
+                    !!submittingReview ||
+                    selectedInvalidDocs.length === 0 ||
+                    !reviewMessage.trim() ||
+                    detailAnalysis.isSameInvalidationAlreadySent
+                  }
                   onClick={handleInvalidateDossier}
                   className="gap-1.5"
+                  title={
+                    selectedInvalidDocs.length === 0
+                      ? 'Cochez au moins une pièce à invalider'
+                      : !reviewMessage.trim()
+                      ? 'Saisissez un motif pour invalider'
+                      : detailAnalysis.isSameInvalidationAlreadySent
+                      ? 'Cette invalidation est déjà active'
+                      : 'Invalider les pièces cochées et notifier le chasseur'
+                  }
                 >
                   <Send className="h-3.5 w-3.5" />
                   {submittingReview === 'invalidate'
                     ? 'Invalidation...'
-                    : selectedInvalidDocs.length === (detailRow.documents || []).length
+                    : detailAnalysis.isSameInvalidationAlreadySent
+                    ? `Déjà invalidé (${selectedInvalidDocs.length})`
+                    : selectedInvalidDocs.length === (detailRow.documents || []).length && selectedInvalidDocs.length > 0
                     ? 'Invalider tout le dossier'
                     : `Invalider (${selectedInvalidDocs.length})`}
                 </Button>
                 <Button
                   type="button"
-                  disabled={!!submittingReview}
+                  disabled={!!submittingReview || detailAnalysis.isAlreadyValidated}
                   onClick={handleValidateDossier}
-                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className={`gap-1.5 text-white ${
+                    detailAnalysis.isAlreadyValidated
+                      ? 'bg-emerald-600/70'
+                      : detailAnalysis.hasValidationAnomalies
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
+                  title={
+                    detailAnalysis.isAlreadyValidated
+                      ? 'Ce dossier est déjà validé'
+                      : detailAnalysis.hasValidationAnomalies
+                      ? 'Des pièces sont manquantes, expirées ou invalidées : une confirmation sera demandée'
+                      : 'Valider le dossier complet'
+                  }
                 >
-                  <ShieldCheck className="h-4 w-4" />
-                  {submittingReview === 'validate' ? 'Validation...' : 'Valider le dossier'}
+                  {detailAnalysis.hasValidationAnomalies && !detailAnalysis.isAlreadyValidated ? (
+                    <AlertTriangle className="h-4 w-4" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" />
+                  )}
+                  {submittingReview === 'validate'
+                    ? 'Validation...'
+                    : detailAnalysis.isAlreadyValidated
+                    ? 'Dossier déjà validé'
+                    : 'Valider le dossier'}
                 </Button>
               </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation explicite si validation avec pièces manquantes / expirées / invalidées */}
+      <AlertDialog open={confirmValidateOpen} onOpenChange={(open) => !submittingReview && setConfirmValidateOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Confirmer la validation malgré les anomalies ?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Le dossier de{' '}
+                  <strong className="text-foreground">
+                    {detailRow?.hunter.firstName} {detailRow?.hunter.lastName}
+                  </strong>{' '}
+                  comporte encore les anomalies suivantes :
+                </p>
+                <ul className="list-disc pl-5 space-y-1.5 text-foreground">
+                  {detailAnalysis.missingDocs.length > 0 && (
+                    <li>
+                      <strong>{detailAnalysis.missingDocs.length} pièce(s) manquante(s) :</strong>{' '}
+                      {detailAnalysis.missingDocs.map((d) => d.label).join(', ')}
+                    </li>
+                  )}
+                  {detailAnalysis.expiredDocs.length > 0 && (
+                    <li>
+                      <strong>{detailAnalysis.expiredDocs.length} pièce(s) expirée(s) :</strong>{' '}
+                      {detailAnalysis.expiredDocs.map((d) => d.label).join(', ')}
+                    </li>
+                  )}
+                  {detailAnalysis.invalidatedDocs.length > 0 && (
+                    <li>
+                      <strong>{detailAnalysis.invalidatedDocs.length} pièce(s) actuellement invalidée(s) :</strong>{' '}
+                      {detailAnalysis.invalidatedDocs.map((d) => d.label).join(', ')}
+                    </li>
+                  )}
+                  {detailAnalysis.checkedInvalidDocs.filter((d) => !d.invalidated).length > 0 && (
+                    <li>
+                      <strong>
+                        {detailAnalysis.checkedInvalidDocs.filter((d) => !d.invalidated).length} pièce(s) cochée(s) pour invalidation :
+                      </strong>{' '}
+                      {detailAnalysis.checkedInvalidDocs
+                        .filter((d) => !d.invalidated)
+                        .map((d) => d.label)
+                        .join(', ')}
+                    </li>
+                  )}
+                </ul>
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-2.5">
+                  En confirmant, toutes les invalidations seront levées et le chasseur sera autorisé à déposer une demande de permis.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submittingReview === 'validate'}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={submittingReview === 'validate'}
+              onClick={(e) => {
+                e.preventDefault();
+                void executeValidateDossier();
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {submittingReview === 'validate' ? 'Validation...' : 'Confirmer la validation'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirmation Couper / Rétablir l'accès au compte */}
       <AlertDialog open={!!accessTarget} onOpenChange={(open) => !open && setAccessTarget(null)}>

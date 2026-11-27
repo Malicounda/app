@@ -12,6 +12,11 @@ export interface HunterDossierVerification {
   reviewedBy: number | null;
   reviewedAt: string | null;
   updatedAt: string | null;
+  campaignYear: string | null;
+  campaignOpen: boolean;
+  campaignEndDate: string | null;
+  validatedByActivePermit?: boolean;
+  expiredForNewCampaign?: boolean;
 }
 
 export const HUNTER_DOC_LABELS: Record<string, string> = {
@@ -60,8 +65,13 @@ export async function ensureHunterDossierVerificationTable(): Promise<void> {
           reason TEXT,
           reviewed_by INTEGER,
           reviewed_at TIMESTAMP,
+          campaign_year VARCHAR(32),
           updated_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
+      ` as any);
+      await db.execute(sql`
+        ALTER TABLE hunter_dossier_verifications
+        ADD COLUMN IF NOT EXISTS campaign_year VARCHAR(32)
       ` as any);
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS hunter_autovalidation_rules (
@@ -294,7 +304,52 @@ export async function shouldAutoValidateForCreator(
   }
 }
 
-function parseRow(row: any): HunterDossierVerification {
+export async function getCurrentCampaignContext(): Promise<{
+  campaignYear: string | null;
+  campaignOpen: boolean;
+  campaignStartDate: string | null;
+  campaignEndDate: string | null;
+}> {
+  try {
+    const settings = await storage.getHuntingCampaignSettings();
+    if (!settings) {
+      return {
+        campaignYear: String(new Date().getFullYear()),
+        campaignOpen: true,
+        campaignStartDate: null,
+        campaignEndDate: null,
+      };
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDateObj = settings.endDate ? new Date(settings.endDate) : null;
+    if (endDateObj && !Number.isNaN(endDateObj.getTime())) {
+      endDateObj.setHours(23, 59, 59, 999);
+    }
+    const notPastEnd = !endDateObj || Number.isNaN(endDateObj.getTime()) || today.getTime() <= endDateObj.getTime();
+    const campaignOpen = settings.isActive !== false && notPastEnd;
+    return {
+      campaignYear: settings.year ? String(settings.year) : String(new Date().getFullYear()),
+      campaignOpen,
+      campaignStartDate: settings.startDate || null,
+      campaignEndDate: settings.endDate || null,
+    };
+  } catch (err) {
+    console.warn('[hunterDossierVerification] getCurrentCampaignContext fallback:', err);
+    return {
+      campaignYear: String(new Date().getFullYear()),
+      campaignOpen: true,
+      campaignStartDate: null,
+      campaignEndDate: null,
+    };
+  }
+}
+
+function parseRow(
+  row: any,
+  campaignCtx: { campaignYear: string | null; campaignOpen: boolean; campaignEndDate: string | null },
+  hasActivePermit: boolean
+): HunterDossierVerification {
   let invalidatedDocs: string[] = [];
   if (Array.isArray(row?.invalidated_docs)) {
     invalidatedDocs = row.invalidated_docs.map(String);
@@ -307,8 +362,28 @@ function parseRow(row: any): HunterDossierVerification {
     }
   }
   const rawStatus = String(row?.status || 'pending');
-  const status: DossierVerificationStatus =
+  let status: DossierVerificationStatus =
     rawStatus === 'validated' || rawStatus === 'rejected' ? rawStatus : 'pending';
+  const storedCampaignYear: string | null = row?.campaign_year ? String(row.campaign_year) : null;
+  let expiredForNewCampaign = false;
+  let validatedByActivePermit = false;
+
+  // Si validé lors d'une campagne précédente → nécessite une nouvelle validation pour la campagne en cours
+  if (
+    status === 'validated' &&
+    storedCampaignYear &&
+    campaignCtx.campaignYear &&
+    storedCampaignYear !== campaignCtx.campaignYear
+  ) {
+    status = 'pending';
+    expiredForNewCampaign = true;
+  }
+
+  // Si un chasseur existant a déjà un permis actif (non expiré) pour la campagne en cours et n'est pas invalidé
+  if (status === 'pending' && !expiredForNewCampaign && hasActivePermit && campaignCtx.campaignOpen) {
+    status = 'validated';
+    validatedByActivePermit = true;
+  }
 
   return {
     hunterId: Number(row.hunter_id),
@@ -318,45 +393,105 @@ function parseRow(row: any): HunterDossierVerification {
     reviewedBy: row?.reviewed_by != null ? Number(row.reviewed_by) : null,
     reviewedAt: row?.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
     updatedAt: row?.updated_at ? new Date(row.updated_at).toISOString() : null,
+    campaignYear: campaignCtx.campaignYear,
+    campaignOpen: campaignCtx.campaignOpen,
+    campaignEndDate: campaignCtx.campaignEndDate,
+    validatedByActivePermit,
+    expiredForNewCampaign,
   };
 }
 
-export function defaultVerification(hunterId: number): HunterDossierVerification {
+export function defaultVerification(
+  hunterId: number,
+  campaignCtx?: { campaignYear: string | null; campaignOpen: boolean; campaignEndDate: string | null },
+  hasActivePermit = false
+): HunterDossierVerification {
+  const ctx = campaignCtx ?? {
+    campaignYear: String(new Date().getFullYear()),
+    campaignOpen: true,
+    campaignEndDate: null,
+  };
+  const autoValid = hasActivePermit && ctx.campaignOpen;
   return {
     hunterId,
-    status: 'pending',
+    status: autoValid ? 'validated' : 'pending',
     invalidatedDocs: [],
     reason: null,
     reviewedBy: null,
     reviewedAt: null,
     updatedAt: null,
+    campaignYear: ctx.campaignYear,
+    campaignOpen: ctx.campaignOpen,
+    campaignEndDate: ctx.campaignEndDate,
+    validatedByActivePermit: autoValid,
+    expiredForNewCampaign: false,
   };
+}
+
+async function getActivePermitHunterIds(hunterId?: number): Promise<Set<number>> {
+  try {
+    const res: any = hunterId
+      ? await db.execute(sql`
+          SELECT DISTINCT hunter_id
+          FROM permits
+          WHERE hunter_id = ${hunterId}
+            AND status = 'active'
+            AND expiry_date >= CURRENT_DATE
+        ` as any)
+      : await db.execute(sql`
+          SELECT DISTINCT hunter_id
+          FROM permits
+          WHERE status = 'active'
+            AND expiry_date >= CURRENT_DATE
+        ` as any);
+    const rows: any[] = Array.isArray(res) ? res : (res?.rows || []);
+    return new Set(rows.map((r) => Number(r.hunter_id)).filter((n) => Number.isFinite(n)));
+  } catch (err) {
+    console.warn('[hunterDossierVerification] getActivePermitHunterIds warning:', err);
+    return new Set();
+  }
 }
 
 export async function getHunterDossierVerification(hunterId: number): Promise<HunterDossierVerification> {
   await ensureHunterDossierVerificationTable();
-  const res: any = await db.execute(sql`
-    SELECT hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, updated_at
-    FROM hunter_dossier_verifications
-    WHERE hunter_id = ${hunterId}
-    LIMIT 1
-  ` as any);
-  const rows: any[] = Array.isArray(res) ? res : (res?.rows || []);
-  if (!rows.length) return defaultVerification(hunterId);
-  return parseRow(rows[0]);
+  const [res, campaignCtx, activePermitHunters] = await Promise.all([
+    db.execute(sql`
+      SELECT hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, campaign_year, updated_at
+      FROM hunter_dossier_verifications
+      WHERE hunter_id = ${hunterId}
+      LIMIT 1
+    ` as any),
+    getCurrentCampaignContext(),
+    getActivePermitHunterIds(hunterId),
+  ]);
+  const rows: any[] = Array.isArray(res) ? res : ((res as any)?.rows || []);
+  const hasActivePermit = activePermitHunters.has(Number(hunterId));
+  if (!rows.length) return defaultVerification(hunterId, campaignCtx, hasActivePermit);
+  return parseRow(rows[0], campaignCtx, hasActivePermit);
 }
 
 export async function getAllHunterDossierVerifications(): Promise<Map<number, HunterDossierVerification>> {
   await ensureHunterDossierVerificationTable();
-  const res: any = await db.execute(sql`
-    SELECT hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, updated_at
-    FROM hunter_dossier_verifications
-  ` as any);
-  const rows: any[] = Array.isArray(res) ? res : (res?.rows || []);
+  const [res, campaignCtx, activePermitHunters] = await Promise.all([
+    db.execute(sql`
+      SELECT hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, campaign_year, updated_at
+      FROM hunter_dossier_verifications
+    ` as any),
+    getCurrentCampaignContext(),
+    getActivePermitHunterIds(),
+  ]);
+  const rows: any[] = Array.isArray(res) ? res : ((res as any)?.rows || []);
   const map = new Map<number, HunterDossierVerification>();
   for (const r of rows) {
     if (r?.hunter_id != null) {
-      map.set(Number(r.hunter_id), parseRow(r));
+      const hid = Number(r.hunter_id);
+      map.set(hid, parseRow(r, campaignCtx, activePermitHunters.has(hid)));
+    }
+  }
+  // Pour les chasseurs ayant déjà un permis actif sans entrée explicite dans hunter_dossier_verifications
+  for (const hid of activePermitHunters) {
+    if (!map.has(hid)) {
+      map.set(hid, defaultVerification(hid, campaignCtx, true));
     }
   }
   return map;
@@ -368,21 +503,25 @@ export async function validateHunterDossier(
   note?: string | null
 ): Promise<HunterDossierVerification> {
   await ensureHunterDossierVerificationTable();
+  const campaignCtx = await getCurrentCampaignContext();
   const cleanNote = note && note.trim() ? note.trim() : null;
   const res: any = await db.execute(sql`
-    INSERT INTO hunter_dossier_verifications (hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, updated_at)
-    VALUES (${hunterId}, 'validated', '[]'::jsonb, ${cleanNote}, ${reviewerUserId}, NOW(), NOW())
+    INSERT INTO hunter_dossier_verifications (hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, campaign_year, updated_at)
+    VALUES (${hunterId}, 'validated', '[]'::jsonb, ${cleanNote}, ${reviewerUserId}, NOW(), ${campaignCtx.campaignYear}, NOW())
     ON CONFLICT (hunter_id) DO UPDATE SET
       status = 'validated',
       invalidated_docs = '[]'::jsonb,
       reason = ${cleanNote},
       reviewed_by = ${reviewerUserId},
       reviewed_at = NOW(),
+      campaign_year = ${campaignCtx.campaignYear},
       updated_at = NOW()
-    RETURNING hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, updated_at
+    RETURNING hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, campaign_year, updated_at
   ` as any);
   const rows: any[] = Array.isArray(res) ? res : (res?.rows || []);
-  return rows.length ? parseRow(rows[0]) : { ...defaultVerification(hunterId), status: 'validated' };
+  return rows.length
+    ? parseRow(rows[0], campaignCtx, false)
+    : { ...defaultVerification(hunterId, campaignCtx), status: 'validated' };
 }
 
 export async function invalidateHunterDossier(
@@ -392,6 +531,7 @@ export async function invalidateHunterDossier(
   reason: string
 ): Promise<HunterDossierVerification> {
   await ensureHunterDossierVerificationTable();
+  const campaignCtx = await getCurrentCampaignContext();
   const normalized = Array.from(
     new Set(documentCodes.map(normalizeDocCode).filter((c): c is string => Boolean(c)))
   );
@@ -404,19 +544,22 @@ export async function invalidateHunterDossier(
   }
   const jsonPayload = JSON.stringify(normalized);
   const res: any = await db.execute(sql`
-    INSERT INTO hunter_dossier_verifications (hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, updated_at)
-    VALUES (${hunterId}, 'rejected', ${jsonPayload}::jsonb, ${cleanReason}, ${reviewerUserId}, NOW(), NOW())
+    INSERT INTO hunter_dossier_verifications (hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, campaign_year, updated_at)
+    VALUES (${hunterId}, 'rejected', ${jsonPayload}::jsonb, ${cleanReason}, ${reviewerUserId}, NOW(), ${campaignCtx.campaignYear}, NOW())
     ON CONFLICT (hunter_id) DO UPDATE SET
       status = 'rejected',
       invalidated_docs = ${jsonPayload}::jsonb,
       reason = ${cleanReason},
       reviewed_by = ${reviewerUserId},
       reviewed_at = NOW(),
+      campaign_year = ${campaignCtx.campaignYear},
       updated_at = NOW()
-    RETURNING hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, updated_at
+    RETURNING hunter_id, status, invalidated_docs, reason, reviewed_by, reviewed_at, campaign_year, updated_at
   ` as any);
   const rows: any[] = Array.isArray(res) ? res : (res?.rows || []);
-  return rows.length ? parseRow(rows[0]) : { ...defaultVerification(hunterId), status: 'rejected', invalidatedDocs: normalized, reason: cleanReason };
+  return rows.length
+    ? parseRow(rows[0], campaignCtx, false)
+    : { ...defaultVerification(hunterId, campaignCtx), status: 'rejected', invalidatedDocs: normalized, reason: cleanReason };
 }
 
 export async function markDocumentResubmitted(hunterId: number, documentTypeOrBase: string): Promise<void> {

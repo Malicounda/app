@@ -1,3 +1,4 @@
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { apiRequest } from "@/lib/queryClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -35,8 +36,17 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
 
   const lastActivityRef   = useRef(Date.now());
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const isActiveRef       = useRef(isAuthenticated);
+  const lockStateRef      = useRef<LockState>("active");
+  const disableLockRef    = useRef(disableLock);
+
+  useEffect(() => {
+    lockStateRef.current = lockState;
+  }, [lockState]);
+
+  useEffect(() => {
+    disableLockRef.current = disableLock;
+  }, [disableLock]);
 
   // Garder le ref synchronisé et réinitialiser l'inactivité à la connexion
   useEffect(() => { 
@@ -48,34 +58,59 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
     }
   }, [isAuthenticated]);
 
-  // ── Re-authentification (déverrouillage) ────────────────────────
+  // ── Re-authentification (déverrouillage avec timeout sécurisé) ──
   const reauthenticate = useCallback(async (password: string): Promise<{ ok: boolean; error?: string }> => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 10_000);
     try {
-      await apiRequest({ url: "/api/auth/verify-password", method: "POST", data: { password } });
-      setLockState("active");
-      lastActivityRef.current = Date.now();
-      return { ok: true };
-    } catch (err: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', err);
-      const status = err?.status ?? err?.response?.status;
-      const msg = err?.body?.message || err?.message || "";
-      if (status === 401) {
-        if (String(msg).toLowerCase().includes("incorrect")) {
-          return { ok: false, error: "Mot de passe incorrect."  };
+      const res = await authenticatedFetch("/api/auth/verify-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+        signal: controller.signal,
+      });
+
+      let body: any = null;
+      try {
+        body = await res.json();
+      } catch {
+        body = null;
+      }
+
+      if (res.ok) {
+        setLockState("active");
+        lastActivityRef.current = Date.now();
+        return { ok: true };
+      }
+
+      const msg = String(body?.message || body?.error || "");
+      if (res.status === 401) {
+        if (msg.toLowerCase().includes("incorrect")) {
+          return { ok: false, error: "Mot de passe incorrect. Veuillez réessayer." };
         }
         setLockState("expired");
         return {
           ok: false,
-          error:
-            "Session expirée côté serveur. Cliquez sur « Se déconnecter » puis reconnectez-vous.",
+          error: "Session expirée côté serveur. Cliquez sur « Se déconnecter » puis reconnectez-vous.",
         };
       }
-      if (status === 403) {
-        return { ok: false, error: "Accès refusé. Reconnectez-vous." };
+      if (res.status === 403) {
+        return { ok: false, error: "Accès refusé. Veuillez vous reconnecter." };
       }
       return {
         ok: false,
-        error: msg || "Impossible de vérifier le mot de passe. Vérifiez votre connexion.",
+        error: msg || "Impossible de vérifier le mot de passe. Réessayez.",
       };
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        return { ok: false, error: "Délai dépassé : le serveur ne répond pas. Vérifiez que le backend est actif." };
+      }
+      return {
+        ok: false,
+        error: "Impossible de joindre le serveur. Vérifiez votre connexion.",
+      };
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   }, []);
 
@@ -102,9 +137,15 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
     }
   }, [lockState]);
 
-  // ── Envoi du heartbeat ──────────────────────────────────────────
-  const sendHeartbeat = useCallback(async () => {
+  // ── Envoi du heartbeat (uniquement si l'utilisateur est réellement actif) ──
+  const sendHeartbeat = useCallback(async (forceInitial = false) => {
     if (!isActiveRef.current) return;
+    if (lockStateRef.current === "locked" || lockStateRef.current === "expired") return;
+    const elapsedSinceActivity = Date.now() - lastActivityRef.current;
+    if (!forceInitial && !disableLockRef.current && elapsedSinceActivity >= HEARTBEAT_INTERVAL_MS + 15_000) {
+      // Ne pas maintenir artificiellement la session ni mettre à jour last_activity si l'utilisateur est inactif
+      return;
+    }
     try {
       const res = await apiRequest<{ active: boolean; expiresAt?: number }>({
         url: "/api/auth/heartbeat",
@@ -124,12 +165,12 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
   // ── Détection d'activité utilisateur ────────────────────────────
   const onActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
-    // Si on était en countdown, annuler
-    if (lockState === "countdown") {
+    // Si on était en countdown, annuler immédiatement
+    if (lockStateRef.current === "countdown") {
       setLockState("active");
       setCountdownSeconds(0);
     }
-  }, [lockState]);
+  }, []);
 
   // ── Heartbeat interval ──────────────────────────────────────────
   useEffect(() => {
@@ -138,13 +179,13 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
       return;
     }
 
-    // Envoyer le heartbeat périodiquement
+    // Envoyer le heartbeat périodiquement (seulement si activité récente)
     heartbeatTimerRef.current = setInterval(() => {
-      sendHeartbeat();
+      sendHeartbeat(false);
     }, HEARTBEAT_INTERVAL_MS);
 
-    // Premier heartbeat immédiat
-    sendHeartbeat();
+    // Premier heartbeat immédiat à la connexion
+    sendHeartbeat(true);
 
     return () => {
       if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
@@ -183,14 +224,14 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
     const events = ["mousedown", "keydown", "touchstart", "scroll", "mousemove"] as const;
     const handler = () => onActivity();
 
-    // Throttle léger pour mousemove/scroll
-    let throttleTimer: ReturnType<typeof setTimeout> | null = null;
+    // Throttle leading-edge pour mousemove/scroll : réagit instantanément (annule le countdown sans délai)
+    let lastThrottledRun = 0;
     const throttledHandler = () => {
-      if (throttleTimer) return;
-      throttleTimer = setTimeout(() => {
+      const now = Date.now();
+      if (lockStateRef.current === "countdown" || now - lastThrottledRun >= 3000) {
+        lastThrottledRun = now;
         handler();
-        throttleTimer = null;
-      }, 5000); // 5s de throttle pour mousemove
+      }
     };
 
     for (const evt of events) {
@@ -209,7 +250,6 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
           window.removeEventListener(evt, handler);
         }
       }
-      if (throttleTimer) clearTimeout(throttleTimer);
     };
   }, [isAuthenticated, lockState, onActivity]);
 

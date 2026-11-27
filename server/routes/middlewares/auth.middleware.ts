@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import { storage } from '../../storage.js';
 // Evaluate secret dynamically to ensure dotenv has loaded
 const getJwtSecret = () => process.env.JWT_SECRET || process.env.JWT_TOKEN || 'changeme_secret';
 
@@ -21,7 +22,17 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
     if (token) {
       try {
         const decoded: any = jwt.verify(token, getJwtSecret());
-        // decoded devrait contenir au moins id et role (selon le login controller)
+        // Toujours vérifier/hydrater isSuperAdmin via storage.isSuperAdmin (users.is_super_admin + table super_admins)
+        if (decoded?.id && decoded.isSuperAdmin !== true) {
+          try {
+            const isSuper = await storage.isSuperAdmin(Number(decoded.id));
+            decoded.isSuperAdmin = isSuper;
+            if (!decoded.role) {
+              const dbUser: any = await storage.getUser(Number(decoded.id));
+              if (dbUser?.role) decoded.role = dbUser.role;
+            }
+          } catch {}
+        }
         req.user = decoded as any;
         return next();
       } catch (err) {
@@ -31,6 +42,17 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
     }
     console.warn(`[AUTH] Rejet 401: Aucun utilisateur connecté pour ${req.path}. token présent: ${!!token}`);
     return res.status(401).json({ message: "Vous devez être connecté pour accéder à cette ressource" });
+  }
+
+  // Si la session existe mais ne porte pas encore le booléen isSuperAdmin (ex. session partielle), l'hydrater depuis la DB
+  if ((currentUser as any)?.id && typeof (currentUser as any).isSuperAdmin !== 'boolean') {
+    try {
+      const isSuper = await storage.isSuperAdmin(Number((currentUser as any).id));
+      (currentUser as any).isSuperAdmin = isSuper;
+      if (sessionUser) {
+        sessionUser.isSuperAdmin = isSuper;
+      }
+    } catch {}
   }
 
   req.user = currentUser;

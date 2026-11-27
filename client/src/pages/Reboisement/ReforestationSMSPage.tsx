@@ -1,6 +1,5 @@
 import ResponsivePage from "@/components/layout/ResponsivePage";
-import InternalMessageComposer from "@/components/messaging/InternalMessageComposer";
-import InternalMessageList from "@/components/messaging/InternalMessageList";
+import InternalMessagingShell from "@/components/messaging/InternalMessagingShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
@@ -78,6 +77,9 @@ export default function ReforestationSMSPage() {
           return full;
         };
         const toLabel = (u: any, roleLabel: string) => {
+          if (u?.isSuperAdmin || u?.role === 'support') {
+            return 'Support Technique — Équipe Support';
+          }
           const fullName = toName(u);
           const name = fullName || String(u?.username || '').trim() || roleLabel;
           const dept = u?.departement ? ` — ${u.departement}` : '';
@@ -212,109 +214,44 @@ export default function ReforestationSMSPage() {
 
   return (
     <ResponsivePage className="bg-transparent">
-      <div className="mx-auto max-w-6xl">
-        <div className={`grid gap-4 ${inboxOnly ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} lg:h-[78vh]`}>
-            <section className="bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden flex flex-col min-h-0 shadow-sm lg:h-[78vh]">
-              <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
-              <div className="min-w-0 flex items-start gap-2">
-                <div className="h-9 w-9 rounded-full bg-green-50 text-green-700 flex items-center justify-center shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3 8.25A2.25 2.25 0 015.25 6h13.5A2.25 2.25 0 0121 8.25v9.5A2.25 2.25 0 0118.75 20H5.25A2.25 2.25 0 013 17.75v-9.5zm2.25-.75a.75.75 0 00-.75.75v.807l7.06 4.237a2.25 2.25 0 002.38 0L21.5 9.057V8.25a.75.75 0 00-.75-.75H5.25zm16.25 3.308l-6.786 4.072a3.75 3.75 0 01-3.956 0L4.5 10.808v6.942c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-6.942z"/></svg>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-gray-900">{activeTab === 'reçus' ? 'Boîte de réception' : "Boîte d'envoi"}</div>
-                  <div className="text-xs text-gray-500">{(activeTab === 'reçus' ? inbox.length : sent.length)} message(s)</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="hidden md:flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 py-2 w-64 shadow-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-500"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /></svg>
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="bg-transparent outline-none text-sm w-full"
-                    placeholder="Rechercher un message..."
-                  />
-                </div>
-                <button
-                  onClick={() => setActiveTab('reçus')}
-                  className={`text-xs rounded-full px-3 py-1 border ${activeTab === 'reçus' ? 'bg-green-50 border-green-600 text-green-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                >
-                  Reçus
-                </button>
-                <button
-                  onClick={() => setActiveTab('envoyés')}
-                  className={`text-xs rounded-full px-3 py-1 border ${activeTab === 'envoyés' ? 'bg-green-50 border-green-600 text-green-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                >
-                  Envoyés
-                </button>
-              </div>
-            </div>
-
-            <div className="md:hidden border-b border-gray-200 px-4 py-3">
-              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 py-2 w-full shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-500"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /></svg>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="bg-transparent outline-none text-sm w-full"
-                  placeholder="Rechercher un message..."
-                />
-              </div>
-            </div>
-
-            <div className="p-4 flex-1 min-h-0">
-              {activeTab === 'reçus' && (
-                <InternalMessageList
-                  messages={filteredInbox}
-                  loading={loadingInbox}
-                  emptyLabel="Aucun message reçu pour le moment."
-                  onDelete={handleDelete}
-                  onRefresh={refreshInbox}
-                  onReply={async ({ recipientIdentifier, content }) => {
-                    try {
-                      const isOffline = !navigator.onLine;
-                      await sendIndividual({ recipientIdentifier, content });
-                      if (isOffline) {
-                        toast({ title: 'Mode hors-ligne', description: 'Réponse sauvegardée localement. Envoi automatique dès le retour du réseau.' });
-                      } else {
-                        toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
-                      }
-                      return;
-                    } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-                      toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });
-                    }
-                  }}
-                />
-              )}
-
-              {activeTab === 'envoyés' && (
-                <InternalMessageList
-                  messages={filteredSent}
-                  loading={loadingSent}
-                  emptyLabel="Aucun message envoyé pour le moment."
-                  context="sent"
-                  onDelete={handleDelete}
-                  onRefresh={refreshSent}
-                />
-              )}
-            </div>
-          </section>
-
-          {!inboxOnly && (
-            <aside id="composer-panel" className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 shadow-sm lg:h-[78vh] lg:overflow-auto">
-              <InternalMessageComposer
-                loading={sending}
-                onSubmit={handleSubmit}
-                regionTargets={reforestationTargets}
-                allowIndividual
-                allowGroup
-                adminRecipients={recipientOptions}
-                showAdminQuickPick={recipientOptions.length > 0}
-              />
-            </aside>
-          )}
-        </div>
-      </div>
+      <InternalMessagingShell
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        query={query}
+        onQueryChange={setQuery}
+        inbox={inbox}
+        filteredInbox={filteredInbox}
+        sent={sent}
+        filteredSent={filteredSent}
+        loadingInbox={loadingInbox}
+        loadingSent={loadingSent}
+        sending={sending}
+        inboxOnly={inboxOnly}
+        onRefreshInbox={refreshInbox}
+        onRefreshSent={refreshSent}
+        onDelete={handleDelete}
+        onReply={async ({ recipientIdentifier, content, attachment }) => {
+          try {
+            const isOffline = !navigator.onLine;
+            await sendIndividual({ recipientIdentifier, content, attachment });
+            if (isOffline) {
+              toast({ title: 'Mode hors-ligne', description: 'Réponse sauvegardée localement. Envoi automatique dès le retour du réseau.' });
+            } else {
+              toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
+            }
+            return;
+          } catch (e: any) {
+            if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+            toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive' });
+          }
+        }}
+        onSubmitCompose={handleSubmit}
+        regionTargets={reforestationTargets}
+        allowIndividual
+        allowGroup
+        adminRecipients={recipientOptions}
+        showAdminQuickPick={recipientOptions.length > 0}
+      />
     </ResponsivePage>
   );
 }

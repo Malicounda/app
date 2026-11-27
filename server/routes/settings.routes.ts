@@ -485,8 +485,27 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
 
     // Gérer les périodes spécifiques par catégorie (Option B) si fournies
     if (Array.isArray(categoryPeriods)) {
-      for (const p of categoryPeriods) {
-        if (!p || !p.categoryKey || !p.startDate || !p.endDate) continue;
+      // Garantir l'existence de la table en production
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS hunting_campaign_category_periods (
+            id SERIAL PRIMARY KEY,
+            campaign_id INTEGER NOT NULL,
+            category_key VARCHAR(120) NOT NULL,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            derogation_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (campaign_id, category_key)
+          )
+        `);
+      } catch (e) {
+        console.warn('[POST /api/settings/campaign] ensure hunting_campaign_category_periods warning:', e);
+      }
+
+      const validPeriods = categoryPeriods.filter((p) => p && p.categoryKey && p.startDate && p.endDate);
+      for (const p of validPeriods) {
         const pStart = new Date(p.startDate);
         const pEnd = new Date(p.endDate);
         const derog = !!p.derogationEnabled;
@@ -504,20 +523,36 @@ router.post('/campaign', isAuthenticated, async (req, res) => {
             });
           }
         }
-        try {
-          await db.execute(sql`
-            INSERT INTO hunting_campaign_category_periods (campaign_id, category_key, start_date, end_date, enabled, derogation_enabled)
-            VALUES (${campaign.id}, ${p.categoryKey}, ${p.startDate}, ${p.endDate}, ${p.enabled ?? true}, ${derog})
-            ON CONFLICT (campaign_id, category_key) DO UPDATE SET
-              start_date = EXCLUDED.start_date,
-              end_date = EXCLUDED.end_date,
-              enabled = EXCLUDED.enabled,
-              derogation_enabled = EXCLUDED.derogation_enabled,
-              updated_at = CURRENT_TIMESTAMP
-          `);
-        } catch {
-          // table absente -> ignorer
-        }
+      }
+
+      // Synchroniser les suppressions : retirer les périodes qui ne sont plus dans la liste envoyée
+      const keptKeys = validPeriods.map((p) => String(p.categoryKey));
+      if (keptKeys.length === 0) {
+        await db.execute(sql`
+          DELETE FROM hunting_campaign_category_periods WHERE campaign_id = ${campaign.id}
+        `);
+      } else {
+        const keyList = sql.join(keptKeys.map((k) => sql`${k}`), sql`, `);
+        await db.execute(sql`
+          DELETE FROM hunting_campaign_category_periods
+          WHERE campaign_id = ${campaign.id} AND category_key NOT IN (${keyList})
+        `);
+      }
+
+      for (const p of validPeriods) {
+        const derog = !!p.derogationEnabled;
+        const startStr = String(p.startDate).slice(0, 10);
+        const endStr = String(p.endDate).slice(0, 10);
+        await db.execute(sql`
+          INSERT INTO hunting_campaign_category_periods (campaign_id, category_key, start_date, end_date, enabled, derogation_enabled)
+          VALUES (${campaign.id}, ${p.categoryKey}, ${startStr}, ${endStr}, ${p.enabled ?? true}, ${derog})
+          ON CONFLICT (campaign_id, category_key) DO UPDATE SET
+            start_date = EXCLUDED.start_date,
+            end_date = EXCLUDED.end_date,
+            enabled = EXCLUDED.enabled,
+            derogation_enabled = EXCLUDED.derogation_enabled,
+            updated_at = CURRENT_TIMESTAMP
+        `);
       }
     }
 

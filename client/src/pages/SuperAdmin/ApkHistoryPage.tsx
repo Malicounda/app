@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { apiRequest } from '@/lib/queryClient';
+import { exportMultiSheetExcel } from '@/lib/excelWorkbook';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +15,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Shield, Activity, MapPin, Search, Bell, MessageSquare, Trash2, Paperclip, Download, Printer } from 'lucide-react';
-import { buildAttachmentUrl } from '@/lib/attachments';
+import { Shield, Activity, MapPin, Search, Bell, MessageSquare, Trash2, Paperclip, Download } from 'lucide-react';
 import MessageAttachmentViewer from '@/components/messaging/MessageAttachmentViewer';
 
 // ═══════════════ Types ═══════════════
@@ -40,30 +40,54 @@ type MessageItem = {
 };
 
 // ═══════════════ Helpers ═══════════════
-const natureLabels: Record<string, string> = { 
-  braconnage: "Braconnage", 
-  feux_de_brousse: "Feux de brousse", 
-  "trafic-bois": "Coupe de bois", 
-  trafic_bois: "Coupe de bois", 
+const natureLabels: Record<string, string> = {
+  braconnage: "Braconnage",
+  feux_de_brousse: "Feux de brousse",
+  "trafic-bois": "Coupe de bois",
+  trafic_bois: "Coupe de bois",
   defrichement: "Défrichement",
   empietement: "Empiètement",
   spotrep: "SPOTREP",
-  autre: "Autre / Information" 
+  autre: "Autre / Information",
 };
-const natureColors: Record<string, string> = { 
-  braconnage: "bg-red-100 text-red-700", 
-  feux_de_brousse: "bg-orange-100 text-orange-700", 
-  "trafic-bois": "bg-amber-100 text-amber-800", 
-  trafic_bois: "bg-amber-100 text-amber-800", 
+
+const natureColors: Record<string, string> = {
+  braconnage: "bg-red-100 text-red-700",
+  feux_de_brousse: "bg-orange-100 text-orange-700",
+  "trafic-bois": "bg-amber-100 text-amber-800",
+  trafic_bois: "bg-amber-100 text-amber-800",
   defrichement: "bg-emerald-100 text-emerald-700",
   empietement: "bg-purple-100 text-purple-700",
   spotrep: "bg-cyan-100 text-cyan-700",
-  autre: "bg-gray-100 text-gray-700" 
+  autre: "bg-gray-100 text-gray-700",
+};
+
+const roleLabels: Record<string, string> = {
+  superadmin: "SuperAdmin",
+  super_admin: "SuperAdmin",
+  admin: "Admin",
+  agent: "Agent",
+  "sub-agent": "Sous-agent",
+  hunter: "Chasseur",
+  "hunting-guide": "Guide",
 };
 
 function agentName(s: any) {
   if (!s) return "—";
   return [s.grade, s.firstName, s.lastName].filter(Boolean).join(" ") || s.username || s.matricule || "—";
+}
+
+function sessionDisplayName(session: any): string {
+  const full = `${session.agentPrenom || ''} ${session.agentNom || ''}`.trim();
+  if (full) return full;
+  if (session.username) return session.username;
+  if (session.agentMatricule) return session.agentMatricule;
+  return "Compte supprimé";
+}
+
+function sessionRoleLabel(role?: string | null): string {
+  if (!role) return "";
+  return roleLabels[String(role).toLowerCase()] || role;
 }
 
 function fmtDate(d: string | null) {
@@ -77,130 +101,78 @@ function fmtSize(bytes: number) {
   return (bytes / 1048576).toFixed(1) + " Mo";
 }
 
-const exportToCSV = (headers: string[], rows: string[][], filename: string) => {
-  const csvContent = [
-    headers.join(";"),
-    ...rows.map(row => row.map(val => `"${(val || '').replace(/"/g, '""')}"`).join(";"))
-  ].join("\n");
-  
-  const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", filename);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-const printTable = (title: string, headers: string[], rows: string[][]) => {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
-  
-  const html = `
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { font-family: sans-serif; padding: 20px; color: #333; }
-          h1 { font-size: 20px; margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
-          th { background-color: #f5f5f5; font-weight: bold; }
-          tr:nth-child(even) { background-color: #f9f9f9; }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        <p>Généré le : ${new Date().toLocaleString('fr-FR')}</p>
-        <table>
-          <thead>
-            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
-          </thead>
-          <tbody>
-            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell || ''}</td>`).join('')}</tr>`).join('')}
-          </tbody>
-        </table>
-        <script>
-          window.onload = function() {
-            window.print();
-            window.close();
-          }
-        </script>
-      </body>
-    </html>
-  `;
-  printWindow.document.write(html);
-  printWindow.document.close();
-};
-
-// ═══════════════ Tab: Sessions (original) ═══════════════
-function SessionsTab() {
-  const { data: sessions, isLoading, error } = useQuery({
-    queryKey: ['active-sessions-history'],
-    queryFn: async () => {
-      const res = await authenticatedFetch('/api/auth/active-sessions');
-      if (!res.ok) throw new Error('Erreur de récupération des sessions');
-      const data = await res.json();
-      if (data?.tableMissing) return [];
-      return Array.isArray(data) ? data : data?.sessions ?? [];
-    },
-    refetchInterval: 30000,
-  });
-
+// ═══════════════ Tab: Sessions APK ═══════════════
+function SessionsTab({ sessions, isLoading, error }: { sessions: any[]; isLoading: boolean; error: any }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const deleteSingleMut = useMutation({
+    mutationFn: (id: number) => apiRequest({ url: `/api/auth/active-sessions/${id}`, method: 'DELETE' }),
+    onSuccess: (_data, id) => {
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      qc.invalidateQueries({ queryKey: ['active-sessions-history'] });
+      toast({ title: 'Session supprimée' });
+    },
+    onError: (e: any) => toast({ title: 'Erreur', description: e?.message || 'Suppression impossible', variant: 'destructive' }),
+  });
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      setBulkDeleting(true);
+      await apiRequest({ url: '/api/auth/active-sessions/bulk-delete', method: 'POST', data: { ids } });
+      setSelectedIds(new Set());
+      qc.invalidateQueries({ queryKey: ['active-sessions-history'] });
+      toast({ title: `${ids.length} session(s) supprimée(s)` });
+    } catch (e: any) {
+      toast({ title: 'Erreur', description: e?.message || 'Suppression groupée impossible', variant: 'destructive' });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
 
   const filteredSessions = useMemo(() => {
-    if (!sessions) return [];
-    let list = sessions;
+    let list = sessions || [];
+    if (statusFilter === 'active') list = list.filter((s: any) => s.isActive);
+    else if (statusFilter === 'inactive') list = list.filter((s: any) => !s.isActive);
 
-    // Statut filter
-    if (statusFilter === 'active') {
-      list = list.filter((s: any) => s.isActive);
-    } else if (statusFilter === 'inactive') {
-      list = list.filter((s: any) => !s.isActive);
-    }
-
-    // Search filter
     if (!searchTerm.trim()) return list;
-    const s = searchTerm.toLowerCase();
+    const q = searchTerm.toLowerCase();
     return list.filter((session: any) =>
-      (session.agentMatricule || '').toLowerCase().includes(s) ||
-      (session.agentPrenom || '').toLowerCase().includes(s) ||
-      (session.agentNom || '').toLowerCase().includes(s)
+      sessionDisplayName(session).toLowerCase().includes(q) ||
+      (session.username || '').toLowerCase().includes(q) ||
+      (session.agentMatricule || '').toLowerCase().includes(q) ||
+      (session.role || '').toLowerCase().includes(q) ||
+      (session.deviceId || '').toLowerCase().includes(q)
     );
   }, [sessions, searchTerm, statusFilter]);
 
-  const handleExportCSV = () => {
-    const headers = ["Utilisateur", "Matricule / ID", "Appareil (Device ID)", "Position GPS", "Statut", "Derniere Activite", "Creation"];
-    const rows = filteredSessions.map((s: any) => {
-      const user = s.agentPrenom || s.agentNom ? `${s.agentPrenom || ''} ${s.agentNom || ''}`.trim() : "Utilisateur inconnu";
-      const matriculeOrId = s.agentMatricule ? s.agentMatricule : `ID: ${s.userId}`;
-      const deviceId = s.deviceId || 'N/A';
-      const gps = s.lat && s.lon ? `${s.lat}, ${s.lon}` : 'N/A';
-      const statut = s.isActive ? 'Active' : 'Inactive';
-      const lastAct = s.lastActivity ? fmtDate(s.lastActivity) : '-';
-      const created = s.createdAt ? fmtDate(s.createdAt) : '-';
-      return [user, matriculeOrId, deviceId, gps, statut, lastAct, created];
+  const allVisibleSelected = filteredSessions.length > 0 && filteredSessions.every((s: any) => selectedIds.has(s.id));
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-    exportToCSV(headers, rows, `sessions_apk_${format(new Date(), 'yyyy-MM-dd')}.csv`);
   };
 
-  const handlePrint = () => {
-    const headers = ["Utilisateur", "Matricule / ID", "Appareil (Device ID)", "Position GPS", "Statut", "Dernière Activité", "Création"];
-    const rows = filteredSessions.map((s: any) => {
-      const user = s.agentPrenom || s.agentNom ? `${s.agentPrenom || ''} ${s.agentNom || ''}`.trim() : "Utilisateur inconnu";
-      const matriculeOrId = s.agentMatricule ? s.agentMatricule : `ID: ${s.userId}`;
-      const deviceId = s.deviceId || 'N/A';
-      const gps = s.lat && s.lon ? `${parseFloat(s.lat).toFixed(5)}, ${parseFloat(s.lon).toFixed(5)}` : 'Non disponible';
-      const statut = s.isActive ? 'Active' : 'Inactive';
-      const lastAct = s.lastActivity ? fmtDate(s.lastActivity) : '-';
-      const created = s.createdAt ? fmtDate(s.createdAt) : '-';
-      return [user, matriculeOrId, deviceId, gps, statut, lastAct, created];
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        filteredSessions.forEach((s: any) => next.delete(s.id));
+      } else {
+        filteredSessions.forEach((s: any) => next.add(s.id));
+      }
+      return next;
     });
-    printTable("Sessions Actives et Historique GPS", headers, rows);
   };
 
   if (isLoading) return <div className="flex justify-center py-12"><Activity className="h-8 w-8 animate-spin text-orange-500" /></div>;
@@ -208,32 +180,53 @@ function SessionsTab() {
 
   return (
     <Card className="border-0 shadow-lg flex flex-col flex-1 min-h-0">
-      <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4 flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4 flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Activity className="h-5 w-5 text-slate-500" />
               Sessions Actives et Historique GPS
             </CardTitle>
-            <CardDescription className="mt-1">Liste des dernières connexions et remontées GPS via l'application mobile.</CardDescription>
+            <CardDescription className="mt-1">
+              {filteredSessions.length} session(s) enregistrée(s) — connexions et remontées GPS.
+            </CardDescription>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              className="flex items-center gap-1.5 text-xs text-slate-600 bg-background"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Exporter CSV
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={toggleSelectAll} disabled={filteredSessions.length === 0}>
+              {allVisibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
             </Button>
+            {selectedIds.size > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="destructive" size="sm" disabled={bulkDeleting} className="gap-1.5">
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Supprimer ({selectedIds.size})
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Supprimer {selectedIds.size} session(s) ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Les sessions sélectionnées seront définitivement supprimées de l&apos;historique.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleBulkDelete}>
+                      Supprimer
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input placeholder="Rechercher (Matricule, Nom...)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 bg-background" />
+            <Input placeholder="Rechercher (Nom, identifiant, matricule, rôle...)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 bg-background" />
           </div>
           <div className="w-full sm:w-48">
             <select
@@ -252,39 +245,98 @@ function SessionsTab() {
         <Table wrapperClassName="flex-1 overflow-auto">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm w-[42px]">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-slate-300 cursor-pointer"
+                  aria-label="Tout sélectionner"
+                />
+              </TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Utilisateur</TableHead>
-              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Appareil (Device ID)</TableHead>
+              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Appareil</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Position GPS</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Statut</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Dernière Activité</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Création</TableHead>
+              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm w-[50px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredSessions.length > 0 ? filteredSessions.map((session: any) => (
-              <TableRow key={session.id} className="hover:bg-slate-50 transition-colors">
-                <TableCell className="font-medium text-slate-900">
-                  <div>{session.agentPrenom || session.agentNom ? <span className="font-bold">{session.agentPrenom} {session.agentNom}</span> : <span>Utilisateur inconnu</span>}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{session.agentMatricule ? <span className="font-mono text-teal-600">{session.agentMatricule}</span> : <span>ID: {session.userId}</span>}</div>
-                </TableCell>
-                <TableCell className="text-slate-600 font-mono text-xs">{session.deviceId || 'N/A'}</TableCell>
-                <TableCell>
-                  {session.lat && session.lon ? (
-                    <div className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-md w-fit">
-                      <MapPin className="h-3 w-3 text-blue-500" />{parseFloat(session.lat).toFixed(5)}, {parseFloat(session.lon).toFixed(5)}
+            {filteredSessions.length > 0 ? filteredSessions.map((session: any) => {
+              const name = sessionDisplayName(session);
+              const roleLbl = sessionRoleLabel(session.role);
+              return (
+                <TableRow key={session.id} className="hover:bg-slate-50 transition-colors">
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(session.id)}
+                      onChange={() => toggleSelect(session.id)}
+                      className="h-4 w-4 rounded border-slate-300 cursor-pointer"
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium text-slate-900">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold">{name}</span>
+                      {roleLbl && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium">
+                          {roleLbl}
+                        </Badge>
+                      )}
                     </div>
-                  ) : <span className="text-slate-400 italic text-xs">Non disponible</span>}
-                </TableCell>
-                <TableCell>
-                  {session.isActive
-                    ? <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-0 shadow-none">Active</Badge>
-                    : <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-200 border-0 shadow-none">Inactive</Badge>}
-                </TableCell>
-                <TableCell className="text-slate-600 text-sm">{session.lastActivity ? format(new Date(session.lastActivity), 'dd MMM yyyy, HH:mm', { locale: fr }) : '-'}</TableCell>
-                <TableCell className="text-slate-600 text-sm">{session.createdAt ? format(new Date(session.createdAt), 'dd MMM yyyy, HH:mm', { locale: fr }) : '-'}</TableCell>
-              </TableRow>
-            )) : (
-              <TableRow><TableCell colSpan={6} className="h-32 text-center text-slate-500">Aucune session APK enregistrée.</TableCell></TableRow>
+                    <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                      {session.agentMatricule && (
+                        <span className="font-mono text-teal-700">{session.agentMatricule}</span>
+                      )}
+                      {session.username && session.username !== name && (
+                        <span>@{session.username}</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-slate-600 font-mono text-xs max-w-[280px] truncate" title={session.deviceId || ''}>
+                    {session.deviceId || 'N/A'}
+                  </TableCell>
+                  <TableCell>
+                    {session.lat && session.lon ? (
+                      <div className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-md w-fit">
+                        <MapPin className="h-3 w-3 text-blue-500" />{parseFloat(session.lat).toFixed(5)}, {parseFloat(session.lon).toFixed(5)}
+                      </div>
+                    ) : <span className="text-slate-400 italic text-xs">Non disponible</span>}
+                  </TableCell>
+                  <TableCell>
+                    {session.isActive
+                      ? <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-0 shadow-none">Active</Badge>
+                      : <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-200 border-0 shadow-none">Inactive</Badge>}
+                  </TableCell>
+                  <TableCell className="text-slate-600 text-sm whitespace-nowrap">{fmtDate(session.lastActivity)}</TableCell>
+                  <TableCell className="text-slate-600 text-sm whitespace-nowrap">{fmtDate(session.createdAt)}</TableCell>
+                  <TableCell>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Supprimer cette session ?</AlertDialogTitle>
+                          <AlertDialogDescription>Cette entrée de session sera supprimée définitivement.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
+                          <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => deleteSingleMut.mutate(session.id)}>
+                            Supprimer
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
+                </TableRow>
+              );
+            }) : (
+              <TableRow><TableCell colSpan={8} className="h-32 text-center text-slate-500">Aucune session enregistrée.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -294,49 +346,60 @@ function SessionsTab() {
 }
 
 // ═══════════════ Tab: Alertes ═══════════════
-function AlertesTab() {
+function AlertesTab({ alerts, isLoading }: { alerts: AlertItem[]; isLoading: boolean }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [natureFilter, setNatureFilter] = useState("all");
   const [regionFilter, setRegionFilter] = useState("all");
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["/api/superadmin/comms/alerts"],
-    queryFn: () => apiRequest<AlertItem[]>({ url: "/api/superadmin/comms/alerts", method: "GET" }),
-  });
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const deleteMut = useMutation({
     mutationFn: (id: number) => apiRequest({ url: `/api/superadmin/comms/alerts/${id}`, method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/superadmin/comms/alerts"] }); toast({ title: "Alerte supprimée" }); },
+    onSuccess: (_data, id) => {
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      qc.invalidateQueries({ queryKey: ["/api/superadmin/comms/alerts"] });
+      toast({ title: "Alerte supprimée" });
+    },
     onError: (e: any) => toast({ title: "Erreur", description: e?.message, variant: "destructive" }),
   });
 
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      setBulkDeleting(true);
+      await Promise.all(ids.map((id) => apiRequest({ url: `/api/superadmin/comms/alerts/${id}`, method: "DELETE" })));
+      setSelectedIds(new Set());
+      qc.invalidateQueries({ queryKey: ["/api/superadmin/comms/alerts"] });
+      toast({ title: `${ids.length} alerte(s) supprimée(s)` });
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e?.message, variant: "destructive" });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const distinctRegions = useMemo(() => {
-    const list = Array.isArray(data) ? data : [];
-    const regions = list.map(a => a.region).filter((r): r is string => Boolean(r));
+    const regions = (alerts || []).map(a => a.region).filter((r): r is string => Boolean(r));
     return Array.from(new Set(regions)).sort();
-  }, [data]);
+  }, [alerts]);
 
   const filteredAlerts = useMemo(() => {
-    const list = Array.isArray(data) ? data : [];
-    
-    return list.filter(a => {
-      // Search term
+    return (alerts || []).filter(a => {
       if (search.trim()) {
         const q = search.toLowerCase();
-        const matchesSearch = 
-          (a.title || "").toLowerCase().includes(q) || 
+        const matchesSearch =
+          (a.title || "").toLowerCase().includes(q) ||
           (a.nature || "").toLowerCase().includes(q) ||
-          (a.sender?.lastName || "").toLowerCase().includes(q) || 
+          (a.sender?.lastName || "").toLowerCase().includes(q) ||
           (a.sender?.firstName || "").toLowerCase().includes(q) ||
-          (a.sender?.matricule || "").toLowerCase().includes(q) || 
+          (a.sender?.matricule || "").toLowerCase().includes(q) ||
           (a.region || "").toLowerCase().includes(q) ||
           (a.departement || "").toLowerCase().includes(q);
         if (!matchesSearch) return false;
       }
-
-      // Nature filter
       if (natureFilter !== "all") {
         if (natureFilter === "trafic_bois") {
           if (a.nature !== "trafic_bois" && a.nature !== "trafic-bois") return false;
@@ -344,57 +407,26 @@ function AlertesTab() {
           return false;
         }
       }
-
-      // Region filter
-      if (regionFilter !== "all" && a.region !== regionFilter) {
-        return false;
-      }
-
+      if (regionFilter !== "all" && a.region !== regionFilter) return false;
       return true;
     });
-  }, [data, search, natureFilter, regionFilter]);
+  }, [alerts, search, natureFilter, regionFilter]);
 
-  const handleExportCSV = () => {
-    const headers = ["Date", "Nature", "Titre", "Message", "Agent", "Matricule", "Grade", "Genre", "Role Metier", "Service (Region Agent)", "Lieu d'envoi"];
-    const rows = filteredAlerts.map(a => {
-      const date = fmtDate(a.createdAt);
-      const nature = natureLabels[a.nature] || a.nature;
-      const title = a.title || "—";
-      const msg = a.message || "—";
-      const agent = agentName(a.sender);
-      const matricule = a.sender?.matricule || "—";
-      const grade = a.sender?.grade || "—";
-      const genre = a.sender?.genre || "—";
-      const roleMetier = a.sender?.roleMetier || "—";
-      const service = a.sender?.region || "—";
-      const lieu = [a.commune, a.arrondissement, a.departement, a.region].filter(Boolean).join(", ") || "—";
-      return [date, nature, title, msg, agent, matricule, grade, genre, roleMetier, service, lieu];
-    });
-    exportToCSV(headers, rows, `alertes_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-  };
-
-  const handlePrint = () => {
-    const headers = ["Date", "Nature", "Titre / Message", "Agent", "Matricule / Grade / Genre", "Rôle Métier", "Service", "Lieu d'envoi"];
-    const rows = filteredAlerts.map(a => {
-      const date = fmtDate(a.createdAt);
-      const nature = natureLabels[a.nature] || a.nature;
-      const titleMsg = `${a.title || "—"}\n${a.message || ""}`;
-      const agent = agentName(a.sender);
-      const matriculeDetails = `${a.sender?.matricule || "—"} (${a.sender?.grade || "—"} / ${a.sender?.genre || "—"})`;
-      const roleMetier = a.sender?.roleMetier || "—";
-      const service = a.sender?.region || "—";
-      const lieu = [a.commune, a.arrondissement, a.departement, a.region].filter(Boolean).join(", ") || "—";
-      return [date, nature, titleMsg, agent, matriculeDetails, roleMetier, service, lieu];
-    });
-    printTable("Historique des Alertes", headers, rows);
-  };
+  const allVisibleSelected = filteredAlerts.length > 0 && filteredAlerts.every((a) => selectedIds.has(a.id));
+  const toggleSelect = (id: number) => setSelectedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelectAll = () => setSelectedIds((prev) => {
+    const n = new Set(prev);
+    if (allVisibleSelected) filteredAlerts.forEach((a) => n.delete(a.id));
+    else filteredAlerts.forEach((a) => n.add(a.id));
+    return n;
+  });
 
   if (isLoading) return <div className="flex justify-center py-12"><Activity className="h-8 w-8 animate-spin text-orange-500" /></div>;
 
   return (
     <Card className="border-0 shadow-lg flex flex-col flex-1 min-h-0">
-      <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4 flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4 flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Bell className="h-5 w-5 text-red-500" />
@@ -402,16 +434,30 @@ function AlertesTab() {
             </CardTitle>
             <CardDescription className="mt-1">{filteredAlerts.length} alerte(s) envoyée(s) dans le système.</CardDescription>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              className="flex items-center gap-1.5 text-xs text-slate-600 bg-background"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Exporter CSV
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={toggleSelectAll} disabled={filteredAlerts.length === 0}>
+              {allVisibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
             </Button>
+            {selectedIds.size > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="destructive" size="sm" disabled={bulkDeleting} className="gap-1.5">
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Supprimer ({selectedIds.size})
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Supprimer {selectedIds.size} alerte(s) ?</AlertDialogTitle>
+                    <AlertDialogDescription>Suppression irréversible des alertes sélectionnées.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleBulkDelete}>Supprimer</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
 
@@ -421,11 +467,7 @@ function AlertesTab() {
             <Input placeholder="Rechercher (nature, agent, région...)" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-background" />
           </div>
           <div className="w-full sm:w-48">
-            <select
-              value={natureFilter}
-              onChange={e => setNatureFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
+            <select value={natureFilter} onChange={e => setNatureFilter(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
               <option value="all">Toutes natures</option>
               <option value="braconnage">Braconnage</option>
               <option value="feux_de_brousse">Feux de brousse</option>
@@ -437,15 +479,9 @@ function AlertesTab() {
             </select>
           </div>
           <div className="w-full sm:w-48">
-            <select
-              value={regionFilter}
-              onChange={e => setRegionFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
+            <select value={regionFilter} onChange={e => setRegionFilter(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
               <option value="all">Toutes régions</option>
-              {distinctRegions.map(reg => (
-                <option key={reg} value={reg}>{reg}</option>
-              ))}
+              {distinctRegions.map(reg => (<option key={reg} value={reg}>{reg}</option>))}
             </select>
           </div>
         </div>
@@ -454,6 +490,9 @@ function AlertesTab() {
         <Table wrapperClassName="flex-1 overflow-auto">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm w-[42px]">
+                <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="h-4 w-4 rounded border-slate-300 cursor-pointer" />
+              </TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700 min-w-[130px]">Date</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Nature</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Titre / Message</TableHead>
@@ -461,13 +500,16 @@ function AlertesTab() {
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Matricule</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Rôle Métier</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Service</TableHead>
-              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Lieu d'envoi</TableHead>
-              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700 w-[50px]" />
+              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Lieu d&apos;envoi</TableHead>
+              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm w-[50px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAlerts.length > 0 ? filteredAlerts.map(a => (
               <TableRow key={a.id} className="hover:bg-slate-50 transition-colors">
+                <TableCell>
+                  <input type="checkbox" checked={selectedIds.has(a.id)} onChange={() => toggleSelect(a.id)} className="h-4 w-4 rounded border-slate-300 cursor-pointer" />
+                </TableCell>
                 <TableCell className="text-sm text-slate-600 whitespace-nowrap">{fmtDate(a.createdAt)}</TableCell>
                 <TableCell>
                   <Badge className={`border-0 shadow-none text-[10px] font-semibold ${natureColors[a.nature] || "bg-gray-100 text-gray-700"}`}>
@@ -481,9 +523,7 @@ function AlertesTab() {
                 <TableCell className="text-sm text-slate-900 whitespace-nowrap">{agentName(a.sender)}</TableCell>
                 <TableCell className="font-medium text-slate-900 whitespace-nowrap">
                   <div className="font-mono text-teal-600 text-xs">{a.sender?.matricule || "—"}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">
-                    {[a.sender?.grade, a.sender?.genre].filter(Boolean).join(" / ") || "—"}
-                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">{[a.sender?.grade, a.sender?.genre].filter(Boolean).join(" / ") || "—"}</div>
                 </TableCell>
                 <TableCell className="text-xs text-teal-700 font-medium whitespace-nowrap">{a.sender?.roleMetier || "—"}</TableCell>
                 <TableCell className="text-xs text-slate-500 max-w-[140px] truncate">{a.sender?.region || "—"}</TableCell>
@@ -499,7 +539,7 @@ function AlertesTab() {
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>Supprimer cette alerte ?</AlertDialogTitle>
-                        <AlertDialogDescription>Suppression irréversible de l'alerte et de toutes ses notifications associées.</AlertDialogDescription>
+                        <AlertDialogDescription>Suppression irréversible de l&apos;alerte et de ses notifications associées.</AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
@@ -510,7 +550,7 @@ function AlertesTab() {
                 </TableCell>
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={9} className="h-32 text-center text-slate-500">Aucune alerte trouvée.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="h-32 text-center text-slate-500">Aucune alerte trouvée.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -520,94 +560,78 @@ function AlertesTab() {
 }
 
 // ═══════════════ Tab: Messages ═══════════════
-function MessagesTab() {
+function MessagesTab({ messages, isLoading }: { messages: MessageItem[]; isLoading: boolean }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [previewPayload, setPreviewPayload] = useState<any | null>(null);
   const [attachmentFilter, setAttachmentFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["/api/superadmin/comms/messages"],
-    queryFn: () => apiRequest<MessageItem[]>({ url: "/api/superadmin/comms/messages", method: "GET" }),
-  });
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const deleteMut = useMutation({
     mutationFn: (id: number) => apiRequest({ url: `/api/superadmin/comms/messages/${id}`, method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/superadmin/comms/messages"] }); toast({ title: "Message supprimé" }); },
+    onSuccess: (_data, id) => {
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      qc.invalidateQueries({ queryKey: ["/api/superadmin/comms/messages"] });
+      toast({ title: "Message supprimé" });
+    },
     onError: (e: any) => toast({ title: "Erreur", description: e?.message, variant: "destructive" }),
   });
 
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      setBulkDeleting(true);
+      await Promise.all(ids.map((id) => apiRequest({ url: `/api/superadmin/comms/messages/${id}`, method: "DELETE" })));
+      setSelectedIds(new Set());
+      qc.invalidateQueries({ queryKey: ["/api/superadmin/comms/messages"] });
+      toast({ title: `${ids.length} message(s) supprimé(s)` });
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e?.message, variant: "destructive" });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const filteredMessages = useMemo(() => {
-    const list = Array.isArray(data) ? data : [];
-    
-    return list.filter(m => {
-      // Search term
+    return (messages || []).filter(m => {
       if (search.trim()) {
         const q = search.toLowerCase();
-        const matchesSearch = 
-          (m.content || "").toLowerCase().includes(q) || 
+        const matchesSearch =
+          (m.content || "").toLowerCase().includes(q) ||
           (m.subject || "").toLowerCase().includes(q) ||
-          (m.sender?.lastName || "").toLowerCase().includes(q) || 
+          (m.sender?.lastName || "").toLowerCase().includes(q) ||
           (m.sender?.firstName || "").toLowerCase().includes(q) ||
           (m.sender?.matricule || "").toLowerCase().includes(q) ||
-          (m.recipient?.lastName || "").toLowerCase().includes(q) || 
+          (m.recipient?.lastName || "").toLowerCase().includes(q) ||
           (m.recipient?.firstName || "").toLowerCase().includes(q);
         if (!matchesSearch) return false;
       }
-
-      // Attachment filter
       if (attachmentFilter === "with" && !m.attachment) return false;
       if (attachmentFilter === "without" && m.attachment) return false;
-
-      // Type filter
       if (typeFilter !== "all" && m.type !== typeFilter) return false;
-
       return true;
     });
-  }, [data, search, attachmentFilter, typeFilter]);
+  }, [messages, search, attachmentFilter, typeFilter]);
 
-  const handleExportCSV = () => {
-    const headers = ["Date", "Expediteur", "Matricule Expediteur", "Role Metier Expediteur", "Service Expediteur", "Destinataire", "Type", "Objet", "Contenu", "Piece jointe"];
-    const rows = filteredMessages.map(m => {
-      const date = fmtDate(m.createdAt);
-      const sender = agentName(m.sender);
-      const senderMatricule = m.sender?.matricule || "—";
-      const senderRole = m.sender?.roleMetier || "—";
-      const senderService = m.sender?.serviceLocation || "—";
-      const recipient = agentName(m.recipient);
-      const type = m.type === "group" ? "Groupe" : "Individuel";
-      const subject = m.subject || "—";
-      const content = m.content || "";
-      const att = m.attachment ? `${m.attachment.name} (${fmtSize(m.attachment.size)})` : "Aucune";
-      return [date, sender, senderMatricule, senderRole, senderService, recipient, type, subject, content, att];
-    });
-    exportToCSV(headers, rows, `messages_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-  };
-
-  const handlePrint = () => {
-    const headers = ["Date", "Expéditeur", "Rôle Métier", "Service", "Destinataire", "Type", "Sujet / Contenu", "Pièce jointe"];
-    const rows = filteredMessages.map(m => {
-      const date = fmtDate(m.createdAt);
-      const sender = `${agentName(m.sender)} (${m.sender?.matricule || "—"})`;
-      const senderRole = m.sender?.roleMetier || "—";
-      const senderService = m.sender?.serviceLocation || "—";
-      const recipient = `${agentName(m.recipient)} (${m.recipient?.matricule || "—"})`;
-      const type = m.type === "group" ? "Groupe" : "Individuel";
-      const content = `${m.subject ? `[${m.subject}] ` : ""}${m.content}`;
-      const att = m.attachment ? `${m.attachment.name} (${fmtSize(m.attachment.size)})` : "Aucune";
-      return [date, sender, senderRole, senderService, recipient, type, content, att];
-    });
-    printTable("Historique des Messages", headers, rows);
-  };
+  const allVisibleSelected = filteredMessages.length > 0 && filteredMessages.every((m) => selectedIds.has(m.id));
+  const toggleSelect = (id: number) => setSelectedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelectAll = () => setSelectedIds((prev) => {
+    const n = new Set(prev);
+    if (allVisibleSelected) filteredMessages.forEach((m) => n.delete(m.id));
+    else filteredMessages.forEach((m) => n.add(m.id));
+    return n;
+  });
 
   if (isLoading) return <div className="flex justify-center py-12"><Activity className="h-8 w-8 animate-spin text-orange-500" /></div>;
 
   return (
     <Card className="border-0 shadow-lg flex flex-col flex-1 min-h-0">
-      <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4 flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4 flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-blue-500" />
@@ -615,16 +639,30 @@ function MessagesTab() {
             </CardTitle>
             <CardDescription className="mt-1">{filteredMessages.length} message(s) échangé(s) dans le système.</CardDescription>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              className="flex items-center gap-1.5 text-xs text-slate-600 bg-background"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Exporter CSV
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={toggleSelectAll} disabled={filteredMessages.length === 0}>
+              {allVisibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
             </Button>
+            {selectedIds.size > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="destructive" size="sm" disabled={bulkDeleting} className="gap-1.5">
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Supprimer ({selectedIds.size})
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Supprimer {selectedIds.size} message(s) ?</AlertDialogTitle>
+                    <AlertDialogDescription>Les messages sélectionnés seront supprimés définitivement.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleBulkDelete}>Supprimer</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
 
@@ -634,22 +672,14 @@ function MessagesTab() {
             <Input placeholder="Rechercher (contenu, expéditeur, destinataire...)" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-background" />
           </div>
           <div className="w-full sm:w-48">
-            <select
-              value={attachmentFilter}
-              onChange={e => setAttachmentFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
+            <select value={attachmentFilter} onChange={e => setAttachmentFilter(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
               <option value="all">Toutes pièces jointes</option>
               <option value="with">Avec pièce jointe</option>
               <option value="without">Sans pièce jointe</option>
             </select>
           </div>
           <div className="w-full sm:w-48">
-            <select
-              value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
               <option value="all">Tous types</option>
               <option value="direct">Individuel</option>
               <option value="group">Groupe</option>
@@ -661,19 +691,25 @@ function MessagesTab() {
         <Table wrapperClassName="flex-1 overflow-auto">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm w-[42px]">
+                <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="h-4 w-4 rounded border-slate-300 cursor-pointer" />
+              </TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700 min-w-[130px]">Date</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Expéditeur</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Rôle Métier</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Service</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Destinataire</TableHead>
               <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700">Contenu</TableHead>
-              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700 w-[40px]"><Paperclip className="h-3.5 w-3.5" /></TableHead>
-              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm font-semibold text-slate-700 w-[50px]" />
+              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm w-[40px]"><Paperclip className="h-3.5 w-3.5" /></TableHead>
+              <TableHead className="sticky top-0 bg-slate-100 z-10 shadow-sm w-[50px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredMessages.length > 0 ? filteredMessages.map(m => (
               <TableRow key={m.id} className="hover:bg-slate-50 transition-colors">
+                <TableCell>
+                  <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => toggleSelect(m.id)} className="h-4 w-4 rounded border-slate-300 cursor-pointer" />
+                </TableCell>
                 <TableCell className="text-sm text-slate-600 whitespace-nowrap">{fmtDate(m.createdAt)}</TableCell>
                 <TableCell className="text-sm text-slate-900 whitespace-nowrap">{agentName(m.sender)}</TableCell>
                 <TableCell className="text-xs text-teal-700 font-medium whitespace-nowrap">{m.sender?.roleMetier || "—"}</TableCell>
@@ -686,16 +722,14 @@ function MessagesTab() {
                 <TableCell>
                   {m.attachment ? (
                     <button
-                      onClick={() => {
-                        setPreviewPayload({
-                          messageId: m.id,
-                          isGroup: m.type === 'group',
-                          name: m.attachment?.name,
-                          mime: m.attachment?.mime,
-                          size: m.attachment?.size,
-                        });
-                      }}
-                      title={m.attachment ? `${m.attachment.name} (${fmtSize(m.attachment.size)})` : undefined}
+                      onClick={() => setPreviewPayload({
+                        messageId: m.id,
+                        isGroup: m.type === 'group',
+                        name: m.attachment?.name,
+                        mime: m.attachment?.mime,
+                        size: m.attachment?.size,
+                      })}
+                      title={`${m.attachment.name} (${fmtSize(m.attachment.size)})`}
                       className="text-blue-500 hover:text-blue-700 focus:outline-none"
                     >
                       <Paperclip className="h-4 w-4" />
@@ -721,7 +755,7 @@ function MessagesTab() {
                 </TableCell>
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={8} className="h-32 text-center text-slate-500">Aucun message trouvé.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="h-32 text-center text-slate-500">Aucun message trouvé.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -735,25 +769,123 @@ function MessagesTab() {
 type TabKey = "sessions" | "alertes" | "messages";
 
 export default function ApkHistoryPage() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<TabKey>("sessions");
 
-  const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-    { key: "sessions", label: "Sessions APK", icon: <Activity className="h-4 w-4" /> },
-    { key: "alertes", label: "Alertes", icon: <Bell className="h-4 w-4" /> },
-    { key: "messages", label: "Messages", icon: <MessageSquare className="h-4 w-4" /> },
+  const { data: sessionsData = [], isLoading: sessionsLoading, error: sessionsError } = useQuery({
+    queryKey: ['active-sessions-history'],
+    queryFn: async () => {
+      const res = await authenticatedFetch('/api/auth/active-sessions');
+      if (!res.ok) throw new Error('Erreur de récupération des sessions');
+      const data = await res.json();
+      if (data?.tableMissing) return [];
+      return Array.isArray(data) ? data : data?.sessions ?? [];
+    },
+    refetchInterval: 30000,
+  });
+
+  const { data: alertsData = [], isLoading: alertsLoading } = useQuery({
+    queryKey: ["/api/superadmin/comms/alerts"],
+    queryFn: () => apiRequest<AlertItem[]>({ url: "/api/superadmin/comms/alerts", method: "GET" }),
+  });
+
+  const { data: messagesData = [], isLoading: messagesLoading } = useQuery({
+    queryKey: ["/api/superadmin/comms/messages"],
+    queryFn: () => apiRequest<MessageItem[]>({ url: "/api/superadmin/comms/messages", method: "GET" }),
+  });
+
+  const sessionsList: any[] = Array.isArray(sessionsData) ? sessionsData : [];
+  const alertsList: AlertItem[] = Array.isArray(alertsData) ? alertsData : [];
+  const messagesList: MessageItem[] = Array.isArray(messagesData) ? messagesData : [];
+
+  const handleExportWorkbook = () => {
+    exportMultiSheetExcel(
+      [
+        {
+          name: 'Sessions APK',
+          headers: ['Utilisateur', 'Identifiant', 'Rôle', 'Matricule', 'Appareil', 'Position GPS', 'Statut', 'Dernière Activité', 'Création'],
+          rows: sessionsList.map((s: any) => [
+            sessionDisplayName(s),
+            s.username || '—',
+            sessionRoleLabel(s.role) || '—',
+            s.agentMatricule || '—',
+            s.deviceId || 'N/A',
+            s.lat && s.lon ? `${s.lat}, ${s.lon}` : 'Non disponible',
+            s.isActive ? 'Active' : 'Inactive',
+            fmtDate(s.lastActivity),
+            fmtDate(s.createdAt),
+          ]),
+        },
+        {
+          name: 'Alertes',
+          headers: ['Date', 'Nature', 'Titre', 'Message', 'Agent', 'Matricule', 'Grade', 'Rôle Métier', 'Service', "Lieu d'envoi"],
+          rows: alertsList.map((a) => [
+            fmtDate(a.createdAt),
+            natureLabels[a.nature] || a.nature,
+            a.title || '—',
+            a.message || '—',
+            agentName(a.sender),
+            a.sender?.matricule || '—',
+            a.sender?.grade || '—',
+            a.sender?.roleMetier || '—',
+            a.sender?.region || '—',
+            [a.commune, a.arrondissement, a.departement, a.region].filter(Boolean).join(', ') || '—',
+          ]),
+        },
+        {
+          name: 'Messages',
+          headers: ['Date', 'Expéditeur', 'Matricule', 'Rôle Métier', 'Service', 'Destinataire', 'Type', 'Objet', 'Contenu', 'Pièce jointe'],
+          rows: messagesList.map((m) => [
+            fmtDate(m.createdAt),
+            agentName(m.sender),
+            m.sender?.matricule || '—',
+            m.sender?.roleMetier || '—',
+            m.sender?.serviceLocation || '—',
+            agentName(m.recipient),
+            m.type === 'group' ? 'Groupe' : 'Individuel',
+            m.subject || '—',
+            m.content || '',
+            m.attachment ? `${m.attachment.name} (${fmtSize(m.attachment.size)})` : 'Aucune',
+          ]),
+        },
+      ],
+      `audit_apk_complet_${format(new Date(), 'yyyy-MM-dd')}.xls`
+    );
+    toast({
+      title: 'Classeur exporté',
+      description: 'Export complet généré avec 3 onglets : Sessions APK, Alertes et Messages.',
+    });
+  };
+
+  const tabs: { key: TabKey; label: string; count: number; icon: React.ReactNode }[] = [
+    { key: "sessions", label: "Sessions APK", count: sessionsList.length, icon: <Activity className="h-4 w-4" /> },
+    { key: "alertes", label: "Alertes", count: alertsList.length, icon: <Bell className="h-4 w-4" /> },
+    { key: "messages", label: "Messages", count: messagesList.length, icon: <MessageSquare className="h-4 w-4" /> },
   ];
 
   return (
     <div className="w-full min-w-0 mx-auto p-2 sm:p-4 md:p-8 max-w-7xl flex flex-col min-h-[calc(100dvh-110px)] md:h-[calc(100dvh-80px)]">
-      {/* Header */}
-      <div className="mb-4 sm:mb-6 flex items-center gap-3">
-        <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
-          <Shield className="h-5 w-5 sm:h-6 sm:w-6" />
+      {/* Header avec bouton unique d'export classeur multi-onglets */}
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
+            <Shield className="h-5 w-5 sm:h-6 sm:w-6" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Audit APK &amp; Alertes</h1>
+            <p className="text-xs sm:text-sm opacity-75">Suivi des sessions actives, alertes et messages du système</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Audit APK & Alertes</h1>
-          <p className="text-xs sm:text-sm opacity-75">Suivi des sessions actives, alertes et messages du système</p>
-        </div>
+
+        <Button
+          type="button"
+          onClick={handleExportWorkbook}
+          className="gap-2 bg-emerald-700 hover:bg-emerald-800 text-white shrink-0 self-start sm:self-auto"
+          size="sm"
+        >
+          <Download className="h-4 w-4" />
+          Exporter tout (Classeur 3 onglets)
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -770,15 +902,18 @@ export default function ApkHistoryPage() {
           >
             {t.icon}
             {t.label}
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-200/80 text-slate-700">
+              {t.count}
+            </span>
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
       <div className="flex-1 min-h-0 min-w-0 flex flex-col">
-        {activeTab === "sessions" && <SessionsTab />}
-        {activeTab === "alertes" && <AlertesTab />}
-        {activeTab === "messages" && <MessagesTab />}
+        {activeTab === "sessions" && <SessionsTab sessions={sessionsList} isLoading={sessionsLoading} error={sessionsError} />}
+        {activeTab === "alertes" && <AlertesTab alerts={alertsList} isLoading={alertsLoading} />}
+        {activeTab === "messages" && <MessagesTab messages={messagesList} isLoading={messagesLoading} />}
       </div>
     </div>
   );

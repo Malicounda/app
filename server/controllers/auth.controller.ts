@@ -593,7 +593,12 @@ export const getMe = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Non authentifié" });
         }
 
-        // Mettre à jour la session avec les dernières valeurs de la DB
+        // Vérifier le statut SuperAdmin depuis la base (colonne users.is_super_admin OU table super_admins)
+        const isSuperAdminFlag = Boolean(
+            (await storage.isSuperAdmin(userId)) || sessionUser?.isSuperAdmin === true
+        );
+
+        // Mettre à jour la session avec les dernières valeurs de la DB (en préservant isSuperAdmin)
         req.session.user = {
             ...(req.session.user as any),
             id: u.id,
@@ -605,6 +610,7 @@ export const getMe = async (req: Request, res: Response) => {
             phone: u.phone,
             matricule: u.matricule,
             serviceLocation: u.serviceLocation,
+            isSuperAdmin: isSuperAdminFlag,
             role: u.role,
             region: u.region,
             departement: u.departement,
@@ -621,7 +627,7 @@ export const getMe = async (req: Request, res: Response) => {
             phone: u.phone ?? null,
             matricule: u.matricule ?? null,
             serviceLocation: u.serviceLocation ?? null,
-            isSuperAdmin: !!sessionUser?.isSuperAdmin,
+            isSuperAdmin: isSuperAdminFlag,
             role: u.role,
             region: u.region ?? null,
             departement: u.departement ?? null,
@@ -735,13 +741,16 @@ export const getActiveSessions = async (req: Request, res: Response) => {
                 s.last_activity as "lastActivity",
                 s.is_active as "isActive",
                 s.blocked_reason as "blockedReason",
+                u.username as "username",
+                u.email as "email",
                 u.matricule as "agentMatricule",
-                a.prenom as "agentPrenom",
-                a.nom as "agentNom",
+                COALESCE(NULLIF(TRIM(a.prenom), ''), NULLIF(TRIM(u.first_name), ''), NULLIF(TRIM(h.first_name), '')) as "agentPrenom",
+                COALESCE(NULLIF(TRIM(a.nom), ''), NULLIF(TRIM(u.last_name), ''), NULLIF(TRIM(h.last_name), '')) as "agentNom",
                 u.role
             FROM active_sessions s
             LEFT JOIN users u ON s.user_id = u.id
             LEFT JOIN agents a ON u.id = a.user_id
+            LEFT JOIN hunters h ON u.hunter_id = h.id
             ORDER BY s.last_activity DESC NULLS LAST
             LIMIT 500
         `);
@@ -750,5 +759,45 @@ export const getActiveSessions = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('[AUTH] Erreur dans getActiveSessions:', error);
         return res.status(500).json({ message: "Erreur lors de la récupération des sessions" });
+    }
+};
+
+export const deleteActiveSession = async (req: Request, res: Response) => {
+    try {
+        const currentUser: any = req.user;
+        const role = String(currentUser?.role || '').toLowerCase();
+        if (!['admin', 'superadmin', 'super_admin'].includes(role) && !currentUser?.isSuperAdmin) {
+            return res.status(403).json({ message: 'Accès refusé' });
+        }
+        const idNum = Number(req.params.id);
+        if (!Number.isInteger(idNum) || idNum <= 0) {
+            return res.status(400).json({ message: 'Session invalide' });
+        }
+        await db.execute(sql`DELETE FROM active_sessions WHERE id = ${idNum}` as any);
+        return res.status(200).json({ ok: true, deletedId: idNum });
+    } catch (error) {
+        console.error('[AUTH] Erreur dans deleteActiveSession:', error);
+        return res.status(500).json({ message: 'Erreur lors de la suppression de la session' });
+    }
+};
+
+export const bulkDeleteActiveSessions = async (req: Request, res: Response) => {
+    try {
+        const currentUser: any = req.user;
+        const role = String(currentUser?.role || '').toLowerCase();
+        if (!['admin', 'superadmin', 'super_admin'].includes(role) && !currentUser?.isSuperAdmin) {
+            return res.status(403).json({ message: 'Accès refusé' });
+        }
+        const rawIds = Array.isArray(req.body?.ids) ? req.body.ids : [];
+        const ids = rawIds.map((v: any) => Number(v)).filter((n: number) => Number.isInteger(n) && n > 0);
+        if (ids.length === 0) {
+            return res.status(400).json({ message: 'Aucune session sélectionnée' });
+        }
+        const idList = sql.join(ids.map((id: number) => sql`${id}`), sql`, `);
+        await db.execute(sql`DELETE FROM active_sessions WHERE id IN (${idList})` as any);
+        return res.status(200).json({ ok: true, deletedCount: ids.length });
+    } catch (error) {
+        console.error('[AUTH] Erreur dans bulkDeleteActiveSessions:', error);
+        return res.status(500).json({ message: 'Erreur lors de la suppression des sessions' });
     }
 };

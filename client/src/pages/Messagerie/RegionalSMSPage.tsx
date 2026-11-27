@@ -1,6 +1,5 @@
 import ResponsivePage from "@/components/layout/ResponsivePage";
-import InternalMessageComposer from "@/components/messaging/InternalMessageComposer";
-import InternalMessageList from "@/components/messaging/InternalMessageList";
+import InternalMessagingShell from "@/components/messaging/InternalMessagingShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
@@ -12,7 +11,7 @@ export default function RegionalSMSPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const domaineId = getMessagingDomaineIdForHook();
-  const [activeTab, setActiveTab] = useState<"recu" | "nouveau" | "envoye">("recu");
+  const [activeTab, setActiveTab] = useState<"reçus" | "envoyés">("reçus");
   const [query, setQuery] = useState("");
   const {
     inbox,
@@ -62,6 +61,9 @@ export default function RegionalSMSPage() {
           return full;
         };
         const toLabel = (u: any, roleLabel: string) => {
+          if (u?.isSuperAdmin || u?.role === 'support') {
+            return 'Support Technique — Équipe Support';
+          }
           const fullName = toName(u);
           const username = String(u?.username || '').trim();
           const name = fullName || username || roleLabel;
@@ -104,7 +106,7 @@ export default function RegionalSMSPage() {
 
   // Refresh automatique quand l'onglet "Envoyés" devient actif
   useEffect(() => {
-    if (activeTab === "envoye") {
+    if (activeTab === "envoyés") {
       refreshSent();
     }
   }, [activeTab, refreshSent]);
@@ -197,116 +199,43 @@ export default function RegionalSMSPage() {
 
   return (
     <ResponsivePage>
-      <div className="mx-auto max-w-6xl">
-        <div className="flex flex-col md:flex-row md:h-[78vh] md:overflow-hidden">
-          {/* Main */}
-          <div className="flex-1 bg-white border border-gray-200 rounded-lg md:rounded-r-none md:border-r-0 overflow-hidden h-full flex flex-col">
-            {/* Header */}
-            <div className="shrink-0 flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
-              <h1 className="text-lg md:text-xl font-semibold">Messagerie interne</h1>
-              <div className="flex items-center gap-2 bg-gray-100 rounded-md px-3 py-2 w-56 md:w-72">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-500"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /></svg>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="bg-transparent outline-none text-sm w-full"
-                  placeholder="Rechercher"
-                />
-              </div>
-            </div>
-
-            {/* Content (no tabs; controlled by sidebar) */}
-            <div className="flex-1 min-h-0 flex flex-col">
-              <div className="shrink-0 border-b border-gray-200 px-4 pt-3 pb-2" />
-
-              {activeTab === "recu" && (
-                <div className="p-4 flex-1 min-h-0 overflow-y-auto subtle-scrollbar">
-                  <InternalMessageList
-                    messages={filteredInbox}
-                    loading={loadingInbox}
-                    emptyLabel="Aucun message reçu pour le moment."
-                    onDelete={handleDelete}
-                    onRefresh={refreshInbox}
-                    onReply={async ({ recipientIdentifier, content }) => {
-                      try {
-                        const isOffline = !navigator.onLine;
-                        await sendIndividual({ recipientIdentifier, content });
-                        if (isOffline) {
-                          toast({ title: 'Mode hors-ligne', description: 'Réponse sauvegardée localement. Envoi automatique dès le retour du réseau.' });
-                        } else {
-                          toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
-                        }
-                        return;
-                      } catch (e: any) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
-                        toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive'  });
-                      }
-                    }}
-                  />
-                </div>
-              )}
-
-              {activeTab === "nouveau" && (
-                <div className="p-4 flex-1 min-h-0 overflow-y-auto subtle-scrollbar">
-                  <InternalMessageComposer
-                    loading={sending}
-                    onSubmit={handleSend}
-                    regionTargets={regionalTargets}
-                    allowIndividual
-                    allowGroup
-                    adminRecipients={adminOptions}
-                    showAdminQuickPick
-                  />
-                </div>
-              )}
-
-              {activeTab === "envoye" && (
-                <div className="p-4 flex-1 min-h-0 overflow-y-auto subtle-scrollbar">
-                  <InternalMessageList
-                    messages={filteredSent}
-                    loading={loadingSent}
-                    emptyLabel="Aucun message envoyé pour le moment."
-                    context="sent"
-                    onDelete={handleDelete}
-                    onRefresh={refreshSent}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <aside className="md:w-64 mt-3 md:mt-0 md:ml-0 md:order-2 bg-gray-100 border border-gray-200 md:border-l md:border-t-0 rounded-lg md:rounded-l-none p-3 md:p-4 h-full overflow-auto">
-            <button
-              onClick={() => setActiveTab("nouveau")}
-              className="w-full inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full py-2.5 px-4 text-sm font-medium shadow transition-colors"
-            >
-              Nouveau message
-            </button>
-
-            <ul className="mt-4 space-y-1 text-sm">
-              <li>
-                <button
-                  onClick={() => setActiveTab("recu")}
-                  className={`w-full flex items-center gap-2 rounded px-3 py-2 ${activeTab === "recu" ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600' : 'hover:bg-gray-200'}`}
-                >
-                  Boîte de réception
-                  <span className="ml-auto text-xs">{inbox.length}</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setActiveTab("envoye")}
-                  className={`w-full flex items-center gap-2 rounded px-3 py-2 ${activeTab === "envoye" ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600' : 'hover:bg-gray-200'}`}
-                >
-                  Envoyés
-                  <span className="ml-auto text-xs">{sent.length}</span>
-                </button>
-              </li>
-            </ul>
-          </aside>
-        </div>
-      </div>
-      {null}
+      <InternalMessagingShell
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        query={query}
+        onQueryChange={setQuery}
+        inbox={inbox}
+        filteredInbox={filteredInbox}
+        sent={sent}
+        filteredSent={filteredSent}
+        loadingInbox={loadingInbox}
+        loadingSent={loadingSent}
+        sending={sending}
+        onRefreshInbox={refreshInbox}
+        onRefreshSent={refreshSent}
+        onDelete={handleDelete}
+        onReply={async ({ recipientIdentifier, content, attachment }) => {
+          try {
+            const isOffline = !navigator.onLine;
+            await sendIndividual({ recipientIdentifier, content, attachment });
+            if (isOffline) {
+              toast({ title: 'Mode hors-ligne', description: 'Réponse sauvegardée localement. Envoi automatique dès le retour du réseau.' });
+            } else {
+              toast({ title: 'Réponse envoyée', description: 'Votre réponse a été transmise.' });
+            }
+            return;
+          } catch (e: any) {
+            if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+            toast({ title: 'Erreur', description: e?.message || "Échec de l'envoi de la réponse.", variant: 'destructive' });
+          }
+        }}
+        onSubmitCompose={handleSend}
+        regionTargets={regionalTargets}
+        allowIndividual
+        allowGroup
+        adminRecipients={adminOptions}
+        showAdminQuickPick
+      />
     </ResponsivePage>
   );
 }

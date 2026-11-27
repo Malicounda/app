@@ -1,6 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { User as UserIcon, Users as UsersIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -37,6 +44,7 @@ interface InternalMessageComposerProps {
   defaultRegionValue?: string;
   adminRecipients?: Array<{ value: string; label: string }>;
   showAdminQuickPick?: boolean;
+  onCancel?: () => void;
 }
 
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024; // 5 Mo
@@ -55,6 +63,7 @@ export function InternalMessageComposer({
   defaultRegionValue,
   adminRecipients = [],
   showAdminQuickPick = false,
+  onCancel,
 }: InternalMessageComposerProps) {
   const hasGroupMode = allowGroup && regionTargets.length > 0;
   const hasIndividualMode = allowIndividual;
@@ -186,96 +195,101 @@ export function InternalMessageComposer({
         </div>
       </div>
 
-      <div className="relative min-h-[170px]">
-        {hasIndividualMode && (
-          <div className={`absolute inset-0 transition-opacity ${mode === 'individual' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <div className="space-y-1">
-              <Label htmlFor="internal-message-recipient" className="text-sm font-medium text-gray-700">
-                Destinataire
-              </Label>
-              <div className="flex flex-col gap-1">
-                {showAdminQuickPick && Array.isArray(adminRecipients) && adminRecipients.length > 0 && (
-                  <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <select
-                      className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setRecipientValue(v);
-                        setRecipientSelected(Boolean(String(v || '').trim()));
-                      }}
-                      value={recipientValue}
-                    >
-                      <option value="">— Sélectionner un destinataire —</option>
-                      {adminRecipients.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div className="relative">
-                  <UserIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    id="internal-message-recipient"
-                    className={`w-full pl-9 ${recipientSelected ? 'bg-gray-100 text-gray-500' : ''}`}
-                    value={recipientValue}
-                    onChange={(event) => {
-                      setRecipientValue(event.target.value);
-                      setRecipientSelected(false);
+      <div className="space-y-3">
+        {hasIndividualMode && mode === "individual" && (
+          <div className="space-y-1.5">
+            <Label htmlFor="internal-message-recipient" className="text-sm font-medium text-gray-700">
+              Destinataire
+            </Label>
+            <div className="flex flex-col gap-2">
+              {showAdminQuickPick && Array.isArray(adminRecipients) && adminRecipients.length > 0 && (
+                <div className="relative w-full min-w-0">
+                  <UserIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Select
+                    value={recipientSelected && recipientValue ? recipientValue : "__none__"}
+                    onValueChange={(val) => {
+                      const v = val === "__none__" ? "" : val;
+                      setRecipientValue(v);
+                      setRecipientSelected(Boolean(String(v || '').trim()));
                     }}
-                    placeholder={INDIVIDUAL_PLACEHOLDER}
-                    disabled={recipientSelected}
-                  />
+                  >
+                    <SelectTrigger className="h-10 w-full pl-9 pr-3 text-sm bg-white border-input">
+                      <SelectValue placeholder="— Sélectionner un destinataire —" />
+                    </SelectTrigger>
+                    <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                      <SelectItem value="__none__">— Sélectionner un destinataire —</SelectItem>
+                      {adminRecipients.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+              )}
+              <div className="relative">
+                <UserIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  id="internal-message-recipient"
+                  className={`w-full pl-9 ${recipientSelected ? 'bg-gray-100 text-gray-500' : ''}`}
+                  value={recipientValue}
+                  onChange={(event) => {
+                    setRecipientValue(event.target.value);
+                    setRecipientSelected(false);
+                  }}
+                  placeholder={INDIVIDUAL_PLACEHOLDER}
+                  disabled={recipientSelected}
+                />
               </div>
-              <p className="text-xs text-gray-500 leading-snug">
-                Indiquez le matricule, l'adresse e-mail ou le numéro de pièce d'identité du destinataire. Vous pouvez en mettre plusieurs en les séparant par ";".
-              </p>
             </div>
+            <p className="text-xs text-gray-500 leading-snug">
+              Indiquez le matricule, l'adresse e-mail ou le numéro de pièce d'identité du destinataire. Vous pouvez en mettre plusieurs en les séparant par ";".
+            </p>
           </div>
         )}
 
-        {hasGroupMode && (
-          <div className={`absolute inset-0 transition-opacity ${mode === 'group' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <div className="space-y-2">
-              <div className="space-y-1">
-                <Label className="text-sm font-medium text-gray-700">Destinataires</Label>
-                <div className="flex flex-wrap gap-2">
-                  {regionTargets.map((target) => {
-                    const active = selectedTargets.includes(target.key);
-                    return (
-                      <button
-                        key={target.key}
-                        type="button"
-                        onClick={() => toggleTarget(target.key)}
-                        className={`inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm border transition-colors ${active ? 'bg-green-700 border-green-700 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                      >
-                        {target.label}
-                      </button>
-                    );
-                  })}
-                </div>
+        {hasGroupMode && mode === "group" && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">Destinataires</Label>
+              <div className="flex flex-wrap gap-2">
+                {regionTargets.map((target) => {
+                  const active = selectedTargets.includes(target.key);
+                  return (
+                    <button
+                      key={target.key}
+                      type="button"
+                      onClick={() => toggleTarget(target.key)}
+                      className={`inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm border transition-colors ${active ? 'bg-green-700 border-green-700 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      {target.label}
+                    </button>
+                  );
+                })}
               </div>
-              {regionOptions.length > 0 && (
-                <div className="space-y-1">
-                  <Label htmlFor="internal-message-region" className="text-sm font-medium text-gray-700">
-                    Région ciblée
-                  </Label>
-                  <select
-                    id="internal-message-region"
-                    value={regionValue ?? ""}
-                    onChange={(event) => setRegionValue(event.target.value)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    {regionOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
+            {regionOptions.length > 0 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="internal-message-region" className="text-sm font-medium text-gray-700">
+                  Région ciblée
+                </Label>
+                <Select
+                  value={regionValue || "__none__"}
+                  onValueChange={(val) => setRegionValue(val === "__none__" ? "" : val)}
+                >
+                  <SelectTrigger id="internal-message-region" className="h-10 w-full bg-white text-sm">
+                    <SelectValue placeholder="Sélectionner une région" />
+                  </SelectTrigger>
+                  <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                    {regionOptions.map((option) => (
+                      <SelectItem key={option.value || "__none__"} value={option.value || "__none__"}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -345,14 +359,27 @@ export function InternalMessageComposer({
             <span className="text-[11px] text-gray-500 mt-1">Taille maximale 5 Mo (fichier ou photo)</span>
           </div>
 
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-            className="bg-green-700 hover:bg-green-800 px-6"
-          >
-            {loading ? "Envoi..." : "Envoyer"}
-          </Button>
+          <div className="flex items-center gap-2 ml-auto">
+            {onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                disabled={loading}
+                className="border-gray-300 text-gray-700 hover:bg-gray-100 px-5"
+              >
+                Annuler
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="bg-green-700 hover:bg-green-800 px-6"
+            >
+              {loading ? "Envoi..." : "Envoyer"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

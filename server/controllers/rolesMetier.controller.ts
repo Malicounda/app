@@ -33,8 +33,7 @@ const setSupervisorSchema = z.object({
 const normalizeLabelFr = (value: string) =>
   String(value || '')
     .trim()
-    .replace(/\s+/g, ' ')
-    .toUpperCase();
+    .replace(/\s+/g, ' ');
 
 export async function listRolesMetier(req: Request, res: Response) {
   try {
@@ -101,11 +100,8 @@ export async function updateRoleMetier(req: Request, res: Response) {
     const id = Number(req.params.id);
     if (!id || !Number.isFinite(id)) return res.status(400).json({ message: 'ID invalide' });
 
-    // Empêcher la modification du rôle par défaut
     const [existing] = await db.select().from(rolesMetier).where(eq(rolesMetier.id, id)).limit(1);
-    if (existing?.isDefault) {
-      return res.status(403).json({ message: 'Impossible de modifier le rôle métier par défaut. Retirez-le d\'abord de la liste par défaut.' });
-    }
+    if (!existing) return res.status(404).json({ message: 'Non trouvé' });
 
     const parsed = updateSchema.parse(req.body);
     const updateData: any = {};
@@ -113,7 +109,7 @@ export async function updateRoleMetier(req: Request, res: Response) {
     if (parsed.code !== undefined) updateData.code = parsed.code.trim().toUpperCase();
     if (parsed.labelFr !== undefined) updateData.labelFr = normalizeLabelFr(parsed.labelFr);
     if (parsed.description !== undefined) updateData.description = parsed.description;
-    if (parsed.isActive !== undefined) updateData.isActive = parsed.isActive;
+    if (parsed.isActive !== undefined && !existing.isDefault) updateData.isActive = parsed.isActive;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ message: 'Aucune donnée à mettre à jour' });
@@ -172,17 +168,14 @@ export async function setRoleMetierDefault(req: Request, res: Response) {
 
     const parsed = setDefaultSchema.parse(req.body);
 
+    // Bascule atomique : un rôle défini "Par défaut" n'est plus Superviseur
+    const updatePayload: any = { isDefault: parsed.isDefault };
     if (parsed.isDefault) {
-      // Empêcher de définir un rôle superviseur comme rôle par défaut
-      const [existing] = await db.select().from(rolesMetier).where(eq(rolesMetier.id, id)).limit(1);
-      if (existing?.isSupervisor) {
-        return res.status(403).json({ message: 'Un rôle superviseur ne peut pas être défini comme rôle par défaut.' });
-      }
-      // Multiple default roles allowed — no longer unset others
+      updatePayload.isSupervisor = false;
     }
 
     const [updated] = await db.update(rolesMetier)
-      .set({ isDefault: parsed.isDefault } as any)
+      .set(updatePayload)
       .where(eq(rolesMetier.id, id))
       .returning();
 
@@ -200,16 +193,16 @@ export async function setRoleMetierSupervisor(req: Request, res: Response) {
     const id = Number(req.params.id);
     if (!id || !Number.isFinite(id)) return res.status(400).json({ message: 'ID invalide' });
 
-    // Empêcher de mettre superviseur sur le rôle par défaut
-    const [existing] = await db.select().from(rolesMetier).where(eq(rolesMetier.id, id)).limit(1);
-    if (existing?.isDefault) {
-      return res.status(403).json({ message: 'Le rôle par défaut ne peut pas être superviseur.' });
-    }
-
     const parsed = setSupervisorSchema.parse(req.body);
 
+    // Bascule atomique : un rôle défini "Superviseur" n'est plus Par défaut
+    const updatePayload: any = { isSupervisor: parsed.isSupervisor };
+    if (parsed.isSupervisor) {
+      updatePayload.isDefault = false;
+    }
+
     const [updated] = await db.update(rolesMetier)
-      .set({ isSupervisor: parsed.isSupervisor } as any)
+      .set(updatePayload)
       .where(eq(rolesMetier.id, id))
       .returning();
 
