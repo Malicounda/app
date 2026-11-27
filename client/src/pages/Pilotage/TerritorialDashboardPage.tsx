@@ -12,15 +12,19 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  Bell,
   Download,
   FileSpreadsheet,
   Globe,
   Loader2,
   Map as MapIcon,
+  MessageSquare,
 } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import ChasseExecutiveSection, { type ChasseKpiData } from "./ChasseExecutiveSection";
+import PilotageAlertsPanel from "./PilotageAlertsPanel";
+import PilotageSmsPanel from "./PilotageSmsPanel";
 
 const LazyMapPage = lazy(() => import("@/pages/MapPage"));
 const LazyNationalStatistics = lazy(() => import("@/pages/National/NationalStatistics"));
@@ -76,7 +80,7 @@ interface TerritorialOverviewResponse {
   extraDomains?: Array<{ codeSlug: string; nomDomaine: string; agentsCount: number }>;
 }
 
-type TabKey = "chasse" | "reboisement" | "alerte" | `extra:${string}`;
+type TabKey = "chasse" | "reboisement" | "alerte" | "inbox-alerts" | "sms" | `extra:${string}`;
 type ChasseSubTab = "synthese" | "regions" | "categories" | "especes" | "infractions" | "alertes" | "recette" | "armes";
 
 const NATURE_LABELS: Record<string, string> = {
@@ -116,6 +120,8 @@ export default function TerritorialDashboardPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("chasse");
   const [chasseSubTab, setChasseSubTab] = useState<ChasseSubTab>("synthese");
   const [showMapOverlay, setShowMapOverlay] = useState(false);
+  const [smsReplyTarget, setSmsReplyTarget] = useState<{ identifier: string; label: string } | null>(null);
+  const [liveUnreadSmsCount, setLiveUnreadSmsCount] = useState<number | null>(null);
   const embeddedExportFnRef = useRef<(() => Promise<void> | void) | null>(null);
   const registerEmbeddedExport = useCallback((fn: (() => Promise<void> | void) | null) => {
     embeddedExportFnRef.current = fn;
@@ -203,8 +209,32 @@ export default function TerritorialDashboardPage() {
     return list;
   }, [chasse, reboisement, alerte, extraDomains]);
 
+  // Compteur léger de SMS non lus pour la pastille du bandeau haut
+  const { data: smsInboxPreview } = useQuery<any[]>({
+    queryKey: ["/api/messages/inbox", "pilotage-badge"],
+    enabled: Boolean(user),
+    queryFn: async () => {
+      try {
+        const resp: any = await apiRequest({ url: "/api/messages/inbox?domaineId=null", method: "GET" });
+        if (Array.isArray(resp)) return resp;
+        if (resp?.ok && Array.isArray(resp.data)) return resp.data;
+        return [];
+      } catch {
+        return [];
+      }
+    },
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+
+  const unreadSmsCount = useMemo(() => {
+    if (liveUnreadSmsCount !== null) return liveUnreadSmsCount;
+    return (Array.isArray(smsInboxPreview) ? smsInboxPreview : []).filter((m: any) => m?.isRead === false).length;
+  }, [liveUnreadSmsCount, smsInboxPreview]);
+
   // Sélectionner automatiquement le premier onglet de domaine disponible
   useEffect(() => {
+    if (activeTab === "inbox-alerts" || activeTab === "sms") return;
     if (availableTabs.length > 0 && !availableTabs.some((t) => t.key === activeTab)) {
       setActiveTab(availableTabs[0].key);
     }
@@ -578,7 +608,50 @@ export default function TerritorialDashboardPage() {
               </p>
             </div>
 
-            <div className="flex items-center shrink-0">
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="default"
+                onClick={() => setActiveTab((prev) => (prev === "inbox-alerts" ? (availableTabs[0]?.key ?? "chasse") : "inbox-alerts"))}
+                className={`h-10 gap-2 font-semibold shadow-xs px-4 transition-all ${
+                  activeTab === "inbox-alerts"
+                    ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600"
+                    : "bg-white hover:bg-amber-50 text-emerald-950 border-emerald-300"
+                }`}
+              >
+                <Bell className={`h-4 w-4 ${activeTab === "inbox-alerts" ? "text-white" : "text-amber-600"}`} />
+                <span>Alertes</span>
+                {(alerte?.unreadAlerts ?? 0) > 0 && (
+                  <span className="ml-0.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-[11px] font-bold">
+                    {alerte!.unreadAlerts}
+                  </span>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="default"
+                onClick={() => {
+                  setSmsReplyTarget(null);
+                  setActiveTab((prev) => (prev === "sms" ? (availableTabs[0]?.key ?? "chasse") : "sms"));
+                }}
+                className={`h-10 gap-2 font-semibold shadow-xs px-4 transition-all ${
+                  activeTab === "sms"
+                    ? "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-700"
+                    : "bg-white hover:bg-emerald-50 text-emerald-950 border-emerald-300"
+                }`}
+              >
+                <MessageSquare className={`h-4 w-4 ${activeTab === "sms" ? "text-white" : "text-emerald-700"}`} />
+                <span>SMS</span>
+                {unreadSmsCount > 0 && (
+                  <span className="ml-0.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold">
+                    {unreadSmsCount}
+                  </span>
+                )}
+              </Button>
+
               <Button
                 type="button"
                 size="default"
@@ -913,15 +986,51 @@ export default function TerritorialDashboardPage() {
         </div>
       )}
 
+      {/* ══════════════════ BOÎTE DES ALERTES TERRAIN ══════════════════ */}
+      {activeTab === "inbox-alerts" && (
+        <div className="w-full space-y-4">
+          <PilotageAlertsPanel
+            scope={{
+              level: scope.level,
+              region: scope.region,
+              departement: scope.departement,
+              arrondissement: scope.arrondissement,
+              commune: scope.commune,
+              territoryDisplay: scope.territoryDisplay,
+            }}
+            onReplyBySms={(identifier, label) => {
+              setSmsReplyTarget({ identifier, label });
+              setActiveTab("sms");
+            }}
+          />
+        </div>
+      )}
+
+      {/* ══════════════════ MESSAGERIE SMS (HIÉRARCHIE + ÉQUIPE SUPPORT) ══════════════════ */}
+      {activeTab === "sms" && (
+        <div className="w-full space-y-4">
+          <PilotageSmsPanel
+            scope={{
+              level: scope.level,
+              region: scope.region,
+              departement: scope.departement,
+              territoryDisplay: scope.territoryDisplay,
+            }}
+            initialRecipient={smsReplyTarget}
+            onUnreadCountChange={setLiveUnreadSmsCount}
+          />
+        </div>
+      )}
+
       {/* ══════════════════ CARTE DYNAMIQUE PLEIN ÉCRAN (avec barre d'onglets de retour KPI) ══════════════════ */}
       {showMapOverlay && (
         <div
           className="fixed inset-x-0 bottom-0 z-[150] bg-white"
           style={{ top: "var(--fixed-top, 56px)" }}
         >
-          {/* Barre flottante d'onglets pour revenir instantanément aux KPI */}
+          {/* Bouton flottant unique pour revenir instantanément aux KPI */}
           <div
-            className="fixed left-1/2 -translate-x-1/2 z-[1200] flex flex-wrap items-center justify-center gap-1.5 rounded-full bg-white/95 backdrop-blur-md border-2 border-emerald-400 shadow-xl px-2.5 py-1.5 max-w-[95vw]"
+            className="fixed left-1/2 -translate-x-1/2 z-[1200] flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md border-2 border-emerald-400 shadow-xl p-1"
             style={{ top: "calc(var(--fixed-top, 56px) + 10px)" }}
           >
             <button
@@ -932,25 +1041,6 @@ export default function TerritorialDashboardPage() {
               <ArrowLeft className="h-4 w-4" />
               <span>Retour aux KPI</span>
             </button>
-            <div className="hidden sm:flex items-center gap-1 pl-1 border-l border-emerald-200">
-              {availableTabs.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => {
-                    setActiveTab(t.key);
-                    setShowMapOverlay(false);
-                  }}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                    activeTab === t.key
-                      ? "bg-emerald-100 text-emerald-950"
-                      : "text-emerald-900/75 hover:bg-emerald-50 hover:text-emerald-950"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
           </div>
 
           <Suspense

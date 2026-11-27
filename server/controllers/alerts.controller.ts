@@ -219,7 +219,10 @@ export const getMapAlerts = async (req: Request, res: Response, next: NextFuncti
               a.localite,
               a.created_at,
               a.sender_id,
-              u.first_name, u.last_name, u.phone, u.role, u.region AS user_region, u.departement AS user_departement,
+              a.is_read,
+              a.audio_path,
+              a.image_path,
+              u.username, u.first_name, u.last_name, u.phone, u.role, u.region AS user_region, u.departement AS user_departement,
               ag.grade, rm.label_fr AS role_metier_label
             FROM alerts a
             LEFT JOIN users u ON u.id = a.sender_id
@@ -263,7 +266,11 @@ export const getMapAlerts = async (req: Request, res: Response, next: NextFuncti
                     lat: latVal as number,
                     lon: lonVal as number,
                     created_at: a.created_at,
+                    isRead: Boolean(a.is_read),
+                    audioPath: a.audio_path ?? null,
+                    imagePath: a.image_path ?? null,
                     sender: {
+                        username: a.username ?? null,
                         first_name: a.first_name ?? null,
                         last_name: a.last_name ?? null,
                         phone: a.phone ?? null,
@@ -1669,6 +1676,21 @@ export const markAsRead = async (req: Request, res: Response, next: NextFunction
             .returning();
 
         if (!updatedNotifications || updatedNotifications.length === 0) {
+            // Permettre aux cadres territoriaux / administrateurs de marquer l'alerte comme lue même sans notification individuelle
+            const parsedAlertId = parseInt(alertId, 10);
+            if (Number.isFinite(parsedAlertId)) {
+                const updatedAlerts = await db.update(alerts as any)
+                    .set({ isRead: true, updatedAt: new Date() })
+                    .where(eq(alerts.id as any, parsedAlertId))
+                    .returning();
+                if (updatedAlerts && updatedAlerts.length > 0) {
+                    return res.status(200).json({
+                        message: "Alerte marquée comme lue.",
+                        alertId: parsedAlertId,
+                        isRead: true,
+                    });
+                }
+            }
             console.log(`[Alerts Controller] markAsRead: Notification non trouvée pour alertId: ${alertId}, userId: ${authenticatedUser.id}`);
             return res.status(404).json({ message: "Notification non trouvée pour cette alerte et cet utilisateur." });
         }
