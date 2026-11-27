@@ -377,7 +377,7 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
       treasuryStamp: "Timbre Impôt",
       weaponReceipt: "Quittance Trésor (Arme)",
       insurance: "Assurance",
-      moralCertificate: "Bonne Vie et Mœurs",
+      moralCertificate: "Club de Tir (carte) / ou Justificatif",
     };
 
     const statusText =
@@ -472,7 +472,7 @@ export default function PermitForm({ permitId, open, onClose }: PermitFormProps)
           treasuryStamp: "Timbre Impôt",
           weaponReceipt: "Quittance Trésor (Arme)",
           insurance: "Assurance",
-          moralCertificate: "Bonne Vie et Mœurs",
+          moralCertificate: "Club de Tir (carte) / ou Justificatif",
         };
         const details = (missingRequired.length > 0 ? missingRequired : missingOrInvalid.map(it => it.type))
           .map(t => labelMap[t] || t)

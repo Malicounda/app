@@ -416,7 +416,7 @@ const HunterDetailsWithDocuments: React.FC<HunterDetailsWithDocumentsProps> = ({
     },
     {
       key: 'moralCertificate',
-      label: 'Certificat de Bonne Vie et Mœurs',
+      label: 'Club de Tir (carte) / ou Justificatif',
       description: 'Document optionnel mais recommandé',
       required: false
     }

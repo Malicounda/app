@@ -68,7 +68,7 @@ export default function DemandePermisChasse() {
     treasuryStamp: { label: "Timbre fiscal / Quittance", requiresExpiry: true },
     weaponReceipt: { label: "Reçu de l'Arme du Trésor", requiresExpiry: true },
     insurance: { label: "Attestation d'Assurance", requiresExpiry: true },
-    moralCertificate: { label: "Certificat / Autre document justificatif", requiresExpiry: false },
+    moralCertificate: { label: "Club de Tir (carte) / ou Justificatif", requiresExpiry: false },
   };
 
   // Liste des pièces selon la catégorie choisie

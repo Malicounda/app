@@ -149,7 +149,7 @@ export function FileUploadDialog({ open, onOpenChange, document, onUpload, provi
                   <SelectItem value="treasuryStamp" disabled={providedDocumentTypes.includes('treasuryStamp')}>Timbre Impôt</SelectItem>
                   <SelectItem value="weaponReceipt" disabled={providedDocumentTypes.includes('weaponReceipt')}>Quittance de l'Arme par le Trésor</SelectItem>
                   <SelectItem value="insurance" disabled={providedDocumentTypes.includes('insurance')}>Assurance</SelectItem>
-                  <SelectItem value="moralCertificate" disabled={providedDocumentTypes.includes('moralCertificate')}>Certificat de Bonne Vie et Mœurs</SelectItem>
+                  <SelectItem value="moralCertificate" disabled={providedDocumentTypes.includes('moralCertificate')}>Club de Tir (carte) / ou Justificatif</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -39,7 +39,7 @@ export function HunterDocumentsTab() {
     treasuryStamp: { title: "Timbre Impôt", description: "Timbre fiscal obligatoire", required: true },
     weaponReceipt: { title: "Quittance de l'Arme par le Trésor", description: "Preuve d'achat légal de l'arme", required: true },
     insurance: { title: "Assurance", description: "Assurance responsabilité civile", required: true },
-    moralCertificate: { title: "Certificat de Bonne Vie et Mœurs", description: "Document optionnel mais recommandé", required: false },
+    moralCertificate: { title: "Club de Tir (carte) / ou Justificatif", description: "Document optionnel mais recommandé", required: false },
   };
 
   // Fetch hunter's attachments (statuts + dates)

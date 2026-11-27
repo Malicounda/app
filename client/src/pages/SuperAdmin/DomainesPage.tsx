@@ -275,44 +275,6 @@ export default function DomainesPage() {
 
             <Card className="min-w-0 overflow-hidden">
               <CardHeader className="p-4 sm:p-6">
-                <CardTitle>Créer un domaine</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 grid gap-4 md:grid-cols-2">
-                <div className="space-y-2 min-w-0">
-                  <Label>Nom du domaine</Label>
-                  <Input
-                    value={nomDomaine}
-                    onChange={(e) => {
-                      const next = normalizeNom(e.target.value);
-                      setNomDomaine(next);
-                      if (!slugTouched) {
-                        setCodeSlug(toSlug(next));
-                      }
-                    }}
-                    placeholder="CHASSE"
-                  />
-                </div>
-                <div className="space-y-2 min-w-0">
-                  <Label>Code slug</Label>
-                  <Input
-                    value={codeSlug}
-                    onChange={(e) => {
-                      setSlugTouched(true);
-                      setCodeSlug(toSlug(e.target.value));
-                    }}
-                    placeholder="chasse"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !nomDomaine || !codeSlug}>
-                    Créer
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="min-w-0 overflow-hidden">
-              <CardHeader className="p-4 sm:p-6">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <CardTitle>Liste des domaines ({filteredDomaines.length})</CardTitle>
                   <div className="w-full md:max-w-sm">
@@ -396,8 +358,46 @@ export default function DomainesPage() {
             </Card>
           </div>
 
-          {/* Colonne droite : Reset Statistiques */}
+          {/* Colonne droite : Créer un domaine puis Reset Statistiques */}
           <div className="space-y-4 min-w-0">
+            <Card className="min-w-0 overflow-hidden">
+              <CardHeader className="p-4 sm:p-6 pb-3">
+                <CardTitle>Créer un domaine</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-3">
+                <div className="space-y-1.5 min-w-0">
+                  <Label>Nom du domaine</Label>
+                  <Input
+                    value={nomDomaine}
+                    onChange={(e) => {
+                      const next = normalizeNom(e.target.value);
+                      setNomDomaine(next);
+                      setCodeSlug(toSlug(next));
+                    }}
+                    placeholder="CHASSE"
+                  />
+                </div>
+                <div className="space-y-1.5 min-w-0">
+                  <Label className="text-muted-foreground">Code slug (automatique)</Label>
+                  <Input
+                    value={codeSlug}
+                    readOnly
+                    disabled
+                    tabIndex={-1}
+                    placeholder="chasse"
+                    className="bg-slate-100 text-slate-500 cursor-not-allowed"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={() => createMutation.mutate()}
+                  disabled={createMutation.isPending || !nomDomaine || !codeSlug}
+                >
+                  Créer
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card className="min-w-0 overflow-hidden border-red-200 dark:border-red-900">
               <CardHeader className="p-4 sm:p-6 pb-3">
                 <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">

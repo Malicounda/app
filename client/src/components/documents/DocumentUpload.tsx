@@ -71,7 +71,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       treasuryStamp: 'Timbre Impôt',
       weaponReceipt: 'Quittance de l\'Arme par le Trésor',
       insurance: 'Assurance',
-      moralCertificate: 'Certificat de bonne conduite'
+      moralCertificate: 'Club de Tir (carte) / ou Justificatif'
     };
     return labels[type] || type;
   };

@@ -265,7 +265,7 @@ export const getAttachmentsStatus = async (req: Request, res: Response) => {
       { code: 'treasuryStamp', label: 'Timbre Impôt' },
       { code: 'weaponReceipt', label: "Quittance de l'Arme par le Trésor" },
       { code: 'insurance', label: 'Assurance' },
-      { code: 'moralCertificate', label: 'Certificat de Bonne Vie et Mœurs' },
+      { code: 'moralCertificate', label: 'Club de Tir (carte) / ou Justificatif' },
     ];
 
     const present = (key: string) => Boolean(row?.[key as keyof typeof row]);

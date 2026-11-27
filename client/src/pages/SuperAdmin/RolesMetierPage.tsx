@@ -353,23 +353,20 @@ export default function RolesMetierPage() {
               onChange={(e) => {
                 const next = normalizeCode(e.target.value);
                 setCode(next);
-                if (!labelTouched) {
-                  setLabelFr(codeToLabel(next));
-                }
+                setLabelFr(codeToLabel(next));
               }}
               placeholder="CHEF_DIVISION"
             />
           </div>
           <div className="space-y-2">
-            <Label>Libellé</Label>
+            <Label className="text-muted-foreground">Libellé (automatique)</Label>
             <Input
               value={labelFr}
-              onChange={(e) => {
-                setLabelTouched(true);
-                setLabelFr(normalizeLabelInput(e.target.value));
-              }}
-              onBlur={() => setLabelFr((v) => normalizeLabelInput(v))}
+              readOnly
+              disabled
+              tabIndex={-1}
               placeholder="CHEF DE DIVISION"
+              className="bg-slate-100 text-slate-500 cursor-not-allowed"
             />
           </div>
           <div className="md:col-span-2">
@@ -460,21 +457,20 @@ export default function RolesMetierPage() {
                   onChange={(e) => {
                     const next = normalizeCode(e.target.value);
                     setGradeCode(next);
-                    if (!gradeLabelTouched) setGradeLabel(codeToLabel(next));
+                    setGradeLabel(codeToLabel(next));
                   }}
                   placeholder="SOUS_LIEUTENANT"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Libellé</Label>
+                <Label className="text-muted-foreground">Libellé (automatique)</Label>
                 <Input
                   value={gradeLabel}
-                  onChange={(e) => {
-                    setGradeLabelTouched(true);
-                    setGradeLabel(normalizeLabelInput(e.target.value));
-                  }}
-                  onBlur={() => setGradeLabel((v) => normalizeLabelInput(v))}
+                  readOnly
+                  disabled
+                  tabIndex={-1}
                   placeholder="SOUS LIEUTENANT"
+                  className="bg-slate-100 text-slate-500 cursor-not-allowed"
                 />
               </div>
             </div>

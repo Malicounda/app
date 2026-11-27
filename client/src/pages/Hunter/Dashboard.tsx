@@ -269,7 +269,7 @@ const getDocumentLabel = (documentType: string): string => {
     'treasuryStamp': 'Timbre du trésor',
     'weaponReceipt': 'Reçu d\'arme',
     'insurance': 'Assurance',
-    'moralCertificate': 'Certificat de moralité',
+    'moralCertificate': 'Club de Tir (carte) / ou Justificatif',
     'other': 'Autre document justificatif'
   };
   return labels[documentType] || documentType;
@@ -898,7 +898,7 @@ export default function HunterDashboard() {
                   <ul className="space-y-2 text-sm text-amber-700">
                     <li className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-amber-300 rounded-full"></div>
-                      Certificat de Bonne Vie et Mœurs (Document optionnel mais recommandé)
+                      Club de Tir (carte) / ou Justificatif (Document optionnel mais recommandé)
                     </li>
                   </ul>
                 </div>

@@ -524,7 +524,7 @@ const handleDocumentSubmit = () => {
       'treasuryStamp': "Timbre Impôt",
       'weaponReceipt': "Quittance Arme /Trésor",
       'insurance': "Assurance",
-      'moralCertificate': "Certificat de Bonne Vie et Mœurs"
+      'moralCertificate': "Club de Tir (carte) / ou Justificatif"
     };
     return labels[docType] || docType;
   };
@@ -1383,10 +1383,10 @@ const handleDocumentSubmit = () => {
                           <div>
                             <h4 className="text-md font-medium text-gray-700 mb-3">Documents Optionnels</h4>
                             <div className="grid grid-cols-1 gap-3">
-                              {/* Certificat de Bonne Vie et Mœurs */}
+                              {/* Club de Tir (carte) / ou Justificatif */}
                               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                                 <div>
-                                  <p className="font-medium text-sm">Certificat de Bonne Vie et Mœurs</p>
+                                  <p className="font-medium text-sm">Club de Tir (carte) / ou Justificatif</p>
                                   <p className="text-xs text-gray-500">Document optionnel mais recommandé</p>
                                   {(attachmentData?.items?.find((item: any) => item.type === 'moralCertificate')?.present) && (
                                     <p className="text-xs text-gray-500 mt-1">

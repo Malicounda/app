@@ -234,7 +234,7 @@ router.get('/my-documents', isAuthenticated, async (req: Request, res: Response)
       { key: 'treasury_stamp', type: 'treasuryStamp', label: 'Timbre du trésor' },
       { key: 'weapon_receipt', type: 'weaponReceipt', label: 'Reçu d\'arme' },
       { key: 'insurance', type: 'insurance', label: 'Assurance' },
-      { key: 'moral_certificate', type: 'moralCertificate', label: 'Certificat de moralité' }
+      { key: 'moral_certificate', type: 'moralCertificate', label: 'Club de Tir (carte) / ou Justificatif' }
     ];
 
     documentTypes.forEach((docType) => {

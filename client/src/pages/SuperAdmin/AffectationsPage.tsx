@@ -289,24 +289,22 @@ export default function AffectationsPage() {
 
         {/* Section 1: Contrôle des Affectations Form */}
         <section className="bg-card border border-border rounded-xl overflow-hidden shadow-md min-w-0">
-          <div className="p-4 sm:p-6 border-b border-border flex justify-between items-center gap-3 bg-muted/20">
-            <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-foreground">
-                Contrôle des Affectations
-              </h2>
-              <p className="text-muted-foreground text-sm mt-1">Administration centrale - Configuration des affectations territoriales et restrictions GPS</p>
-            </div>
-            <button className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
-              <MoreVertical className="w-5 h-5" />
-            </button>
+          <div className="px-4 sm:px-6 py-3.5 border-b border-border bg-muted/20">
+            <h2 className="text-lg font-semibold text-foreground">
+              Contrôle des Affectations
+            </h2>
+            <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
+              Administration centrale - Configuration des affectations territoriales et restrictions GPS
+            </p>
           </div>
-          <div className="p-4 sm:p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+          <div className="p-4 sm:p-5 space-y-4">
+            {/* Row 1: Agent, Domaine, Niveau Hiérarchique sur une seule ligne fluide */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Agent (Liste déroulante) */}
-              <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground">Agent <span className="text-red-500">*</span></Label>
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <Label className="text-sm font-semibold text-foreground">Agent <span className="text-red-500">*</span></Label>
                 <Select value={selectedAgentId} onValueChange={(v) => setSelectedAgentId(v)} disabled={isLoadingAgents}>
-                  <SelectTrigger className="py-5">
+                  <SelectTrigger className="h-10">
                     <SelectValue placeholder={isLoadingAgents ? "Chargement..." : "Sélectionner un agent"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -320,10 +318,10 @@ export default function AffectationsPage() {
               </div>
 
               {/* Domaine */}
-              <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground">Domaine <span className="text-red-500">*</span></Label>
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <Label className="text-sm font-semibold text-foreground">Domaine <span className="text-red-500">*</span></Label>
                 <Select value={selectedDomaineId} onValueChange={setSelectedDomaineId} disabled={isLoadingDomaines}>
-                  <SelectTrigger className="py-5">
+                  <SelectTrigger className="h-10">
                     <SelectValue placeholder={isLoadingDomaines ? "Chargement..." : "Sélectionner un domaine"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -335,15 +333,12 @@ export default function AffectationsPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            {/* Row 2: Niveau Hiérarchique */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mt-6">
               {/* Niveau Hiérarchique */}
-              <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground">Niveau Hiérarchique <span className="text-red-500">*</span></Label>
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <Label className="text-sm font-semibold text-foreground">Niveau Hiérarchique <span className="text-red-500">*</span></Label>
                 <Select value={selectedNiveau} onValueChange={setSelectedNiveau}>
-                  <SelectTrigger className="py-5">
+                  <SelectTrigger className="h-10">
                     <SelectValue placeholder="Choisir le niveau" />
                   </SelectTrigger>
                   <SelectContent>
@@ -355,87 +350,83 @@ export default function AffectationsPage() {
               </div>
             </div>
 
-            {/* Row 3: Infos Agent auto-remplies (Région, Département, Commune, Arrondissement) */}
+            {/* Row 2: Infos Agent auto-remplies (Région, Département, Commune, Arrondissement) */}
             {selectedAgent && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 sm:gap-8 mt-6 p-4 bg-muted/10 rounded-lg border border-border/50">
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Région</Label>
-                  <span className="text-sm font-medium text-foreground">{selectedAgentRegion || selectedAgent.region || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-3.5 py-2.5 bg-muted/20 rounded-lg border border-border/60">
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <Label className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Région</Label>
+                  <span className="text-sm font-medium text-foreground truncate">{selectedAgentRegion || selectedAgent.region || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Département</Label>
-                  <span className="text-sm font-medium text-foreground">{selectedAgent.departement || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <Label className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Département</Label>
+                  <span className="text-sm font-medium text-foreground truncate">{selectedAgent.departement || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Commune</Label>
-                  <span className="text-sm font-medium text-foreground">{selectedAgent.commune || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <Label className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Commune</Label>
+                  <span className="text-sm font-medium text-foreground truncate">{selectedAgent.commune || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Arrondissement</Label>
-                  <span className="text-sm font-medium text-foreground">{selectedAgent.arrondissement || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <Label className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Arrondissement</Label>
+                  <span className="text-sm font-medium text-foreground truncate">{selectedAgent.arrondissement || <span className="text-muted-foreground italic">Non renseigné</span>}</span>
                 </div>
               </div>
             )}
 
-            {/* Row 4: Restriction GPS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mt-6">
-              {/* Restriction GPS Toggle */}
-              <div className="flex flex-col gap-2">
-                <Label className="font-bold text-foreground flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-orange-500" />
-                  Restriction GPS
-                </Label>
-                <div className="flex items-center gap-3 h-[42px]">
+            {/* Row 3: Restriction GPS + Actions sur une barre fluide */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-3 border-t border-border">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <Shield className="w-4 h-4 text-orange-500 shrink-0" />
+                  <Label className="text-sm font-semibold text-foreground whitespace-nowrap">
+                    Restriction GPS
+                  </Label>
                   <Switch
                     checked={geoRestrictionEnabled}
                     onCheckedChange={setGeoRestrictionEnabled}
                     className="data-[state=checked]:bg-orange-500"
                   />
-                  <span className={`text-sm font-medium ${geoRestrictionEnabled ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                  <span className={`text-xs font-medium whitespace-nowrap ${geoRestrictionEnabled ? 'text-orange-600' : 'text-muted-foreground'}`}>
                     {geoRestrictionEnabled ? "Activée" : "Désactivée"}
                   </span>
                 </div>
+
+                {geoRestrictionEnabled && (
+                  <div className="w-full sm:w-56">
+                    <Select value={restrictionType} onValueChange={setRestrictionType}>
+                      <SelectTrigger className="h-9 border-orange-300 focus:ring-orange-500">
+                        <SelectValue placeholder="Zone de restriction" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="region">Région {selectedAgent?.region ? `(${selectedAgent.region})` : ''}</SelectItem>
+                        <SelectItem value="departement">Département {selectedAgent?.departement ? `(${selectedAgent.departement})` : ''}</SelectItem>
+                        <SelectItem value="commune">Commune {selectedAgent?.commune ? `(${selectedAgent.commune})` : ''}</SelectItem>
+                        <SelectItem value="arrondissement">Arrondissement {selectedAgent?.arrondissement ? `(${selectedAgent.arrondissement})` : ''}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
-              {/* Type de restriction */}
-              {geoRestrictionEnabled && (
-                <div className="flex flex-col gap-2">
-                  <Label className="font-bold text-foreground">Zone de restriction</Label>
-                  <Select value={restrictionType} onValueChange={setRestrictionType}>
-                    <SelectTrigger className="py-5 border-orange-300 focus:ring-orange-500">
-                      <SelectValue placeholder="Choisir le type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="region">Région {selectedAgent?.region ? `(${selectedAgent.region})` : ''}</SelectItem>
-                      <SelectItem value="departement">Département {selectedAgent?.departement ? `(${selectedAgent.departement})` : ''}</SelectItem>
-                      <SelectItem value="commune">Commune {selectedAgent?.commune ? `(${selectedAgent.commune})` : ''}</SelectItem>
-                      <SelectItem value="arrondissement">Arrondissement {selectedAgent?.arrondissement ? `(${selectedAgent.arrondissement})` : ''}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+                <Button
+                  onClick={() => applyGeoRestrictionMutation.mutate()}
+                  disabled={applyGeoRestrictionMutation.isPending || !selectedAgent || (geoRestrictionEnabled && !restrictionType)}
+                  variant="outline"
+                  className="w-full sm:w-auto h-10 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+                >
+                  <Shield className="w-4 h-4 shrink-0" />
+                  Mettre à jour Restriction GPS
+                </Button>
 
-            {/* Buttons Row */}
-            <div className="flex flex-col sm:flex-row justify-end mt-6 gap-3 sm:gap-4 border-t border-border pt-6">
-              <Button
-                onClick={() => applyGeoRestrictionMutation.mutate()}
-                disabled={applyGeoRestrictionMutation.isPending || !selectedAgent || (geoRestrictionEnabled && !restrictionType)}
-                variant="outline"
-                className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-6 h-auto rounded-lg font-bold flex items-center justify-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50 whitespace-normal text-center"
-              >
-                <Shield className="w-5 h-5 shrink-0" />
-                Mettre à jour Restriction GPS
-              </Button>
-
-              <Button
-                onClick={() => saveAffectationMutation.mutate()}
-                disabled={saveAffectationMutation.isPending || !selectedAgent || !selectedDomaineId || !selectedNiveau}
-                className="w-full sm:w-auto bg-teal-600 text-white hover:bg-teal-700 px-4 sm:px-8 py-3 sm:py-6 h-auto rounded-lg font-bold flex items-center justify-center gap-3 transition-all shadow-[0_0_15px_rgba(13,148,136,0.2)] hover:shadow-[0_0_20px_rgba(13,148,136,0.4)] whitespace-normal text-center"
-              >
-                <CheckCircle className="w-5 h-5 shrink-0" />
-                {saveAffectationMutation.isPending ? "Enregistrement..." : "Enregistrer l'Affectation"}
-              </Button>
+                <Button
+                  onClick={() => saveAffectationMutation.mutate()}
+                  disabled={saveAffectationMutation.isPending || !selectedAgent || !selectedDomaineId || !selectedNiveau}
+                  className="w-full sm:w-auto h-10 px-5 bg-teal-600 text-white hover:bg-teal-700 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-sm"
+                >
+                  <CheckCircle className="w-4 h-4 shrink-0" />
+                  {saveAffectationMutation.isPending ? "Enregistrement..." : "Enregistrer l'Affectation"}
+                </Button>
+              </div>
             </div>
           </div>
         </section>

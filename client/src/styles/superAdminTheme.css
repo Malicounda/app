@@ -113,6 +113,16 @@ html.superadmin-theme textarea {
   border-color: #cbd5e1 !important;
 }
 
+html.superadmin-theme input:disabled,
+html.superadmin-theme input[readonly],
+html.superadmin-theme select:disabled,
+html.superadmin-theme textarea:disabled {
+  background-color: #f1f5f9 !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+  cursor: not-allowed;
+}
+
 html.superadmin-theme input:focus, html.domain-theme input:focus,
 html.superadmin-theme select:focus, html.domain-theme select:focus,
 html.superadmin-theme textarea:focus, html.domain-theme textarea:focus {

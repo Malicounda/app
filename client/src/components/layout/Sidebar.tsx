@@ -1551,30 +1551,32 @@ export default function Sidebar({ isOpen = true, onClose = () => {}, collapsed =
         )}
         </div>
 
-        {/* Bloc branding SCoDiPP collé en bas */}
+        {/* Bloc branding SCODI collé en bas */}
         <div className={cn(
           "mt-auto shrink-0 border-t px-3 py-3",
           isSuperAdminNav ? 'border-[#3d4947]' : 'border-gray-200',
           collapsed ? 'px-2' : ''
         )}>
           <div className={cn(
-            "flex items-center gap-2",
+            "flex items-center gap-2.5",
             collapsed ? 'flex-col justify-center' : ''
           )}>
-            <img
-              src="/images/jub_jubal.png"
-              alt="Logo JUB JUBAL"
-              className={cn(
-                "shrink-0",
-                collapsed ? 'w-8 h-8' : 'w-9 h-9'
-              )}
-            />
+            <div className={cn(
+              "shrink-0 rounded-full overflow-hidden shadow-sm",
+              collapsed ? 'w-10 h-10' : 'w-12 h-12'
+            )}>
+              <img
+                src="/scodi-logo-badge.png"
+                alt="Logo SCODI"
+                className="w-full h-full object-cover scale-[1.48]"
+              />
+            </div>
             <div className={cn(
               "overflow-hidden whitespace-nowrap",
               collapsed ? 'hidden' : ''
             )}>
-              <div className={cn("text-sm font-bold leading-tight underline", isSuperAdminNav ? 'text-slate-300' : 'text-gray-800')}>SCoDiPP</div>
-              <div className={cn("text-[10px] leading-tight", isSuperAdminNav ? 'text-slate-500' : 'text-gray-400')}>v1.0</div>
+              <div className={cn("text-sm font-bold leading-tight tracking-wide", isSuperAdminNav ? 'text-slate-200' : 'text-gray-800')}>SCODI</div>
+              <div className={cn("text-[10px] leading-tight", isSuperAdminNav ? 'text-slate-400' : 'text-gray-400')}>v1.0</div>
             </div>
           </div>
         </div>
