@@ -3,6 +3,7 @@ import { Request, Response, Router } from 'express';
 import { agents, rolesMetier, users } from '../../shared/schema.js';
 import { db } from '../db.js';
 import { ensureRolesMetierPilotageColumns } from '../controllers/rolesMetier.controller.js';
+import { resolveAdministrativeAreas } from '../lib/resolveAdminAreas.js';
 import { storage } from '../storage.js';
 import { isAuthenticated } from './middlewares/auth.middleware.js';
 
@@ -413,13 +414,17 @@ router.get('/overview', async (req: Request, res: Response) => {
             x.region,
             x.departement,
             x.arrondissement,
-            x.commune
+            x.commune,
+            x.lat,
+            x.lon
           FROM (
             SELECT
               COALESCE(NULLIF(TRIM(d.region), ''), NULLIF(TRIM(u.region), ''), NULLIF(TRIM(h_d.region), '')) AS region,
               COALESCE(NULLIF(TRIM(d.departement), ''), NULLIF(TRIM(u.departement), ''), NULLIF(TRIM(h_d.departement), '')) AS departement,
               COALESCE(NULLIF(TRIM(d.arrondissement), ''), NULLIF(TRIM(u.arrondissement), '')) AS arrondissement,
               COALESCE(NULLIF(TRIM(d.commune), ''), NULLIF(TRIM(u.commune), '')) AS commune,
+              d.lat,
+              d.lon,
               d.espece_id AS species_id,
               d.nom_espece,
               d.nom_scientifique,
@@ -437,6 +442,8 @@ router.get('/overview', async (req: Request, res: Response) => {
               COALESCE(NULLIF(TRIM(d_src.departement), ''), NULLIF(TRIM(u_src.departement), ''), NULLIF(TRIM(h_ha.departement), '')) AS departement,
               COALESCE(NULLIF(TRIM(d_src.arrondissement), ''), NULLIF(TRIM(u_src.arrondissement), '')) AS arrondissement,
               COALESCE(NULLIF(TRIM(d_src.commune), ''), NULLIF(TRIM(u_src.commune), '')) AS commune,
+              ha.lat,
+              ha.lon,
               ha.species_id,
               ha.species_name AS nom_espece,
               ha.scientific_name AS nom_scientifique,
@@ -459,7 +466,56 @@ router.get('/overview', async (req: Request, res: Response) => {
       const taxRows = asRows(taxesRes);
       const infractionRows = asRows(infractionsRes);
       const zoneRows = asRows(zonesRes);
-      const speciesRows = asRows(speciesRes);
+      const rawSpeciesRows = asRows(speciesRes);
+
+      // Résolution géographique PostGIS (lat/lon) pour les prélèvements sans département/arrondissement/commune stocké
+      const isGpsString = (val?: string | null) => {
+        if (!val) return false;
+        const s = String(val).trim();
+        return /^gps\s*:/i.test(s) || /^-?\d+(\.\d+)?\s*[,;]\s*-?\d+(\.\d+)?$/.test(s);
+      };
+      const speciesGeoCache = new Map<string, { region: string | null; departement: string | null; arrondissement: string | null; commune: string | null }>();
+      const speciesRows = await Promise.all(
+        rawSpeciesRows.map(async (r: any) => {
+          const lat = r.lat != null && r.lat !== '' ? Number(r.lat) : null;
+          const lon = r.lon != null && r.lon !== '' ? Number(r.lon) : null;
+          let reg = r.region && !isGpsString(r.region) ? String(r.region).trim() : null;
+          let dept = r.departement && !isGpsString(r.departement) ? String(r.departement).trim() : null;
+          let arr = r.arrondissement && !isGpsString(r.arrondissement) ? String(r.arrondissement).trim() : null;
+          let com = r.commune && !isGpsString(r.commune) ? String(r.commune).trim() : null;
+
+          if ((!reg || !dept || !arr || !com) && lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)) {
+            const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+            let resolved = speciesGeoCache.get(cacheKey);
+            if (!resolved) {
+              try {
+                const areas = await resolveAdministrativeAreas(lat, lon);
+                resolved = {
+                  region: areas.region || null,
+                  departement: areas.departement || null,
+                  arrondissement: areas.arrondissement || null,
+                  commune: areas.commune || null,
+                };
+              } catch {
+                resolved = { region: null, departement: null, arrondissement: null, commune: null };
+              }
+              speciesGeoCache.set(cacheKey, resolved);
+            }
+            if (!reg && resolved.region) reg = resolved.region;
+            if (!dept && resolved.departement) dept = resolved.departement;
+            if (!arr && resolved.arrondissement) arr = resolved.arrondissement;
+            if (!com && resolved.commune) com = resolved.commune;
+          }
+
+          return {
+            ...r,
+            region: reg,
+            departement: dept,
+            arrondissement: arr,
+            commune: com,
+          };
+        })
+      );
 
       // Collecter toutes les sous-zones disponibles dans le périmètre (avant subFilter)
       const collectZones = (rows: any[]) => {
@@ -525,7 +581,8 @@ router.get('/overview', async (req: Request, res: Response) => {
         }
       >();
       const ensureZone = (z: string) => {
-        let entry = breakdownMap.get(z);
+        const key = norm(z) || 'non_renseigne';
+        let entry = breakdownMap.get(key);
         if (!entry) {
           entry = {
             zone: z,
@@ -539,7 +596,7 @@ router.get('/overview', async (req: Request, res: Response) => {
             piecesAbattues: 0,
             weaponsCount: 0,
           };
-          breakdownMap.set(z, entry);
+          breakdownMap.set(key, entry);
         }
         return entry;
       };
