@@ -2,8 +2,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Info } from "lucide-react";
@@ -24,11 +22,16 @@ function isLoginRequest(url: string): boolean {
   return url.includes("/api/auth/login");
 }
 
+function isLoginRefusalView(detail: ApiRefusalDetail | null): boolean {
+  if (!detail?.status) return false;
+  const url = typeof detail.url === "string" ? detail.url : "";
+  return isLoginRequest(url) && (detail.status === 401 || detail.status === 403);
+}
+
 function isAccessDeniedView(detail: ApiRefusalDetail | null): boolean {
   if (!detail?.status) return false;
   const url = typeof detail.url === "string" ? detail.url : "";
-  if (detail.status === 403) return true;
-  if (detail.status === 401 && isLoginRequest(url)) return true;
+  if (detail.status === 403 && !isLoginRequest(url)) return true;
   return false;
 }
 
@@ -80,7 +83,7 @@ export default function AppErrorDialog() {
       ) {
         return;
       }
-      
+
       // Ignorer les erreurs 401 de session expirée pour les requêtes qui ne sont pas le login
       // C'est AuthContext qui s'en charge (redirection + Toast sur la page de login)
       if (Number(d.status) === 401 && !isLoginRequest(url)) {
@@ -96,10 +99,12 @@ export default function AppErrorDialog() {
     };
   }, []);
 
+  const loginRefusal = isLoginRefusalView(detail);
   const accessDenied = isAccessDeniedView(detail);
   const sessionExpired = isSessionExpiredView(detail);
 
   const title = (() => {
+    if (loginRefusal) return "Connexion impossible";
     if (accessDenied) return "Accès refusé";
     if (sessionExpired) return "Session expirée";
     if (!detail?.status) return "Erreur";
@@ -111,6 +116,10 @@ export default function AppErrorDialog() {
   })();
 
   const bodyText = (() => {
+    // Par sécurité : aucune précision sur les identifiants, le mot de passe, le compte ou le domaine lors d'un échec de connexion
+    if (loginRefusal) {
+      return null;
+    }
     if (accessDenied) {
       const msg = String(detail?.message || "").trim();
       if (msg && !/session|expir/i.test(msg) && !/<(!doctype|html|head|body)\b/i.test(msg)) return msg;
@@ -132,50 +141,48 @@ export default function AppErrorDialog() {
     return "Une erreur est survenue lors du traitement de votre requête.";
   })();
 
-  if (accessDenied || sessionExpired) {
-    return (
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent hideClose className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
-          <div className="flex flex-col items-center text-center pt-1">
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100">
-              <Info className="h-5 w-5 text-gray-500" strokeWidth={2.5} />
-            </div>
-            <DialogTitle className="text-lg font-semibold text-gray-900 text-center w-full block">{title}</DialogTitle>
-            <p className="mt-3 text-sm leading-relaxed text-gray-800">{bodyText}</p>
-          </div>
-          <div className="mt-8 flex justify-center w-full">
-            <Button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="w-full rounded-xl bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-800 active:scale-95 transition-all"
-            >
-              Fermer
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+  const isNeutralAlert = loginRefusal || accessDenied || sessionExpired;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent hideClose className="sm:max-w-[340px] rounded-2xl border-0 border-t-4 border-t-green-500 p-6 shadow-lg gap-0">
-        <div className="flex flex-col items-center text-center pt-1">
-          <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-red-100">
-            <Info className="h-5 w-5 text-red-500" strokeWidth={2.5} />
-          </div>
-          <DialogTitle className="text-lg font-semibold text-gray-900 text-center w-full block">
+      <DialogContent
+        hideClose
+        overlayClassName="bg-black/40 backdrop-blur-[1px]"
+        className="w-[calc(100vw-2rem)] max-w-[380px] sm:max-w-[440px] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-5 sm:p-6 shadow-xl gap-0"
+      >
+        <div className="flex flex-col items-center text-center min-w-0">
+          {loginRefusal ? (
+            <div className="mb-3 flex h-8 w-8 items-center justify-center text-slate-500 dark:text-slate-400">
+              <Info className="h-6 w-6" strokeWidth={1.85} />
+            </div>
+          ) : (
+            <div
+              className={`mb-4 flex h-11 w-11 items-center justify-center rounded-full ${
+                isNeutralAlert
+                  ? "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300"
+                  : "bg-red-100 dark:bg-red-950/60 text-red-500 dark:text-red-400"
+              }`}
+            >
+              <Info className="h-5 w-5" strokeWidth={2.5} />
+            </div>
+          )}
+
+          <DialogTitle className="w-full text-center text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100 break-words leading-snug">
             {title}
           </DialogTitle>
-          <p className="mt-3 text-sm leading-relaxed text-gray-800">
-            {bodyText}
-          </p>
+
+          {bodyText && (
+            <p className="mt-3 w-full text-sm leading-relaxed text-slate-700 dark:text-slate-300 break-words">
+              {bodyText}
+            </p>
+          )}
         </div>
-        <div className="mt-8 flex justify-center w-full">
+
+        <div className={`${bodyText ? "mt-7" : "mt-5"} flex justify-center w-full`}>
           <Button
             type="button"
             onClick={() => setOpen(false)}
-            className="w-full rounded-xl bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-800 active:scale-95 transition-all"
+            className="w-full h-11 rounded-xl bg-slate-950 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200 px-6 text-white font-medium active:scale-[0.99] transition-all"
           >
             Fermer
           </Button>

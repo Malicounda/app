@@ -13,9 +13,13 @@ import SessionLockOverlay from "@/components/layout/SessionLockOverlay";
 import { Toaster } from "@/components/ui/sonner"; // Changé de toaster à sonner
 import { useAuth } from "@/contexts/AuthContext";
 import { useDisableContextMenu } from "@/hooks/useDisableContextMenu";
+import { usePortalDomains } from "@/hooks/usePortalDomains";
 import { useSessionHeartbeat } from "@/hooks/useSessionHeartbeat";
+import { ArrowLeft, Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import NotFound from "@/pages/not-found";
 import { isUserSuperAdmin } from "@/utils/navigation";
+import { getLoginRoute } from "@/utils/getLoginRoute";
 import { isChasseAPK } from "@/utils/environment";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
@@ -28,6 +32,7 @@ import NetworkStatusBanner from "@/components/ui/NetworkStatusBanner";
 // Pages d'entrée et dashboards principaux gardés en import direct pour un démarrage instantané
 import HomePageWrapper from "@/components/auth/HomePageWrapper";
 import Login from "@/pages/Login";
+import SystemLogin from "@/pages/SystemLogin";
 import AlerteLogin from "@/pages/AlerteLogin";
 import ReboisementLogin from "@/pages/ReboisementLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
@@ -168,7 +173,7 @@ function Router() {
   // Heartbeat de session + verrouillage d'écran après inactivité
   const sessionHeartbeat = useSessionHeartbeat(isAuthenticated, disableLockScreen);
 
-  const publicRoutes = ["/", "/login", "/register", "/permit-simple", "/select-profile", "/produits-forestiers", "/reboisement-pepinieres", "/reboisement-login", "/alerte", "/alerte-login"];
+  const publicRoutes = ["/", "/login", "/connexion", "/register", "/permit-simple", "/select-profile", "/produits-forestiers", "/reboisement-pepinieres", "/reboisement-login", "/alerte", "/alerte-login"];
   
   // Normalisation de l'URL pour gérer le préfixe public_id (UUID v4 de 36 caractères)
   const pathParts = location.split('/');
@@ -241,6 +246,7 @@ function Router() {
       <Switch>
         <Route path="/" component={HomePageWrapper} />
         <Route path="/login" component={Login} />
+        <Route path="/connexion" component={SystemLogin} />
         <Route
           path="/select-profile"
           component={() => {
@@ -266,12 +272,42 @@ function Router() {
             const { user } = useAuth();
             const isAuthenticated = !!user;
             const [, setLocation] = useLocation();
+            const { isLoading: domainsLoading, isDomainRegistrationEnabled } = usePortalDomains();
             useEffect(() => {
               if (isAuthenticated) {
                 setLocation("/hunter");
               }
             }, [isAuthenticated, setLocation]);
             if (isAuthenticated) return null;
+            if (domainsLoading) {
+              return <PageLoader />;
+            }
+            if (!isDomainRegistrationEnabled("chasse")) {
+              return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-50 p-4 overflow-auto">
+                  <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-lg">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                      <Lock className="h-7 w-7" />
+                    </div>
+                    <h1 className="text-xl font-bold text-slate-900">
+                      Auto-inscription désactivée
+                    </h1>
+                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                      L'inscription en ligne sans intermédiaire est actuellement désactivée pour ce domaine.
+                      Veuillez vous adresser à un agent habilité pour procéder à votre enregistrement.
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={() => setLocation(getLoginRoute())}
+                      className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Retour à la connexion
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div className="fixed inset-0 z-[100] bg-white overflow-auto">
                 <RegisterForm userType={location.includes("guide") ? "guide" : "hunter"} />
@@ -1123,7 +1159,7 @@ function applyTheme(cfg: any, user: any, location: string) {
   html.classList.remove('superadmin-theme', 'domain-theme', 'dark-superadmin');
 
   let activeTheme: any = {};
-  const isLoginPage = lowerLoc === '/login' || lowerLoc === '/alerte-login' || lowerLoc === '/reboisement-login';
+  const isLoginPage = lowerLoc === '/login' || lowerLoc === '/connexion' || lowerLoc === '/alerte-login' || lowerLoc === '/reboisement-login';
   
   if (isLoginPage) {
     // Ne pas injecter les variables CSS globales du domaine sur les pages de login

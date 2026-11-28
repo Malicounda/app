@@ -12,7 +12,8 @@ import {
   removePreference,
   clearAllPreferences,
 } from "@/utils/preferences";
-import { getLoginRoute } from "@/utils/getLoginRoute";
+import { resolveApiUrl } from "@/utils/environment";
+import { getLoginRoute, resolveLogoutRedirectRoute } from "@/utils/getLoginRoute";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 /* =========================
@@ -319,24 +320,40 @@ export function AuthProvider({
     isLoggingOutRef.current = true;
 
     try {
-      setUser(null);
-      setIsAuthenticated(false);
+      // Résoudre la route exacte selon l'état des domaines (1 domaine visible => sa page login)
+      // AVANT de vider le cache React Query et la session locale.
+      const targetRoute = await resolveLogoutRedirectRoute().catch(() => getLoginRoute());
 
+      const controller = new AbortController();
+      const timerId = window.setTimeout(() => controller.abort(), 2000);
       try {
-        await apiRequest({
-          url: "/api/auth/logout",
+        let token: string | null = null;
+        try {
+          token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        } catch {
+          token = null;
+        }
+        await fetch(resolveApiUrl("/api/auth/logout"), {
           method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          signal: controller.signal,
         });
       } catch (e) {
         if (import.meta.env.DEV) console.warn("Logout API failed (ignored)", e);
-        // TODO: analytics / monitoring (ex: Sentry, Datadog)
-        // trackEvent("logout_api_failed", { error: e });
+      } finally {
+        window.clearTimeout(timerId);
       }
 
       await clearSession();
       await afterLogoutClearAll();
 
-      setLocation(getLoginRoute(), { replace: true });
+      setLocation(targetRoute, { replace: true });
+      setUser(null);
+      setIsAuthenticated(false);
     } finally {
       isLoggingOutRef.current = false;
     }
@@ -390,32 +407,39 @@ export function AuthProvider({
       // Ignorer les routes publiques (login, register, etc.)
       try {
         const currentPath = window.location.pathname;
-        const publicPaths = ['/login', '/register', '/produits-forestiers', '/reboisement-login', '/alerte-login'];
+        const publicPaths = ['/login', '/connexion', '/register', '/produits-forestiers', '/reboisement-login', '/alerte-login'];
         if (currentPath === '/' || publicPaths.some(p => currentPath.startsWith(p))) return;
       } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
 
       // Debounce: plusieurs requêtes 401 en même temps → un seul logout
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
-        if (import.meta.env.DEV) console.log("[AuthContext] Session expirée détectée → logout propre");
-
-        // Nettoyer le token et la session
+        if (isLoggingOutRef.current) return;
+        isLoggingOutRef.current = true;
         try {
-          localStorage.removeItem("token");
-        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
-        await clearSession();
-        await afterLogoutClearAll();
+          if (import.meta.env.DEV) console.log("[AuthContext] Session expirée détectée → logout propre");
 
-        setUser(null);
-        setIsAuthenticated(false);
+          const targetRoute = await resolveLogoutRedirectRoute().catch(() => getLoginRoute());
 
-        // Stocker un message pour l'afficher sur la page de login
-        try {
-          localStorage.setItem("sessionExpiredMessage", "Votre session a expiré. Veuillez vous reconnecter.");
-        } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+          // Nettoyer le token et la session
+          try {
+            localStorage.removeItem("token");
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+          await clearSession();
+          await afterLogoutClearAll();
 
-        // Rediriger vers la page de login appropriée
-        setLocation(getLoginRoute(), { replace: true });
+          // Stocker un message pour l'afficher sur la page de login
+          try {
+            localStorage.setItem("sessionExpiredMessage", "Votre session a expiré. Veuillez vous reconnecter.");
+          } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+
+          // Rediriger vers la page de login appropriée avant de réinitialiser l'état React
+          setLocation(targetRoute, { replace: true });
+          setUser(null);
+          setIsAuthenticated(false);
+        } finally {
+          isLoggingOutRef.current = false;
+        }
       }, 300);
     };
 

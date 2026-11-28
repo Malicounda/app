@@ -1,14 +1,13 @@
 import { Button } from "@/components/ui/button";
+import { resolveDomainLoginTarget, usePortalDomains, type PortalDomaine } from "@/hooks/usePortalDomains";
 import { DOMAIN_CONFIGS, resolveDomainConfig } from "@/lib/domainConfig";
 import { ICONS } from "@/lib/domainIcons";
-import { apiRequest } from "@/lib/queryClient";
-import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ChevronLeft,
     ChevronRight
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
 type ThemeConfig = {
@@ -44,15 +43,7 @@ const modules = DOMAIN_CONFIGS.map((d) => ({
   path: d.loginPath,
 }));
 
-type Domaine = {
-  id: number;
-  nomDomaine: string;
-  codeSlug: string;
-  description?: string | null;
-  couleurTheme?: string | null;
-  isActive: boolean;
-  createdAt: string;
-};
+type Domaine = PortalDomaine;
 
 export default function HomePage() {
   const [, setLocation] = useLocation();
@@ -88,14 +79,44 @@ export default function HomePage() {
     return () => window.removeEventListener('theme:superadmin:updated', onThemeUpdated);
   }, []);
 
-  const { data: activeDomaines, isLoading: isLoadingDomaines } = useQuery({
-    queryKey: ["/api/domaines/public/active"],
-    queryFn: () => apiRequest<Domaine[]>({ url: "/api/domaines/public/active", method: "GET" }),
-    retry: false,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 30_000, // Garder les données en cache 30s pour éviter le flash
-  });
+  const {
+    visibleDomaines,
+    singleVisibleDomain,
+    isLoading: isLoadingDomaines,
+    isError: isErrorDomaines,
+  } = usePortalDomains();
+
+  const navigateToDomainLogin = useCallback(
+    (domaine: Domaine) => {
+      const target = resolveDomainLoginTarget(domaine);
+      try {
+        localStorage.setItem("domain", target.domainValue);
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn("[SCODI-DEBUG] Silenced error", e);
+      }
+      setLocation(target.path);
+    },
+    [setLocation]
+  );
+
+  // Si l'écran de choix (?showModules=1) est demandé :
+  // - 1 seul domaine visible -> redirection directe vers sa page de connexion
+  // - 0 domaine visible -> redirection vers la page de connexion neutre (/connexion)
+  useEffect(() => {
+    if (!showModules) return;
+    if (singleVisibleDomain) {
+      navigateToDomainLogin(singleVisibleDomain);
+      return;
+    }
+    if (!isLoadingDomaines && !isErrorDomaines && visibleDomaines.length === 0) {
+      try {
+        localStorage.setItem("domain", "SYSTEM");
+      } catch {
+        // ignore
+      }
+      setLocation("/connexion", { replace: true });
+    }
+  }, [showModules, singleVisibleDomain, isLoadingDomaines, isErrorDomaines, visibleDomaines.length, navigateToDomainLogin, setLocation]);
 
   const setDomainForModule = (title: string) => {
     const t = String(title || '').toLowerCase();
@@ -130,6 +151,7 @@ export default function HomePage() {
     }
 
     const cfg = resolveDomainConfig(d.nomDomaine, d.codeSlug);
+    const target = resolveDomainLoginTarget(d);
 
     if (cfg) {
       const hoverMap: Record<string,string> = { chasse: 'hover:from-green-700 hover:to-green-800', 'produits-forestiers': 'hover:from-teal-600 hover:to-teal-700', reboisement: 'hover:from-green-600 hover:to-green-700', alerte: 'hover:from-amber-600 hover:to-orange-600' };
@@ -139,8 +161,8 @@ export default function HomePage() {
         icon: icon || cfg.icon,
         color: `${cfg.color} ${cfg.colorTo}`,
         hoverColor: hoverMap[cfg.key] || '',
-        path: cfg.loginPath,
-        domainValue: d.nomDomaine,
+        path: target.path,
+        domainValue: target.domainValue,
         themedStyle,
         logoUrl,
       };
@@ -152,8 +174,8 @@ export default function HomePage() {
       icon: icon || DOMAIN_CONFIGS[0].icon,
       color: "from-slate-600 to-slate-700",
       hoverColor: "hover:from-slate-700 hover:to-slate-800",
-      path: "/",
-      domainValue: d.nomDomaine,
+      path: target.path,
+      domainValue: target.domainValue,
       themedStyle,
       logoUrl,
     };
@@ -161,9 +183,9 @@ export default function HomePage() {
 
   const modulesToDisplay = isLoadingDomaines
     ? []
-    : Array.isArray(activeDomaines) && activeDomaines.length > 0
-      ? activeDomaines.map(resolveModuleMeta)
-      : modules;
+    : isErrorDomaines
+      ? modules
+      : visibleDomaines.map(resolveModuleMeta);
 
   const nextSlide = () => {
     setIndex((prev) => (prev + 1) % slides.length);
@@ -210,7 +232,22 @@ export default function HomePage() {
             </p>
             <Button
               size="lg"
-              onClick={() => setShowModules(true)}
+              onClick={() => {
+                if (singleVisibleDomain) {
+                  navigateToDomainLogin(singleVisibleDomain);
+                  return;
+                }
+                if (!isLoadingDomaines && !isErrorDomaines && visibleDomaines.length === 0) {
+                  try {
+                    localStorage.setItem("domain", "SYSTEM");
+                  } catch {
+                    // ignore
+                  }
+                  setLocation("/connexion");
+                  return;
+                }
+                setShowModules(true);
+              }}
               className="px-6 sm:px-8 md:px-10 py-4 sm:py-5 md:py-7 text-base sm:text-lg md:text-xl font-semibold bg-white text-gray-900 hover:bg-gray-100 shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 mt-6"
             >
               Cliquer pour vous connecter
@@ -219,9 +256,16 @@ export default function HomePage() {
         ) : (
           <div className="relative z-10 mt-2 sm:mt-4 w-full">
             <div className="pr-1">
-              {isLoadingDomaines ? (
+              {isLoadingDomaines || Boolean(singleVisibleDomain) || (!isErrorDomaines && visibleDomaines.length === 0) ? (
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+                </div>
+              ) : modulesToDisplay.length === 0 ? (
+                <div className="max-w-lg mx-auto rounded-2xl bg-white/15 backdrop-blur-md border border-white/30 p-8 text-center text-white space-y-2 mb-4">
+                  <h3 className="text-xl font-bold">Aucun domaine disponible à la connexion</h3>
+                  <p className="text-sm text-white/85">
+                    Aucun module n&apos;est actuellement marqué visible pour la connexion. Contactez l&apos;administrateur central.
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-6 gap-y-4 sm:gap-y-6 items-stretch max-w-5xl w-full mx-auto px-2 sm:px-4 md:px-6 pb-6">

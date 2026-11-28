@@ -75,6 +75,8 @@ export const insertUserSchema = createInsertSchema(users).omit({
    description: text("description"),
    couleurTheme: text("couleur_theme"),
    isActive: boolean("is_active").notNull().default(true),
+   isVisible: boolean("is_visible").notNull().default(true),
+   allowSelfRegistration: boolean("allow_self_registration").notNull().default(true),
    createdAt: timestamp("created_at").defaultNow().notNull(),
  });
 

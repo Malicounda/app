@@ -40,6 +40,16 @@ export interface ZoneAmodieeItem {
   trackersCount: number;
 }
 
+export interface TerritorialMonthlyFluxRow {
+  monthKey: string;
+  label: string;
+  huntersCoutumier: number;
+  huntersResident: number;
+  huntersTouriste: number;
+  huntersTotal: number;
+  permitsTotal: number;
+}
+
 export interface ChasseKpiData {
   totalHunters: number;
   totalGuides: number;
@@ -60,6 +70,7 @@ export interface ChasseKpiData {
   amodieesSurfaceHa?: number;
   zicsCount?: number;
   zonesAmodiees?: ZoneAmodieeItem[];
+  monthlyFlux?: TerritorialMonthlyFluxRow[];
   amodieesFinance?: {
     taxeAmodiation: number;
     licencesGuides: number;

@@ -856,6 +856,7 @@ export default function TerritorialDashboardPage() {
                   territoryDisplay: scope.territoryDisplay,
                   subZoneHeading: scope.subZoneHeading,
                   subZoneBreakdown: chasse.breakdownBySubZone,
+                  monthlyFlux: chasse.monthlyFlux,
                 }}
               />
             </Suspense>

@@ -279,15 +279,15 @@ export default function Accounts() {
   console.log('[Accounts.tsx] Agents Secteurs filtrés:', subAgents);
 
   // Filtrage des utilisateurs par recherche
-  const filterUsers = (userList: User[]) => {
+  const filterUsers = <T extends { username?: string | null; firstName?: string | null; lastName?: string | null; email?: string | null; phone?: string | null; region?: string | null }>(userList: T[]): T[] => {
     const searchLower = searchTerm.toLowerCase();
     return userList.filter(user =>
-      user.username.toLowerCase().includes(searchLower) ||
-      (user.firstName && user.firstName.toLowerCase().includes(searchLower)) ||
-      (user.lastName && user.lastName.toLowerCase().includes(searchLower)) ||
-      user.email.toLowerCase().includes(searchLower) ||
-      (user.phone && user.phone.toLowerCase().includes(searchLower)) ||
-      (user.region && user.region.toLowerCase().includes(searchLower))
+      (user.username || "").toLowerCase().includes(searchLower) ||
+      (user.firstName || "").toLowerCase().includes(searchLower) ||
+      (user.lastName || "").toLowerCase().includes(searchLower) ||
+      (user.email || "").toLowerCase().includes(searchLower) ||
+      (user.phone || "").toLowerCase().includes(searchLower) ||
+      (user.region || "").toLowerCase().includes(searchLower)
     );
   };
 
@@ -547,10 +547,20 @@ export default function Accounts() {
 
   const handleExport = () => {
     const header = ["Nom d'utilisateur", "Rôle", "Nom", "Prénom", "Email", "Téléphone", "Région", "Statut"];
-    const toRows = (list: User[]) =>
+    type ExportableAccount = {
+      username?: string | null;
+      role?: string | null;
+      lastName?: string | null;
+      firstName?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      region?: string | null;
+      isSuspended?: boolean;
+    };
+    const toRows = (list: ExportableAccount[], fallbackRole = "") =>
       filterUsers(list).map((u) => [
         u.username || "",
-        u.role || "",
+        u.role || fallbackRole,
         u.lastName || "",
         u.firstName || "",
         u.email || "",
@@ -565,7 +575,7 @@ export default function Accounts() {
         { name: "Administrateurs", headers: header, rows: toRows(admins) },
         { name: "Agents Régionaux", headers: header, rows: toRows(agents) },
         { name: "Agents Secteur", headers: header, rows: toRows(subAgents) },
-        { name: "Guides de Chasse", headers: header, rows: toRows(guides) },
+        { name: "Guides de Chasse", headers: header, rows: toRows(guides, "hunting-guide") },
         { name: "Chasseurs", headers: header, rows: toRows(hunters) },
       ],
       `utilisateurs_scodi_${new Date().toISOString().split("T")[0]}.xls`

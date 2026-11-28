@@ -6,6 +6,7 @@ import { agents, rolesMetier, users } from '../../shared/schema.js';
 import { db } from '../db.js';
 import { storage } from '../storage.js';
 import { ensureRolesMetierPilotageColumns } from './rolesMetier.controller.js';
+import { countVisibleActiveDomaines, isDomainSelfRegistrationAllowed } from './domaines.controller.js';
 import { getSessionMaxAgeMs } from '../sessionConfig.js';
 
 // Schéma de validation pour l'inscription
@@ -40,7 +41,9 @@ export const login = async (req: Request, res: Response) => {
             currentDomain = String((req.body as any).domain || '');
         }
         
-        const isAlerteLogin = currentDomain.toUpperCase().trim() === 'ALERTE';
+        const normalizedLoginDomain = currentDomain.toUpperCase().trim();
+        const isAlerteLogin = normalizedLoginDomain === 'ALERTE';
+        const isSystemLogin = normalizedLoginDomain === 'SYSTEM';
 
         console.log(`[LOGIN] Recherche par identifiant: ${idValue}, Domaine: ${currentDomain}`);
         let user;
@@ -66,7 +69,7 @@ export const login = async (req: Request, res: Response) => {
                     details: `Tentative de connexion échouée : identifiant "${idValue}" non trouvé`,
                 });
             } catch { }
-            return res.status(401).json({ message: "Identifiants invalides" });
+            return res.status(401).json({ message: "Connexion impossible" });
         } else {
             console.log('[LOGIN] Utilisateur trouvé:', user.username);
          // Vérifier si l'utilisateur a un rôle métier par défaut ou superviseur
@@ -105,10 +108,10 @@ export const login = async (req: Request, res: Response) => {
                     ? (agentRows[0] as any).pilotageDomains
                     : [];
 
-                // Les rôles de pilotage KPI multi-domaines exigent TOUJOURS un mot de passe / code d'accès
+                // Les rôles de pilotage KPI multi-domaines et l'accès SYSTEM exigent TOUJOURS un mot de passe
                 const passwordEmpty = !password || String(password).trim() === '';
 
-                if (passwordEmpty && !isAlerteLogin && isSupervisorRole && !territorialScope) {
+                if (passwordEmpty && !isAlerteLogin && !isSystemLogin && isSupervisorRole && !territorialScope) {
                     skipPassword = true;
                     console.log('[LOGIN] Connexion sans mot de passe autorisée (superviseur hors ALERTE) pour:', user.username);
                 }
@@ -136,7 +139,7 @@ export const login = async (req: Request, res: Response) => {
             if (isAlerteLogin && (!storedPwd || storedPwd.trim() === '' || storedPwd === 'null' || !isBcryptHash(storedPwd))) {
                 if (password !== "0000") {
                     console.log(`[LOGIN] Tentative d'initialisation de mot de passe ALERTE avec un mot de passe incorrect: ${password}`);
-                    return res.status(401).json({ message: "Identifiants invalides" });
+                    return res.status(401).json({ message: "Connexion impossible" });
                 }
                 console.log(`[LOGIN] ALERTE première connexion: initialisation du mot de passe pour ${user.username}`);
                 try {
@@ -161,7 +164,7 @@ export const login = async (req: Request, res: Response) => {
                         try {
                             await storage.createHistory({ userId: user.id, operation: 'login_failed', entityType: 'auth', entityId: user.id, details: `Mot de passe incorrect pour ${user.username}` });
                         } catch { }
-                        return res.status(401).json({ message: "Identifiants invalides" });
+                        return res.status(401).json({ message: "Connexion impossible" });
                     }
                 } else {
                     // Ancien mot de passe en clair: comparer en clair puis migrer vers hash si OK
@@ -171,7 +174,7 @@ export const login = async (req: Request, res: Response) => {
                         try {
                             await storage.createHistory({ userId: user.id, operation: 'login_failed', entityType: 'auth', entityId: user.id, details: `Mot de passe incorrect pour ${user.username}` });
                         } catch { }
-                        return res.status(401).json({ message: "Identifiants invalides" });
+                        return res.status(401).json({ message: "Connexion impossible" });
                     }
                     // Migration vers bcrypt
                     try {
@@ -189,11 +192,47 @@ export const login = async (req: Request, res: Response) => {
         if ((user as any).active === false || (user as any).isActive === false) {
             // Les agents avec rôle par défaut ou superviseur peuvent se connecter même si le compte est inactif
             if (!isDefaultRole && !isSupervisorRole) {
-                return res.status(401).json({ message: "Identifiants invalides" });
+                return res.status(401).json({ message: "Connexion impossible" });
             }
         }
 
         const isSuperAdmin = await storage.isSuperAdmin(user.id);
+
+        // Mesure de sécurité :
+        // 1) L'accès neutre SYSTEM (/connexion) est réservé exclusivement au Super-Administrateur.
+        // 2) Lorsque 0 domaine actif n'est marqué visible, seul le Super-Administrateur peut se connecter.
+        if (!isSuperAdmin) {
+            if (isSystemLogin) {
+                try {
+                    await storage.createHistory({
+                        userId: user.id,
+                        operation: 'login_failed',
+                        entityType: 'auth',
+                        entityId: user.id,
+                        details: `Tentative d'accès SYSTEM refusée pour ${user.username} (non Super-Admin)`,
+                    });
+                } catch { }
+                return res.status(401).json({
+                    message: "Connexion impossible",
+                });
+            }
+
+            const visibleActiveCount = await countVisibleActiveDomaines().catch(() => -1);
+            if (visibleActiveCount === 0) {
+                try {
+                    await storage.createHistory({
+                        userId: user.id,
+                        operation: 'login_failed',
+                        entityType: 'auth',
+                        entityId: user.id,
+                        details: `Connexion refusée pour ${user.username} : aucun domaine actif et visible`,
+                    });
+                } catch { }
+                return res.status(401).json({
+                    message: "Connexion impossible",
+                });
+            }
+        }
 
         // currentDomain is already defined above
 
@@ -203,10 +242,12 @@ export const login = async (req: Request, res: Response) => {
                 const domains = await storage.getUserDomainsByUserId(user.id);
                 const match = Array.isArray(domains) ? domains.find((d: any) => String(d?.domain || '').toUpperCase() === normalized) : undefined;
                 if (!match) {
-                    return res.status(403).json({ message: `Accès refusé pour le domaine ${normalized}` });
+                    console.warn(`[LOGIN] Domaine non autorisé (${normalized}) pour ${user.username}`);
+                    return res.status(401).json({ message: "Connexion impossible" });
                 }
                 if ((match as any).active === false) {
-                    return res.status(403).json({ message: `Domaine ${normalized} inactif` });
+                    console.warn(`[LOGIN] Domaine inactif (${normalized}) pour ${user.username}`);
+                    return res.status(401).json({ message: "Connexion impossible" });
                 }
 
                 // Si un rôle spécifique est défini pour ce domaine, on l'utilise
@@ -396,6 +437,22 @@ export const login = async (req: Request, res: Response) => {
 export const register = async (req: Request, res: Response) => {
     try {
         console.log('[REGISTER] Tentative d\'inscription - payload brut:', req.body);
+
+        // Vérifier côté serveur que l'auto-inscription publique est bien activée pour ce domaine
+        const rawDomainHeader = req.headers['x-domain'];
+        const domainFromHeader = Array.isArray(rawDomainHeader) ? rawDomainHeader[0] : rawDomainHeader;
+        const targetDomain = String((req.body as any)?.domain || domainFromHeader || 'CHASSE').trim() || 'CHASSE';
+        const regPolicy = await isDomainSelfRegistrationAllowed(targetDomain);
+        if (!regPolicy.allowed) {
+            console.warn(`[REGISTER] Auto-inscription bloquée pour le domaine ${regPolicy.domaineName || targetDomain} (${regPolicy.reason})`);
+            return res.status(403).json({
+                message: regPolicy.reason === 'DOMAIN_INACTIVE'
+                    ? `Le domaine ${regPolicy.domaineName || targetDomain} est actuellement désactivé.`
+                    : `L'auto-inscription publique est désactivée pour le domaine ${regPolicy.domaineName || targetDomain}. Veuillez vous rapprocher d'un agent habilité.`,
+                code: regPolicy.reason || 'SELF_REGISTRATION_DISABLED',
+                domain: regPolicy.domaineName || targetDomain,
+            });
+        }
 
         // Valider les données d'entrée de manière sûre pour exposer les erreurs Zod clairement
         const parsed = registerSchema.safeParse(req.body);

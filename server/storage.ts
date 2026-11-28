@@ -3031,6 +3031,11 @@ import { getJwtExpiresInSeconds } from "./sessionConfig.js";
     // Récupère tous les domaines enregistrés
     async getAllDomains(): Promise<(typeof domaines.$inferSelect)[]> {
       try {
+        await db.execute(sql`
+          ALTER TABLE domaines
+          ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true,
+          ADD COLUMN IF NOT EXISTS allow_self_registration BOOLEAN NOT NULL DEFAULT true
+        `).catch(() => {});
         return await db.select().from(domaines).where(eq(domaines.isActive, true));
       } catch (error) {
         console.error("Erreur lors de la récupération de tous les domaines:", error);

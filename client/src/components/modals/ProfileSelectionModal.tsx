@@ -27,6 +27,7 @@ type Domaine = {
   description?: string | null;
   couleurTheme?: string | null;
   isActive: boolean;
+  allowSelfRegistration?: boolean;
   createdAt: string;
 };
 
@@ -46,12 +47,19 @@ const ProfileSelectionModal: React.FC<{ isOpen: boolean; onOpenChange: (open: bo
     localStorage.setItem('profileType', type);
     localStorage.removeItem('just_registered');
 
+    const chasseDomaine = Array.isArray(activeDomaines)
+      ? activeDomaines.find((d) => resolveDomainConfig(d.nomDomaine, d.codeSlug)?.key === 'chasse')
+      : undefined;
+    const canHunterSelfRegister = chasseDomaine
+      ? chasseDomaine.isActive !== false && chasseDomaine.allowSelfRegistration !== false
+      : true;
+
     // Redirection selon le type de profil
-    let path = '/register';
+    let path = canHunterSelfRegister ? '/register' : '/login';
 
     switch (type) {
       case 'hunter':
-        path = '/register';
+        path = canHunterSelfRegister ? '/register' : '/login';
         break;
       case 'circulation':
         path = '/produits-forestiers';

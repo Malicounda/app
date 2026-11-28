@@ -4,6 +4,25 @@ import { z } from 'zod';
 import { affectations, domaines, userDomains } from '../../shared/schema.js';
 import { db } from '../db.js';
 
+let visibilityColumnPromise: Promise<void> | null = null;
+
+/** Assure de façon idempotente la présence des colonnes `is_visible` et `allow_self_registration` sur `domaines`. */
+export async function ensureDomaineVisibilityColumn(): Promise<void> {
+  if (!visibilityColumnPromise) {
+    visibilityColumnPromise = (async () => {
+      await db.execute(sql`
+        ALTER TABLE domaines
+        ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS allow_self_registration BOOLEAN NOT NULL DEFAULT true
+      `);
+    })().catch((err) => {
+      visibilityColumnPromise = null;
+      throw err;
+    });
+  }
+  return visibilityColumnPromise;
+}
+
 // Mapping des types de données statistiques par domaine
 const resetDataTypes: Record<string, { value: string; label: string; tables: { tableName: string; display: string }[] }> = {
   CHASSE: {
@@ -58,6 +77,8 @@ const createSchema = z.object({
   description: z.string().optional().nullable(),
   couleurTheme: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
+  isVisible: z.boolean().optional(),
+  allowSelfRegistration: z.boolean().optional(),
 });
 
 const updateSchema = createSchema.partial().extend({
@@ -76,6 +97,7 @@ const normalizeSlug = (value: string) => {
 
 export const listDomaines = async (_req: Request, res: Response) => {
   try {
+    await ensureDomaineVisibilityColumn();
     const rows = await db.select().from(domaines).orderBy(asc(domaines.nomDomaine));
     return res.json(rows);
   } catch (err) {
@@ -86,6 +108,7 @@ export const listDomaines = async (_req: Request, res: Response) => {
 
 export const listActiveDomainesPublic = async (_req: Request, res: Response) => {
   try {
+    await ensureDomaineVisibilityColumn();
     const rows = await db
       .select()
       .from(domaines)
@@ -100,6 +123,7 @@ export const listActiveDomainesPublic = async (_req: Request, res: Response) => 
 
 export const createDomaine = async (req: Request, res: Response) => {
   try {
+    await ensureDomaineVisibilityColumn();
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: 'Validation invalide', errors: parsed.error.issues });
@@ -121,12 +145,17 @@ export const createDomaine = async (req: Request, res: Response) => {
       });
     }
 
+    const isActive = parsed.data.isActive ?? true;
+    const isVisible = isActive ? (parsed.data.isVisible ?? true) : false;
+    const allowSelfRegistration = isActive ? (parsed.data.allowSelfRegistration ?? true) : false;
     const values: any = {
       nomDomaine,
       codeSlug,
       description: parsed.data.description ?? null,
       couleurTheme: parsed.data.couleurTheme ?? null,
-      isActive: parsed.data.isActive ?? true,
+      isActive,
+      isVisible,
+      allowSelfRegistration,
     };
 
     const created = await db.insert(domaines).values(values).returning();
@@ -139,6 +168,7 @@ export const createDomaine = async (req: Request, res: Response) => {
 
 export const updateDomaine = async (req: Request, res: Response) => {
   try {
+    await ensureDomaineVisibilityColumn();
     const id = Number(req.params.id);
     const parsed = updateSchema.safeParse({ ...req.body, id });
     if (!parsed.success) {
@@ -150,7 +180,12 @@ export const updateDomaine = async (req: Request, res: Response) => {
     if (parsed.data.codeSlug !== undefined) patch.codeSlug = normalizeSlug(parsed.data.codeSlug);
     if (parsed.data.description !== undefined) patch.description = parsed.data.description ?? null;
     if (parsed.data.couleurTheme !== undefined) patch.couleurTheme = parsed.data.couleurTheme ?? null;
-    if (parsed.data.isActive !== undefined) patch.isActive = parsed.data.isActive;
+    if (parsed.data.isActive !== undefined) {
+      patch.isActive = parsed.data.isActive;
+      if (!parsed.data.isActive) patch.isVisible = false;
+    }
+    if (parsed.data.isVisible !== undefined) patch.isVisible = parsed.data.isVisible;
+    if (parsed.data.allowSelfRegistration !== undefined) patch.allowSelfRegistration = parsed.data.allowSelfRegistration;
 
     if (patch.nomDomaine !== undefined || patch.codeSlug !== undefined) {
       const orParts: any[] = [];
@@ -184,16 +219,145 @@ export const updateDomaine = async (req: Request, res: Response) => {
 
 export const setDomaineActive = async (req: Request, res: Response) => {
   try {
+    await ensureDomaineVisibilityColumn();
     const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: 'ID de domaine invalide' });
+    }
     const activeParam = String(req.params.active);
     const isActive = activeParam === 'true' || activeParam === '1';
 
-    const updated = await db.update(domaines).set({ isActive } as any).where(eq(domaines.id, id)).returning();
+    const patch: { isActive: boolean; isVisible?: boolean } = { isActive };
+    if (!isActive) {
+      patch.isVisible = false;
+    }
+
+    const updated = await db.update(domaines).set(patch as any).where(eq(domaines.id, id)).returning();
     if (!updated[0]) return res.status(404).json({ message: 'Domaine introuvable' });
     return res.json(updated[0]);
   } catch (err) {
     console.error('[domaines.setActive] failed', err);
     return res.status(500).json({ message: 'Erreur lors de la mise à jour du statut' });
+  }
+};
+
+export const setDomaineVisible = async (req: Request, res: Response) => {
+  try {
+    await ensureDomaineVisibilityColumn();
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: 'ID de domaine invalide' });
+    }
+    const visibleParam = String(req.params.visible);
+    const isVisible = visibleParam === 'true' || visibleParam === '1';
+
+    const [existing] = await db.select().from(domaines).where(eq(domaines.id, id)).limit(1);
+    if (!existing) return res.status(404).json({ message: 'Domaine introuvable' });
+
+    if (isVisible && !existing.isActive) {
+      return res.status(400).json({
+        message: "Un domaine inactif ne peut pas être affiché à la connexion. Activez d'abord son statut.",
+      });
+    }
+
+    const updated = await db
+      .update(domaines)
+      .set({ isVisible } as any)
+      .where(eq(domaines.id, id))
+      .returning();
+    return res.json(updated[0]);
+  } catch (err) {
+    console.error('[domaines.setVisible] failed', err);
+    return res.status(500).json({ message: "Erreur lors de la mise à jour de l'affichage" });
+  }
+};
+
+/** Compte le nombre de domaines actuellement actifs et visibles à la connexion. */
+export async function countVisibleActiveDomaines(): Promise<number> {
+  await ensureDomaineVisibilityColumn();
+  const [{ value }] = await db
+    .select({ value: count() })
+    .from(domaines)
+    .where(and(eq(domaines.isActive, true), eq(domaines.isVisible, true)));
+  return Number(value || 0);
+}
+
+const canonicalDomainFamily = (name?: string | null, slug?: string | null): string => {
+  const text = `${String(name || '')} ${String(slug || '')}`.toLowerCase();
+  if (text.includes('chasse') || text.includes('faune')) return 'CHASSE';
+  if (text.includes('produit') || text.includes('forestier')) return 'PRODUITS_FORESTIERS';
+  if (text.includes('reboisement') || text.includes('pepini')) return 'REBOISEMENT';
+  if (text.includes('alerte')) return 'ALERTE';
+  return String(name || slug || '').trim().toUpperCase().replace(/\s+/g, '_');
+};
+
+/** Vérifie en base si l'auto-inscription publique est autorisée pour un domaine donné. */
+export async function isDomainSelfRegistrationAllowed(
+  domainIdentifier?: string | null
+): Promise<{ allowed: boolean; reason?: 'DOMAIN_INACTIVE' | 'SELF_REGISTRATION_DISABLED'; domaineName?: string }> {
+  await ensureDomaineVisibilityColumn();
+  const rows = await db.select().from(domaines);
+  if (!rows || rows.length === 0) {
+    return { allowed: true };
+  }
+
+  const targetRaw = String(domainIdentifier || 'CHASSE').trim();
+  const targetNorm = targetRaw.toLowerCase().replace(/[\s-]+/g, '_');
+  const targetFamily = canonicalDomainFamily(targetRaw, targetRaw);
+
+  const matched =
+    rows.find(
+      (r) =>
+        r.nomDomaine.trim().toLowerCase() === targetRaw.toLowerCase() ||
+        r.codeSlug.trim().toLowerCase().replace(/[\s-]+/g, '_') === targetNorm
+    ) ||
+    rows.find((r) => canonicalDomainFamily(r.nomDomaine, r.codeSlug) === targetFamily) ||
+    // Sécurité: si une valeur de domaine arbitraire est fournie, appliquer la politique du domaine CHASSE (domaine attribué par défaut à /register)
+    rows.find((r) => canonicalDomainFamily(r.nomDomaine, r.codeSlug) === 'CHASSE');
+
+  if (!matched) {
+    return { allowed: true };
+  }
+
+  if (!matched.isActive) {
+    return { allowed: false, reason: 'DOMAIN_INACTIVE', domaineName: matched.nomDomaine };
+  }
+
+  if (matched.allowSelfRegistration === false) {
+    return { allowed: false, reason: 'SELF_REGISTRATION_DISABLED', domaineName: matched.nomDomaine };
+  }
+
+  return { allowed: true, domaineName: matched.nomDomaine };
+}
+
+export const setDomaineSelfRegistration = async (req: Request, res: Response) => {
+  try {
+    await ensureDomaineVisibilityColumn();
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: 'ID de domaine invalide' });
+    }
+    const enabledParam = String(req.params.enabled);
+    const allowSelfRegistration = enabledParam === 'true' || enabledParam === '1';
+
+    const [existing] = await db.select().from(domaines).where(eq(domaines.id, id)).limit(1);
+    if (!existing) return res.status(404).json({ message: 'Domaine introuvable' });
+
+    if (allowSelfRegistration && !existing.isActive) {
+      return res.status(400).json({
+        message: "Un domaine inactif ne peut pas autoriser l'auto-inscription. Activez d'abord son statut.",
+      });
+    }
+
+    const updated = await db
+      .update(domaines)
+      .set({ allowSelfRegistration } as any)
+      .where(eq(domaines.id, id))
+      .returning();
+    return res.json(updated[0]);
+  } catch (err) {
+    console.error('[domaines.setSelfRegistration] failed', err);
+    return res.status(500).json({ message: "Erreur lors de la mise à jour de l'auto-inscription" });
   }
 };
 

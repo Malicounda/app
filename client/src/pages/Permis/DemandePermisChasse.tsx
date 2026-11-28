@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
+import { getLoginRoute } from '@/utils/getLoginRoute';
 import { TypePermisSpecial } from '@/types/permis';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -402,7 +403,7 @@ export default function DemandePermisChasse() {
   };
 
   if (!user) {
-    navigate('/login');
+    navigate(getLoginRoute(), { replace: true });
     return null;
   }
 

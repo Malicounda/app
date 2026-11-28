@@ -1,6 +1,7 @@
 import { resolveApiUrl } from "@/utils/environment";
 import { useParams, useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
+import { getLoginRoute } from '@/utils/getLoginRoute';
 import { TypePermisSpecial, StatutDemande, DocumentJoint } from '@/types/permis';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -165,7 +166,7 @@ export default function DetailDemandePermis() {
   );
 
   if (!user) {
-    navigate('/login');
+    navigate(getLoginRoute(), { replace: true });
     return null;
   }
 

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/contexts/AuthContext';
+import { getLoginRoute } from '@/utils/getLoginRoute';
 import { PermitStatus, PermitWithHunterInfo, TypePermis } from '@/types/permis';
 import { exportToCsv } from '@/utils/export';
 import { PdfLibraryLoader, generatePdf } from '@/utils/pdfGenerator';
@@ -212,7 +213,7 @@ const GestionPermisPage = () => {
   );
 
   if (!user) {
-    navigate('/login');
+    navigate(getLoginRoute(), { replace: true });
     return null;
   }
 

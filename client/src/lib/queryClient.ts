@@ -468,7 +468,13 @@ export async function afterLoginRefreshAll() {
 
 export async function afterLogoutClearAll() {
   try {
+    // Conserver la configuration publique des domaines en cache pour éviter tout flash de redirection au logout
+    const portalDomainsKey = ["/api/domaines/public/active"];
+    const cachedDomains = queryClient.getQueryData(portalDomainsKey);
     queryClient.clear();
+    if (cachedDomains !== undefined) {
+      queryClient.setQueryData(portalDomainsKey, cachedDomains);
+    }
   } catch (e) {
     console.warn('afterLogoutClearAll error:', e);
   }

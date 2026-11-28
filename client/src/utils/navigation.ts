@@ -1,3 +1,5 @@
+import { getLoginRoute } from "./getLoginRoute";
+
 // Fonction utilitaire robuste pour vérifier si un utilisateur est super admin
 export const isUserSuperAdmin = (user?: any): boolean => {
   if (!user) return false;
@@ -26,7 +28,7 @@ export const getUserSubType = (user?: any): string => {
 
 // Fonction centralisée pour déterminer la page d'accueil selon le rôle
 export const getHomePage = (role?: string, type?: string, isSuperAdmin?: boolean | string | number, isDefaultRole?: boolean, isSupervisorRole?: boolean, user?: any): string => {
-  if (!role) return '/login';
+  if (!role) return getLoginRoute();
 
   const superAdminFlag = isSuperAdmin === true || String(isSuperAdmin).toLowerCase() === 'true' || isSuperAdmin === 1;
 
@@ -92,7 +94,7 @@ export const getHomePage = (role?: string, type?: string, isSuperAdmin?: boolean
     case 'hunting-guide':
       return '/guide';
     default:
-      return '/login';
+      return getLoginRoute();
   }
 };
 

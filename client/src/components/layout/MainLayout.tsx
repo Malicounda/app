@@ -6,6 +6,7 @@ import '@/styles/darkSuperAdmin.css';
 import '@/styles/pageFrame.css';
 import '@/styles/superAdminTheme.css';
 import { getHomePage, isSectorSubRole } from "@/utils/navigation";
+import { getLoginRoute } from "@/utils/getLoginRoute";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { MdDescription, MdGroup, MdNotificationImportant, MdReceipt, MdMessage } from 'react-icons/md';
 import { useQuery } from "@tanstack/react-query";
@@ -80,18 +81,11 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
 
   // Gestion de la redirection unifiée
   useEffect(() => {
-    // Si l'utilisateur n'est pas authentifié et n'est pas sur la page login, redirection vers login
+    // Si l'utilisateur n'est pas authentifié et n'est pas sur la page login cible, redirection immédiate
     if (!isAuthenticated) {
-      const domain = (localStorage.getItem('domain') || '').toUpperCase();
-      let loginTarget = '/login';
-      if (domain === 'ALERTE') {
-        loginTarget = '/alerte-login';
-      } else if (domain === 'REBOISEMENT') {
-        loginTarget = '/reboisement-login';
-      }
-      
+      const loginTarget = getLoginRoute();
       if (location !== loginTarget) {
-        setLocation(loginTarget);
+        setLocation(loginTarget, { replace: true });
       }
       return;
     }
@@ -233,6 +227,8 @@ export default function MainLayout({ children, hideMinistryHeader = false }: Mai
       </div>
     </div>
   );
+
+  if (!isAuthenticated) return null;
 
   return (
     <div className="w-full overflow-hidden flex flex-col" style={{ height: '100dvh' }}>

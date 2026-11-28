@@ -1,3 +1,4 @@
+import { resolveDomainLoginTarget, usePortalDomains } from "@/hooks/usePortalDomains";
 import { useDomainVisual } from "@/lib/domainIcons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Eye, EyeOff, Lock, User } from "lucide-react";
@@ -28,6 +29,13 @@ const schema = z.object({
 
 export default function ReboisementLogin() {
   const { login, isLoading, isAuthenticated, user } = useAuth();
+  const {
+    canShowBackToModules,
+    singleVisibleDomain,
+    visibleDomaines,
+    isLoading: isDomainsLoading,
+    isError: isDomainsError,
+  } = usePortalDomains();
   const [, setLocation] = useLocation();
   const [loginTheme, setLoginTheme] = useState<{ bgImage?: string; bgColor?: string; primary?: string }>({});
 
@@ -61,6 +69,21 @@ export default function ReboisementLogin() {
   }, []);
   const [showPassword, setShowPassword] = useState(false);
   const { icon: DomainIcon, logoUrl } = useDomainVisual('REBOISEMENT');
+
+  useEffect(() => {
+    if (isAuthenticated || isDomainsLoading || isDomainsError) return;
+    if (visibleDomaines.length === 0) {
+      try { localStorage.setItem("domain", "SYSTEM"); } catch {}
+      setLocation("/connexion", { replace: true });
+      return;
+    }
+    if (!singleVisibleDomain) return;
+    const target = resolveDomainLoginTarget(singleVisibleDomain);
+    if (target.path !== "/reboisement-login") {
+      try { localStorage.setItem("domain", target.domainValue); } catch {}
+      setLocation(target.path, { replace: true });
+    }
+  }, [isAuthenticated, isDomainsLoading, isDomainsError, visibleDomaines.length, singleVisibleDomain, setLocation]);
 
   useEffect(() => {
     document.title = "Connexion Reboisement | SCoDiPP";
@@ -109,18 +132,30 @@ export default function ReboisementLogin() {
     }
   };
 
+  if (
+    !isAuthenticated &&
+    !isDomainsLoading &&
+    !isDomainsError &&
+    (visibleDomaines.length === 0 ||
+      (singleVisibleDomain && resolveDomainLoginTarget(singleVisibleDomain).path !== "/reboisement-login"))
+  ) {
+    return null;
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-auto p-4 bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: loginTheme.bgImage ? `url("${loginTheme.bgImage}")` : "none", backgroundColor: loginTheme.bgColor || undefined, ...(loginTheme.bgImage || loginTheme.bgColor ? {} : { background: "linear-gradient(to bottom right, #f7fee7, #f0fdf4, #d1fae5)" }) }}>
       <div className="w-full max-w-md bg-white/70 backdrop-blur rounded-2xl shadow-xl p-6">
-        <button
-          type="button"
-          onClick={() => setLocation('/?showModules=1')}
-          className="mb-3 inline-flex items-center gap-2 text-green-700 hover:text-green-800" style={loginTheme.primary ? { color: loginTheme.primary } : {}}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Retour</span>
-        </button>
+        {canShowBackToModules && (
+          <button
+            type="button"
+            onClick={() => setLocation('/?showModules=1')}
+            className="mb-3 inline-flex items-center gap-2 text-green-700 hover:text-green-800" style={loginTheme.primary ? { color: loginTheme.primary } : {}}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Retour</span>
+          </button>
+        )}
         <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
           {logoUrl ? (
             <img src={logoUrl} alt="Reboisement" className="w-10 h-10 object-contain" />

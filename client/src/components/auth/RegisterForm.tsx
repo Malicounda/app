@@ -354,7 +354,8 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
           password: data.password,
           firstName: data.firstName,
           lastName: data.lastName,
-          role: data.role || "hunter"
+          role: data.role || "hunter",
+          domain: "CHASSE"
         }
       });
 
@@ -401,6 +402,14 @@ export default function RegisterForm({ userType, embedded = false, initialStep, 
       // Priorité: utiliser la réponse normalisée du backend si disponible
       const fieldFromBackend = body?.field as string | undefined;
       const codeFromBackend = body?.code as string | undefined;
+      if (status === 403 && (codeFromBackend === 'SELF_REGISTRATION_DISABLED' || codeFromBackend === 'DOMAIN_INACTIVE')) {
+        toast({
+          variant: "destructive",
+          title: "Auto-inscription désactivée",
+          description: message || "L'auto-inscription publique est actuellement désactivée pour ce domaine.",
+        });
+        return;
+      }
       if (status === 409 && (fieldFromBackend === 'username' || codeFromBackend === 'USERNAME_DUPLICATE')) {
         form.setError('username' as any, { type: 'server', message: `Ce nom d'utilisateur est déjà utilisé. Veuillez en choisir un autre.` });
       } else if (status === 409 || hasDupKeyword) {

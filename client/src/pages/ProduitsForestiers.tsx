@@ -1,22 +1,26 @@
 import React from 'react';
 import { useLocation } from 'wouter';
 import { ArrowLeft, Trees, FileText, TrendingUp, Package } from 'lucide-react';
+import { usePortalDomains } from '@/hooks/usePortalDomains';
 
 export default function ProduitsForestiers() {
   const [, setLocation] = useLocation();
+  const { canShowBackToModules } = usePortalDomains();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-teal-100 to-cyan-50">
       {/* Header */}
       <div className="bg-teal-600 text-white py-6 shadow-lg">
         <div className="container mx-auto px-4">
-          <button
-            onClick={() => setLocation('/')}
-            className="flex items-center gap-2 text-white hover:text-teal-100 transition-colors mb-4"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Retour à l'accueil</span>
-          </button>
+          {canShowBackToModules && (
+            <button
+              onClick={() => setLocation('/?showModules=1')}
+              className="flex items-center gap-2 text-white hover:text-teal-100 transition-colors mb-4"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Retour à l'accueil</span>
+            </button>
+          )}
           <div className="flex items-center gap-4">
             <Trees className="w-12 h-12" />
             <div>

@@ -710,7 +710,7 @@ export default function InternalMessageList({
                               Nouveau
                             </span>
                           )}
-                          {message.isPending && (
+                          {Boolean(message.isPending) && (
                             <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
                               <Clock className="h-2.5 w-2.5" />
                               En attente

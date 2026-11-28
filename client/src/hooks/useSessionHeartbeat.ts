@@ -1,5 +1,8 @@
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
-import { apiRequest } from "@/lib/queryClient";
+import { afterLogoutClearAll, apiRequest } from "@/lib/queryClient";
+import { resolveApiUrl } from "@/utils/environment";
+import { getLoginRoute, resolveLogoutRedirectRoute } from "@/utils/getLoginRoute";
+import { removePreference } from "@/utils/preferences";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // ── Configuration ─────────────────────────────────────────────────
@@ -36,9 +39,10 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
 
   const lastActivityRef   = useRef(Date.now());
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isActiveRef       = useRef(isAuthenticated);
-  const lockStateRef      = useRef<LockState>("active");
-  const disableLockRef    = useRef(disableLock);
+  const isActiveRef         = useRef(isAuthenticated);
+  const lockStateRef        = useRef<LockState>("active");
+  const disableLockRef      = useRef(disableLock);
+  const isForceLoggingOutRef = useRef(false);
 
   useEffect(() => {
     lockStateRef.current = lockState;
@@ -116,26 +120,67 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
 
   // ── Déconnexion forcée ──────────────────────────────────────────
   const forceLogout = useCallback(async () => {
+    if (isForceLoggingOutRef.current) return;
+    isForceLoggingOutRef.current = true;
+
+    // 1. Résoudre la route exacte de redirection (ex: page login de l'unique domaine visible)
+    //    AVANT de vider le cache React Query, pendant que l'overlay opaque reste affiché.
+    const targetRoute = await resolveLogoutRedirectRoute().catch(() => getLoginRoute());
+
+    // 2. Fermer la session serveur via fetch direct (sans passer par apiRequest)
+    //    afin d'éviter tout événement sessionExpired ou popup apiRefusal si le token a déjà expiré.
+    const controller = new AbortController();
+    const timerId = window.setTimeout(() => controller.abort(), 2000);
     try {
-      await apiRequest({
-        url: "/api/auth/logout",
+      let token: string | null = null;
+      try {
+        token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      } catch {
+        token = null;
+      }
+      await fetch(resolveApiUrl("/api/auth/logout"), {
         method: "POST",
-        data: { reason: lockState === "expired" ? "session_expired" : "inactivity" },
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          reason: lockStateRef.current === "expired" ? "session_expired" : "inactivity",
+        }),
+        signal: controller.signal,
       });
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+    } finally {
+      window.clearTimeout(timerId);
+    }
+
+    // 3. Nettoyer la session locale sans toucher à lockState (évite tout flash des données sous-jacentes)
     try {
       localStorage.removeItem("token");
+      localStorage.removeItem("scodi_session");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userRegion");
       sessionStorage.removeItem("token");
-    } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
-    const prevDomain = localStorage.getItem('domain');
-    if (prevDomain === "ALERTE") {
-      window.location.href = "/alerte-login";
-    } else if (prevDomain === "REBOISEMENT") {
-      window.location.href = "/reboisement-login";
-    } else {
-      window.location.href = "/login";
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
     }
-  }, [lockState]);
+    try {
+      await Promise.all([
+        removePreference("token"),
+        removePreference("scodi_session"),
+        removePreference("userRole"),
+        removePreference("userRegion"),
+      ]);
+      await afterLogoutClearAll();
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);
+    }
+
+    // 4. Garder l'overlay verrouillé opaque jusqu'à la fin de la redirection vers la page exacte
+    window.location.replace(targetRoute);
+  }, []);
 
   // ── Envoi du heartbeat (uniquement si l'utilisateur est réellement actif) ──
   const sendHeartbeat = useCallback(async (forceInitial = false) => {
@@ -175,7 +220,9 @@ export function useSessionHeartbeat(isAuthenticated: boolean, disableLock: boole
   // ── Heartbeat interval ──────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated) {
-      setLockState("active");
+      if (!isForceLoggingOutRef.current) {
+        setLockState("active");
+      }
       return;
     }
 

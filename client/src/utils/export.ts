@@ -314,7 +314,9 @@ export function exportMultiSheetXlsx(filename: string, sheets: ExcelSheetData[])
   });
 
   const zipBytes = buildStoreZip(files);
-  const blob = new Blob([zipBytes], {
+  const zipBuffer = new ArrayBuffer(zipBytes.byteLength);
+  new Uint8Array(zipBuffer).set(zipBytes);
+  const blob = new Blob([zipBuffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
   const url = URL.createObjectURL(blob);

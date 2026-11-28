@@ -1,3 +1,4 @@
+import { resolveDomainLoginTarget, usePortalDomains } from "@/hooks/usePortalDomains";
 import { useDomainVisual } from "@/lib/domainIcons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Eye, EyeOff, Lock, User } from "lucide-react";
@@ -29,6 +30,15 @@ const loginSchema = z.object({
 
 export default function Login() {
   const { login, isLoading, isAuthenticated, user } = useAuth();
+  const {
+    canShowBackToModules,
+    isDomainRegistrationEnabled,
+    singleVisibleDomain,
+    visibleDomaines,
+    isLoading: isDomainsLoading,
+    isError: isDomainsError,
+  } = usePortalDomains();
+  const allowChasseSelfRegistration = isDomainRegistrationEnabled("chasse");
   const [showPassword, setShowPassword] = useState(false);
   const [, setLocation] = useLocation();
   const [loginTheme, setLoginTheme] = useState<{ bgImage?: string; bgColor?: string; primary?: string }>({});
@@ -50,19 +60,36 @@ export default function Login() {
   const { icon: DomainIcon, logoUrl } = useDomainVisual('CHASSE');
 
   useEffect(() => {
+    const isChasseApkCheck = typeof navigator !== 'undefined' && navigator.userAgent.includes('ChasseAPK');
+    if (isChasseApkCheck || isAuthenticated || isDomainsLoading || isDomainsError) return;
+    if (visibleDomaines.length === 0) {
+      try { localStorage.setItem("domain", "SYSTEM"); } catch {}
+      setLocation("/connexion", { replace: true });
+      return;
+    }
+    if (!singleVisibleDomain) return;
+    const target = resolveDomainLoginTarget(singleVisibleDomain);
+    if (target.path !== "/login") {
+      try { localStorage.setItem("domain", target.domainValue); } catch {}
+      setLocation(target.path, { replace: true });
+    }
+  }, [isAuthenticated, isDomainsLoading, isDomainsError, visibleDomaines.length, singleVisibleDomain, setLocation]);
+
+  useEffect(() => {
     document.title = "Connexion | Système de Contrôle et de Digitalisation";
     try { localStorage.setItem('domain', 'CHASSE'); } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
   }, []);
 
-  // Ouvre automatiquement la modale si l'URL contient ?selectProfile=1 (redirigé depuis /select-profile)
+  // Ouvre automatiquement l'inscription si l'URL contient ?selectProfile=1 et que l'auto-inscription est autorisée
   useEffect(() => {
     try {
+      if (!allowChasseSelfRegistration) return;
       const params = new URLSearchParams(window.location.search);
       if (params.get("selectProfile") === "1") {
         setLocation("/register");
       }
     } catch (e) { if (import.meta.env.DEV) console.warn('[SCODI-DEBUG] Silenced error', e);  }
-  }, [setLocation]);
+  }, [setLocation, allowChasseSelfRegistration]);
 
   // Afficher le message de session expirée si présent
   useEffect(() => {
@@ -143,13 +170,24 @@ export default function Login() {
     }
   };
 
+  if (
+    !isChasseApk &&
+    !isAuthenticated &&
+    !isDomainsLoading &&
+    !isDomainsError &&
+    (visibleDomaines.length === 0 ||
+      (singleVisibleDomain && resolveDomainLoginTarget(singleVisibleDomain).path !== "/login"))
+  ) {
+    return null;
+  }
+
   return (
     <div 
       className="fixed inset-0 z-[100] flex items-center justify-center overflow-auto p-4 bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: loginTheme.bgImage ? `url("${loginTheme.bgImage}")` : 'url("/login_bg_chasse.png")', backgroundColor: loginTheme.bgColor || undefined }}
     >
       <div className="w-full max-w-md bg-white/30 backdrop-blur-lg border-2 border-white/80 rounded-3xl shadow-2xl p-8 relative">
-        {typeof navigator !== 'undefined' && !navigator.userAgent.includes('ChasseAPK') && (
+        {typeof navigator !== 'undefined' && !navigator.userAgent.includes('ChasseAPK') && canShowBackToModules && (
           <button
             type="button"
             onClick={() => setLocation('/?showModules=1')}
@@ -241,19 +279,21 @@ export default function Login() {
                 Se connecter
               </Button>
 
-              <div className="text-center text-sm text-gray-600 mt-4">
-                Vous n'avez pas de compte?{" "}
-                <button
-                  type="button"
-                  onClick={() => setLocation('/register')}
-                  className={`font-medium hover:underline ${isLoading ? "opacity-50 cursor-not-allowed text-gray-400" : "text-green-700"}`}
-                  style={loginTheme.primary && !isLoading ? { color: loginTheme.primary } : {}}
-                  disabled={isLoading}
-                  aria-disabled={isLoading}
-                >
-                  Créer un compte
-                </button>
-              </div>
+              {allowChasseSelfRegistration && (
+                <div className="text-center text-sm text-gray-600 mt-4">
+                  Vous n'avez pas de compte?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setLocation('/register')}
+                    className={`font-medium hover:underline ${isLoading ? "opacity-50 cursor-not-allowed text-gray-400" : "text-green-700"}`}
+                    style={loginTheme.primary && !isLoading ? { color: loginTheme.primary } : {}}
+                    disabled={isLoading}
+                    aria-disabled={isLoading}
+                  >
+                    Créer un compte
+                  </button>
+                </div>
+              )}
             </form>
           </Form>
         </div>

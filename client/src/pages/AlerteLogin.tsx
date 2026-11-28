@@ -1,3 +1,4 @@
+import { resolveDomainLoginTarget, usePortalDomains } from "@/hooks/usePortalDomains";
 import { useDomainVisual } from "@/lib/domainIcons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, User, Bell, Info, Lock, Eye, EyeOff } from "lucide-react";
@@ -41,6 +42,13 @@ const isApkMode = (): boolean => {
 
 export default function AlerteLogin() {
   const { login, isLoading, isAuthenticated, user } = useAuth();
+  const {
+    canShowBackToModules,
+    singleVisibleDomain,
+    visibleDomaines,
+    isLoading: isDomainsLoading,
+    isError: isDomainsError,
+  } = usePortalDomains();
   const [, setLocation] = useLocation();
   const [loginTheme, setLoginTheme] = useState<{ bgImage?: string; bgColor?: string; primary?: string }>({});
 
@@ -77,6 +85,21 @@ export default function AlerteLogin() {
       setLocation(homePage);
     }
   }, [isAuthenticated, user, setLocation]);
+
+  useEffect(() => {
+    if (isApk || isAuthenticated || isDomainsLoading || isDomainsError) return;
+    if (visibleDomaines.length === 0) {
+      try { localStorage.setItem("domain", "SYSTEM"); } catch {}
+      setLocation("/connexion", { replace: true });
+      return;
+    }
+    if (!singleVisibleDomain) return;
+    const target = resolveDomainLoginTarget(singleVisibleDomain);
+    if (target.path !== "/alerte-login") {
+      try { localStorage.setItem("domain", target.domainValue); } catch {}
+      setLocation(target.path, { replace: true });
+    }
+  }, [isApk, isAuthenticated, isDomainsLoading, isDomainsError, visibleDomaines.length, singleVisibleDomain, setLocation]);
 
   useEffect(() => {
     document.title = "Connexion Alerte | SCoDi";
@@ -143,12 +166,6 @@ export default function AlerteLogin() {
           description: "Impossible de se connecter sans Internet. Veuillez vérifier votre connexion.",
           variant: "destructive",
         });
-      } else if (msg.includes('invalide') || msg.includes('incorrect')) {
-        toast({
-          title: "Échec de connexion",
-          description: "Matricule ou code secret incorrect.",
-          variant: "destructive",
-        });
       } else {
         if (import.meta.env.DEV) console.warn('[AlerteLogin] Erreur login:', e);
       }
@@ -156,6 +173,15 @@ export default function AlerteLogin() {
   };
 
   if (isAuthenticated) return null;
+  if (
+    !isApk &&
+    !isDomainsLoading &&
+    !isDomainsError &&
+    (visibleDomaines.length === 0 ||
+      (singleVisibleDomain && resolveDomainLoginTarget(singleVisibleDomain).path !== "/alerte-login"))
+  ) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-auto p-4 bg-cover bg-center bg-no-repeat"
@@ -163,9 +189,10 @@ export default function AlerteLogin() {
 
       <div className="w-full max-w-md bg-white/70 backdrop-blur rounded-2xl shadow-xl p-6">
 
-        {!isApk && (
+        {!isApk && canShowBackToModules && (
           <button
-            onClick={() => setLocation("/")}
+            type="button"
+            onClick={() => setLocation("/?showModules=1")}
             className="mb-3 inline-flex items-center gap-2 text-amber-700" style={loginTheme.primary ? { color: loginTheme.primary } : {}}
           >
             <ArrowLeft className="w-4 h-4" />

@@ -155,17 +155,36 @@ router.get('/national/permit-categories-breakdown', isAuthenticated, async (req,
   }
 });
 
-// GET /api/stats/national/hunters-by-category - Chasseurs par région et catégorie (national)
+// GET /api/stats/national/hunters-by-category - Chasseurs par région et catégorie (national, lieu d'enregistrement)
 router.get('/national/hunters-by-category', isAuthenticated, async (_req, res) => {
   try {
-    const data = await db
-      .select({
-        region: sql<string>`LOWER(TRIM(${hunters.region}))`,
-        category: hunters.category,
-        count: count(),
-      })
-      .from(hunters)
-      .groupBy(sql`LOWER(TRIM(${hunters.region}))`, hunters.category);
+    const raw = await db.execute(sql`
+      SELECT
+        LOWER(TRIM(COALESCE(
+          NULLIF(TRIM(u_c.region), ''),
+          NULLIF(TRIM(u_hist.region), ''),
+          NULLIF(TRIM(u_h.region), ''),
+          NULLIF(TRIM(h.region), '')
+        ))) AS region,
+        h.category AS category,
+        COUNT(*)::int AS count
+      FROM hunters h
+      LEFT JOIN users u_h ON u_h.hunter_id = h.id
+      LEFT JOIN users u_c ON u_c.id = h.created_by_user_id
+      LEFT JOIN LATERAL (
+        SELECT u_hi.region
+        FROM history hi
+        INNER JOIN users u_hi ON u_hi.id = hi.user_id
+        WHERE hi.entity_type = 'hunter'
+          AND hi.operation = 'create_hunter'
+          AND hi.entity_id = h.id
+        ORDER BY hi.id ASC
+        LIMIT 1
+      ) u_hist ON true
+      WHERE COALESCE(h.is_active, true) = true
+      GROUP BY 1, h.category
+    ` as any);
+    const data = Array.isArray(raw) ? raw : ((raw as any)?.rows || []);
 
     return res.json(
       (data || []).map((h: any) => ({
@@ -247,6 +266,10 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
       permit_number: string | null;
       declared_by: string | null;
       category: string | null;
+      hunter_reg_region: string | null;
+      hunter_reg_dept: string | null;
+      hunter_reg_arr: string | null;
+      hunter_reg_com: string | null;
     }> = await db.execute(
       sql`SELECT
             COALESCE(LOWER(TRIM(x.region)), 'nondefini') AS region,
@@ -267,7 +290,29 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
               NULLIF(TRIM(p.type), ''),
               NULLIF(TRIM(p.category_id), ''),
               ''
-            ) AS category
+            ) AS category,
+            COALESCE(
+              NULLIF(TRIM(u_hc.region), ''),
+              NULLIF(TRIM(u_hhist.region), ''),
+              NULLIF(TRIM(u_hu.region), ''),
+              NULLIF(TRIM(h_reg.region), '')
+            ) AS hunter_reg_region,
+            COALESCE(
+              NULLIF(TRIM(u_hc.departement), ''),
+              NULLIF(TRIM(u_hhist.departement), ''),
+              NULLIF(TRIM(u_hu.departement), ''),
+              NULLIF(TRIM(h_reg.departement), '')
+            ) AS hunter_reg_dept,
+            COALESCE(
+              NULLIF(TRIM(u_hc.arrondissement), ''),
+              NULLIF(TRIM(u_hhist.arrondissement), ''),
+              NULLIF(TRIM(u_hu.arrondissement), '')
+            ) AS hunter_reg_arr,
+            COALESCE(
+              NULLIF(TRIM(u_hc.commune), ''),
+              NULLIF(TRIM(u_hhist.commune), ''),
+              NULLIF(TRIM(u_hu.commune), '')
+            ) AS hunter_reg_com
           FROM (
             SELECT
               COALESCE(
@@ -295,6 +340,7 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
               d.quantity,
               d.lat,
               d.lon,
+              d.hunter_id,
               d.permit_id,
               d.permit_number,
               d.category,
@@ -336,6 +382,7 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
               ha.quantity,
               ha.lat,
               ha.lon,
+              COALESCE(ha.hunter_id, d_src.hunter_id) AS hunter_id,
               ha.permit_id,
               ha.permit_number,
               d_src.category,
@@ -350,6 +397,19 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
           ) x
           LEFT JOIN especes e ON (e.id::text = x.species_id::text OR LOWER(TRIM(e.nom)) = LOWER(TRIM(x.nom_espece)))
           LEFT JOIN permits p ON (p.id = x.permit_id OR (x.permit_id IS NULL AND p.permit_number = x.permit_number))
+          LEFT JOIN hunters h_reg ON h_reg.id = COALESCE(x.hunter_id, p.hunter_id)
+          LEFT JOIN users u_hc ON u_hc.id = h_reg.created_by_user_id
+          LEFT JOIN users u_hu ON u_hu.hunter_id = h_reg.id
+          LEFT JOIN LATERAL (
+            SELECT u_hi.region, u_hi.departement, u_hi.arrondissement, u_hi.commune
+            FROM history hi
+            INNER JOIN users u_hi ON u_hi.id = hi.user_id
+            WHERE hi.entity_type = 'hunter'
+              AND hi.operation = 'create_hunter'
+              AND hi.entity_id = h_reg.id
+            ORDER BY hi.id ASC
+            LIMIT 1
+          ) u_hhist ON true
           WHERE COALESCE(x.quantity, 0) > 0
           ORDER BY region ASC, species_id ASC` as any
     ) as any;
@@ -408,6 +468,10 @@ router.get('/national/species-by-region', isAuthenticated, async (req, res) => {
           permitNumber: r.permit_number ? String(r.permit_number).trim() : null,
           declaredBy: r.declared_by || 'Chasseur',
           category: r.category ? String(r.category).trim() : null,
+          hunterRegisteredRegion: r.hunter_reg_region ? canonicalRegionName(r.hunter_reg_region) : null,
+          hunterRegisteredDepartement: r.hunter_reg_dept ? String(r.hunter_reg_dept).trim() : null,
+          hunterRegisteredArrondissement: r.hunter_reg_arr ? String(r.hunter_reg_arr).trim() : null,
+          hunterRegisteredCommune: r.hunter_reg_com ? String(r.hunter_reg_com).trim() : null,
         };
       })
     );

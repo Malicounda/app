@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
+import { getLoginRoute } from "@/utils/getLoginRoute";
 import { getHomePage } from "@/utils/navigation";
 
 export default function RoleBasedRouter() {
@@ -9,14 +10,7 @@ export default function RoleBasedRouter() {
   
   useEffect(() => {
     if (!isAuthenticated) {
-      const domain = (localStorage.getItem('domain') || '').toUpperCase();
-      let loginTarget = '/login';
-      if (domain === 'ALERTE') {
-        loginTarget = '/alerte-login';
-      } else if (domain === 'REBOISEMENT') {
-        loginTarget = '/reboisement-login';
-      }
-      setLocation(loginTarget);
+      setLocation(getLoginRoute(), { replace: true });
       return;
     }
 

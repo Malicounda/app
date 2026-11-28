@@ -31,6 +31,8 @@ type Domaine = {
   description?: string | null;
   couleurTheme?: string | null;
   isActive: boolean;
+  isVisible?: boolean;
+  allowSelfRegistration?: boolean;
   createdAt: string;
 };
 
@@ -181,6 +183,38 @@ export default function DomainesPage() {
     },
   });
 
+  const toggleVisibleMutation = useMutation({
+    mutationFn: async (vars: { id: number; isVisible: boolean }) => {
+      return apiRequest<Domaine>({
+        url: `/api/domaines/${vars.id}/visible/${vars.isVisible ? "true" : "false"}`,
+        method: "PATCH",
+      });
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["/api/domaines"] });
+      await qc.invalidateQueries({ queryKey: ["/api/domaines/public/active"] });
+    },
+    onError: (e: any) => {
+      toast({ title: "Erreur", description: e?.message || "Mise à jour de l'affichage impossible", variant: "destructive" });
+    },
+  });
+
+  const toggleRegistrationMutation = useMutation({
+    mutationFn: async (vars: { id: number; allowSelfRegistration: boolean }) => {
+      return apiRequest<Domaine>({
+        url: `/api/domaines/${vars.id}/registration/${vars.allowSelfRegistration ? "true" : "false"}`,
+        method: "PATCH",
+      });
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["/api/domaines"] });
+      await qc.invalidateQueries({ queryKey: ["/api/domaines/public/active"] });
+    },
+    onError: (e: any) => {
+      toast({ title: "Erreur", description: e?.message || "Mise à jour de l'auto-inscription impossible", variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       return apiRequest<Domaine>({
@@ -291,17 +325,22 @@ export default function DomainesPage() {
                   <div className="py-6">Chargement...</div>
                 ) : (
                   <div className="w-full overflow-x-auto rounded-md border">
-                    <Table className="min-w-[520px]">
+                    <Table className="min-w-[840px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nom du Domaine</TableHead>
                           <TableHead>Description</TableHead>
-                          <TableHead className="w-[160px]">Statut</TableHead>
+                          <TableHead className="w-[155px]">Statut</TableHead>
+                          <TableHead className="w-[165px]">Affichage</TableHead>
+                          <TableHead className="w-[180px]">Auto-inscription</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredDomaines.map((d) => (
+                        {filteredDomaines.map((d) => {
+                          const effectivelyVisible = d.isActive && d.isVisible !== false;
+                          const effectivelyAllowsRegistration = d.isActive && d.allowSelfRegistration !== false;
+                          return (
                           <TableRow key={d.id}>
                             <TableCell>{d.nomDomaine}</TableCell>
                             <TableCell>{d.description || "-"}</TableCell>
@@ -315,7 +354,60 @@ export default function DomainesPage() {
                                 </Badge>
                                 <Switch
                                   checked={d.isActive}
+                                  disabled={toggleMutation.isPending}
                                   onCheckedChange={(checked) => toggleMutation.mutate({ id: d.id, isActive: checked })}
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant={effectivelyVisible ? "secondary" : "outline"}
+                                  className={
+                                    effectivelyVisible
+                                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                                      : "bg-slate-100 text-slate-600 border-slate-200"
+                                  }
+                                >
+                                  {effectivelyVisible ? "Visible" : "Masqué"}
+                                </Badge>
+                                <Switch
+                                  checked={effectivelyVisible}
+                                  disabled={!d.isActive || toggleVisibleMutation.isPending}
+                                  title={
+                                    !d.isActive
+                                      ? "Activez d'abord le statut du domaine pour le rendre visible à la connexion"
+                                      : "Afficher ou masquer ce domaine sur l'écran de connexion"
+                                  }
+                                  onCheckedChange={(checked) =>
+                                    toggleVisibleMutation.mutate({ id: d.id, isVisible: checked })
+                                  }
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant={effectivelyAllowsRegistration ? "secondary" : "outline"}
+                                  className={
+                                    effectivelyAllowsRegistration
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }
+                                >
+                                  {effectivelyAllowsRegistration ? "Autorisée" : "Désactivée"}
+                                </Badge>
+                                <Switch
+                                  checked={effectivelyAllowsRegistration}
+                                  disabled={!d.isActive || toggleRegistrationMutation.isPending}
+                                  title={
+                                    !d.isActive
+                                      ? "Activez d'abord le statut du domaine pour gérer l'auto-inscription"
+                                      : "Autoriser ou bloquer l'auto-inscription publique pour ce domaine (les agents restent habilités)"
+                                  }
+                                  onCheckedChange={(checked) =>
+                                    toggleRegistrationMutation.mutate({ id: d.id, allowSelfRegistration: checked })
+                                  }
                                 />
                               </div>
                             </TableCell>
@@ -349,7 +441,8 @@ export default function DomainesPage() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))}
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>

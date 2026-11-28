@@ -125,6 +125,16 @@ export interface TerritorialSubZoneRow {
   piecesAbattues?: number;
 }
 
+export interface TerritorialMonthlyFluxRow {
+  monthKey: string;
+  label: string;
+  huntersCoutumier: number;
+  huntersResident: number;
+  huntersTouriste: number;
+  huntersTotal: number;
+  permitsTotal: number;
+}
+
 export interface TerritorialStatsScope {
   level: "national" | "regional" | "departemental" | "arrondissement";
   region?: string | null;
@@ -134,6 +144,7 @@ export interface TerritorialStatsScope {
   territoryDisplay?: string;
   subZoneHeading?: string;
   subZoneBreakdown?: TerritorialSubZoneRow[];
+  monthlyFlux?: TerritorialMonthlyFluxRow[];
 }
 
 export interface NationalStatisticsProps {
@@ -237,6 +248,7 @@ export default function NationalStatistics({
   // Filtres dynamiques Catégorie d'espèce et Région (onglet Espèces chassées)
   const [speciesCategoryFilter, setSpeciesCategoryFilter] = useState<string>('toutes');
   const [speciesRegionFilter, setSpeciesRegionFilter] = useState<string>('toutes');
+  const [speciesHunterScope, setSpeciesHunterScope] = useState<'registered' | 'all'>('registered');
 
   // Filtres Région pour les onglets Par région, Catégories de permis, Infractions et Alertes
   const [statsRegionFilter, setStatsRegionFilter] = useState<string>('toutes');
@@ -465,6 +477,9 @@ export default function NationalStatistics({
   // Nouvelles données: quantités par espèce et par région (déclarations)
   type SpeciesByRegion = {
     region: string;
+    departement?: string | null;
+    arrondissement?: string | null;
+    commune?: string | null;
     speciesId: string;
     speciesName?: string;
     scientificName?: string;
@@ -474,6 +489,10 @@ export default function NationalStatistics({
     permitNumber?: string | null;
     declaredBy?: string | null;
     category?: string | null;
+    hunterRegisteredRegion?: string | null;
+    hunterRegisteredDepartement?: string | null;
+    hunterRegisteredArrondissement?: string | null;
+    hunterRegisteredCommune?: string | null;
   };
 
   // Normalisation et libellé dynamique des catégories de chasse
@@ -675,11 +694,40 @@ export default function NationalStatistics({
     if (lockedDeptNorm) {
       rows = rows.filter((r) => matchesLockedDept(r.departement));
     }
+    if (isSubZoneMode && speciesHunterScope === 'registered') {
+      rows = rows.filter((r: any) => {
+        if (lockedRegionKey && canonicalRegionKey(r.hunterRegisteredRegion || '') !== lockedRegionKey) {
+          return false;
+        }
+        if (lockedDeptNorm && !matchesLockedDept(r.hunterRegisteredDepartement)) {
+          return false;
+        }
+        if (territorialScope?.level === 'arrondissement' && territorialScope.arrondissement) {
+          const targetArr = removeDiacritics(String(territorialScope.arrondissement).trim().toLowerCase());
+          const actualArr = removeDiacritics(String(r.hunterRegisteredArrondissement || '').trim().toLowerCase());
+          if (!actualArr || (actualArr !== targetArr && !actualArr.includes(targetArr) && !targetArr.includes(actualArr))) {
+            return false;
+          }
+        }
+        return true;
+      });
+    }
     if (speciesCategoryFilter !== 'toutes') {
       rows = rows.filter((r) => getRowCategoryKey(r) === speciesCategoryFilter);
     }
     return rows;
-  }, [speciesByRegion, speciesRegionFilter, speciesCategoryFilter, allSpeciesCatalog, lockedDeptNorm]);
+  }, [
+    speciesByRegion,
+    speciesRegionFilter,
+    speciesCategoryFilter,
+    allSpeciesCatalog,
+    lockedDeptNorm,
+    isSubZoneMode,
+    speciesHunterScope,
+    lockedRegionKey,
+    territorialScope?.level,
+    territorialScope?.arrondissement,
+  ]);
 
   const isLoading = aggregatesLoading || byRegionLoading;
 
@@ -2776,11 +2824,11 @@ export default function NationalStatistics({
       }
       case 'regions': {
         if (isSubZoneMode) {
-          const header = [geoUnitLabel, 'Permis actifs', 'Prélèvements', "Taxe d'abattage (FCFA)", 'Recette (FCFA)'];
+          const header = [geoUnitLabel, 'Permis actifs', 'Chasseurs enregistrés', "Taxe d'abattage (FCFA)", 'Recette (FCFA)'];
           const rows = (subZoneStatsRows || []).map((z) => [
             (z.zone || '').toUpperCase(),
             Number(z.activePermits ?? 0),
-            Number(z.piecesAbattues ?? 0),
+            Number(z.hunters ?? 0),
             Number(z.taxesRevenue ?? 0),
             Number((z.permitsRevenue ?? 0) + (z.taxesRevenue ?? 0)),
           ]);
@@ -4705,7 +4753,241 @@ export default function NationalStatistics({
               </Card>
             </TabsContent>
             <TabsContent value="categories" className="space-y-4">
-              {showCategoriesAnalysis ? (
+              {isSubZoneMode ? (
+                  <div className="space-y-4">
+                    {(() => {
+                      const fluxRows = territorialScope?.monthlyFlux || [];
+                      const peakResident = fluxRows.reduce<TerritorialMonthlyFluxRow | null>(
+                        (best, r) => (r.huntersResident > (best?.huntersResident ?? 0) ? r : best),
+                        null
+                      );
+                      const peakTouriste = fluxRows.reduce<TerritorialMonthlyFluxRow | null>(
+                        (best, r) => (r.huntersTouriste > (best?.huntersTouriste ?? 0) ? r : best),
+                        null
+                      );
+                      const peakPermits = fluxRows.reduce<TerritorialMonthlyFluxRow | null>(
+                        (best, r) => (r.permitsTotal > (best?.permitsTotal ?? 0) ? r : best),
+                        null
+                      );
+                      const pieEntries = subZoneStatsRows
+                        .filter((z) => z.activePermits > 0)
+                        .map((z) => ({ key: z.zone, name: z.zone, value: z.activePermits }));
+                      const pieTotal = pieEntries.reduce((s, e) => s + e.value, 0) || 1;
+
+                      return (
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle>Flux mensuel des Chasseurs enregistrés &amp; Permis délivrés</CardTitle>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Suivi mensuel par catégorie de chasseur et comparaison avec les permis délivrés par {geoUnitLower}
+                            </p>
+                          </CardHeader>
+                          <CardContent className="space-y-5">
+                            {/* Bandeau des 3 mois pics */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div className="rounded-xl border border-blue-200 bg-blue-50/50 px-4 py-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <div className="text-xs font-semibold text-blue-800 uppercase tracking-wide">Pic Résidents</div>
+                                  <div className="text-lg font-extrabold text-blue-950 capitalize mt-0.5">
+                                    {peakResident ? peakResident.label : "Aucun"}
+                                  </div>
+                                </div>
+                                <div className="text-2xl font-extrabold text-blue-700 tabular-nums">
+                                  {peakResident ? peakResident.huntersResident.toLocaleString("fr-FR") : 0}
+                                </div>
+                              </div>
+
+                              <div className="rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <div className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Pic Touristes</div>
+                                  <div className="text-lg font-extrabold text-amber-950 capitalize mt-0.5">
+                                    {peakTouriste ? peakTouriste.label : "Aucun"}
+                                  </div>
+                                </div>
+                                <div className="text-2xl font-extrabold text-amber-700 tabular-nums">
+                                  {peakTouriste ? peakTouriste.huntersTouriste.toLocaleString("fr-FR") : 0}
+                                </div>
+                              </div>
+
+                              <div className="rounded-xl border border-purple-200 bg-purple-50/50 px-4 py-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <div className="text-xs font-semibold text-purple-800 uppercase tracking-wide">Pic Permis délivrés</div>
+                                  <div className="text-lg font-extrabold text-purple-950 capitalize mt-0.5">
+                                    {peakPermits ? peakPermits.label : "Aucun"}
+                                  </div>
+                                </div>
+                                <div className="text-2xl font-extrabold text-purple-700 tabular-nums">
+                                  {peakPermits ? peakPermits.permitsTotal.toLocaleString("fr-FR") : 0}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Graphique combiné mensuel + Camembert par département */}
+                            <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+                              <div className="xl:col-span-8 rounded-xl border border-slate-200 bg-white p-4">
+                                <h4 className="text-sm font-semibold text-slate-800 mb-3">
+                                  Évolution mensuelle : Chasseurs enregistrés (barres) &amp; Permis délivrés (courbe)
+                                </h4>
+                                <div className="h-[360px]">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <ComposedChart data={fluxRows} margin={{ top: 12, right: 20, left: 0, bottom: 12 }}>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                                      <Tooltip
+                                        content={({ active, payload, label }) => {
+                                          if (!active || !payload || payload.length === 0) return null;
+                                          const row = payload[0]?.payload as TerritorialMonthlyFluxRow | undefined;
+                                          if (!row) return null;
+                                          return (
+                                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-md text-xs space-y-1.5 min-w-[205px]">
+                                              <div className="font-semibold text-slate-900 border-b border-slate-100 pb-1 capitalize">
+                                                {label}
+                                              </div>
+                                              <div className="flex items-center justify-between gap-4">
+                                                <span className="flex items-center gap-1.5 text-slate-700">
+                                                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#10b981]" />
+                                                  Coutumiers
+                                                </span>
+                                                <strong className="tabular-nums">{row.huntersCoutumier}</strong>
+                                              </div>
+                                              <div className="flex items-center justify-between gap-4">
+                                                <span className="flex items-center gap-1.5 text-slate-700">
+                                                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#2563eb]" />
+                                                  Résidents
+                                                </span>
+                                                <strong className="tabular-nums">{row.huntersResident}</strong>
+                                              </div>
+                                              <div className="flex items-center justify-between gap-4">
+                                                <span className="flex items-center gap-1.5 text-slate-700">
+                                                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#f59e0b]" />
+                                                  Touristes
+                                                </span>
+                                                <strong className="tabular-nums">{row.huntersTouriste}</strong>
+                                              </div>
+                                              <div className="border-t border-slate-100 pt-1 flex items-center justify-between gap-4 font-semibold text-slate-900">
+                                                <span>Total chasseurs</span>
+                                                <span className="tabular-nums">{row.huntersTotal}</span>
+                                              </div>
+                                              <div className="flex items-center justify-between gap-4 font-semibold text-purple-700">
+                                                <span className="flex items-center gap-1.5">
+                                                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#7c3aed]" />
+                                                  Permis délivrés
+                                                </span>
+                                                <span className="tabular-nums">{row.permitsTotal}</span>
+                                              </div>
+                                            </div>
+                                          );
+                                        }}
+                                      />
+                                      <Legend />
+                                      <Bar
+                                        dataKey="huntersCoutumier"
+                                        name="Chasseurs coutumiers"
+                                        stackId="hunters"
+                                        fill="#10b981"
+                                        maxBarSize={36}
+                                      />
+                                      <Bar
+                                        dataKey="huntersResident"
+                                        name="Chasseurs résidents"
+                                        stackId="hunters"
+                                        fill="#2563eb"
+                                        maxBarSize={36}
+                                      />
+                                      <Bar
+                                        dataKey="huntersTouriste"
+                                        name="Chasseurs touristes"
+                                        stackId="hunters"
+                                        fill="#f59e0b"
+                                        radius={[4, 4, 0, 0]}
+                                        maxBarSize={36}
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="permitsTotal"
+                                        name="Permis délivrés"
+                                        stroke="#7c3aed"
+                                        strokeWidth={2.75}
+                                        dot={{ r: 4.5, fill: "#7c3aed" }}
+                                        activeDot={{ r: 6.5 }}
+                                      />
+                                    </ComposedChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              <div className="xl:col-span-4 rounded-xl border border-slate-200 bg-white p-4">
+                                <h4 className="text-sm font-semibold text-slate-800 mb-3">
+                                  Permis délivrés par {geoUnitLower} (%)
+                                </h4>
+                                {pieEntries.length === 0 ? (
+                                  <div className="flex items-center justify-center h-[360px] text-sm text-muted-foreground">
+                                    Aucun permis délivré.
+                                  </div>
+                                ) : (
+                                  <div className="h-[360px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <PieChart>
+                                        <defs>
+                                          {pieEntries.map((entry, idx) => {
+                                            const dotColor = COLORS[idx % COLORS.length];
+                                            return (
+                                              <pattern
+                                                key={`dot-pat-${entry.key}`}
+                                                id={`dept-dots-${idx}`}
+                                                width="8"
+                                                height="8"
+                                                patternUnits="userSpaceOnUse"
+                                              >
+                                                <rect width="8" height="8" fill={dotColor} fillOpacity={0.10} />
+                                                <circle cx="2.5" cy="2.5" r="1.3" fill={dotColor} />
+                                                <circle cx="6.5" cy="6.5" r="1.3" fill={dotColor} />
+                                              </pattern>
+                                            );
+                                          })}
+                                        </defs>
+                                        <Pie
+                                          data={pieEntries}
+                                          cx="50%"
+                                          cy="50%"
+                                          innerRadius={58}
+                                          outerRadius={105}
+                                          paddingAngle={3}
+                                          dataKey="value"
+                                          nameKey="name"
+                                          label={({ name, value, percent }) => `${name} : ${value} (${(percent * 100).toFixed(0)}%)`}
+                                        >
+                                          {pieEntries.map((entry, idx) => {
+                                            const dotColor = COLORS[idx % COLORS.length];
+                                            return (
+                                              <Cell
+                                                key={`perm-reg-${entry.key}`}
+                                                fill={`url(#dept-dots-${idx})`}
+                                                stroke={dotColor}
+                                                strokeWidth={2}
+                                              />
+                                            );
+                                          })}
+                                        </Pie>
+                                        <Tooltip
+                                          formatter={(v: any, name: any) => {
+                                            const pct = ((Number(v) / pieTotal) * 100).toFixed(1);
+                                            return [`${Number(v).toLocaleString('fr-FR')} permis (${pct}%)`, String(name)];
+                                          }}
+                                        />
+                                      </PieChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })()}
+                  </div>
+                ) : showCategoriesAnalysis ? (
                 <Card>
                   <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <CardTitle>Permis délivrés par {geoUnitLower} (%)</CardTitle>
@@ -4851,7 +5133,6 @@ export default function NationalStatistics({
                                 ))}
                             </Pie>
                             <Tooltip formatter={(v: any, name: any) => [`${Number(v).toLocaleString('fr-FR')} chasseur(s)`, String(name)]} />
-                            <Legend />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
@@ -4908,7 +5189,6 @@ export default function NationalStatistics({
                                 ))}
                             </Pie>
                             <Tooltip formatter={(v: any, name: any) => [`${Number(v).toLocaleString('fr-FR')} permis`, String(name)]} />
-                            <Legend />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
@@ -4967,7 +5247,9 @@ export default function NationalStatistics({
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{geoUnitLabel}</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permis actifs</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prélèvements</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {isSubZoneMode ? 'Chasseurs enregistrés' : 'Prélèvements'}
+                          </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxe d'abattage</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recette</th>
                         </tr>
@@ -4985,7 +5267,7 @@ export default function NationalStatistics({
                               <tr key={z.zone}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(z.zone || '').toUpperCase()}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{z.activePermits ?? 0}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{z.piecesAbattues ?? 0}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{z.hunters ?? 0}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{Number(z.taxesRevenue || 0).toLocaleString('fr-FR')} FCFA</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{Number((z.permitsRevenue || 0) + (z.taxesRevenue || 0)).toLocaleString('fr-FR')} FCFA</td>
                               </tr>
@@ -5014,6 +5296,20 @@ export default function NationalStatistics({
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <CardTitle>Prélèvements par espèce et par {geoUnitLower}</CardTitle>
                   <div className="flex flex-wrap items-center gap-3 print:hidden">
+                    {isSubZoneMode && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium whitespace-nowrap">Chasseurs :</Label>
+                        <Select value={speciesHunterScope} onValueChange={(v) => setSpeciesHunterScope(v as 'registered' | 'all')}>
+                          <SelectTrigger className="w-[195px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="registered">Chasseur enregistré</SelectItem>
+                            <SelectItem value="all">Tous</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       {isSubZoneMode ? (
                         <>

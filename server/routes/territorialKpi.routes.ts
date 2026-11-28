@@ -267,17 +267,46 @@ router.get('/overview', async (req: Request, res: Response) => {
           SELECT
             h.id,
             h.category,
+            h.created_at AS "createdAt",
             h.weapon_type AS "weaponType",
             h.weapon_brand AS "weaponBrand",
             h.weapon_caliber AS "weaponCaliber",
             h.weapon_reference AS "weaponReference",
-            COALESCE(NULLIF(TRIM(h.region), ''), NULLIF(TRIM(u_h.region), ''), NULLIF(TRIM(u_c.region), '')) AS region,
-            COALESCE(NULLIF(TRIM(h.departement), ''), NULLIF(TRIM(u_h.departement), ''), NULLIF(TRIM(u_c.departement), '')) AS departement,
-            COALESCE(NULLIF(TRIM(u_h.arrondissement), ''), NULLIF(TRIM(u_c.arrondissement), '')) AS arrondissement,
-            COALESCE(NULLIF(TRIM(u_h.commune), ''), NULLIF(TRIM(u_c.commune), '')) AS commune
+            COALESCE(
+              NULLIF(TRIM(u_c.region), ''),
+              NULLIF(TRIM(u_hist.region), ''),
+              NULLIF(TRIM(u_h.region), ''),
+              NULLIF(TRIM(h.region), '')
+            ) AS region,
+            COALESCE(
+              NULLIF(TRIM(u_c.departement), ''),
+              NULLIF(TRIM(u_hist.departement), ''),
+              NULLIF(TRIM(u_h.departement), ''),
+              NULLIF(TRIM(h.departement), '')
+            ) AS departement,
+            COALESCE(
+              NULLIF(TRIM(u_c.arrondissement), ''),
+              NULLIF(TRIM(u_hist.arrondissement), ''),
+              NULLIF(TRIM(u_h.arrondissement), '')
+            ) AS arrondissement,
+            COALESCE(
+              NULLIF(TRIM(u_c.commune), ''),
+              NULLIF(TRIM(u_hist.commune), ''),
+              NULLIF(TRIM(u_h.commune), '')
+            ) AS commune
           FROM hunters h
           LEFT JOIN users u_h ON u_h.hunter_id = h.id
           LEFT JOIN users u_c ON u_c.id = h.created_by_user_id
+          LEFT JOIN LATERAL (
+            SELECT u_hi.region, u_hi.departement, u_hi.arrondissement, u_hi.commune
+            FROM history hi
+            INNER JOIN users u_hi ON u_hi.id = hi.user_id
+            WHERE hi.entity_type = 'hunter'
+              AND hi.operation = 'create_hunter'
+              AND hi.entity_id = h.id
+            ORDER BY hi.id ASC
+            LIMIT 1
+          ) u_hist ON true
           WHERE COALESCE(h.is_active, true) = true
         `),
         db.execute(sql`
@@ -288,6 +317,7 @@ router.get('/overview', async (req: Request, res: Response) => {
             p.type,
             p.category_id AS "categoryId",
             p.expiry_date AS "expiryDate",
+            COALESCE(p.issue_date::timestamp, p.created_at) AS "issuedAt",
             pc.label_fr AS "categoryLabel",
             pc.groupe AS "categoryGroupe",
             pc.genre AS "categoryGenre",
@@ -789,6 +819,60 @@ router.get('/overview', async (req: Request, res: Response) => {
         revenuesBreakdown.attestationsPisteurs +
         revenuesBreakdown.taxeReservePrivee;
 
+      // Flux mensuel (12 mois de l'année en cours) : Chasseurs enregistrés (par catégorie) vs Permis délivrés
+      const monthFormatter = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' });
+      const currentYear = now.getFullYear();
+      const monthlyFluxMap = new Map<
+        string,
+        {
+          monthKey: string;
+          label: string;
+          huntersCoutumier: number;
+          huntersResident: number;
+          huntersTouriste: number;
+          huntersTotal: number;
+          permitsTotal: number;
+        }
+      >();
+      for (let m = 0; m < 12; m++) {
+        const d = new Date(currentYear, m, 1);
+        const mk = `${currentYear}-${String(m + 1).padStart(2, '0')}`;
+        monthlyFluxMap.set(mk, {
+          monthKey: mk,
+          label: monthFormatter.format(d),
+          huntersCoutumier: 0,
+          huntersResident: 0,
+          huntersTouriste: 0,
+          huntersTotal: 0,
+          permitsTotal: 0,
+        });
+      }
+      for (const h of scopedHunters) {
+        if (!h.createdAt) continue;
+        const d = new Date(h.createdAt);
+        if (Number.isNaN(d.getTime())) continue;
+        const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const entry = monthlyFluxMap.get(mk);
+        if (!entry) continue;
+        const catNorm = norm(h.category || '');
+        if (catNorm.includes('coutum')) entry.huntersCoutumier++;
+        else if (catNorm.includes('tourist')) entry.huntersTouriste++;
+        else entry.huntersResident++;
+        entry.huntersTotal++;
+      }
+      for (const p of scopedPermits) {
+        if (!p.issuedAt) continue;
+        const d = new Date(p.issuedAt);
+        if (Number.isNaN(d.getTime())) continue;
+        const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const entry = monthlyFluxMap.get(mk);
+        if (!entry) continue;
+        entry.permitsTotal++;
+      }
+      const monthlyFlux = Array.from(monthlyFluxMap.values()).sort((a, b) =>
+        a.monthKey.localeCompare(b.monthKey)
+      );
+
       chasseKpi = {
         totalHunters: scopedHunters.length,
         totalGuides: Math.max(scopedGuides.length, totalZoneGuides),
@@ -835,6 +919,7 @@ router.get('/overview', async (req: Request, res: Response) => {
         huntersByCategory: Array.from(hunterCatMap.entries())
           .map(([category, count]) => ({ category, count }))
           .sort((a, b) => b.count - a.count),
+        monthlyFlux,
         permitsByCategory: Array.from(categoryMap.values()).sort((a, b) => b.count - a.count),
         breakdownBySubZone: Array.from(breakdownMap.values()).sort(
           (a, b) => b.activePermits + b.hunters - (a.activePermits + a.hunters)

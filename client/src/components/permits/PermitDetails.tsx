@@ -60,7 +60,7 @@ export default function PermitDetails({ permitId, open, onClose }: PermitDetails
   useEffect(() => {
     if (!user) return;
     let active = true;
-    apiRequest<{ enabled: boolean }>({ url: '/api/settings/agent-permit-access', method: 'GET' })
+    apiRequest<{ enabled: boolean }>('GET', '/api/settings/agent-permit-access')
       .then((res: any) => {
         if (!active) return;
         const val = typeof res?.enabled === 'boolean' ? res.enabled : typeof res?.data?.enabled === 'boolean' ? res.data.enabled : null;
